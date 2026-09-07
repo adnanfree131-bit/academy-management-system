@@ -53,3 +53,25 @@ When implementing new logic, stop at the first rung that holds:
 2. The language standard library.
 3. Native platform features (e.g., CSS over JS, DB constraints over application logic).
 4. An already-installed library (avoid adding new dependencies for trivial tasks).
+
+---
+
+## 🧠 Codebase Knowledge Graph (`codebase-memory-mcp`)
+
+> [!IMPORTANT]
+> For this project, **ALWAYS** use `codebase-memory-mcp` to explore and maintain the knowledge graph of the codebase. Always prefer MCP graph tools over grep/glob/file-search for code discovery.
+
+### Priority Order
+1. **`search_graph`**: Find functions, classes, routes, and variables by pattern.
+2. **`trace_path`**: Trace callers and callees (inbound and outbound call chains).
+3. **`get_code_snippet`**: Read specific function or class source definitions.
+4. **`check_index_coverage`**: Validate candidate paths and index coverage before making claims.
+5. **`query_graph`**: Run Cypher queries for advanced architectural patterns.
+6. **`get_architecture`**: Inspect high-level project summary and components.
+
+### Fallback Policy
+Only fall back to grep/glob for:
+- Exact string literals, translations, or error messages.
+- Non-code files (Dockerfiles, shell scripts, configs, documentation).
+- When MCP graph tools return insufficient results or report uncovered ranges.
+
