@@ -1,0 +1,6 @@
+interface:
+  display_name: "gstack-devex-review"
+  short_description: "Live developer experience audit. Actually TESTS the developer experience in the Aside browser: navigates docs, tries..."
+  default_prompt: "Use gstack-devex-review for this task."
+policy:
+  allow_implicit_invocation: true

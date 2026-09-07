@@ -1,0 +1,6 @@
+interface:
+  display_name: "gstack-browse"
+  short_description: "Drive a real browser through Aside: open a page, read it, click through a flow, take screenshots, check console..."
+  default_prompt: "Use gstack-browse for this task."
+policy:
+  allow_implicit_invocation: true

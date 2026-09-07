@@ -1,0 +1,6 @@
+interface:
+  display_name: "gstack-benchmark"
+  short_description: "Performance regression detection. Establishes baselines for page load times, Core Web Vitals, and resource sizes...."
+  default_prompt: "Use gstack-benchmark for this task."
+policy:
+  allow_implicit_invocation: true
