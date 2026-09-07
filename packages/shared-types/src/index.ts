@@ -464,3 +464,207 @@ export interface ComplaintTicket {
   created_at: string;
   updated_at: string;
 }
+
+// =============================================================================
+// 8. PHASE 4: FINANCE, FEE COLLECTION, SMART AUTO-DISTRIBUTION & PAYROLL (MODULES 7, 8 & 14)
+// =============================================================================
+
+export interface FeeHead {
+  id: string;
+  tenant_id: string;
+  name: string;                // e.g. "Monthly Tuition Fee", "Previous Arrears", "Annual Charges"
+  code: string;                // e.g. "TUITION", "ARREARS", "ANNUAL", "EXAM", "LAB", "ADMISSION"
+  is_system_default: boolean;
+  default_amount: number;
+  priority_order: number;      // 1 = highest liquidation priority
+  created_at: string;
+}
+
+export interface FeePriorityConfig {
+  id: string;
+  tenant_id: string;
+  priority_order: string[];    // Array of FeeHead IDs in descending liquidation priority
+  updated_at: string;
+}
+
+export interface StudentFeeStructure {
+  id: string;
+  tenant_id: string;
+  batch_id?: string | null;
+  student_id?: string | null;  // If set, individual student override
+  items: {
+    fee_head_id: string;
+    head_name: string;
+    amount: number;
+  }[];
+  academic_session: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type InvoiceStatus = 'unpaid' | 'partially_paid' | 'paid' | 'voided';
+
+export interface InvoiceItem {
+  id: string;
+  invoice_id: string;
+  fee_head_id: string;
+  head_name: string;
+  head_code: string;
+  original_amount: number;
+  discount_amount: number;
+  net_amount: number;
+  paid_amount: number;
+  balance_due: number;
+}
+
+export interface StudentInvoice {
+  id: string;
+  tenant_id: string;
+  invoice_number: string;      // e.g. "INV-2026-00101"
+  student_id: string;
+  student_name: string;
+  roll_number: string;
+  batch_id: string;
+  batch_name: string;
+  billing_month: string;       // e.g. "September 2026"
+  issue_date: string;          // YYYY-MM-DD
+  due_date: string;            // YYYY-MM-DD
+  subtotal_amount: number;
+  discount_amount: number;
+  net_amount: number;
+  paid_amount: number;
+  balance_amount: number;
+  status: InvoiceStatus;
+  items: InvoiceItem[];
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PaymentDistributionItem {
+  fee_head_id: string;
+  head_name: string;
+  allocated_amount: number;
+}
+
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'wallet';
+
+export interface FeePayment {
+  id: string;
+  tenant_id: string;
+  receipt_number: string;      // e.g. "REC-2026-00042"
+  invoice_id: string;
+  student_id: string;
+  student_name: string;
+  roll_number: string;
+  payment_date: string;        // YYYY-MM-DD
+  amount_paid: number;
+  payment_method: PaymentMethod;
+  reference_number?: string | null;
+  is_override: boolean;        // Cashier manually adjusted distribution
+  override_reason?: string | null;
+  allocations: PaymentDistributionItem[];
+  collected_by: string;
+  created_at: string;
+}
+
+export interface FeeDiscount {
+  id: string;
+  tenant_id: string;
+  student_id: string;
+  student_name: string;
+  roll_number: string;
+  invoice_id?: string | null;
+  fee_head_id?: string | null;
+  discount_type: 'flat' | 'percentage';
+  discount_value: number;
+  actual_discount_amount: number;
+  mandatory_reason: string;    // Required audit remark
+  approved_by: string;
+  applied_at: string;
+}
+
+export type SalaryContractType = 'fixed_monthly' | 'per_lecture';
+
+export interface StaffSalaryProfile {
+  id: string;
+  tenant_id: string;
+  staff_id: string;
+  staff_name: string;
+  designation: string;
+  contract_type: SalaryContractType;
+  base_amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PayrollEarningHead {
+  id: string;
+  name: string;
+  quantity: number;
+  unit_rate: number;
+  total: number;
+}
+
+export interface PayrollDeductionHead {
+  id: string;
+  name: string;
+  quantity: number;
+  unit_rate: number;
+  total: number;
+}
+
+export type StaffPayslipStatus = 'draft' | 'processed' | 'paid';
+
+export interface StaffPayslip {
+  id: string;
+  tenant_id: string;
+  slip_number: string;
+  staff_id: string;
+  staff_name: string;
+  designation: string;
+  payroll_month: string;       // e.g. "August 2026"
+  base_salary: number;
+  attendance_summary: {
+    working_days: number;
+    present_days: number;
+    late_count: number;
+    absent_days: number;
+    approved_leaves: number;
+    hours_or_lectures: number;
+  };
+  earnings: PayrollEarningHead[];
+  deductions: PayrollDeductionHead[];
+  total_earnings: number;
+  total_deductions: number;
+  net_salary: number;
+  status: StaffPayslipStatus;
+  payment_date?: string | null;
+  payment_method?: PaymentMethod | null;
+  transaction_reference?: string | null;
+  admin_notes?: string | null;
+  processed_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DailyCashbookEntry {
+  id: string;
+  date: string;
+  receipt_number: string;
+  student_name: string;
+  roll_number: string;
+  payment_method: PaymentMethod;
+  amount: number;
+  collected_by: string;
+}
+
+export interface StudentLedgerEntry {
+  id: string;
+  date: string;
+  description: string;
+  debit: number;               // Invoiced
+  credit: number;              // Paid
+  running_balance: number;
+  reference: string;
+}

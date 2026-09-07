@@ -10,6 +10,8 @@ import { AttendanceDeskView } from './views/AttendanceDeskView';
 import { StaffClockInView } from './views/StaffClockInView';
 import { HomeworkDesk } from './views/HomeworkDesk';
 import { ComplaintsDeskView } from './views/ComplaintsDeskView';
+import { FeeDeskView } from './views/FeeDeskView';
+import { PayrollDeskView } from './views/PayrollDeskView';
 import { GenericModuleView } from './views/GenericModuleView';
 
 const titleMap: Record<string, string> = {
@@ -77,6 +79,10 @@ const MainLayout: React.FC = () => {
             <EnrollmentView />
           ) : currentScreen === 'complaints' ? (
             <ComplaintsDeskView />
+          ) : currentScreen === 'voucher' ? (
+            <FeeDeskView />
+          ) : currentScreen === 'payroll' ? (
+            <PayrollDeskView />
           ) : (
             <GenericModuleView moduleId={currentScreen} />
           )}

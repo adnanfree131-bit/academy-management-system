@@ -12,6 +12,8 @@ import { attendanceRoutes } from './routes/attendance.js';
 import { geofenceRoutes } from './routes/geofence.js';
 import { homeworkRoutes } from './routes/homework.js';
 import { complaintsRoutes } from './routes/complaints.js';
+import { financeRoutes } from './routes/finance.js';
+import { payrollRoutes } from './routes/payroll.js';
 
 export interface AppOptions {
   store?: IDataStore;
@@ -76,6 +78,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(geofenceRoutes(store), { prefix: '/api/v1/geofence' });
   await fastify.register(homeworkRoutes(store), { prefix: '/api/v1/homework' });
   await fastify.register(complaintsRoutes(store), { prefix: '/api/v1/complaints' });
+
+  // Phase 4 Routes: Finance, Multi-Head Vouchers & Staff Payroll
+  await fastify.register(financeRoutes(store), { prefix: '/api/v1/finance' });
+  await fastify.register(payrollRoutes(store), { prefix: '/api/v1/payroll' });
 
   return fastify;
 }

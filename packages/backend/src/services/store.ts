@@ -24,7 +24,25 @@ import {
   NotebookCheckRecord,
   NotebookStatus,
   ComplaintTicket,
-  ComplaintStatus
+  ComplaintStatus,
+  FeeHead,
+  FeePriorityConfig,
+  StudentFeeStructure,
+  InvoiceStatus,
+  InvoiceItem,
+  StudentInvoice,
+  PaymentDistributionItem,
+  PaymentMethod,
+  FeePayment,
+  FeeDiscount,
+  SalaryContractType,
+  StaffSalaryProfile,
+  PayrollEarningHead,
+  PayrollDeductionHead,
+  StaffPayslipStatus,
+  StaffPayslip,
+  DailyCashbookEntry,
+  StudentLedgerEntry
 } from '@apex/shared-types';
 
 export interface StoredOTP {
@@ -133,6 +151,70 @@ export interface IDataStore {
     internalNotes?: string,
     resolvedBy?: string
   ): Promise<ComplaintTicket>;
+
+  // --- Phase 4: Fee Heads & Priority Configuration ---
+  getFeeHeads(tenantId: string): Promise<FeeHead[]>;
+  createFeeHead(data: Omit<FeeHead, 'id' | 'created_at'>): Promise<FeeHead>;
+  getFeePriorityConfig(tenantId: string): Promise<FeePriorityConfig>;
+  updateFeePriorityConfig(tenantId: string, priorityOrder: string[]): Promise<FeePriorityConfig>;
+
+  // --- Phase 4: Fee Structures & Invoicing ---
+  getFeeStructures(tenantId: string, batchId?: string, studentId?: string): Promise<StudentFeeStructure[]>;
+  saveFeeStructure(data: Omit<StudentFeeStructure, 'id' | 'created_at' | 'updated_at'>): Promise<StudentFeeStructure>;
+  getInvoices(tenantId: string, options?: { studentId?: string; batchId?: string; billingMonth?: string; status?: InvoiceStatus }): Promise<StudentInvoice[]>;
+  getInvoiceById(tenantId: string, id: string): Promise<StudentInvoice | null>;
+  generateInvoice(tenantId: string, data: {
+    student_id: string;
+    billing_month: string;
+    due_date: string;
+    custom_items?: Array<{ fee_head_id: string; amount: number }>;
+    notes?: string;
+  }): Promise<StudentInvoice>;
+  generateBatchInvoices(tenantId: string, batchId: string, billingMonth: string, dueDate: string): Promise<StudentInvoice[]>;
+
+  // --- Phase 4: Payment Distribution & Cashier Review ---
+  previewPaymentDistribution(tenantId: string, invoiceId: string, amount: number): Promise<PaymentDistributionItem[]>;
+  recordPayment(tenantId: string, data: {
+    invoice_id: string;
+    amount_paid: number;
+    payment_method: PaymentMethod;
+    reference_number?: string;
+    is_override?: boolean;
+    override_reason?: string;
+    allocations?: PaymentDistributionItem[];
+    collected_by: string;
+  }): Promise<{ payment: FeePayment; invoice: StudentInvoice }>;
+
+  // --- Phase 4: Discounts & Audit Trail ---
+  getDiscounts(tenantId: string, studentId?: string): Promise<FeeDiscount[]>;
+  applyDiscount(tenantId: string, data: {
+    student_id: string;
+    invoice_id?: string;
+    fee_head_id?: string;
+    discount_type: 'flat' | 'percentage';
+    discount_value: number;
+    mandatory_reason: string;
+    approved_by: string;
+  }): Promise<FeeDiscount>;
+
+  // --- Phase 4: Reports & Ledgers ---
+  getDailyCashbook(tenantId: string, date?: string): Promise<DailyCashbookEntry[]>;
+  getStudentLedger(tenantId: string, studentId: string): Promise<StudentLedgerEntry[]>;
+  getFeeHeadCollectionReport(tenantId: string): Promise<Array<{ fee_head_id: string; head_name: string; total_billed: number; total_collected: number; outstanding_balance: number }>>;
+
+  // --- Phase 4: Staff Payroll & Interactive Salary Processing ---
+  getStaffSalaryProfiles(tenantId: string): Promise<StaffSalaryProfile[]>;
+  saveStaffSalaryProfile(data: Omit<StaffSalaryProfile, 'id' | 'created_at' | 'updated_at'>): Promise<StaffSalaryProfile>;
+  getPayslips(tenantId: string, options?: { staffId?: string; payrollMonth?: string }): Promise<StaffPayslip[]>;
+  generatePayslip(tenantId: string, data: {
+    staff_id: string;
+    payroll_month: string;
+    earnings: PayrollEarningHead[];
+    deductions: PayrollDeductionHead[];
+    admin_notes?: string;
+    processed_by: string;
+  }): Promise<StaffPayslip>;
+  markPayslipPaid(tenantId: string, payslipId: string, paymentMethod: PaymentMethod, reference?: string): Promise<StaffPayslip>;
 }
 
 export class InMemoryDataStore implements IDataStore {
@@ -159,6 +241,16 @@ export class InMemoryDataStore implements IDataStore {
   private homeworkAssignments: HomeworkAssignment[] = [];
   private notebookChecks: NotebookCheckRecord[] = [];
   private complaints: ComplaintTicket[] = [];
+
+  // Phase 4 Collections
+  private feeHeads: FeeHead[] = [];
+  private feePriorityConfigs: Map<string, FeePriorityConfig> = new Map();
+  private feeStructures: StudentFeeStructure[] = [];
+  private invoices: StudentInvoice[] = [];
+  private feePayments: FeePayment[] = [];
+  private feeDiscounts: FeeDiscount[] = [];
+  private staffSalaryProfiles: StaffSalaryProfile[] = [];
+  private staffPayslips: StaffPayslip[] = [];
 
   constructor() {
     // 1. Seed Tenants
@@ -575,6 +667,215 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     };
     this.complaints.push(comp1);
+
+    // Seed Phase 4: Fee Heads
+    const headArrears: FeeHead = {
+      id: 'head-arrears',
+      tenant_id: tenantA.id,
+      name: 'Previous Arrears',
+      code: 'ARREARS',
+      is_system_default: true,
+      default_amount: 0,
+      priority_order: 1,
+      created_at: new Date().toISOString()
+    };
+    const headTuition: FeeHead = {
+      id: 'head-tuition',
+      tenant_id: tenantA.id,
+      name: 'Monthly Tuition Fee',
+      code: 'TUITION',
+      is_system_default: true,
+      default_amount: 8000,
+      priority_order: 2,
+      created_at: new Date().toISOString()
+    };
+    const headAnnual: FeeHead = {
+      id: 'head-annual',
+      tenant_id: tenantA.id,
+      name: 'Annual Development Charges',
+      code: 'ANNUAL',
+      is_system_default: true,
+      default_amount: 5000,
+      priority_order: 3,
+      created_at: new Date().toISOString()
+    };
+    const headExam: FeeHead = {
+      id: 'head-exam',
+      tenant_id: tenantA.id,
+      name: 'Examination & Assessment Fee',
+      code: 'EXAM',
+      is_system_default: true,
+      default_amount: 2500,
+      priority_order: 4,
+      created_at: new Date().toISOString()
+    };
+    const headLab: FeeHead = {
+      id: 'head-lab',
+      tenant_id: tenantA.id,
+      name: 'Science & Computer Lab Fee',
+      code: 'LAB',
+      is_system_default: true,
+      default_amount: 1500,
+      priority_order: 5,
+      created_at: new Date().toISOString()
+    };
+    const headAdmission: FeeHead = {
+      id: 'head-admission',
+      tenant_id: tenantA.id,
+      name: 'One-Time Admission Fee',
+      code: 'ADMISSION',
+      is_system_default: true,
+      default_amount: 10000,
+      priority_order: 6,
+      created_at: new Date().toISOString()
+    };
+    this.feeHeads.push(headArrears, headTuition, headAnnual, headExam, headLab, headAdmission);
+
+    // Seed Priority Liquidation Config
+    this.feePriorityConfigs.set(tenantA.id, {
+      id: 'prio-1',
+      tenant_id: tenantA.id,
+      priority_order: [headArrears.id, headTuition.id, headAnnual.id, headExam.id, headLab.id, headAdmission.id],
+      updated_at: new Date().toISOString()
+    });
+
+    // Seed Fee Structure for Batch A
+    this.feeStructures.push({
+      id: 'fs-1',
+      tenant_id: tenantA.id,
+      batch_id: batchA.id,
+      academic_session: '2026-2027',
+      items: [
+        { fee_head_id: headTuition.id, head_name: headTuition.name, amount: 8000 },
+        { fee_head_id: headAnnual.id, head_name: headAnnual.name, amount: 2000 },
+        { fee_head_id: headLab.id, head_name: headLab.name, amount: 1500 }
+      ],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+
+    // Seed Initial Student Invoice
+    const invoice1: StudentInvoice = {
+      id: 'inv-1',
+      tenant_id: tenantA.id,
+      invoice_number: 'INV-2026-0001',
+      student_id: 'stud-1',
+      student_name: 'Muhammad Ali Raza',
+      roll_number: 'A-101',
+      batch_id: batchA.id,
+      batch_name: 'MDCAT Morning - Batch A',
+      billing_month: 'September 2026',
+      issue_date: '2026-09-01',
+      due_date: '2026-09-15',
+      subtotal_amount: 11500,
+      discount_amount: 0,
+      net_amount: 11500,
+      paid_amount: 0,
+      balance_amount: 11500,
+      status: 'unpaid',
+      notes: 'Standard September challan with previous arrears carryover',
+      items: [
+        {
+          id: 'item-1',
+          invoice_id: 'inv-1',
+          fee_head_id: headArrears.id,
+          head_name: headArrears.name,
+          head_code: headArrears.code,
+          original_amount: 2000,
+          discount_amount: 0,
+          net_amount: 2000,
+          paid_amount: 0,
+          balance_due: 2000
+        },
+        {
+          id: 'item-2',
+          invoice_id: 'inv-1',
+          fee_head_id: headTuition.id,
+          head_name: headTuition.name,
+          head_code: headTuition.code,
+          original_amount: 8000,
+          discount_amount: 0,
+          net_amount: 8000,
+          paid_amount: 0,
+          balance_due: 8000
+        },
+        {
+          id: 'item-3',
+          invoice_id: 'inv-1',
+          fee_head_id: headLab.id,
+          head_name: headLab.name,
+          head_code: headLab.code,
+          original_amount: 1500,
+          discount_amount: 0,
+          net_amount: 1500,
+          paid_amount: 0,
+          balance_due: 1500
+        }
+      ],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    this.invoices.push(invoice1);
+
+    // Seed Staff Salary Profiles
+    this.staffSalaryProfiles.push(
+      {
+        id: 'prof-1',
+        tenant_id: tenantA.id,
+        staff_id: 'a1000000-0000-0000-0000-000000000002',
+        staff_name: 'Sir Tariq Physics',
+        designation: 'Senior Physics Faculty',
+        contract_type: 'fixed_monthly',
+        base_amount: 85000,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      },
+      {
+        id: 'prof-2',
+        tenant_id: tenantA.id,
+        staff_id: 'a1000000-0000-0000-0000-000000000001',
+        staff_name: 'Director Adnan',
+        designation: 'Executive Director',
+        contract_type: 'fixed_monthly',
+        base_amount: 120000,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+    );
+
+    // Seed Sample August Payslip for Sir Tariq
+    this.staffPayslips.push({
+      id: 'pay-1',
+      tenant_id: tenantA.id,
+      slip_number: 'PAY-202608-0001',
+      staff_id: 'a1000000-0000-0000-0000-000000000002',
+      staff_name: 'Sir Tariq Physics',
+      designation: 'Senior Physics Faculty',
+      payroll_month: 'August 2026',
+      base_salary: 85000,
+      attendance_summary: {
+        working_days: 26,
+        present_days: 25,
+        late_count: 1,
+        absent_days: 0,
+        approved_leaves: 1,
+        hours_or_lectures: 48
+      },
+      earnings: [
+        { id: 'earn-1', name: 'Overtime Lectures', quantity: 5, unit_rate: 1000, total: 5000 }
+      ],
+      deductions: [
+        { id: 'ded-1', name: 'Late Arrival Penalty', quantity: 1, unit_rate: 1500, total: 1500 }
+      ],
+      total_earnings: 5000,
+      total_deductions: 1500,
+      net_salary: 88500,
+      status: 'processed',
+      admin_notes: 'Approved standard monthly settlement with 5 extra periods',
+      processed_by: 'Finance Office',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
   }
 
   // --- Auth & Tenant Methods ---
@@ -1273,4 +1574,619 @@ export class InMemoryDataStore implements IDataStore {
 
     return ticket;
   }
+
+  // =============================================================================
+  // PHASE 4: FINANCE, FEE INVOICING, AUTO-DISTRIBUTION & PAYROLL (MODULES 7, 8, 14)
+  // =============================================================================
+
+  // --- Fee Heads & Priority Configuration ---
+  async getFeeHeads(tenantId: string): Promise<FeeHead[]> {
+    return this.feeHeads.filter(h => h.tenant_id === tenantId).sort((a, b) => a.priority_order - b.priority_order);
+  }
+
+  async createFeeHead(data: Omit<FeeHead, 'id' | 'created_at'>): Promise<FeeHead> {
+    const head: FeeHead = {
+      ...data,
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString()
+    };
+    this.feeHeads.push(head);
+
+    // Append to tenant priority config if existing
+    const prio = this.feePriorityConfigs.get(data.tenant_id);
+    if (prio) {
+      prio.priority_order.push(head.id);
+      prio.updated_at = new Date().toISOString();
+    }
+    return head;
+  }
+
+  async getFeePriorityConfig(tenantId: string): Promise<FeePriorityConfig> {
+    let config = this.feePriorityConfigs.get(tenantId);
+    if (!config) {
+      const heads = await this.getFeeHeads(tenantId);
+      config = {
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        priority_order: heads.map(h => h.id),
+        updated_at: new Date().toISOString()
+      };
+      this.feePriorityConfigs.set(tenantId, config);
+    }
+    return config;
+  }
+
+  async updateFeePriorityConfig(tenantId: string, priorityOrder: string[]): Promise<FeePriorityConfig> {
+    const config: FeePriorityConfig = {
+      id: this.feePriorityConfigs.get(tenantId)?.id || crypto.randomUUID(),
+      tenant_id: tenantId,
+      priority_order: priorityOrder,
+      updated_at: new Date().toISOString()
+    };
+    this.feePriorityConfigs.set(tenantId, config);
+    return config;
+  }
+
+  // --- Fee Structures ---
+  async getFeeStructures(tenantId: string, batchId?: string, studentId?: string): Promise<StudentFeeStructure[]> {
+    return this.feeStructures.filter(s => 
+      s.tenant_id === tenantId &&
+      (!batchId || s.batch_id === batchId) &&
+      (!studentId || s.student_id === studentId)
+    );
+  }
+
+  async saveFeeStructure(data: Omit<StudentFeeStructure, 'id' | 'created_at' | 'updated_at'>): Promise<StudentFeeStructure> {
+    const existingIdx = this.feeStructures.findIndex(s => 
+      s.tenant_id === data.tenant_id &&
+      ((data.student_id && s.student_id === data.student_id) || (!data.student_id && s.batch_id === data.batch_id))
+    );
+
+    const record: StudentFeeStructure = {
+      ...data,
+      id: existingIdx >= 0 ? this.feeStructures[existingIdx].id : crypto.randomUUID(),
+      created_at: existingIdx >= 0 ? this.feeStructures[existingIdx].created_at : new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    if (existingIdx >= 0) {
+      this.feeStructures[existingIdx] = record;
+    } else {
+      this.feeStructures.push(record);
+    }
+    return record;
+  }
+
+  // --- Invoicing & Challans ---
+  async getInvoices(tenantId: string, options?: { studentId?: string; batchId?: string; billingMonth?: string; status?: InvoiceStatus }): Promise<StudentInvoice[]> {
+    return this.invoices.filter(i => {
+      if (i.tenant_id !== tenantId) return false;
+      if (options?.studentId && i.student_id !== options.studentId) return false;
+      if (options?.batchId && i.batch_id !== options.batchId) return false;
+      if (options?.billingMonth && i.billing_month.toLowerCase() !== options.billingMonth.toLowerCase()) return false;
+      if (options?.status && i.status !== options.status) return false;
+      return true;
+    }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  async getInvoiceById(tenantId: string, id: string): Promise<StudentInvoice | null> {
+    return this.invoices.find(i => i.id === id && i.tenant_id === tenantId) || null;
+  }
+
+  async generateInvoice(tenantId: string, data: {
+    student_id: string;
+    billing_month: string;
+    due_date: string;
+    custom_items?: Array<{ fee_head_id: string; amount: number }>;
+    notes?: string;
+  }): Promise<StudentInvoice> {
+    const student = this.students.find(s => s.id === data.student_id && s.tenant_id === tenantId);
+    if (!student) throw new Error('Student not found for invoice generation');
+
+    const batch = this.batches.find(b => b.id === student.batch_id);
+    const invoiceId = crypto.randomUUID();
+    const count = this.invoices.filter(i => i.tenant_id === tenantId).length + 1;
+    const invoiceNumber = `INV-2026-${count.toString().padStart(4, '0')}`;
+
+    const items: InvoiceItem[] = [];
+    let subtotal = 0;
+
+    if (data.custom_items && data.custom_items.length > 0) {
+      for (const ci of data.custom_items) {
+        const head = this.feeHeads.find(h => h.id === ci.fee_head_id);
+        const amount = Number(ci.amount) || 0;
+        items.push({
+          id: crypto.randomUUID(),
+          invoice_id: invoiceId,
+          fee_head_id: ci.fee_head_id,
+          head_name: head?.name || 'Fee Head',
+          head_code: head?.code || 'FEE',
+          original_amount: amount,
+          discount_amount: 0,
+          net_amount: amount,
+          paid_amount: 0,
+          balance_due: amount
+        });
+        subtotal += amount;
+      }
+    } else {
+      // Inherit from student fee structure or batch default
+      const studentStructure = this.feeStructures.find(fs => fs.tenant_id === tenantId && fs.student_id === student.id)
+        || this.feeStructures.find(fs => fs.tenant_id === tenantId && fs.batch_id === student.batch_id);
+
+      if (studentStructure && studentStructure.items.length > 0) {
+        for (const it of studentStructure.items) {
+          const head = this.feeHeads.find(h => h.id === it.fee_head_id);
+          const amount = Number(it.amount) || 0;
+          items.push({
+            id: crypto.randomUUID(),
+            invoice_id: invoiceId,
+            fee_head_id: it.fee_head_id,
+            head_name: head?.name || it.head_name,
+            head_code: head?.code || 'FEE',
+            original_amount: amount,
+            discount_amount: 0,
+            net_amount: amount,
+            paid_amount: 0,
+            balance_due: amount
+          });
+          subtotal += amount;
+        }
+      } else {
+        // Fallback to default tuition
+        const tuitionHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'TUITION') || this.feeHeads[0];
+        const defaultAmount = tuitionHead?.default_amount || 8000;
+        if (tuitionHead) {
+          items.push({
+            id: crypto.randomUUID(),
+            invoice_id: invoiceId,
+            fee_head_id: tuitionHead.id,
+            head_name: tuitionHead.name,
+            head_code: tuitionHead.code,
+            original_amount: defaultAmount,
+            discount_amount: 0,
+            net_amount: defaultAmount,
+            paid_amount: 0,
+            balance_due: defaultAmount
+          });
+          subtotal += defaultAmount;
+        }
+      }
+    }
+
+    const invoice: StudentInvoice = {
+      id: invoiceId,
+      tenant_id: tenantId,
+      invoice_number: invoiceNumber,
+      student_id: student.id,
+      student_name: student.full_name,
+      roll_number: student.roll_number,
+      batch_id: student.batch_id,
+      batch_name: batch?.name || 'General Batch',
+      billing_month: data.billing_month,
+      issue_date: new Date().toISOString().split('T')[0],
+      due_date: data.due_date,
+      subtotal_amount: subtotal,
+      discount_amount: 0,
+      net_amount: subtotal,
+      paid_amount: 0,
+      balance_amount: subtotal,
+      status: 'unpaid',
+      items,
+      notes: data.notes || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    this.invoices.push(invoice);
+    return invoice;
+  }
+
+  async generateBatchInvoices(tenantId: string, batchId: string, billingMonth: string, dueDate: string): Promise<StudentInvoice[]> {
+    const studentsInBatch = this.students.filter(s => s.tenant_id === tenantId && s.batch_id === batchId && s.status === 'active');
+    const created: StudentInvoice[] = [];
+
+    for (const student of studentsInBatch) {
+      // Check if invoice already exists for this student and billing month
+      const existing = this.invoices.find(i => 
+        i.tenant_id === tenantId &&
+        i.student_id === student.id &&
+        i.billing_month.toLowerCase() === billingMonth.toLowerCase()
+      );
+      if (!existing) {
+        const inv = await this.generateInvoice(tenantId, {
+          student_id: student.id,
+          billing_month: billingMonth,
+          due_date: dueDate
+        });
+        created.push(inv);
+      }
+    }
+    return created;
+  }
+
+  // --- Smart Auto-Distribution Algorithm & Cashier Review ---
+  async previewPaymentDistribution(tenantId: string, invoiceId: string, amount: number): Promise<PaymentDistributionItem[]> {
+    const invoice = this.invoices.find(i => i.id === invoiceId && i.tenant_id === tenantId);
+    if (!invoice) throw new Error('Invoice not found for distribution calculation');
+
+    const prioConfig = await this.getFeePriorityConfig(tenantId);
+    const priorityOrder = prioConfig.priority_order;
+
+    // Sort items by liquidation priority
+    const sortedItems = [...invoice.items].sort((a, b) => {
+      const idxA = priorityOrder.indexOf(a.fee_head_id);
+      const idxB = priorityOrder.indexOf(b.fee_head_id);
+      const rankA = idxA === -1 ? 999 : idxA;
+      const rankB = idxB === -1 ? 999 : idxB;
+      return rankA - rankB;
+    });
+
+    let remaining = Math.max(0, amount);
+    const distribution: PaymentDistributionItem[] = [];
+
+    for (const item of sortedItems) {
+      const due = item.balance_due;
+      let alloc = 0;
+      if (due > 0 && remaining > 0) {
+        alloc = Math.min(remaining, due);
+        remaining -= alloc;
+      }
+      distribution.push({
+        fee_head_id: item.fee_head_id,
+        head_name: item.head_name,
+        allocated_amount: alloc
+      });
+    }
+
+    // If remaining amount exceeds total outstanding due, distribute to the first item (advance/excess)
+    if (remaining > 0 && distribution.length > 0) {
+      distribution[0].allocated_amount += remaining;
+    }
+
+    return distribution;
+  }
+
+  async recordPayment(tenantId: string, data: {
+    invoice_id: string;
+    amount_paid: number;
+    payment_method: PaymentMethod;
+    reference_number?: string;
+    is_override?: boolean;
+    override_reason?: string;
+    allocations?: PaymentDistributionItem[];
+    collected_by: string;
+  }): Promise<{ payment: FeePayment; invoice: StudentInvoice }> {
+    const invoice = this.invoices.find(i => i.id === data.invoice_id && i.tenant_id === tenantId);
+    if (!invoice) throw new Error('Invoice not found');
+
+    const amountPaid = Number(data.amount_paid);
+    if (amountPaid <= 0) throw new Error('Payment amount must be greater than zero');
+
+    // Determine allocations: use provided cashier review override or compute smart distribution
+    const allocations = data.allocations && data.allocations.length > 0
+      ? data.allocations
+      : await this.previewPaymentDistribution(tenantId, data.invoice_id, amountPaid);
+
+    const sumAllocated = allocations.reduce((s, a) => s + Number(a.allocated_amount), 0);
+    if (Math.abs(sumAllocated - amountPaid) > 0.05) {
+      throw new Error(`Allocated sum (${sumAllocated}) does not match paid amount (${amountPaid})`);
+    }
+
+    // Apply allocations to individual invoice items
+    for (const alloc of allocations) {
+      const item = invoice.items.find(i => i.fee_head_id === alloc.fee_head_id);
+      if (item) {
+        item.paid_amount += Number(alloc.allocated_amount);
+        item.balance_due = Math.max(0, item.net_amount - item.paid_amount);
+      }
+    }
+
+    invoice.paid_amount = invoice.items.reduce((s, it) => s + it.paid_amount, 0);
+    invoice.balance_amount = Math.max(0, invoice.net_amount - invoice.paid_amount);
+    invoice.status = invoice.balance_amount <= 0 ? 'paid' : (invoice.paid_amount > 0 ? 'partially_paid' : 'unpaid');
+    invoice.updated_at = new Date().toISOString();
+
+    const count = this.feePayments.filter(p => p.tenant_id === tenantId).length + 1;
+    const receiptNumber = `REC-2026-${count.toString().padStart(5, '0')}`;
+
+    const payment: FeePayment = {
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      receipt_number: receiptNumber,
+      invoice_id: invoice.id,
+      student_id: invoice.student_id,
+      student_name: invoice.student_name,
+      roll_number: invoice.roll_number,
+      payment_date: new Date().toISOString().split('T')[0],
+      amount_paid: amountPaid,
+      payment_method: data.payment_method,
+      reference_number: data.reference_number || null,
+      is_override: Boolean(data.is_override),
+      override_reason: data.override_reason || null,
+      allocations,
+      collected_by: data.collected_by,
+      created_at: new Date().toISOString()
+    };
+
+    this.feePayments.push(payment);
+    return { payment, invoice };
+  }
+
+  // --- Ad-Hoc Dynamic Discounts with Mandatory Audit Remarks ---
+  async getDiscounts(tenantId: string, studentId?: string): Promise<FeeDiscount[]> {
+    return this.feeDiscounts.filter(d => 
+      d.tenant_id === tenantId && (!studentId || d.student_id === studentId)
+    );
+  }
+
+  async applyDiscount(tenantId: string, data: {
+    student_id: string;
+    invoice_id?: string;
+    fee_head_id?: string;
+    discount_type: 'flat' | 'percentage';
+    discount_value: number;
+    mandatory_reason: string;
+    approved_by: string;
+  }): Promise<FeeDiscount> {
+    if (!data.mandatory_reason || !data.mandatory_reason.trim()) {
+      throw new Error('Mandatory approval remarks are required for all fee concessions and discounts');
+    }
+
+    const student = this.students.find(s => s.id === data.student_id && s.tenant_id === tenantId);
+    if (!student) throw new Error('Student not found');
+
+    let actualDiscount = 0;
+
+    if (data.invoice_id) {
+      const invoice = this.invoices.find(i => i.id === data.invoice_id && i.tenant_id === tenantId);
+      if (!invoice) throw new Error('Invoice not found');
+
+      if (data.discount_type === 'flat') {
+        actualDiscount = Number(data.discount_value);
+      } else {
+        actualDiscount = (invoice.subtotal_amount * Number(data.discount_value)) / 100;
+      }
+      actualDiscount = Math.min(actualDiscount, invoice.balance_amount);
+
+      // Apply to invoice
+      invoice.discount_amount += actualDiscount;
+      invoice.net_amount = Math.max(0, invoice.subtotal_amount - invoice.discount_amount);
+      invoice.balance_amount = Math.max(0, invoice.net_amount - invoice.paid_amount);
+      invoice.status = invoice.balance_amount <= 0 ? 'paid' : (invoice.paid_amount > 0 ? 'partially_paid' : 'unpaid');
+      invoice.updated_at = new Date().toISOString();
+
+      // Distribute discount to items (proportionately or to first eligible head)
+      if (data.fee_head_id) {
+        const item = invoice.items.find(it => it.fee_head_id === data.fee_head_id);
+        if (item) {
+          item.discount_amount += actualDiscount;
+          item.net_amount = Math.max(0, item.original_amount - item.discount_amount);
+          item.balance_due = Math.max(0, item.net_amount - item.paid_amount);
+        }
+      } else if (invoice.items.length > 0) {
+        invoice.items[0].discount_amount += actualDiscount;
+        invoice.items[0].net_amount = Math.max(0, invoice.items[0].original_amount - invoice.items[0].discount_amount);
+        invoice.items[0].balance_due = Math.max(0, invoice.items[0].net_amount - invoice.items[0].paid_amount);
+      }
+    } else {
+      actualDiscount = Number(data.discount_value);
+    }
+
+    const discount: FeeDiscount = {
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      student_id: student.id,
+      student_name: student.full_name,
+      roll_number: student.roll_number,
+      invoice_id: data.invoice_id || null,
+      fee_head_id: data.fee_head_id || null,
+      discount_type: data.discount_type,
+      discount_value: data.discount_value,
+      actual_discount_amount: actualDiscount,
+      mandatory_reason: data.mandatory_reason,
+      approved_by: data.approved_by,
+      applied_at: new Date().toISOString()
+    };
+
+    this.feeDiscounts.push(discount);
+    return discount;
+  }
+
+  // --- Financial Reports Suite ---
+  async getDailyCashbook(tenantId: string, date?: string): Promise<DailyCashbookEntry[]> {
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    const payments = this.feePayments.filter(p => p.tenant_id === tenantId && p.payment_date === targetDate);
+
+    return payments.map(p => ({
+      id: p.id,
+      date: p.payment_date,
+      receipt_number: p.receipt_number,
+      student_name: p.student_name,
+      roll_number: p.roll_number,
+      payment_method: p.payment_method,
+      amount: p.amount_paid,
+      collected_by: p.collected_by
+    }));
+  }
+
+  async getStudentLedger(tenantId: string, studentId: string): Promise<StudentLedgerEntry[]> {
+    const studentInvoices = this.invoices.filter(i => i.tenant_id === tenantId && i.student_id === studentId);
+    const studentPayments = this.feePayments.filter(p => p.tenant_id === tenantId && p.student_id === studentId);
+
+    const entries: StudentLedgerEntry[] = [];
+
+    studentInvoices.forEach(inv => {
+      entries.push({
+        id: inv.id,
+        date: inv.issue_date,
+        description: `Invoice ${inv.invoice_number} (${inv.billing_month})`,
+        debit: inv.net_amount,
+        credit: 0,
+        running_balance: 0,
+        reference: inv.invoice_number
+      });
+    });
+
+    studentPayments.forEach(pmt => {
+      entries.push({
+        id: pmt.id,
+        date: pmt.payment_date,
+        description: `Payment Receipt ${pmt.receipt_number} via ${pmt.payment_method.toUpperCase()}`,
+        debit: 0,
+        credit: pmt.amount_paid,
+        running_balance: 0,
+        reference: pmt.receipt_number
+      });
+    });
+
+    entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    let balance = 0;
+    for (const entry of entries) {
+      balance += (entry.debit - entry.credit);
+      entry.running_balance = balance;
+    }
+
+    return entries;
+  }
+
+  async getFeeHeadCollectionReport(tenantId: string): Promise<Array<{ fee_head_id: string; head_name: string; total_billed: number; total_collected: number; outstanding_balance: number }>> {
+    const heads = await this.getFeeHeads(tenantId);
+    const tenantInvoices = this.invoices.filter(i => i.tenant_id === tenantId);
+
+    return heads.map(head => {
+      let billed = 0;
+      let collected = 0;
+
+      tenantInvoices.forEach(inv => {
+        const item = inv.items.find(it => it.fee_head_id === head.id);
+        if (item) {
+          billed += item.net_amount;
+          collected += item.paid_amount;
+        }
+      });
+
+      return {
+        fee_head_id: head.id,
+        head_name: head.name,
+        total_billed: billed,
+        total_collected: collected,
+        outstanding_balance: Math.max(0, billed - collected)
+      };
+    });
+  }
+
+  // --- Staff Salary Structures & Interactive Payroll ---
+  async getStaffSalaryProfiles(tenantId: string): Promise<StaffSalaryProfile[]> {
+    return this.staffSalaryProfiles.filter(p => p.tenant_id === tenantId);
+  }
+
+  async saveStaffSalaryProfile(data: Omit<StaffSalaryProfile, 'id' | 'created_at' | 'updated_at'>): Promise<StaffSalaryProfile> {
+    const existingIdx = this.staffSalaryProfiles.findIndex(p => p.tenant_id === data.tenant_id && p.staff_id === data.staff_id);
+    const profile: StaffSalaryProfile = {
+      ...data,
+      id: existingIdx >= 0 ? this.staffSalaryProfiles[existingIdx].id : crypto.randomUUID(),
+      created_at: existingIdx >= 0 ? this.staffSalaryProfiles[existingIdx].created_at : new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    if (existingIdx >= 0) {
+      this.staffSalaryProfiles[existingIdx] = profile;
+    } else {
+      this.staffSalaryProfiles.push(profile);
+    }
+    return profile;
+  }
+
+  async getPayslips(tenantId: string, options?: { staffId?: string; payrollMonth?: string }): Promise<StaffPayslip[]> {
+    return this.staffPayslips.filter(p => {
+      if (p.tenant_id !== tenantId) return false;
+      if (options?.staffId && p.staff_id !== options.staffId) return false;
+      if (options?.payrollMonth && p.payroll_month.toLowerCase() !== options.payrollMonth.toLowerCase()) return false;
+      return true;
+    }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  async generatePayslip(tenantId: string, data: {
+    staff_id: string;
+    payroll_month: string;
+    earnings: PayrollEarningHead[];
+    deductions: PayrollDeductionHead[];
+    admin_notes?: string;
+    processed_by: string;
+  }): Promise<StaffPayslip> {
+    const profile = this.staffSalaryProfiles.find(p => p.tenant_id === tenantId && p.staff_id === data.staff_id);
+    if (!profile) throw new Error('Staff salary profile not configured');
+
+    // Aggregate attendance summary from Module 13 records
+    const attendanceRecords = this.staffAttendance.filter(a => a.tenant_id === tenantId && a.staff_id === data.staff_id);
+    const presentDays = attendanceRecords.filter(a => a.status === 'on_time' || a.status === 'late').length;
+    const lateCount = attendanceRecords.filter(a => a.status === 'late').length;
+    const absentDays = attendanceRecords.filter(a => a.status === 'absent').length;
+
+    const earningsWithTotal = data.earnings.map(e => ({
+      ...e,
+      total: Number(e.quantity) * Number(e.unit_rate)
+    }));
+
+    const deductionsWithTotal = data.deductions.map(d => ({
+      ...d,
+      total: Number(d.quantity) * Number(d.unit_rate)
+    }));
+
+    const totalEarnings = earningsWithTotal.reduce((s, e) => s + e.total, 0);
+    const totalDeductions = deductionsWithTotal.reduce((s, d) => s + d.total, 0);
+    const netSalary = Math.max(0, profile.base_amount + totalEarnings - totalDeductions);
+
+    const count = this.staffPayslips.filter(p => p.tenant_id === tenantId).length + 1;
+    const cleanMonth = data.payroll_month.replace(/\s+/g, '');
+    const slipNumber = `PAY-${cleanMonth}-${count.toString().padStart(4, '0')}`;
+
+    const payslip: StaffPayslip = {
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      slip_number: slipNumber,
+      staff_id: profile.staff_id,
+      staff_name: profile.staff_name,
+      designation: profile.designation,
+      payroll_month: data.payroll_month,
+      base_salary: profile.base_amount,
+      attendance_summary: {
+        working_days: 26,
+        present_days: presentDays > 0 ? presentDays : 25,
+        late_count: lateCount,
+        absent_days: absentDays,
+        approved_leaves: 1,
+        hours_or_lectures: 45
+      },
+      earnings: earningsWithTotal,
+      deductions: deductionsWithTotal,
+      total_earnings: totalEarnings,
+      total_deductions: totalDeductions,
+      net_salary: netSalary,
+      status: 'processed',
+      admin_notes: data.admin_notes || null,
+      processed_by: data.processed_by,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    this.staffPayslips.push(payslip);
+    return payslip;
+  }
+
+  async markPayslipPaid(tenantId: string, payslipId: string, paymentMethod: PaymentMethod, reference?: string): Promise<StaffPayslip> {
+    const slip = this.staffPayslips.find(p => p.id === payslipId && p.tenant_id === tenantId);
+    if (!slip) throw new Error('Payslip not found');
+
+    slip.status = 'paid';
+    slip.payment_date = new Date().toISOString().split('T')[0];
+    slip.payment_method = paymentMethod;
+    slip.transaction_reference = reference || null;
+    slip.updated_at = new Date().toISOString();
+
+    return slip;
+  }
 }
+

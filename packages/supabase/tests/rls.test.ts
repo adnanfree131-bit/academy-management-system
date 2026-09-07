@@ -27,7 +27,12 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
     const mig3Sql = fs.readFileSync(mig3Path, 'utf8');
     await db.exec(mig3Sql);
 
-    // 4. Execute Dual-Tenant Seed Fixture
+    // 4. Execute Migration 00004 (Finance, Invoices, Payments, Payroll)
+    const mig4Path = path.join(__dirname, '../migrations/00004_finance_vouchers_payroll.sql');
+    const mig4Sql = fs.readFileSync(mig4Path, 'utf8');
+    await db.exec(mig4Sql);
+
+    // 5. Execute Dual-Tenant Seed Fixture
     const seedPath = path.join(__dirname, '../seeds/001_dual_tenant_seed.sql');
     const seedSql = fs.readFileSync(seedPath, 'utf8');
     await db.exec(seedSql);
@@ -252,4 +257,87 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
       `)
     ).rejects.toThrow(/new row violates row-level security policy/i);
   });
+
+  it('Gate 13: Phase 4 - Fee Heads & Multi-Head Invoicing RLS Tenant Isolation', async () => {
+    // Tenant A creates fee heads and an invoice
+    await db.exec(`SET app.current_tenant_id = '${TENANT_A_ID}';`);
+    await db.exec(`
+      INSERT INTO fee_heads (id, tenant_id, name, code, is_system_default, default_amount, priority_order)
+      VALUES 
+        ('f1000000-0000-0000-0000-000000000001', '${TENANT_A_ID}', 'Monthly Tuition Fee', 'TUITION', true, 8000, 2),
+        ('f1000000-0000-0000-0000-000000000002', '${TENANT_A_ID}', 'Previous Arrears', 'ARREARS', true, 0, 1);
+
+      INSERT INTO student_invoices (
+        id, tenant_id, invoice_number, student_id, student_name, roll_number,
+        batch_id, batch_name, billing_month, issue_date, due_date,
+        subtotal_amount, discount_amount, net_amount, paid_amount, balance_amount, status
+      ) VALUES (
+        'f2000000-0000-0000-0000-000000000001', '${TENANT_A_ID}', 'INV-2026-0001',
+        'a5000000-0000-0000-0000-000000000001', 'Muhammad Ali Raza', 'A-101',
+        'a3000000-0000-0000-0000-000000000001', 'MDCAT Morning - Batch A', 'September 2026',
+        '2026-09-01', '2026-09-15', 8000, 0, 8000, 0, 8000, 'unpaid'
+      );
+    `);
+
+    const headsA = await db.query<{ name: string }>('SELECT name FROM fee_heads');
+    expect(headsA.rows.length).toBe(2);
+    const invA = await db.query<{ invoice_number: string }>('SELECT invoice_number FROM student_invoices');
+    expect(invA.rows.length).toBe(1);
+    expect(invA.rows[0].invoice_number).toBe('INV-2026-0001');
+
+    // Tenant B queries -> must see 0 fee heads and 0 invoices
+    await db.exec(`SET app.current_tenant_id = '${TENANT_B_ID}';`);
+    const headsB = await db.query<{ name: string }>('SELECT name FROM fee_heads');
+    expect(headsB.rows.length).toBe(0);
+    const invB = await db.query<{ invoice_number: string }>('SELECT invoice_number FROM student_invoices');
+    expect(invB.rows.length).toBe(0);
+  });
+
+  it('Gate 14: Phase 4 - Staff Salary Profile & Payslip Cross-Tenant Containment', async () => {
+    // Tenant A creates staff salary profile and payslip
+    await db.exec(`SET app.current_tenant_id = '${TENANT_A_ID}';`);
+    await db.exec(`
+      INSERT INTO staff_salary_profiles (
+        id, tenant_id, staff_id, staff_name, designation, contract_type, base_amount
+      ) VALUES (
+        'c1000000-0000-0000-0000-000000000001', '${TENANT_A_ID}',
+        'a1000000-0000-0000-0000-000000000002', 'Prof. Tariq Mehmood', 'Senior Physics Lecturer',
+        'fixed_monthly', 75000
+      );
+
+      INSERT INTO staff_payslips (
+        id, tenant_id, slip_number, staff_id, staff_name, designation,
+        payroll_month, base_salary, net_salary, status, processed_by
+      ) VALUES (
+        'c2000000-0000-0000-0000-000000000001', '${TENANT_A_ID}', 'PAY-2026-08-01',
+        'a1000000-0000-0000-0000-000000000002', 'Prof. Tariq Mehmood', 'Senior Physics Lecturer',
+        'August 2026', 75000, 75000, 'processed', 'Finance Admin'
+      );
+    `);
+
+    // Verify Tenant A access
+    const payA = await db.query<{ slip_number: string }>('SELECT slip_number FROM staff_payslips');
+    expect(payA.rows.length).toBe(1);
+    expect(payA.rows[0].slip_number).toBe('PAY-2026-08-01');
+
+    // Verify Tenant B has 0 access to Tenant A's payroll data
+    await db.exec(`SET app.current_tenant_id = '${TENANT_B_ID}';`);
+    const payB = await db.query<{ slip_number: string }>('SELECT slip_number FROM staff_payslips');
+    expect(payB.rows.length).toBe(0);
+
+    // Cross-tenant payslip insertion must be rejected by PostgreSQL RLS
+    await expect(
+      db.exec(`
+        INSERT INTO staff_payslips (
+          tenant_id, slip_number, staff_id, staff_name, designation,
+          payroll_month, base_salary, net_salary, status, processed_by
+        ) VALUES (
+          '${TENANT_A_ID}', 'PAY-HACK',
+          'b1000000-0000-0000-0000-000000000001', 'Hacked Staff', 'Teacher',
+          'August 2026', 99999, 99999, 'processed', 'Malicious Actor'
+        );
+      `)
+    ).rejects.toThrow(/new row violates row-level security policy/i);
+  });
 });
+
