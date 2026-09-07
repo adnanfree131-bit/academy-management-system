@@ -22,6 +22,8 @@ serviceAccountKey.json
 google-services.json
 *.png
 *.tsbuildinfo
+.agent
 .agent/
 .agents/skills.json
+
 
