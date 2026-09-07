@@ -83,7 +83,7 @@ export function sisRoutes(store: IDataStore) {
       const { id } = request.params as { id: string };
       const schema = z.object({
         batch_id: z.string().uuid(),
-        elective_group_id: z.string().uuid().optional().or(z.literal('')).transform(v => v || undefined),
+        elective_group_id: z.string().optional().or(z.literal('')).transform(v => v || undefined),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -130,10 +130,10 @@ export function sisRoutes(store: IDataStore) {
         guardian_phone: z.string().min(1),
         program_id: z.string().uuid(),
         batch_id: z.string().uuid(),
-        elective_group_id: z.string().uuid().optional().or(z.literal('')).transform(v => v || undefined),
+        elective_group_id: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         status: z.enum(['active', 'suspended', 'graduated', 'withdrawn']).default('active'),
         custom_field_values: z.record(z.any()).default({}),
-        subjects: z.array(z.string().uuid()).default([]),
+        subjects: z.array(z.string()).default([]),
       });
 
       const parseResult = schema.safeParse(request.body);

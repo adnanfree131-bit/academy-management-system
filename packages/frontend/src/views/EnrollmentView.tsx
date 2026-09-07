@@ -296,8 +296,14 @@ export const EnrollmentView: React.FC = () => {
         }),
       });
 
-      const result = await res.json();
-      if (result.success) {
+      let result: any;
+      try {
+        result = await res.json();
+      } catch {
+        throw new Error(`Server returned HTTP ${res.status}`);
+      }
+
+      if (res.ok && result.success) {
         setEnrollSuccessMessage(`Enrollment confirmed! Admission Number: ${result.data.admission_number} | Roll Number: ${result.data.roll_number}`);
         setEnrollForm({
           full_name: '',
@@ -312,7 +318,7 @@ export const EnrollmentView: React.FC = () => {
         });
         await fetchData();
       } else {
-        alert(result.error?.message || 'Enrollment failed');
+        alert(result?.error?.message || `Enrollment failed with status ${res.status}`);
       }
     } catch (err) {
       console.error('Enrollment error:', err);

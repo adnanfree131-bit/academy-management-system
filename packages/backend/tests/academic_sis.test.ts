@@ -181,4 +181,46 @@ describe('Phase 2: Academic Hierarchy, Custom Form Fields, Inquiries & SIS API',
     const students = JSON.parse(listRes.body).data;
     expect(students.some((s: any) => s.id === student.id)).toBe(true);
   });
+
+  it('7. Direct Admission Form: POST /api/v1/sis/students with elective group and subjects', async () => {
+    // Fetch programs and batches
+    const batchRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/academic/batches',
+      headers: { authorization: `Bearer ${apexToken}` },
+    });
+    const batches = JSON.parse(batchRes.body).data;
+    const fscBatch = batches.find((b: any) => b.name === 'FSc Morning - Alpha');
+    expect(fscBatch).toBeDefined();
+
+    const enrollRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/sis/students',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        full_name: 'Zubair Hashmi QA',
+        phone: '0333-8889911',
+        email: 'zubair.qa@example.com',
+        guardian_name: 'Hashmi Senior',
+        guardian_phone: '0321-9988776',
+        program_id: fscBatch.program_id,
+        batch_id: fscBatch.id,
+        elective_group_id: 'g2',
+        subjects: ['s1', 's2', 's4'],
+        custom_field_values: {
+          blood_group: 'O+',
+          bus_route: 'Route 2 - DHA',
+          prev_school: 'Lahore Grammar School',
+        },
+      },
+    });
+
+    expect(enrollRes.statusCode).toBe(201);
+    const newStudent = JSON.parse(enrollRes.body).data;
+    expect(newStudent.full_name).toBe('Zubair Hashmi QA');
+    expect(newStudent.admission_number).toMatch(/^ADM-2026-\d{3}$/);
+    expect(newStudent.roll_number).toBeDefined();
+    expect(newStudent.custom_field_values.blood_group).toBe('O+');
+    expect(newStudent.subjects).toContain('s1');
+  });
 });
