@@ -495,7 +495,7 @@ export class BrowserManager {
     // are typically disabled in containers and are never available for the root
     // user on Linux. Detect all three cases and add --no-sandbox automatically.
     const isRoot = typeof process.getuid === 'function' && process.getuid() === 0;
-    if (process.env.CI || process.env.CONTAINER || isRoot) {
+    if (process.env.CI || process.env.CONTAINER || isRoot || process.env.GSTACK_CHROMIUM_NO_SANDBOX === '1') {
       launchArgs.push('--no-sandbox');
     }
 
