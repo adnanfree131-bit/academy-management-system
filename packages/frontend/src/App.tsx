@@ -12,6 +12,7 @@ import { HomeworkDesk } from './views/HomeworkDesk';
 import { ComplaintsDeskView } from './views/ComplaintsDeskView';
 import { FeeDeskView } from './views/FeeDeskView';
 import { PayrollDeskView } from './views/PayrollDeskView';
+import { ExamDeskView } from './views/ExamDeskView';
 import { GenericModuleView } from './views/GenericModuleView';
 
 const titleMap: Record<string, string> = {
@@ -23,6 +24,7 @@ const titleMap: Record<string, string> = {
   absentee: 'Absence Follow-Up & Retention Desk',
   enrollment: 'Student Admissions & SIS',
   complaints: 'Complaints & Feedback Portal',
+  exams: 'Examination Bank & Evaluation Desk',
   voucher: 'Fee Invoices & Vouchers',
   payroll: 'Staff Payroll & Salaries',
   mobile: 'Native Mobile Experience (PWA Parity)',
@@ -83,6 +85,8 @@ const MainLayout: React.FC = () => {
             <FeeDeskView />
           ) : currentScreen === 'payroll' ? (
             <PayrollDeskView />
+          ) : currentScreen === 'exams' ? (
+            <ExamDeskView />
           ) : (
             <GenericModuleView moduleId={currentScreen} />
           )}

@@ -14,6 +14,7 @@ import { homeworkRoutes } from './routes/homework.js';
 import { complaintsRoutes } from './routes/complaints.js';
 import { financeRoutes } from './routes/finance.js';
 import { payrollRoutes } from './routes/payroll.js';
+import { examRoutes } from './routes/exams.js';
 
 export interface AppOptions {
   store?: IDataStore;
@@ -82,6 +83,9 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   // Phase 4 Routes: Finance, Multi-Head Vouchers & Staff Payroll
   await fastify.register(financeRoutes(store), { prefix: '/api/v1/finance' });
   await fastify.register(payrollRoutes(store), { prefix: '/api/v1/payroll' });
+
+  // Phase 5 Routes: Examination Bank, Excel Chapter Upload & Hybrid Evaluation
+  await fastify.register(examRoutes(store), { prefix: '/api/v1/exams' });
 
   return fastify;
 }

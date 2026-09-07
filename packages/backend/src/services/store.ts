@@ -42,7 +42,16 @@ import {
   StaffPayslipStatus,
   StaffPayslip,
   DailyCashbookEntry,
-  StudentLedgerEntry
+  StudentLedgerEntry,
+  QuestionChapter,
+  BankQuestion,
+  Exam,
+  ExamQuestion,
+  StudentExamEvaluation,
+  ExcelQuestionImportRow,
+  StudentOfficialReportCard,
+  ExamQuestionType,
+  EvaluationStatus
 } from '@apex/shared-types';
 
 export interface StoredOTP {
@@ -215,6 +224,35 @@ export interface IDataStore {
     processed_by: string;
   }): Promise<StaffPayslip>;
   markPayslipPaid(tenantId: string, payslipId: string, paymentMethod: PaymentMethod, reference?: string): Promise<StaffPayslip>;
+
+  // --- Phase 5: Examination Bank, Dual Question Bank Modes & Hybrid Evaluation ---
+  getQuestionChapters(tenantId: string, subjectId?: string, programId?: string): Promise<QuestionChapter[]>;
+  createQuestionChapter(tenantId: string, data: Omit<QuestionChapter, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>): Promise<QuestionChapter>;
+  getBankQuestions(tenantId: string, filters?: { chapterId?: string; subjectId?: string; type?: ExamQuestionType; isQuizBank?: boolean }): Promise<BankQuestion[]>;
+  createBankQuestion(tenantId: string, data: Omit<BankQuestion, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>): Promise<BankQuestion>;
+  importQuestionsFromExcel(tenantId: string, subjectId: string, programId: string, rows: ExcelQuestionImportRow[]): Promise<{ imported_count: number; chapters_created: number; questions: BankQuestion[] }>;
+  deleteBankQuestion(tenantId: string, questionId: string): Promise<boolean>;
+
+  getExams(tenantId: string, batchId?: string, subjectId?: string): Promise<Exam[]>;
+  getExamById(tenantId: string, examId: string): Promise<Exam | null>;
+  createExam(tenantId: string, data: Omit<Exam, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>): Promise<Exam>;
+  updateExam(tenantId: string, examId: string, updates: Partial<Exam>): Promise<Exam>;
+  addExamQuestions(tenantId: string, examId: string, questions: Omit<ExamQuestion, 'id' | 'tenant_id' | 'exam_id' | 'created_at'>[]): Promise<ExamQuestion[]>;
+  getExamQuestions(tenantId: string, examId: string): Promise<ExamQuestion[]>;
+
+  evaluateStudentExam(tenantId: string, data: {
+    exam_id: string;
+    student_id: string;
+    mcq_answers?: Record<string, string>;
+    short_score?: number;
+    short_remarks?: string;
+    long_score?: number;
+    long_remarks?: string;
+    status?: EvaluationStatus;
+    evaluated_by?: string;
+  }): Promise<StudentExamEvaluation>;
+  getExamEvaluations(tenantId: string, examId: string): Promise<StudentExamEvaluation[]>;
+  getStudentReportCard(tenantId: string, examId: string, studentId: string): Promise<StudentOfficialReportCard | null>;
 }
 
 export class InMemoryDataStore implements IDataStore {
@@ -251,6 +289,13 @@ export class InMemoryDataStore implements IDataStore {
   private feeDiscounts: FeeDiscount[] = [];
   private staffSalaryProfiles: StaffSalaryProfile[] = [];
   private staffPayslips: StaffPayslip[] = [];
+
+  // Phase 5 Collections
+  private questionChapters: QuestionChapter[] = [];
+  private bankQuestions: BankQuestion[] = [];
+  private exams: Exam[] = [];
+  private examQuestions: ExamQuestion[] = [];
+  private studentExamEvaluations: StudentExamEvaluation[] = [];
 
   constructor() {
     // 1. Seed Tenants
@@ -873,6 +918,200 @@ export class InMemoryDataStore implements IDataStore {
       status: 'processed',
       admin_notes: 'Approved standard monthly settlement with 5 extra periods',
       processed_by: 'Finance Office',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+
+    // 8. Seed Phase 5 Question Chapters
+    const chap1: QuestionChapter = {
+      id: 'chap-1',
+      tenant_id: tenantA.id,
+      program_id: mdcatProg.id,
+      subject_id: phySub.id,
+      chapter_number: 1,
+      chapter_name: 'Vectors & Equilibrium',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    const chap2: QuestionChapter = {
+      id: 'chap-2',
+      tenant_id: tenantA.id,
+      program_id: mdcatProg.id,
+      subject_id: phySub.id,
+      chapter_number: 2,
+      chapter_name: 'Force & Motion',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    this.questionChapters.push(chap1, chap2);
+
+    // Seed Phase 5 Bank Questions (MCQs, Short, Long)
+    const bq1: BankQuestion = {
+      id: 'bq-1',
+      tenant_id: tenantA.id,
+      chapter_id: chap1.id,
+      subject_id: phySub.id,
+      question_type: 'MCQ',
+      question_text: 'The magnitude of a unit vector is strictly equal to:',
+      marks: 2,
+      options: [
+        { key: 'A', text: 'Zero' },
+        { key: 'B', text: 'Unity (1)' },
+        { key: 'C', text: 'Dimension of length' },
+        { key: 'D', text: 'Variable with angle' }
+      ],
+      correct_option: 'B',
+      difficulty_level: 'EASY',
+      is_quiz_bank: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const bq2: BankQuestion = {
+      id: 'bq-2',
+      tenant_id: tenantA.id,
+      chapter_id: chap1.id,
+      subject_id: phySub.id,
+      question_type: 'MCQ',
+      question_text: 'Two perpendicular vectors of magnitude 3N and 4N have a resultant magnitude of:',
+      marks: 2,
+      options: [
+        { key: 'A', text: '7 N' },
+        { key: 'B', text: '1 N' },
+        { key: 'C', text: '5 N' },
+        { key: 'D', text: '12 N' }
+      ],
+      correct_option: 'C',
+      difficulty_level: 'MEDIUM',
+      is_quiz_bank: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const bq3: BankQuestion = {
+      id: 'bq-3',
+      tenant_id: tenantA.id,
+      chapter_id: chap1.id,
+      subject_id: phySub.id,
+      question_type: 'MCQ',
+      question_text: 'Torque (Tau = r x F) is mathematically perpendicular to:',
+      marks: 2,
+      options: [
+        { key: 'A', text: 'Both r and F plane' },
+        { key: 'B', text: 'Only vector r' },
+        { key: 'C', text: 'Only vector F' },
+        { key: 'D', text: 'Linear acceleration' }
+      ],
+      correct_option: 'A',
+      difficulty_level: 'MEDIUM',
+      is_quiz_bank: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const bq4: BankQuestion = {
+      id: 'bq-4',
+      tenant_id: tenantA.id,
+      chapter_id: chap1.id,
+      subject_id: phySub.id,
+      question_type: 'SHORT',
+      question_text: 'State the first and second conditions of complete mechanical equilibrium with standard equations.',
+      marks: 6,
+      rubric_guide: '1st condition Sigma F = 0 (3 marks), 2nd condition Sigma Tau = 0 (3 marks)',
+      difficulty_level: 'MEDIUM',
+      is_quiz_bank: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const bq5: BankQuestion = {
+      id: 'bq-5',
+      tenant_id: tenantA.id,
+      chapter_id: chap1.id,
+      subject_id: phySub.id,
+      question_type: 'SHORT',
+      question_text: 'Differentiate between scalar product and vector product with one real physical application each.',
+      marks: 6,
+      rubric_guide: 'Scalar product definition + work example (3 marks), Vector product definition + torque example (3 marks)',
+      difficulty_level: 'MEDIUM',
+      is_quiz_bank: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const bq6: BankQuestion = {
+      id: 'bq-6',
+      tenant_id: tenantA.id,
+      chapter_id: chap1.id,
+      subject_id: phySub.id,
+      question_type: 'LONG',
+      question_text: 'Resolve a vector into its two rectangular components. Show with neat geometrical diagram that A = sqrt(Ax^2 + Ay^2) and theta = arctan(Ay/Ax).',
+      marks: 12,
+      rubric_guide: 'Diagram labeled (3 marks), Trigonometric resolution formulas (4 marks), Magnitude derivation (3 marks), Direction theta formula (2 marks)',
+      difficulty_level: 'HARD',
+      is_quiz_bank: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    this.bankQuestions.push(bq1, bq2, bq3, bq4, bq5, bq6);
+
+    // Seed Active Exam
+    const exam1: Exam = {
+      id: 'exam-1',
+      tenant_id: tenantA.id,
+      batch_id: batchA.id,
+      subject_id: phySub.id,
+      title: 'MDCAT Physics Mid-Term Assessment 2026',
+      exam_date: '2026-09-15',
+      duration_minutes: 60,
+      total_marks: 30,
+      mcq_count: 3,
+      mcq_marks_per_q: 2,
+      mcq_total_marks: 6,
+      short_total_marks: 12,
+      long_total_marks: 12,
+      section_labels: {
+        mcq: 'Section A: Objective MCQs (Q.1)',
+        short: 'Section B: Short Conceptual Questions (Q.2)',
+        long: 'Section C: Long Problem & Derivations (Q.3)'
+      },
+      status: 'GRADED',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    this.exams.push(exam1);
+
+    // Seed Exam Questions
+    const eq1: ExamQuestion = { id: 'eq-1', tenant_id: tenantA.id, exam_id: exam1.id, question_id: bq1.id, section_type: 'MCQ', display_order: 1, question_text: bq1.question_text, marks: 2, options: bq1.options, correct_option: bq1.correct_option, created_at: new Date().toISOString() };
+    const eq2: ExamQuestion = { id: 'eq-2', tenant_id: tenantA.id, exam_id: exam1.id, question_id: bq2.id, section_type: 'MCQ', display_order: 2, question_text: bq2.question_text, marks: 2, options: bq2.options, correct_option: bq2.correct_option, created_at: new Date().toISOString() };
+    const eq3: ExamQuestion = { id: 'eq-3', tenant_id: tenantA.id, exam_id: exam1.id, question_id: bq3.id, section_type: 'MCQ', display_order: 3, question_text: bq3.question_text, marks: 2, options: bq3.options, correct_option: bq3.correct_option, created_at: new Date().toISOString() };
+    const eq4: ExamQuestion = { id: 'eq-4', tenant_id: tenantA.id, exam_id: exam1.id, question_id: bq4.id, section_type: 'SHORT', display_order: 4, question_text: bq4.question_text, marks: 6, created_at: new Date().toISOString() };
+    const eq5: ExamQuestion = { id: 'eq-5', tenant_id: tenantA.id, exam_id: exam1.id, question_id: bq5.id, section_type: 'SHORT', display_order: 5, question_text: bq5.question_text, marks: 6, created_at: new Date().toISOString() };
+    const eq6: ExamQuestion = { id: 'eq-6', tenant_id: tenantA.id, exam_id: exam1.id, question_id: bq6.id, section_type: 'LONG', display_order: 6, question_text: bq6.question_text, marks: 12, created_at: new Date().toISOString() };
+    this.examQuestions.push(eq1, eq2, eq3, eq4, eq5, eq6);
+
+    // Seed Sample Graded Student Evaluation
+    this.studentExamEvaluations.push({
+      id: 'eval-1',
+      tenant_id: tenantA.id,
+      exam_id: exam1.id,
+      student_id: 'stud-1',
+      student_name: 'Muhammad Ali Raza',
+      roll_number: 'A-101',
+      batch_name: batchA.name,
+      mcq_answers: { 'eq-1': 'B', 'eq-2': 'C', 'eq-3': 'A' },
+      mcq_score: 6.0,
+      short_score: 10.5,
+      short_remarks: 'Precise equilibrium conditions stated; clear distinctions between dot and cross product.',
+      long_score: 11.0,
+      long_remarks: 'Neat vector resolution diagram and step-by-step Pythagorean magnitude proof.',
+      total_obtained: 27.5,
+      percentage: 91.67,
+      grade: 'A*',
+      status: 'GRADED',
+      evaluated_by: 'a1000000-0000-0000-0000-000000000002',
+      evaluated_by_name: 'Sir Tariq Physics',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     });
@@ -2187,6 +2426,407 @@ export class InMemoryDataStore implements IDataStore {
     slip.updated_at = new Date().toISOString();
 
     return slip;
+  }
+
+  // --- Phase 5: Examination Bank, Dual Question Bank Modes & Hybrid Evaluation ---
+  async getQuestionChapters(tenantId: string, subjectId?: string, programId?: string): Promise<QuestionChapter[]> {
+    return this.questionChapters
+      .filter(c => {
+        if (c.tenant_id !== tenantId) return false;
+        if (subjectId && c.subject_id !== subjectId) return false;
+        if (programId && c.program_id !== programId) return false;
+        return true;
+      })
+      .map(c => {
+        const sub = this.subjects.find(s => s.id === c.subject_id);
+        const prog = this.programs.find(p => p.id === c.program_id);
+        const qCount = this.bankQuestions.filter(q => q.chapter_id === c.id && q.tenant_id === tenantId).length;
+        return {
+          ...c,
+          subject_name: sub ? sub.name : c.subject_name,
+          program_name: prog ? prog.name : c.program_name,
+          question_count: qCount
+        };
+      });
+  }
+
+  async createQuestionChapter(tenantId: string, data: Omit<QuestionChapter, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>): Promise<QuestionChapter> {
+    const chapter: QuestionChapter = {
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      ...data,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    this.questionChapters.push(chapter);
+    return chapter;
+  }
+
+  async getBankQuestions(tenantId: string, filters?: { chapterId?: string; subjectId?: string; type?: ExamQuestionType; isQuizBank?: boolean }): Promise<BankQuestion[]> {
+    return this.bankQuestions
+      .filter(q => {
+        if (q.tenant_id !== tenantId) return false;
+        if (filters?.chapterId && q.chapter_id !== filters.chapterId) return false;
+        if (filters?.subjectId && q.subject_id !== filters.subjectId) return false;
+        if (filters?.type && q.question_type !== filters.type) return false;
+        if (filters?.isQuizBank !== undefined && q.is_quiz_bank !== filters.isQuizBank) return false;
+        return true;
+      })
+      .map(q => {
+        const sub = this.subjects.find(s => s.id === q.subject_id);
+        const chap = this.questionChapters.find(c => c.id === q.chapter_id);
+        return {
+          ...q,
+          subject_name: sub ? sub.name : q.subject_name,
+          chapter_name: chap ? chap.chapter_name : q.chapter_name
+        };
+      });
+  }
+
+  async createBankQuestion(tenantId: string, data: Omit<BankQuestion, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>): Promise<BankQuestion> {
+    const question: BankQuestion = {
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      ...data,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    this.bankQuestions.push(question);
+    return question;
+  }
+
+  async importQuestionsFromExcel(tenantId: string, subjectId: string, programId: string, rows: ExcelQuestionImportRow[]): Promise<{ imported_count: number; chapters_created: number; questions: BankQuestion[] }> {
+    let chaptersCreated = 0;
+    const importedQuestions: BankQuestion[] = [];
+
+    for (const row of rows) {
+      let chapterId: string | undefined = undefined;
+
+      if (row.chapter_name || row.chapter_number) {
+        let existingChapter = this.questionChapters.find(c => 
+          c.tenant_id === tenantId && 
+          c.subject_id === subjectId && 
+          (row.chapter_number ? c.chapter_number === row.chapter_number : c.chapter_name.toLowerCase() === row.chapter_name?.toLowerCase())
+        );
+
+        if (!existingChapter && row.chapter_name) {
+          const nextChapNum = row.chapter_number || (this.questionChapters.filter(c => c.tenant_id === tenantId && c.subject_id === subjectId).length + 1);
+          existingChapter = {
+            id: crypto.randomUUID(),
+            tenant_id: tenantId,
+            program_id: programId,
+            subject_id: subjectId,
+            chapter_number: nextChapNum,
+            chapter_name: row.chapter_name,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          };
+          this.questionChapters.push(existingChapter);
+          chaptersCreated++;
+        }
+        chapterId = existingChapter?.id;
+      }
+
+      const qType: ExamQuestionType = row.question_type || 'MCQ';
+      let options: Array<{ key: string; text: string }> = [];
+      if (qType === 'MCQ') {
+        if (row.option_a) options.push({ key: 'A', text: row.option_a });
+        if (row.option_b) options.push({ key: 'B', text: row.option_b });
+        if (row.option_c) options.push({ key: 'C', text: row.option_c });
+        if (row.option_d) options.push({ key: 'D', text: row.option_d });
+      }
+
+      const newQ: BankQuestion = {
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        chapter_id: chapterId || null,
+        subject_id: subjectId,
+        question_type: qType,
+        question_text: row.question_text,
+        marks: row.marks || (qType === 'MCQ' ? 1 : (qType === 'SHORT' ? 4 : 8)),
+        options: options.length > 0 ? options : undefined,
+        correct_option: qType === 'MCQ' ? (row.correct_option?.trim().toUpperCase() || 'A') : null,
+        rubric_guide: row.rubric_guide || null,
+        difficulty_level: row.difficulty_level || 'MEDIUM',
+        is_quiz_bank: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      this.bankQuestions.push(newQ);
+      importedQuestions.push(newQ);
+    }
+
+    return {
+      imported_count: importedQuestions.length,
+      chapters_created: chaptersCreated,
+      questions: importedQuestions
+    };
+  }
+
+  async deleteBankQuestion(tenantId: string, questionId: string): Promise<boolean> {
+    const idx = this.bankQuestions.findIndex(q => q.id === questionId && q.tenant_id === tenantId);
+    if (idx === -1) return false;
+    this.bankQuestions.splice(idx, 1);
+    return true;
+  }
+
+  async getExams(tenantId: string, batchId?: string, subjectId?: string): Promise<Exam[]> {
+    return this.exams
+      .filter(e => {
+        if (e.tenant_id !== tenantId) return false;
+        if (batchId && e.batch_id !== batchId) return false;
+        if (subjectId && e.subject_id !== subjectId) return false;
+        return true;
+      })
+      .map(e => {
+        const batch = this.batches.find(b => b.id === e.batch_id);
+        const sub = this.subjects.find(s => s.id === e.subject_id);
+        const questions = this.examQuestions
+          .filter(q => q.exam_id === e.id && q.tenant_id === tenantId)
+          .sort((a, b) => a.display_order - b.display_order);
+        return {
+          ...e,
+          batch_name: batch ? batch.name : e.batch_name,
+          subject_name: sub ? sub.name : e.subject_name,
+          questions
+        };
+      });
+  }
+
+  async getExamById(tenantId: string, examId: string): Promise<Exam | null> {
+    const exam = this.exams.find(e => e.id === examId && e.tenant_id === tenantId);
+    if (!exam) return null;
+
+    const batch = this.batches.find(b => b.id === exam.batch_id);
+    const sub = this.subjects.find(s => s.id === exam.subject_id);
+    const questions = this.examQuestions
+      .filter(q => q.exam_id === exam.id && q.tenant_id === tenantId)
+      .sort((a, b) => a.display_order - b.display_order);
+
+    return {
+      ...exam,
+      batch_name: batch ? batch.name : exam.batch_name,
+      subject_name: sub ? sub.name : exam.subject_name,
+      questions
+    };
+  }
+
+  async createExam(tenantId: string, data: Omit<Exam, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>): Promise<Exam> {
+    const totalMarks = (data.mcq_total_marks || (data.mcq_count * data.mcq_marks_per_q) || 0) + (data.short_total_marks || 0) + (data.long_total_marks || 0);
+    const defaultLabels = {
+      mcq: 'Q.1 (Objective MCQs)',
+      short: 'Q.2 (Short Questions)',
+      long: 'Q.3 (Long Questions)'
+    };
+
+    const exam: Exam = {
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      ...data,
+      total_marks: totalMarks,
+      section_labels: data.section_labels || defaultLabels,
+      status: data.status || 'DRAFT',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    this.exams.push(exam);
+    return exam;
+  }
+
+  async updateExam(tenantId: string, examId: string, updates: Partial<Exam>): Promise<Exam> {
+    const exam = this.exams.find(e => e.id === examId && e.tenant_id === tenantId);
+    if (!exam) throw new Error('Exam not found');
+
+    Object.assign(exam, updates);
+    if (updates.mcq_total_marks !== undefined || updates.short_total_marks !== undefined || updates.long_total_marks !== undefined) {
+      exam.total_marks = (exam.mcq_total_marks || 0) + (exam.short_total_marks || 0) + (exam.long_total_marks || 0);
+    }
+    exam.updated_at = new Date().toISOString();
+    return exam;
+  }
+
+  async addExamQuestions(tenantId: string, examId: string, questions: Omit<ExamQuestion, 'id' | 'tenant_id' | 'exam_id' | 'created_at'>[]): Promise<ExamQuestion[]> {
+    const exam = this.exams.find(e => e.id === examId && e.tenant_id === tenantId);
+    if (!exam) throw new Error('Exam not found');
+
+    const added: ExamQuestion[] = [];
+    for (const q of questions) {
+      const examQ: ExamQuestion = {
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        exam_id: examId,
+        ...q,
+        created_at: new Date().toISOString()
+      };
+      this.examQuestions.push(examQ);
+      added.push(examQ);
+    }
+    return added;
+  }
+
+  async getExamQuestions(tenantId: string, examId: string): Promise<ExamQuestion[]> {
+    return this.examQuestions
+      .filter(q => q.exam_id === examId && q.tenant_id === tenantId)
+      .sort((a, b) => a.display_order - b.display_order);
+  }
+
+  async evaluateStudentExam(tenantId: string, data: {
+    exam_id: string;
+    student_id: string;
+    mcq_answers?: Record<string, string>;
+    short_score?: number;
+    short_remarks?: string;
+    long_score?: number;
+    long_remarks?: string;
+    status?: EvaluationStatus;
+    evaluated_by?: string;
+  }): Promise<StudentExamEvaluation> {
+    const exam = this.exams.find(e => e.id === data.exam_id && e.tenant_id === tenantId);
+    if (!exam) throw new Error('Exam not found');
+
+    const student = this.students.find(s => s.id === data.student_id && s.tenant_id === tenantId);
+    if (!student) throw new Error('Student not found');
+
+    // 1. Auto-grade MCQs
+    const examMcqs = this.examQuestions.filter(q => q.exam_id === exam.id && q.tenant_id === tenantId && q.section_type === 'MCQ');
+    let autoMcqScore = 0;
+    const userAnswers = data.mcq_answers || {};
+
+    for (const mcq of examMcqs) {
+      const chosen = userAnswers[mcq.id]?.trim().toUpperCase();
+      if (chosen && mcq.correct_option && chosen === mcq.correct_option.trim().toUpperCase()) {
+        autoMcqScore += Number(mcq.marks || exam.mcq_marks_per_q || 1);
+      }
+    }
+
+    const shortScore = Number(data.short_score || 0);
+    const longScore = Number(data.long_score || 0);
+    const totalObtained = Number((autoMcqScore + shortScore + longScore).toFixed(2));
+    const totalPossible = exam.total_marks > 0 ? exam.total_marks : 100;
+    const percentage = Number(((totalObtained / totalPossible) * 100).toFixed(2));
+
+    let grade = 'F';
+    if (percentage >= 90) grade = 'A*';
+    else if (percentage >= 80) grade = 'A';
+    else if (percentage >= 70) grade = 'B';
+    else if (percentage >= 60) grade = 'C';
+    else if (percentage >= 50) grade = 'D';
+    else if (percentage >= 40) grade = 'E';
+
+    let evaluation = this.studentExamEvaluations.find(ev => 
+      ev.tenant_id === tenantId && 
+      ev.exam_id === data.exam_id && 
+      ev.student_id === data.student_id
+    );
+
+    if (evaluation) {
+      evaluation.mcq_answers = userAnswers;
+      evaluation.mcq_score = autoMcqScore;
+      evaluation.short_score = shortScore;
+      evaluation.short_remarks = data.short_remarks || null;
+      evaluation.long_score = longScore;
+      evaluation.long_remarks = data.long_remarks || null;
+      evaluation.total_obtained = totalObtained;
+      evaluation.percentage = percentage;
+      evaluation.grade = grade;
+      evaluation.status = data.status || 'GRADED';
+      evaluation.evaluated_by = data.evaluated_by || evaluation.evaluated_by;
+      evaluation.updated_at = new Date().toISOString();
+    } else {
+      evaluation = {
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        exam_id: data.exam_id,
+        student_id: data.student_id,
+        student_name: student.full_name,
+        roll_number: student.roll_number,
+        batch_name: this.batches.find(b => b.id === student.batch_id)?.name,
+        mcq_answers: userAnswers,
+        mcq_score: autoMcqScore,
+        short_score: shortScore,
+        short_remarks: data.short_remarks || null,
+        long_score: longScore,
+        long_remarks: data.long_remarks || null,
+        total_obtained: totalObtained,
+        percentage,
+        grade,
+        status: data.status || 'GRADED',
+        evaluated_by: data.evaluated_by || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      this.studentExamEvaluations.push(evaluation);
+    }
+
+    exam.status = 'GRADED';
+    return evaluation;
+  }
+
+  async getExamEvaluations(tenantId: string, examId: string): Promise<StudentExamEvaluation[]> {
+    return this.studentExamEvaluations
+      .filter(ev => ev.exam_id === examId && ev.tenant_id === tenantId)
+      .map(ev => {
+        const student = this.students.find(s => s.id === ev.student_id);
+        return {
+          ...ev,
+          student_name: student ? student.full_name : ev.student_name,
+          roll_number: student ? student.roll_number : ev.roll_number
+        };
+      });
+  }
+
+  async getStudentReportCard(tenantId: string, examId: string, studentId: string): Promise<StudentOfficialReportCard | null> {
+    const exam = await this.getExamById(tenantId, examId);
+    if (!exam) return null;
+
+    const student = this.students.find(s => s.id === studentId && s.tenant_id === tenantId);
+    if (!student) return null;
+
+    let evaluation = this.studentExamEvaluations.find(ev => ev.exam_id === examId && ev.student_id === studentId && ev.tenant_id === tenantId);
+    if (!evaluation) {
+      evaluation = {
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        exam_id: examId,
+        student_id: studentId,
+        student_name: student.full_name,
+        roll_number: student.roll_number,
+        mcq_answers: {},
+        mcq_score: 0,
+        short_score: 0,
+        short_remarks: null,
+        long_score: 0,
+        long_remarks: null,
+        total_obtained: 0,
+        percentage: 0,
+        grade: 'F',
+        status: 'ABSENT',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    }
+
+    const allEvals = this.studentExamEvaluations
+      .filter(ev => ev.exam_id === examId && ev.tenant_id === tenantId)
+      .sort((a, b) => b.total_obtained - a.total_obtained);
+    const rank = allEvals.findIndex(ev => ev.student_id === studentId) + 1;
+
+    return {
+      exam,
+      evaluation,
+      student: {
+        id: student.id,
+        full_name: student.full_name,
+        roll_number: student.roll_number,
+        guardian_name: student.guardian_name,
+        class_name: this.programs.find(p => p.id === student.program_id)?.name,
+        batch_name: this.batches.find(b => b.id === student.batch_id)?.name
+      },
+      rank: rank > 0 ? rank : 1,
+      total_students: Math.max(allEvals.length, 1)
+    };
   }
 }
 

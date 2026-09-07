@@ -668,3 +668,149 @@ export interface StudentLedgerEntry {
   running_balance: number;
   reference: string;
 }
+
+// =============================================================================
+// 9. PHASE 5: EXAMINATION BANK, EXCEL CHAPTER UPLOAD & HYBRID EVALUATION (MODULE 8)
+// =============================================================================
+
+export type ExamQuestionType = 'MCQ' | 'SHORT' | 'LONG';
+export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
+export type ExamStatus = 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'GRADED';
+export type EvaluationStatus = 'ABSENT' | 'IN_PROGRESS' | 'GRADED';
+
+export interface McqOption {
+  key: string;                 // 'A' | 'B' | 'C' | 'D'
+  text: string;
+}
+
+export interface QuestionChapter {
+  id: string;
+  tenant_id: string;
+  program_id: string;
+  program_name?: string;
+  class_id?: string;
+  class_name?: string;
+  subject_id: string;
+  subject_name?: string;
+  chapter_number: number;
+  chapter_name: string;
+  question_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BankQuestion {
+  id: string;
+  tenant_id: string;
+  chapter_id?: string | null;
+  chapter_name?: string | null;
+  subject_id: string;
+  subject_name?: string | null;
+  question_type: ExamQuestionType;
+  question_text: string;
+  marks: number;
+  options?: McqOption[];
+  correct_option?: string | null;       // 'A', 'B', 'C', 'D' for MCQs
+  rubric_guide?: string | null;         // Guidance for Short/Long scoring
+  difficulty_level: QuestionDifficulty;
+  is_quiz_bank: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExamSectionLabels {
+  mcq: string;                 // e.g. "Q.1 (Objective MCQs)"
+  short: string;               // e.g. "Q.2 (Short Questions)"
+  long: string;                // e.g. "Q.3 (Long Questions)"
+}
+
+export interface Exam {
+  id: string;
+  tenant_id: string;
+  batch_id: string;
+  batch_name?: string;
+  subject_id: string;
+  subject_name?: string;
+  title: string;
+  exam_date: string;
+  duration_minutes: number;
+  total_marks: number;
+  mcq_count: number;
+  mcq_marks_per_q: number;
+  mcq_total_marks: number;
+  short_total_marks: number;
+  long_total_marks: number;
+  section_labels: ExamSectionLabels;
+  status: ExamStatus;
+  questions?: ExamQuestion[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExamQuestion {
+  id: string;
+  tenant_id: string;
+  exam_id: string;
+  question_id?: string | null;
+  section_type: ExamQuestionType;
+  display_order: number;
+  question_text: string;
+  marks: number;
+  options?: McqOption[];
+  correct_option?: string | null;
+  created_at: string;
+}
+
+export interface StudentExamEvaluation {
+  id: string;
+  tenant_id: string;
+  exam_id: string;
+  student_id: string;
+  student_name?: string;
+  roll_number?: string;
+  batch_name?: string;
+  mcq_answers: Record<string, string>;   // questionId -> chosenOptionKey ('A', 'B', etc.)
+  mcq_score: number;                     // 100% auto-calculated
+  short_score: number;                   // Manual entry
+  short_remarks?: string | null;         // Question-level feedback remark
+  long_score: number;                    // Manual entry
+  long_remarks?: string | null;          // Question-level feedback remark
+  total_obtained: number;                // mcq_score + short_score + long_score
+  percentage: number;
+  grade: string;                         // 'A*', 'A', 'B', 'C', 'D', 'E', 'F'
+  status: EvaluationStatus;
+  evaluated_by?: string | null;
+  evaluated_by_name?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExcelQuestionImportRow {
+  chapter_number?: number;
+  chapter_name?: string;
+  question_type: ExamQuestionType;
+  question_text: string;
+  marks?: number;
+  option_a?: string;
+  option_b?: string;
+  option_c?: string;
+  option_d?: string;
+  correct_option?: string;
+  rubric_guide?: string;
+  difficulty_level?: QuestionDifficulty;
+}
+
+export interface StudentOfficialReportCard {
+  exam: Exam;
+  evaluation: StudentExamEvaluation;
+  student: {
+    id: string;
+    full_name: string;
+    roll_number: string;
+    guardian_name: string;
+    class_name?: string;
+    batch_name?: string;
+  };
+  rank?: number;
+  total_students?: number;
+}
