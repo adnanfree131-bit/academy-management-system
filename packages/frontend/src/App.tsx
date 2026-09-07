@@ -1,0 +1,75 @@
+import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { LoginModal } from './components/LoginModal';
+import { Sidebar } from './components/Sidebar';
+import { Header } from './components/Header';
+import { DashboardView } from './views/DashboardView';
+import { GenericModuleView } from './views/GenericModuleView';
+
+const titleMap: Record<string, string> = {
+  dashboard: 'Executive Dashboard',
+  attendance: 'Student Attendance Desk',
+  absentee: 'Absence Follow-Up & Retention Desk',
+  enrollment: 'Student Admissions & SIS',
+  voucher: 'Fee Invoices & Vouchers',
+  payroll: 'Staff Payroll & Salaries',
+  mobile: 'Native Mobile Experience (PWA Parity)',
+};
+
+const MainLayout: React.FC = () => {
+  const { user, isLoading } = useAuth();
+  const [currentScreen, setCurrentScreen] = useState<string>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-xs font-mono text-slate-400">Loading Apex ERP Session...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginModal />;
+  }
+
+  return (
+    <div className="min-h-screen flex bg-slate-50">
+      <Sidebar
+        currentScreen={currentScreen}
+        onSelectScreen={setCurrentScreen}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
+
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        <Header
+          currentScreenTitle={titleMap[currentScreen] || 'Dashboard'}
+          onOpenSidebar={() => setSidebarOpen(true)}
+          onNewAdmission={() => setCurrentScreen('enrollment')}
+        />
+
+        <main className="flex-1 p-4 sm:p-6 w-full space-y-5 overflow-y-auto">
+          {currentScreen === 'dashboard' ? (
+            <DashboardView onNavigate={setCurrentScreen} />
+          ) : (
+            <GenericModuleView moduleId={currentScreen} />
+          )}
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export function App() {
+  return (
+    <AuthProvider>
+      <MainLayout />
+    </AuthProvider>
+  );
+}
+
+export default App;

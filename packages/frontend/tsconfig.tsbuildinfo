@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/components/Header.tsx","./src/components/LoginModal.tsx","./src/components/Sidebar.tsx","./src/context/AuthContext.tsx","./src/views/DashboardView.tsx","./src/views/GenericModuleView.tsx"],"version":"5.9.3"}

@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apex Academy ERP — Stripe Institutional Modern & Native Mobile Suite</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Inter, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    .tnum { font-feature-settings: 'tnum' on, 'cv02' on, 'cv03' on, 'cv04' on; }
+    
+    /* Native Mobile Simulator Styles */
+    .mobile-frame {
+      width: 390px;
+      height: 800px;
+      border-radius: 44px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.4), 0 0 0 12px #1e293b, 0 0 0 14px #0f172a;
+    }
+
+    @media print {
+      body { background: white !important; color: black !important; }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen selection:bg-indigo-100 selection:text-indigo-900">
+
+  <!-- ================================================================= -->
+  <!-- TOP PERSISTENT SHOWROOM BAR: 4 DEMO OPTIONS (USER REQUESTED)      -->
+  <!-- ================================================================= -->
+  <div class="min-h-screen flex bg-slate-50">
+
+    <!-- ================================================================= -->
+    <!-- FINALIZED FLOATING INSET CARD SIDEBAR (ENTERPRISE ERP STANDARD)  -->
+    <!-- ================================================================= -->
+    <div id="app-sidebar-container" class="no-print flex-shrink-0 z-40 fixed md:sticky top-0 h-screen p-3 pr-0 flex flex-col justify-start transition-all duration-300 -translate-x-full md:translate-x-0">
+      <aside class="w-64 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex flex-col justify-between h-[calc(100vh-1.5rem)]">
+        
+        <div class="space-y-4 overflow-y-auto">
+          <!-- Institutional Brand Header (No Toy Traffic Lights) -->
+          <div class="border-b border-slate-100 pb-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-indigo-600 text-white font-bold font-mono flex items-center justify-center text-sm shadow-xs">
+                  Æ
+                </div>
+                <div>
+                  <span class="font-extrabold text-sm text-slate-900 tracking-tight block leading-tight">Apex Academy</span>
+                  <span class="text-[10px] font-mono text-slate-500 font-medium">Enterprise ERP</span>
+                </div>
+              </div>
+              <button onclick="toggleSidebar()" class="md:hidden text-slate-400 hover:text-slate-700 p-1">
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+            </div>
+            
+            <div class="mt-2.5 pt-2 border-t border-slate-100/80 flex items-center justify-between text-[11px] text-slate-500">
+              <span class="flex items-center gap-1"><i data-lucide="building-2" class="w-3 h-3 text-slate-400"></i> Gulberg III Campus</span>
+              <span class="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-semibold">2026-27</span>
+            </div>
+          </div>
+
+          <!-- Quick Jump Search -->
+          <div class="relative">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+            <input type="text" placeholder="Jump to module... (⌘K)" class="w-full pl-8 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all">
+          </div>
+
+          <!-- Real Institutional Menu Navigation -->
+          <nav class="space-y-4 text-xs">
+            
+            <!-- Section 1: Academic & Students -->
+            <div>
+              <p class="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">Academics & Operations</p>
+              <div class="space-y-1">
+                <button onclick="switchScreen('dashboard')" id="nav-dashboard" class="nav-desk-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-bold text-white bg-slate-900 shadow-xs transition-all">
+                  <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                  <span>Executive Dashboard</span>
+                </button>
+
+                <button onclick="switchScreen('attendance')" id="nav-attendance" class="nav-desk-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all">
+                  <i data-lucide="check-square" class="w-4 h-4 text-slate-400"></i>
+                  <span>Student Attendance Desk</span>
+                </button>
+
+                <button onclick="switchScreen('absentee')" id="nav-absentee" class="nav-desk-btn w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all">
+                  <div class="flex items-center gap-2.5">
+                    <i data-lucide="phone-forwarded" class="w-4 h-4 text-slate-400"></i>
+                    <span>Absence Follow-Up & Retention</span>
+                  </div>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200 font-mono">28</span>
+                </button>
+
+                <button onclick="switchScreen('enrollment')" id="nav-enrollment" class="nav-desk-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all">
+                  <i data-lucide="user-plus" class="w-4 h-4 text-slate-400"></i>
+                  <span>Student Admissions & SIS</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Section 2: Finance & Payroll -->
+            <div>
+              <p class="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">Finance & Administration</p>
+              <div class="space-y-1">
+                <button onclick="switchScreen('voucher')" id="nav-voucher" class="nav-desk-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all">
+                  <i data-lucide="printer" class="w-4 h-4 text-slate-400"></i>
+                  <span>Fee Invoices & Vouchers</span>
+                </button>
+
+                <button onclick="switchScreen('payroll')" id="nav-payroll" class="nav-desk-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all">
+                  <i data-lucide="wallet" class="w-4 h-4 text-slate-400"></i>
+                  <span>Staff Payroll & Salaries</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Section 3: Mobile Experience -->
+            <div>
+              <p class="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">Omnichannel Access</p>
+              <div class="space-y-1">
+                <button onclick="switchScreen('mobile')" id="nav-mobile" class="nav-desk-btn w-full flex items-center justify-between px-3 py-2 rounded-xl font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-all">
+                  <div class="flex items-center gap-2.5">
+                    <i data-lucide="smartphone" class="w-4 h-4"></i>
+                    <span>Mobile Web App (PWA)</span>
+                  </div>
+                  <span class="text-[9px] bg-emerald-600 text-white px-1.5 py-0.5 rounded-md font-mono font-bold">NATIVE</span>
+                </button>
+              </div>
+            </div>
+
+          </nav>
+        </div>
+
+        <!-- Institutional Operator Card -->
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-slate-900 text-white font-mono text-xs font-bold flex items-center justify-center shadow-2xs">
+              AD
+            </div>
+            <div>
+              <p class="text-xs font-bold text-slate-900 leading-tight">Director Adnan</p>
+              <p class="text-[10px] text-slate-400 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Super Admin
+              </p>
+            </div>
+          </div>
+          <button title="Sign Out" class="text-slate-400 hover:text-slate-700 p-1 rounded-md hover:bg-slate-100 transition-colors">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+      </aside>
+    </div>
+
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="sidebar-backdrop" onclick="toggleSidebar()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-30 hidden md:hidden"></div>
+
+    <!-- ================================================================= -->
+    <!-- MAIN WORKSPACE & TOP HEADER                                       -->
+    <!-- ================================================================= -->
+    <div class="flex-1 flex flex-col min-w-0 min-h-screen">
+
+      <!-- Top Status Bar -->
+      <header class="no-print bg-white border-b border-slate-200/90 h-16 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 shadow-xs">
+        <div class="flex items-center gap-3">
+          <button onclick="toggleSidebar()" class="md:hidden text-slate-600 hover:text-slate-900 p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100">
+            <i data-lucide="menu" class="w-5 h-5"></i>
+          </button>
+          <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+              <span class="font-semibold text-slate-900">Apex Academy ERP</span>
+              <span>/</span>
+              <span id="breadcrumb-title" class="font-medium text-slate-600">Executive Dashboard</span>
+            </div>
+            <p class="text-[11px] text-slate-400 hidden sm:block">Campus: Gulberg III • Academic Session 2026-27</p>
+          </div>
+        </div>
+
+        <!-- Quick Search & Actions -->
+        <div class="flex items-center gap-3">
+          <div class="relative hidden sm:block w-64 lg:w-80">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5"></i>
+            <input type="text" placeholder="Search student, fee voucher, batch... (⌘K)" class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white transition-all">
+          </div>
+
+          <button class="relative p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors" title="Notifications">
+            <i data-lucide="bell" class="w-4 h-4"></i>
+            <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white"></span>
+          </button>
+
+          <button onclick="switchScreen('enrollment')" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center gap-1.5 transition-colors">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">New Admission</span>
+          </button>
+        </div>
+      </header>
+
+    <!-- Scrollable Main Content -->
+    <main class="flex-1 p-4 sm:p-6 w-full space-y-5 overflow-y-auto">
+
+    <!-- ############################################################### -->
+    <!-- SCREEN 1: THE ACADEMY MAIN DASHBOARD (REQUESTED)                -->
+    <!-- ############################################################### -->
+    <section id="screen-dashboard" class="screen-view block space-y-5">
+      
+      <!-- Welcome Header & Daily Operational Pulse -->
+      <div class="bg-white border border-slate-200/90 rounded-xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-bold text-slate-900 tracking-tight">Good morning, Director Adnan</h2>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Academy Live
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Monday, September 07, 2026 • Academic Week 14 • 8 Batches in Session</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 text-xs">
+          <button onclick="switchScreen('attendance')" class="px-3 py-1.5 font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors shadow-xs flex items-center gap-1.5">
+            <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Take Batch Attendance
+          </button>
+          <button onclick="switchScreen('voucher')" class="px-3 py-1.5 font-semibold rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors shadow-xs flex items-center gap-1.5">
+            <i data-lucide="receipt" class="w-3.5 h-3.5"></i> Collect Fee
+          </button>
+          <button onclick="switchScreen('absentee')" class="px-3 py-1.5 font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors flex items-center gap-1.5">
+            <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> WhatsApp Absent Desk
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 Core Executive Metric Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Card 1: Students -->
+        <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all">
+          <div class="flex items-center justify-between text-slate-500">
+            <span class="text-[11px] font-semibold uppercase tracking-wider">Total Enrolled</span>
+            <i data-lucide="users" class="w-4 h-4 text-slate-400"></i>
+          </div>
+          <div class="text-2xl font-mono font-bold text-slate-900 mt-2 tnum">428</div>
+          <div class="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-600 font-medium">
+            <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>
+            <span>+14 this week across 8 batches</span>
+          </div>
+        </div>
+
+        <!-- Card 2: Attendance -->
+        <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all">
+          <div class="flex items-center justify-between text-slate-500">
+            <span class="text-[11px] font-semibold uppercase tracking-wider">Today's Attendance</span>
+            <i data-lucide="user-check" class="w-4 h-4 text-emerald-600"></i>
+          </div>
+          <div class="text-2xl font-mono font-bold text-emerald-600 mt-2 tnum">94.2%</div>
+          <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+            <div class="bg-emerald-500 h-1.5 rounded-full" style="width: 94.2%"></div>
+          </div>
+          <div class="flex items-center justify-between mt-2 text-[11px] text-slate-500 font-mono">
+            <span>403 Present</span>
+            <span class="text-rose-600 font-bold">25 Absent</span>
+          </div>
+        </div>
+
+        <!-- Card 3: Fee Revenue -->
+        <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all">
+          <div class="flex items-center justify-between text-slate-500">
+            <span class="text-[11px] font-semibold uppercase tracking-wider">September Fee Realized</span>
+            <i data-lucide="dollar-sign" class="w-4 h-4 text-blue-600"></i>
+          </div>
+          <div class="text-2xl font-mono font-bold text-slate-900 mt-2 tnum">$28,450</div>
+          <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+            <div class="bg-blue-600 h-1.5 rounded-full" style="width: 78%"></div>
+          </div>
+          <div class="flex items-center justify-between mt-2 text-[11px] text-slate-500 font-mono">
+            <span>78% of $36.5k Target</span>
+            <span class="text-rose-600 font-bold">$8,050 Arrears</span>
+          </div>
+        </div>
+
+        <!-- Card 4: Faculty Presence -->
+        <div class="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs hover:border-slate-300 transition-all">
+          <div class="flex items-center justify-between text-slate-500">
+            <span class="text-[11px] font-semibold uppercase tracking-wider">Faculty On Campus</span>
+            <i data-lucide="map-pin" class="w-4 h-4 text-purple-600"></i>
+          </div>
+          <div class="text-2xl font-mono font-bold text-slate-900 mt-2 tnum">24 <span class="text-sm text-slate-400 font-normal">/ 26</span></div>
+          <div class="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-700 font-medium">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span>GPS Geofence: 24 Inside (Radius &lt; 50m)</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 2-Column Operational Grid: Priority Triage & Real-Time Schedule -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        <!-- LEFT 8 COLS: Live Morning Operational Triage -->
+        <div class="lg:col-span-8 space-y-5">
+          
+          <!-- Batch Attendance Progress Matrix -->
+          <div class="bg-white border border-slate-200/90 rounded-xl shadow-xs overflow-hidden">
+            <div class="p-4 border-b border-slate-200/80 flex items-center justify-between">
+              <div>
+                <h3 class="font-bold text-xs text-slate-900 uppercase tracking-wider">Morning Batch Attendance Triage</h3>
+                <p class="text-[11px] text-slate-500 mt-0.5">Faculty check-ins & period attendance status</p>
+              </div>
+              <button onclick="switchScreen('attendance')" class="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1">
+                View Full Roster <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+
+            <div class="divide-y divide-slate-100 text-xs">
+              
+              <div class="p-3.5 flex items-center justify-between hover:bg-slate-50/60 transition-colors">
+                <div class="flex items-center gap-3">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <div>
+                    <span class="font-bold text-slate-900">Grade 10 — Batch A (Pre-Medical)</span>
+                    <span class="text-slate-400 block text-[11px]">Room 101 • Prof. Hamza Qureshi</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-4">
+                  <span class="font-mono text-[11px] text-slate-600">08:00 - 09:30 AM</span>
+                  <span class="px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    29 / 32 Present
+                  </span>
+                  <button onclick="switchScreen('attendance')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px]">
+                    Inspect
+                  </button>
+                </div>
+              </div>
+
+              <div class="p-3.5 flex items-center justify-between hover:bg-slate-50/60 transition-colors">
+                <div class="flex items-center gap-3">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  <div>
+                    <span class="font-bold text-slate-900">Grade 10 — Batch B (Pre-Engineering)</span>
+                    <span class="text-slate-400 block text-[11px]">Room 102 • Engr. Daniyal Khan</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-4">
+                  <span class="font-mono text-[11px] text-slate-600">08:00 - 09:30 AM</span>
+                  <span class="px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    34 / 35 Present
+                  </span>
+                  <button onclick="switchScreen('attendance')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-[11px]">
+                    Inspect
+                  </button>
+                </div>
+              </div>
+
+              <div class="p-3.5 flex items-center justify-between hover:bg-slate-50/60 transition-colors bg-amber-50/20">
+                <div class="flex items-center gap-3">
+                  <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                  <div>
+                    <span class="font-bold text-slate-900">Grade 9 — Batch A (Matric Science)</span>
+                    <span class="text-slate-400 block text-[11px]">Room 103 • Dr. Sarah Farooq</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-4">
+                  <span class="font-mono text-[11px] text-slate-600">09:45 - 11:15 AM</span>
+                  <span class="px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                    Pending Teacher Submission
+                  </span>
+                  <button onclick="switchScreen('attendance')" class="px-2.5 py-1 rounded bg-blue-600 text-white font-semibold text-[11px]">
+                    Take Now
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Financial Flow & Recent Receipts Feed -->
+          <div class="bg-white border border-slate-200/90 rounded-xl shadow-xs p-4 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <h3 class="font-bold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="receipt" class="w-3.5 h-3.5 text-blue-600"></i>
+                Today's Realized Fee Collections
+              </h3>
+              <span class="text-[11px] font-mono text-emerald-700 font-bold">+$1,420 Collected Today</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              
+              <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/60 space-y-1">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-[10px] text-slate-400">#APX-2609-041</span>
+                  <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 rounded">Cash</span>
+                </div>
+                <div class="font-bold text-slate-900">Ahmed Khan (Roll 1001)</div>
+                <div class="flex items-center justify-between font-mono text-[11px]">
+                  <span class="text-slate-500">Tuition + Lab</span>
+                  <span class="font-bold text-slate-900">$180.00</span>
+                </div>
+              </div>
+
+              <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/60 space-y-1">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-[10px] text-slate-400">#APX-2609-042</span>
+                  <span class="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 rounded">Bank Wire</span>
+                </div>
+                <div class="font-bold text-slate-900">Sarah Malik (Roll 1045)</div>
+                <div class="flex items-center justify-between font-mono text-[11px]">
+                  <span class="text-slate-500">Tuition Full</span>
+                  <span class="font-bold text-slate-900">$150.00</span>
+                </div>
+              </div>
+
+              <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/60 space-y-1">
+                <div class="flex items-center justify-between">
+                  <span class="font-mono text-[10px] text-slate-400">#APX-2609-043</span>
+                  <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 rounded">Cash</span>
+                </div>
+                <div class="font-bold text-slate-900">Usman Tariq (Roll 1012)</div>
+                <div class="flex items-center justify-between font-mono text-[11px]">
+                  <span class="text-slate-500">Tuition + Arrears</span>
+                  <span class="font-bold text-slate-900">$210.00</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT 4 COLS: Urgent Action Feed & Absentee Follow-Up -->
+        <div class="lg:col-span-4 space-y-5">
+          
+          <!-- Absentee Follow-up Desk Mini Widget -->
+          <div class="bg-white border border-slate-200/90 rounded-xl shadow-xs p-4 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <h3 class="font-bold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="phone-call" class="w-3.5 h-3.5 text-rose-600"></i>
+                Critical Absentee Calls
+              </h3>
+              <span class="text-[10px] font-mono font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                7 Pending Calls
+              </span>
+            </div>
+
+            <!-- Follow-up Progress -->
+            <div>
+              <div class="flex justify-between text-[11px] text-slate-500 font-medium mb-1">
+                <span>Morning Call Desk:</span>
+                <span class="font-mono font-bold text-slate-900">18 / 25 Done (72%)</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+                <div class="bg-emerald-600 h-2 rounded-full" style="width: 72%"></div>
+              </div>
+            </div>
+
+            <!-- Urgent Call Rows -->
+            <div class="space-y-2 text-xs pt-1">
+              
+              <div class="p-3 rounded-lg border border-rose-200 bg-rose-50/20 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-slate-900">Zainab Fatima (Roll 1003)</span>
+                  <span class="text-[9px] font-bold font-mono bg-rose-600 text-white px-1.5 py-0.2 rounded">DAY 2 ABSENT</span>
+                </div>
+                <div class="text-[11px] text-slate-500 font-mono">
+                  Father: +92 300 9283102 (Default)
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button class="flex-1 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-semibold text-[11px] flex items-center justify-center gap-1 shadow-xs">
+                    <i data-lucide="message-circle" class="w-3 h-3"></i> WhatsApp
+                  </button>
+                  <button class="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded text-[11px]">
+                    Log Call
+                  </button>
+                </div>
+              </div>
+
+              <div class="p-3 rounded-lg border border-amber-200 bg-amber-50/20 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-slate-900">Danyal Aslam (Roll 908)</span>
+                  <span class="text-[9px] font-bold font-mono bg-amber-500 text-white px-1.5 py-0.2 rounded">DAY 1 ABSENT</span>
+                </div>
+                <div class="text-[11px] text-slate-500 font-mono">
+                  Mother: +92 321 8872199 (Backup)
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button class="flex-1 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-semibold text-[11px] flex items-center justify-center gap-1 shadow-xs">
+                    <i data-lucide="message-circle" class="w-3 h-3"></i> WhatsApp
+                  </button>
+                  <button class="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded text-[11px]">
+                    Log Call
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Academic Inquiries / New Admissions Queue -->
+          <div class="bg-white border border-slate-200/90 rounded-xl shadow-xs p-4 space-y-2.5">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 class="font-bold text-xs text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="help-circle" class="w-3.5 h-3.5 text-blue-600"></i>
+                Today's Academic Inquiries
+              </h3>
+              <span class="text-[10px] font-mono text-blue-600 font-bold">5 New Today</span>
+            </div>
+            
+            <div class="space-y-1.5 text-xs">
+              <div class="flex items-center justify-between p-2 rounded bg-slate-50 text-[11px]">
+                <div>
+                  <span class="font-bold text-slate-800">Mustafa Qasim</span>
+                  <span class="text-slate-400 block text-[10px]">Inquiry for Grade 11 Pre-Med</span>
+                </div>
+                <span class="text-blue-700 font-semibold cursor-pointer hover:underline">Admit ➔</span>
+              </div>
+              <div class="flex items-center justify-between p-2 rounded bg-slate-50 text-[11px]">
+                <div>
+                  <span class="font-bold text-slate-800">Ayesha Noor</span>
+                  <span class="text-slate-400 block text-[10px]">Inquiry for Grade 10 Matric</span>
+                </div>
+                <span class="text-blue-700 font-semibold cursor-pointer hover:underline">Admit ➔</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ############################################################### -->
+    <!-- SCREEN 7 (NEW): MODULE 17 - NATIVE MOBILE APP SIMULATOR         -->
+    <!-- ############################################################### -->
+    <section id="screen-mobile" class="screen-view hidden py-2 flex flex-col items-center justify-center space-y-4">
+      
+      <div class="text-center max-w-xl">
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+          Module 17: 100% Native-Feeling Mobile Engine
+        </span>
+        <h2 class="text-xl font-bold text-slate-900 mt-1">Native Mobile Experience Simulator</h2>
+        <p class="text-xs text-slate-500 mt-0.5">Edge-to-edge layout, bottom thumb tabs, bottom sheet drawers, zero elastic bounce, and 48px touch targets.</p>
+      </div>
+
+      <!-- Smartphone Device Frame Simulator -->
+      <div class="mobile-frame bg-slate-900 border-4 border-slate-800 flex flex-col overflow-hidden relative text-slate-800 font-sans shadow-2xl">
+        
+        <!-- Mobile Top Status Bar & Notch -->
+        <div class="bg-white pt-2.5 px-6 pb-1 flex items-center justify-between text-xs font-semibold text-slate-900 select-none flex-shrink-0">
+          <span>9:41</span>
+          <div class="w-24 h-4 bg-slate-900 rounded-full mx-auto"></div>
+          <div class="flex items-center gap-1 text-[10px]">
+            <i data-lucide="wifi" class="w-3 h-3"></i>
+            <i data-lucide="battery" class="w-3.5 h-3.5"></i>
+          </div>
+        </div>
+
+        <!-- Mobile App Top Bar -->
+        <div class="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between flex-shrink-0 shadow-xs">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-md bg-slate-900 text-white font-bold font-mono text-xs flex items-center justify-center">
+              Æ
+            </div>
+            <div>
+              <span class="font-bold text-xs text-slate-900 block leading-tight">Apex Academy</span>
+              <span class="text-[9px] text-slate-400 font-mono">Grade 10-A (Pre-Medical)</span>
+            </div>
+          </div>
+          <button class="w-7 h-7 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center">
+            <i data-lucide="bell" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- Scrollable Mobile Native Body -->
+        <div class="flex-1 overflow-y-auto bg-slate-50 p-4 space-y-3 select-none">
+          
+          <!-- Mobile Status Pill Banner -->
+          <div class="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-xs flex items-center justify-between">
+            <div>
+              <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Today's Attendance</span>
+              <div class="text-xl font-mono font-bold text-slate-900 mt-0.5">29 / 32 <span class="text-xs text-emerald-600 font-normal">Present</span></div>
+            </div>
+            <button class="px-3 py-1.5 bg-slate-900 text-white font-semibold text-[11px] rounded-xl shadow-xs">
+              Take Roster
+            </button>
+          </div>
+
+          <!-- Mobile Swipeable Student Action Cards -->
+          <div class="space-y-2">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1 block">Students (Tap to Toggle)</span>
+            
+            <!-- Mobile Card 1 -->
+            <div class="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between active:scale-[0.98] transition-transform">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-700 font-mono font-bold text-xs flex items-center justify-center">
+                  AK
+                </div>
+                <div>
+                  <span class="font-bold text-xs text-slate-900 block">Ahmed Khan</span>
+                  <span class="text-[10px] text-slate-400 font-mono">Roll: 1001</span>
+                </div>
+              </div>
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Present ✓
+              </span>
+            </div>
+
+            <!-- Mobile Card 2: Late -->
+            <div class="bg-white p-3 rounded-2xl border border-amber-200 shadow-xs flex items-center justify-between active:scale-[0.98] transition-transform bg-amber-50/20">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-700 font-mono font-bold text-xs flex items-center justify-center">
+                  BM
+                </div>
+                <div>
+                  <span class="font-bold text-xs text-slate-900 block">Bilal Malik</span>
+                  <span class="text-[10px] text-amber-700 font-mono">Late (+12m)</span>
+                </div>
+              </div>
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                Late
+              </span>
+            </div>
+
+            <!-- Mobile Card 3: Absent (With 1-Tap WhatsApp) -->
+            <div class="bg-white p-3 rounded-2xl border border-rose-200 shadow-xs space-y-2 bg-rose-50/20">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded-full bg-rose-100 text-rose-700 font-mono font-bold text-xs flex items-center justify-center">
+                    ZF
+                  </div>
+                  <div>
+                    <span class="font-bold text-xs text-slate-900 block">Zainab Fatima</span>
+                    <span class="text-[10px] text-rose-600 font-bold font-mono">⚠️ 2nd Day Absent</span>
+                  </div>
+                </div>
+                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-600 text-white">
+                  Absent
+                </span>
+              </div>
+              <button class="w-full py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-semibold flex items-center justify-center gap-1.5 shadow-xs">
+                <i data-lucide="message-circle" class="w-3.5 h-3.5"></i> Open WhatsApp Chat
+              </button>
+            </div>
+
+          </div>
+
+          <!-- Bottom Sheet Preview -->
+          <div class="bg-white p-3 rounded-2xl border border-slate-200 text-center space-y-1">
+            <span class="text-[10px] font-bold uppercase text-slate-400">Mobile Action Sheet</span>
+            <p class="text-[11px] text-slate-600">Slide-up bottom sheets replace all desktop modals on phones.</p>
+          </div>
+
+        </div>
+
+        <!-- Native Bottom Tab Bar (Pinned) -->
+        <nav class="bg-white/95 backdrop-blur border-t border-slate-200 px-4 py-2 flex items-center justify-around text-center select-none flex-shrink-0 shadow-lg">
+          <button class="flex flex-col items-center gap-0.5 text-blue-600">
+            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+            <span class="text-[9px] font-bold">Home</span>
+          </button>
+          <button class="flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-600">
+            <i data-lucide="check-square" class="w-4 h-4"></i>
+            <span class="text-[9px] font-medium">Attend</span>
+          </button>
+          <button class="flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-600 relative">
+            <i data-lucide="receipt" class="w-4 h-4"></i>
+            <span class="text-[9px] font-medium">Fees</span>
+            <span class="absolute -top-1 right-1 w-2 h-2 rounded-full bg-rose-500"></span>
+          </button>
+          <button class="flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-600">
+            <i data-lucide="message-circle" class="w-4 h-4"></i>
+            <span class="text-[9px] font-medium">Alerts</span>
+          </button>
+          <button class="flex flex-col items-center gap-0.5 text-slate-400 hover:text-slate-600">
+            <i data-lucide="user" class="w-4 h-4"></i>
+            <span class="text-[9px] font-medium">Profile</span>
+          </button>
+        </nav>
+
+        <!-- Android Home Pill Indicator -->
+        <div class="bg-white pb-1 flex justify-center">
+          <div class="w-32 h-1 bg-slate-300 rounded-full"></div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ############################################################### -->
+    <!-- SCREEN 2: 15-SEC ATTENDANCE DESK                                -->
+    <!-- ############################################################### -->
+    <section id="screen-attendance" class="screen-view hidden space-y-4">
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Daily Batch Attendance Desk</h2>
+          <p class="text-xs text-slate-500">Grade 10 — Batch A (Pre-Medical) • Expected: 32 Students</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="alert('All 32 marked present!')" class="px-3 py-1.5 text-xs font-semibold rounded bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300">
+            Mark All Present
+          </button>
+          <button class="px-4 py-1.5 text-xs font-semibold rounded bg-slate-900 text-white">
+            Submit Attendance (29/32)
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-50 border-b border-slate-200 text-[10px] font-semibold uppercase text-slate-500">
+            <tr>
+              <th class="p-3 w-16">Roll #</th>
+              <th class="p-3">Student Name</th>
+              <th class="p-3">Group</th>
+              <th class="p-3">Past 7 Days</th>
+              <th class="p-3 text-center w-56">Mark Status</th>
+              <th class="p-3">Remarks</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 font-medium">
+            <tr class="hover:bg-slate-50">
+              <td class="p-3 font-mono font-bold">1001</td>
+              <td class="p-3 font-semibold">Ahmed Khan <span class="block text-[10px] text-slate-400 font-normal">Tariq Khan</span></td>
+              <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-mono bg-blue-50 text-blue-700">Pre-Med</span></td>
+              <td class="p-3 font-mono text-emerald-600 font-bold">● ● ● ● ● ● ●</td>
+              <td class="p-3 text-center">
+                <div class="inline-flex rounded border border-slate-200 p-0.5 bg-slate-50">
+                  <button class="px-3 py-1 text-xs font-semibold rounded bg-emerald-600 text-white">Present</button>
+                  <button class="px-3 py-1 text-xs text-slate-600 hover:text-slate-900">Late</button>
+                  <button class="px-3 py-1 text-xs text-slate-600 hover:text-rose-600">Absent</button>
+                </div>
+              </td>
+              <td class="p-3"><input type="text" placeholder="Add note..." class="w-full text-xs px-2 py-1 rounded border border-slate-200"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ############################################################### -->
+    <!-- SCREEN 3: SIDE-BY-SIDE PAYROLL DESK                             -->
+    <!-- ############################################################### -->
+    <section id="screen-payroll" class="screen-view hidden space-y-4">
+      <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex items-center justify-between">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Side-by-Side Staff Payroll Review</h2>
+          <p class="text-xs text-slate-500">Prof. Hamza Qureshi • Base: $1,800.00 / mo</p>
+        </div>
+        <button class="px-4 py-1.5 text-xs font-semibold rounded bg-emerald-700 text-white">
+          Process & Lock Pay Slip
+        </button>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div class="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-4 space-y-2">
+          <h3 class="text-xs font-bold uppercase border-b pb-2">August 2026 Attendance Facts (GPS)</h3>
+          <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+            <div class="p-2 bg-slate-50 rounded">Working Days: <strong>26</strong></div>
+            <div class="p-2 bg-emerald-50 text-emerald-800 rounded">Present: <strong>23</strong></div>
+            <div class="p-2 bg-amber-50 text-amber-800 rounded">Lates: <strong>3</strong></div>
+            <div class="p-2 bg-rose-50 text-rose-800 rounded">Absents: <strong>2</strong></div>
+          </div>
+        </div>
+        <div class="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-4 space-y-3">
+          <h3 class="text-xs font-bold uppercase border-b pb-2">Dynamic Heads & Multiplier</h3>
+          <div class="p-2 bg-slate-50 rounded border flex justify-between text-xs">
+            <span>Extra Lectures (4 × $30)</span>
+            <span class="font-mono font-bold text-emerald-700">+$120.00</span>
+          </div>
+          <div class="p-2 bg-slate-50 rounded border flex justify-between text-xs">
+            <span>Late Penalty (3 × $15)</span>
+            <span class="font-mono font-bold text-rose-700">-$45.00</span>
+          </div>
+          <div class="p-3 bg-slate-900 text-white rounded-lg flex justify-between font-mono">
+            <span>Net Payable:</span>
+            <span class="text-xl font-bold text-emerald-400">$1,736.54</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ############################################################### -->
+    <!-- SCREEN 4: 3-SLIP FEE VOUCHER                                    -->
+    <!-- ############################################################### -->
+    <section id="screen-voucher" class="screen-view hidden space-y-4">
+      <div class="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between">
+        <h2 class="text-base font-bold text-slate-900">Paper-Saver 3-Slip Vertical A4 Voucher</h2>
+        <button onclick="window.print()" class="px-4 py-1.5 text-xs font-semibold rounded bg-slate-900 text-white flex items-center gap-1.5">
+          <i data-lucide="printer" class="w-3.5 h-3.5"></i> Print to PDF
+        </button>
+      </div>
+      <div class="max-w-3xl mx-auto bg-white border border-slate-300 p-6 rounded space-y-4 text-xs">
+        <div class="border border-slate-300 p-3 rounded">
+          <div class="flex justify-between font-bold border-b pb-1"><span>APEX ACADEMY — ACADEMY COPY</span> <span class="font-mono">APX-0042</span></div>
+          <div class="py-1">Student: <strong>Hamza Ali</strong> (Roll 1042) • Sep 2026 Fee: $180.00</div>
+        </div>
+        <div class="border-t border-dashed border-slate-400 text-center font-mono text-[10px] text-slate-400">--- Fold / Cut Here ---</div>
+        <div class="border border-slate-300 p-3 rounded">
+          <div class="flex justify-between font-bold border-b pb-1 text-blue-800"><span>APEX ACADEMY — STUDENT COPY</span> <span class="font-mono">APX-0042</span></div>
+          <div class="py-1">Student: <strong>Hamza Ali</strong> (Roll 1042) • Sep 2026 Fee: $180.00</div>
+        </div>
+        <div class="border-t border-dashed border-slate-400 text-center font-mono text-[10px] text-slate-400">--- Fold / Cut Here ---</div>
+        <div class="border border-slate-300 p-3 rounded">
+          <div class="flex justify-between font-bold border-b pb-1 text-emerald-800"><span>APEX ACADEMY — BANK COPY</span> <span class="font-mono">APX-0042</span></div>
+          <div class="py-1">Student: <strong>Hamza Ali</strong> (Roll 1042) • Deposited: $180.00</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ############################################################### -->
+    <!-- SCREEN 5: ABSENTEE DESK                                         -->
+    <!-- ############################################################### -->
+    <section id="screen-absentee" class="screen-view hidden space-y-4">
+      <div class="bg-white border border-slate-200 rounded-xl p-4 flex items-center justify-between">
+        <h2 class="text-base font-bold text-slate-900">Absentee Follow-Up & WhatsApp Desk</h2>
+        <span class="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200">72% Completed</span>
+      </div>
+      <div class="bg-white border border-slate-200 rounded-xl p-4 space-y-2 text-xs">
+        <div class="flex items-center justify-between border-b pb-2">
+          <div>
+            <span class="font-bold text-slate-900">Zainab Fatima (Roll 1003)</span>
+            <span class="text-rose-600 font-bold ml-2">⚠️ 2nd Day Absent</span>
+          </div>
+          <button class="px-3 py-1 bg-emerald-600 text-white rounded font-semibold text-xs flex items-center gap-1">
+            <i data-lucide="message-circle" class="w-3 h-3"></i> WhatsApp
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ############################################################### -->
+    <!-- SCREEN 6: DYNAMIC ENROLLMENT FORM                               -->
+    <!-- ############################################################### -->
+    <section id="screen-enrollment" class="screen-view hidden space-y-4">
+      <div class="bg-white border border-slate-200 rounded-xl p-6 space-y-4 text-xs max-w-4xl mx-auto shadow-xs">
+        <h2 class="text-base font-bold text-slate-900 border-b pb-2">Dynamic Student Enrollment Form Builder</h2>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold mb-1">Target Class *</label>
+            <select class="w-full border rounded px-3 py-2 bg-white"><option>Grade 10 (Matric)</option></select>
+          </div>
+          <div>
+            <label class="block font-semibold mb-1">Subject Group (DB Attached) *</label>
+            <select class="w-full border rounded px-3 py-2 bg-white"><option>Pre-Medical (Bio + Chem + Physics)</option></select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block font-semibold mb-1">Primary WhatsApp * (Default)</label>
+            <input type="text" value="+92 300 9283102" class="w-full border rounded px-3 py-2 font-mono">
+          </div>
+          <div>
+            <label class="block font-semibold mb-1">Backup WhatsApp (Alternate)</label>
+            <input type="text" value="+92 321 8872199" class="w-full border rounded px-3 py-2 font-mono">
+          </div>
+        </div>
+        <button class="px-5 py-2 bg-slate-900 text-white font-semibold rounded">Save & Register Student</button>
+      </div>
+    </section>
+  </main>
+  </div>
+</div>
+
+
+  <!-- ================================================================= -->
+  <!-- JAVASCRIPT CONTROLLER: PRODUCTION SIDEBAR & SCREEN ROUTER         -->
+  <!-- ================================================================= -->
+  <script>
+    lucide.createIcons();
+
+    let currentScreen = 'dashboard';
+
+    const titles = {
+      'dashboard': 'Executive Dashboard',
+      'attendance': 'Student Attendance Desk',
+      'payroll': 'Staff Payroll & Salaries',
+      'voucher': 'Fee Invoices & Vouchers',
+      'absentee': 'Absence Follow-Up & Retention Desk',
+      'enrollment': 'Student Admissions & SIS',
+      'mobile': 'Native Mobile Experience (PWA Parity)'
+    };
+
+    function updateSidebarNav(screenId) {
+      const items = ['dashboard', 'attendance', 'absentee', 'enrollment', 'voucher', 'payroll', 'mobile'];
+      
+      items.forEach(id => {
+        const btn = document.getElementById('nav-' + id);
+        if (!btn) return;
+        const isActive = (id === screenId);
+
+        if (id === 'mobile') {
+          if (isActive) {
+            btn.className = 'nav-desk-btn w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold text-white bg-emerald-600 shadow-xs transition-all';
+          } else {
+            btn.className = 'nav-desk-btn w-full flex items-center justify-between px-3 py-2 rounded-xl font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-all';
+          }
+        } else if (id === 'absentee') {
+          if (isActive) {
+            btn.className = 'nav-desk-btn w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold text-white bg-slate-900 shadow-xs transition-all';
+          } else {
+            btn.className = 'nav-desk-btn w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all';
+          }
+        } else {
+          if (isActive) {
+            btn.className = 'nav-desk-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-bold text-white bg-slate-900 shadow-xs transition-all';
+          } else {
+            btn.className = 'nav-desk-btn w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all';
+          }
+        }
+      });
+    }
+
+    function switchScreen(screenId) {
+      currentScreen = screenId;
+      document.querySelectorAll('.screen-view').forEach(el => el.classList.add('hidden'));
+      
+      const active = document.getElementById('screen-' + screenId);
+      if (active) active.classList.remove('hidden');
+
+      const titleEl = document.getElementById('breadcrumb-title');
+      if (titleEl && titles[screenId]) {
+        titleEl.textContent = titles[screenId];
+      }
+
+      updateSidebarNav(screenId);
+      closeSidebar();
+      lucide.createIcons();
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('app-sidebar-container');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      if (!sidebar) return;
+      
+      sidebar.classList.toggle('-translate-x-full');
+      if (backdrop) {
+        backdrop.classList.toggle('hidden');
+      }
+    }
+
+    function closeSidebar() {
+      const sidebar = document.getElementById('app-sidebar-container');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      if (sidebar && window.innerWidth < 768) {
+        sidebar.classList.add('-translate-x-full');
+      }
+      if (backdrop) {
+        backdrop.classList.add('hidden');
+      }
+    }
+
+    // Initialize application on Dashboard
+    switchScreen('dashboard');
+  </script>
+
+</body>
+</html>

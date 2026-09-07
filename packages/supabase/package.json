@@ -1,0 +1,14 @@
+{
+  "name": "@apex/supabase",
+  "version": "1.0.0",
+  "description": "Database migrations, PostgreSQL RLS policies and isolation test suites",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.14",
+    "vitest": "^2.1.8",
+    "typescript": "^5.7.0"
+  }
+}

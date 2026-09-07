@@ -8,3 +8,15 @@
 # Node / cache
 node_modules/
 .tmp/
+dist/
+build/
+coverage/
+.turbo/
+
+# Environment secrets
+.env
+.env.local
+.env.*.local
+*.pem
+serviceAccountKey.json
+google-services.json

@@ -1,0 +1,15 @@
+{
+  "name": "@apex/shared-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types and DTO interfaces across backend and frontend",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b -w",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
