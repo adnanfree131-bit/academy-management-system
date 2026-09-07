@@ -13,10 +13,11 @@ build/
 coverage/
 .turbo/
 
-# Environment secrets
+# Environment secrets & test screenshots
 .env
 .env.local
 .env.*.local
 *.pem
 serviceAccountKey.json
 google-services.json
+*.png
