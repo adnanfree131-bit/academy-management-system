@@ -4,6 +4,7 @@ import { LoginModal } from './components/LoginModal';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardView } from './views/DashboardView';
+import { EnrollmentView } from './views/EnrollmentView';
 import { GenericModuleView } from './views/GenericModuleView';
 
 const titleMap: Record<string, string> = {
@@ -55,6 +56,8 @@ const MainLayout: React.FC = () => {
         <main className="flex-1 p-4 sm:p-6 w-full space-y-5 overflow-y-auto">
           {currentScreen === 'dashboard' ? (
             <DashboardView onNavigate={setCurrentScreen} />
+          ) : currentScreen === 'enrollment' ? (
+            <EnrollmentView />
           ) : (
             <GenericModuleView moduleId={currentScreen} />
           )}

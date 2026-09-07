@@ -5,6 +5,8 @@ import sensible from '@fastify/sensible';
 import { IDataStore, InMemoryDataStore } from './services/store.js';
 import { IMailerService, createMailerService } from './services/mailer.js';
 import { authRoutes } from './routes/auth.js';
+import { academicRoutes } from './routes/academic.js';
+import { sisRoutes } from './routes/sis.js';
 
 export interface AppOptions {
   store?: IDataStore;
@@ -59,5 +61,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   // Auth Routes
   await fastify.register(authRoutes(store, mailer), { prefix: '/api/v1/auth' });
 
+  // Academic & SIS Routes
+  await fastify.register(academicRoutes(store), { prefix: '/api/v1/academic' });
+  await fastify.register(sisRoutes(store), { prefix: '/api/v1/sis' });
+
   return fastify;
 }
+

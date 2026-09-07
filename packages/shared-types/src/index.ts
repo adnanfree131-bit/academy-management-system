@@ -161,3 +161,124 @@ export interface ApiResponse<T = unknown> {
   };
   timestamp: string;
 }
+
+// =============================================================================
+// 6. PHASE 2: ACADEMIC HIERARCHY & DYNAMIC ENROLLMENT (MODULES 2 & 3 & 5)
+// =============================================================================
+
+export interface AcademicProgram {
+  id: string;
+  tenant_id: string;
+  name: string;      // e.g. "Grade 10", "FSc Pre-Medical", "MDCAT Crash"
+  code: string;      // e.g. "G10", "FSC-MED", "MDCAT"
+  description?: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Subject {
+  id: string;
+  tenant_id: string;
+  name: string;      // e.g. "Physics", "Mathematics", "English"
+  code: string;      // e.g. "PHY-101", "MATH-201"
+  is_core: boolean;  // Standard core subject indicator
+  created_at: string;
+}
+
+export type SubjectGroupType = 'compulsory' | 'elective_track';
+
+export interface SubjectGroup {
+  id: string;
+  tenant_id: string;
+  program_id: string;
+  name: string;              // e.g. "Compulsory General", "Pre-Engineering Track"
+  type: SubjectGroupType;
+  subject_ids: string[];
+  created_at: string;
+}
+
+export interface Batch {
+  id: string;
+  tenant_id: string;
+  program_id: string;
+  name: string;              // e.g. "MDCAT Morning - Batch A"
+  shift: 'morning' | 'evening';
+  academic_session: string;  // e.g. "2026-2027"
+  max_capacity: number;      // e.g. 50
+  current_enrollment: number;
+  room_number?: string | null; // Nullable for Single-Room default setup
+  created_at: string;
+  updated_at: string;
+}
+
+export type CustomFieldType = 'text' | 'number' | 'select' | 'date' | 'checkbox';
+
+export interface CustomFieldDefinition {
+  id: string;
+  tenant_id: string;
+  entity_type: 'student' | 'inquiry';
+  field_key: string;         // e.g. "emergency_contact", "blood_group"
+  label: string;             // e.g. "Emergency Contact Number"
+  field_type: CustomFieldType;
+  options?: string[] | null; // For dropdown select options
+  is_required: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export type InquiryStage = 
+  | 'new' 
+  | 'follow_up' 
+  | 'trial_scheduled' 
+  | 'trial_attended' 
+  | 'fee_discussion' 
+  | 'admitted' 
+  | 'closed';
+
+export type InquiryPriority = 'high' | 'medium' | 'low';
+
+export interface StudentInquiry {
+  id: string;
+  tenant_id: string;
+  inquiry_number: string;
+  student_name: string;
+  phone: string;
+  email?: string | null;
+  guardian_name?: string | null;
+  guardian_phone?: string | null;
+  program_id?: string | null;
+  source: string;            // Walk-in, Website, Social Media, Recommendation
+  stage: InquiryStage;
+  priority: InquiryPriority;
+  notes?: string | null;
+  next_follow_up_date?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type StudentStatus = 'active' | 'on_leave' | 'suspended' | 'alumni' | 'withdrawn';
+
+export interface Student {
+  id: string;
+  tenant_id: string;
+  user_id?: string | null;
+  admission_number: string;  // Unique institutional admission no. e.g. "ADM-2026-0042"
+  roll_number: string;       // Dynamic batch roll no. e.g. "A-101"
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+  guardian_name: string;
+  guardian_phone: string;
+  guardian_whatsapp?: string | null;
+  photo_url?: string | null;
+  program_id: string;
+  batch_id: string;
+  elective_group_id?: string | null;
+  status: StudentStatus;
+  custom_field_values: Record<string, unknown>;
+  subjects: string[];        // Array of enrolled Subject UUIDs
+  admission_date: string;
+  created_at: string;
+  updated_at: string;
+}

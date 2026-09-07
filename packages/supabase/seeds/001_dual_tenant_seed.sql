@@ -42,3 +42,45 @@ VALUES
   ('b1000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000002', 'fatima@crescent.edu.pk', '+923214445566', 'Principal Fatima', 'tenant_admin', 'active'),
   ('b1000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000002', 'ayesha@crescent.edu.pk', '+923215556677', 'Miss Ayesha Biology', 'teacher', 'active')
 ON CONFLICT (id) DO NOTHING;
+
+-- =============================================================================
+-- PHASE 2 FIXTURES: ACADEMIC PROGRAMS, BATCHES, INQUIRIES & STUDENTS
+-- =============================================================================
+
+-- Tenant A Programs & Batches
+INSERT INTO programs (id, tenant_id, name, code, description)
+VALUES 
+  ('a2000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'MDCAT Comprehensive Prep', 'MDCAT-PREP', 'Medical college entry preparation')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO batches (id, tenant_id, program_id, name, shift, academic_session, max_capacity, room_number)
+VALUES 
+  ('a3000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'a2000000-0000-0000-0000-000000000001', 'MDCAT Morning - Batch A', 'morning', '2026-2027', 50, 'Hall 1')
+ON CONFLICT (id) DO NOTHING;
+
+-- Tenant A Inquiries & Students
+INSERT INTO student_inquiries (id, tenant_id, inquiry_number, student_name, phone, program_id, stage, priority)
+VALUES 
+  ('a4000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'INQ-2026-001', 'Prospective Hamza', '+923001234567', 'a2000000-0000-0000-0000-000000000001', 'follow_up', 'high')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO students (id, tenant_id, admission_number, roll_number, full_name, guardian_name, guardian_phone, program_id, batch_id, status)
+VALUES 
+  ('a5000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'ADM-2026-001', 'A-101', 'Muhammad Ali Raza', 'Raza Ahmed', '+923009876543', 'a2000000-0000-0000-0000-000000000001', 'a3000000-0000-0000-0000-000000000001', 'active')
+ON CONFLICT (id) DO NOTHING;
+
+-- Tenant B Programs, Batches & Students
+INSERT INTO programs (id, tenant_id, name, code, description)
+VALUES 
+  ('b2000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000002', 'O-Levels Science Track', 'O-SCI', 'Cambridge O-Levels sciences')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO batches (id, tenant_id, program_id, name, shift, academic_session, max_capacity)
+VALUES 
+  ('b3000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000002', 'b2000000-0000-0000-0000-000000000001', 'O-Levels Morning Section 1', 'morning', '2026-2027', 30)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO students (id, tenant_id, admission_number, roll_number, full_name, guardian_name, guardian_phone, program_id, batch_id, status)
+VALUES 
+  ('b5000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000002', 'ADM-2026-B01', 'B-101', 'Zoya Tariq', 'Tariq Mehmood', '+923219988776', 'b2000000-0000-0000-0000-000000000001', 'b3000000-0000-0000-0000-000000000001', 'active')
+ON CONFLICT (id) DO NOTHING;

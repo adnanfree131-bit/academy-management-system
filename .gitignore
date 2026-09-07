@@ -21,3 +21,4 @@ coverage/
 serviceAccountKey.json
 google-services.json
 *.png
+*.tsbuildinfo
