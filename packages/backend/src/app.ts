@@ -7,6 +7,11 @@ import { IMailerService, createMailerService } from './services/mailer.js';
 import { authRoutes } from './routes/auth.js';
 import { academicRoutes } from './routes/academic.js';
 import { sisRoutes } from './routes/sis.js';
+import { timetableRoutes } from './routes/timetable.js';
+import { attendanceRoutes } from './routes/attendance.js';
+import { geofenceRoutes } from './routes/geofence.js';
+import { homeworkRoutes } from './routes/homework.js';
+import { complaintsRoutes } from './routes/complaints.js';
 
 export interface AppOptions {
   store?: IDataStore;
@@ -64,6 +69,13 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   // Academic & SIS Routes
   await fastify.register(academicRoutes(store), { prefix: '/api/v1/academic' });
   await fastify.register(sisRoutes(store), { prefix: '/api/v1/sis' });
+
+  // Phase 3 Routes: Timetable, Attendance, Geofencing, Homework & Complaints
+  await fastify.register(timetableRoutes(store), { prefix: '/api/v1/timetable' });
+  await fastify.register(attendanceRoutes(store), { prefix: '/api/v1/attendance' });
+  await fastify.register(geofenceRoutes(store), { prefix: '/api/v1/geofence' });
+  await fastify.register(homeworkRoutes(store), { prefix: '/api/v1/homework' });
+  await fastify.register(complaintsRoutes(store), { prefix: '/api/v1/complaints' });
 
   return fastify;
 }

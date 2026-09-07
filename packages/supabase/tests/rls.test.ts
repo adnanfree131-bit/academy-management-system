@@ -22,7 +22,12 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
     const mig2Sql = fs.readFileSync(mig2Path, 'utf8');
     await db.exec(mig2Sql);
 
-    // 3. Execute Dual-Tenant Seed Fixture
+    // 3. Execute Migration 00003 (Timetable, Attendance, Geofencing, Homework)
+    const mig3Path = path.join(__dirname, '../migrations/00003_timetable_attendance_geofence_homework.sql');
+    const mig3Sql = fs.readFileSync(mig3Path, 'utf8');
+    await db.exec(mig3Sql);
+
+    // 4. Execute Dual-Tenant Seed Fixture
     const seedPath = path.join(__dirname, '../seeds/001_dual_tenant_seed.sql');
     const seedSql = fs.readFileSync(seedPath, 'utf8');
     await db.exec(seedSql);
@@ -171,6 +176,78 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
         ) VALUES (
           '${TENANT_B_ID}', 'INJECT-001', 'X-999', 'Spy Student', 'Guardian', '+923000000000',
           'b2000000-0000-0000-0000-000000000001', 'b3000000-0000-0000-0000-000000000001'
+        );
+      `)
+    ).rejects.toThrow(/new row violates row-level security policy/i);
+  });
+
+  it('Gate 9: Phase 3 - Timetable Slots & Rooms Tenant Isolation', async () => {
+    // Insert Room and Timetable slot for Tenant A
+    await db.exec(`SET app.current_tenant_id = '${TENANT_A_ID}';`);
+    await db.exec(`
+      INSERT INTO rooms (id, tenant_id, name, capacity)
+      VALUES ('a4000000-0000-0000-0000-000000000001', '${TENANT_A_ID}', 'Hall 1 - Apex', 60);
+    `);
+
+    const roomResA = await db.query<{ name: string }>('SELECT name FROM rooms');
+    expect(roomResA.rows.length).toBe(1);
+    expect(roomResA.rows[0].name).toBe('Hall 1 - Apex');
+
+    // Switch to Tenant B -> should see 0 rooms
+    await db.exec(`SET app.current_tenant_id = '${TENANT_B_ID}';`);
+    const roomResB = await db.query<{ name: string }>('SELECT name FROM rooms');
+    expect(roomResB.rows.length).toBe(0);
+  });
+
+  it('Gate 10: Phase 3 - Student Attendance & Staff Geofence Clock-in RLS', async () => {
+    // Tenant A configures geofence
+    await db.exec(`SET app.current_tenant_id = '${TENANT_A_ID}';`);
+    await db.exec(`
+      INSERT INTO campus_geofence_configs (tenant_id, campus_name, latitude, longitude, radius_meters)
+      VALUES ('${TENANT_A_ID}', 'Gulberg Main Campus', 31.5204000, 74.3587000, 100);
+    `);
+
+    const geoA = await db.query<{ campus_name: string }>('SELECT campus_name FROM campus_geofence_configs');
+    expect(geoA.rows.length).toBe(1);
+    expect(geoA.rows[0].campus_name).toBe('Gulberg Main Campus');
+
+    // Switch to Tenant B -> should see 0 geofence configs
+    await db.exec(`SET app.current_tenant_id = '${TENANT_B_ID}';`);
+    const geoB = await db.query<{ campus_name: string }>('SELECT campus_name FROM campus_geofence_configs');
+    expect(geoB.rows.length).toBe(0);
+  });
+
+  it('Gate 11: Phase 3 - Homework & Physical Notebook Check Tenant Isolation', async () => {
+    await db.exec(`SET app.current_tenant_id = '${TENANT_A_ID}';`);
+    await db.exec(`
+      INSERT INTO homework_assignments (id, tenant_id, batch_id, subject_id, teacher_id, title, description, due_date)
+      VALUES (
+        'a5000000-0000-0000-0000-000000000001', '${TENANT_A_ID}', 'a3000000-0000-0000-0000-000000000001',
+        'PHY-101', 'a1000000-0000-0000-0000-000000000002', 'Vectors & Kinematics Ex 2.1', 'Solve in notebook',
+        '2026-09-15'
+      );
+    `);
+
+    const hwA = await db.query<{ title: string }>('SELECT title FROM homework_assignments');
+    expect(hwA.rows.length).toBe(1);
+    expect(hwA.rows[0].title).toBe('Vectors & Kinematics Ex 2.1');
+
+    // Switch to Tenant B -> should see 0 assignments
+    await db.exec(`SET app.current_tenant_id = '${TENANT_B_ID}';`);
+    const hwB = await db.query<{ title: string }>('SELECT title FROM homework_assignments');
+    expect(hwB.rows.length).toBe(0);
+  });
+
+  it('Gate 12: Phase 3 - Cross-Tenant Attendance Injection blocked by RLS', async () => {
+    await db.exec(`SET app.current_tenant_id = '${TENANT_A_ID}';`);
+
+    // Infiltrator trying to insert staff attendance into Tenant B
+    await expect(
+      db.exec(`
+        INSERT INTO staff_attendance (
+          tenant_id, staff_id, date, clock_in_time, clock_in_lat, clock_in_lng, distance_meters, status
+        ) VALUES (
+          '${TENANT_B_ID}', 'b1000000-0000-0000-0000-000000000001', '2026-09-08', now(), 31.5204, 74.3587, 12.5, 'on_time'
         );
       `)
     ).rejects.toThrow(/new row violates row-level security policy/i);

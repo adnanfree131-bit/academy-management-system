@@ -5,13 +5,22 @@ import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardView } from './views/DashboardView';
 import { EnrollmentView } from './views/EnrollmentView';
+import { TimetableDesk } from './views/TimetableDesk';
+import { AttendanceDeskView } from './views/AttendanceDeskView';
+import { StaffClockInView } from './views/StaffClockInView';
+import { HomeworkDesk } from './views/HomeworkDesk';
+import { ComplaintsDeskView } from './views/ComplaintsDeskView';
 import { GenericModuleView } from './views/GenericModuleView';
 
 const titleMap: Record<string, string> = {
   dashboard: 'Executive Dashboard',
-  attendance: 'Student Attendance Desk',
+  timetable: 'Academic Timetable & Schedule Engine',
+  attendance: 'Student Attendance & Leave Desk',
+  geofence: 'Staff Attendance & GPS Geofencing',
+  homework: 'Homework Diary & Notebook Inspection',
   absentee: 'Absence Follow-Up & Retention Desk',
   enrollment: 'Student Admissions & SIS',
+  complaints: 'Complaints & Feedback Portal',
   voucher: 'Fee Invoices & Vouchers',
   payroll: 'Staff Payroll & Salaries',
   mobile: 'Native Mobile Experience (PWA Parity)',
@@ -56,8 +65,18 @@ const MainLayout: React.FC = () => {
         <main className="flex-1 p-4 sm:p-6 w-full space-y-5 overflow-y-auto">
           {currentScreen === 'dashboard' ? (
             <DashboardView onNavigate={setCurrentScreen} />
+          ) : currentScreen === 'timetable' ? (
+            <TimetableDesk />
+          ) : currentScreen === 'attendance' ? (
+            <AttendanceDeskView />
+          ) : currentScreen === 'geofence' ? (
+            <StaffClockInView />
+          ) : currentScreen === 'homework' ? (
+            <HomeworkDesk />
           ) : currentScreen === 'enrollment' ? (
             <EnrollmentView />
+          ) : currentScreen === 'complaints' ? (
+            <ComplaintsDeskView />
           ) : (
             <GenericModuleView moduleId={currentScreen} />
           )}

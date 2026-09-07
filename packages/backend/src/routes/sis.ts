@@ -131,7 +131,7 @@ export function sisRoutes(store: IDataStore) {
         program_id: z.string().uuid(),
         batch_id: z.string().uuid(),
         elective_group_id: z.string().optional().or(z.literal('')).transform(v => v || undefined),
-        status: z.enum(['active', 'suspended', 'graduated', 'withdrawn']).default('active'),
+        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn']).default('active'),
         custom_field_values: z.record(z.any()).default({}),
         subjects: z.array(z.string()).default([]),
       });

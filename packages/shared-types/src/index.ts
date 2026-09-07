@@ -80,6 +80,7 @@ export interface Permission {
 // =============================================================================
 export interface JWTPayload {
   sub: string;       // User UUID
+  user_id?: string;  // Convenient alias for user UUID
   tenant_id: string; // Tenant UUID
   email: string;
   role: UserRole;
@@ -279,6 +280,187 @@ export interface Student {
   custom_field_values: Record<string, unknown>;
   subjects: string[];        // Array of enrolled Subject UUIDs
   admission_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// =============================================================================
+// 7. PHASE 3: TIMETABLE, ATTENDANCE, GEOFENCING & HOMEWORK (MODULES 5, 6, 9, 13)
+// =============================================================================
+
+export interface Room {
+  id: string;
+  tenant_id: string;
+  name: string;              // e.g. "Hall 1", "Physics Lab", "Room 204"
+  capacity: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DayOfWeek = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
+export interface TimetableSlot {
+  id: string;
+  tenant_id: string;
+  batch_id: string;
+  subject_id: string;
+  teacher_id: string;
+  teacher_name?: string;     // Hydrated for display
+  batch_name?: string;       // Hydrated for display
+  subject_name?: string;     // Hydrated for display
+  room_id?: string | null;   // Nullable for Single-Room default setup
+  room_name?: string | null; // Hydrated for display
+  day_of_week: DayOfWeek;
+  start_time: string;        // e.g. "08:30"
+  end_time: string;          // e.g. "10:00"
+  substitute_teacher_id?: string | null;
+  substitute_teacher_name?: string | null;
+  is_cancelled?: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TimetableCollisionResult {
+  has_conflict: boolean;
+  conflict_type?: 'teacher_conflict' | 'batch_conflict' | 'room_conflict';
+  message?: string;
+  conflicting_slot?: TimetableSlot;
+}
+
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
+
+export interface StudentAttendanceRecord {
+  id: string;
+  tenant_id: string;
+  student_id: string;
+  student_name?: string;     // Hydrated
+  roll_number?: string;      // Hydrated
+  batch_id: string;
+  subject_id?: string | null; // Nullable for daily batch attendance
+  date: string;              // YYYY-MM-DD
+  status: AttendanceStatus;
+  marked_by?: string | null;
+  remarks?: string | null;
+  check_in_time?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BatchAttendanceSubmission {
+  batch_id: string;
+  date: string;
+  records: Array<{
+    student_id: string;
+    status: AttendanceStatus;
+    remarks?: string;
+  }>;
+}
+
+export type LeaveCategory = 'medical' | 'personal' | 'emergency';
+export type LeaveStatus = 'pending' | 'approved' | 'rejected';
+
+export interface LeaveApplication {
+  id: string;
+  tenant_id: string;
+  student_id: string;
+  student_name?: string;
+  batch_name?: string;
+  start_date: string;
+  end_date: string;
+  category: LeaveCategory;
+  reason: string;
+  status: LeaveStatus;
+  reviewed_by?: string | null;
+  review_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampusGeofenceConfig {
+  tenant_id: string;
+  campus_name: string;
+  latitude: number;
+  longitude: number;
+  radius_meters: number;
+  shift_start_time: string;   // e.g. "08:00:00"
+  grace_period_minutes: number;
+  multi_room_enabled: boolean; // Settings toggle for Multi-Room mode
+  created_at: string;
+  updated_at: string;
+}
+
+export type StaffAttendanceStatus = 'on_time' | 'late' | 'absent' | 'on_leave';
+
+export interface StaffAttendanceRecord {
+  id: string;
+  tenant_id: string;
+  staff_id: string;
+  staff_name: string;
+  date: string;              // YYYY-MM-DD
+  clock_in_time: string;     // ISO timestamp
+  clock_out_time?: string | null;
+  clock_in_lat: number;
+  clock_in_lng: number;
+  distance_meters: number;
+  status: StaffAttendanceStatus;
+  is_geofence_verified: boolean;
+  admin_adjusted?: boolean;
+  admin_adjustment_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface HomeworkAssignment {
+  id: string;
+  tenant_id: string;
+  batch_id: string;
+  batch_name?: string;
+  subject_id: string;
+  subject_name?: string;
+  teacher_id: string;
+  teacher_name?: string;
+  title: string;
+  description: string;
+  assigned_date: string;     // YYYY-MM-DD
+  due_date: string;          // YYYY-MM-DD
+  attachment_url?: string | null;
+  created_at: string;
+}
+
+export type NotebookStatus = 'done' | 'incomplete' | 'missing';
+
+export interface NotebookCheckRecord {
+  id: string;
+  tenant_id: string;
+  assignment_id: string;
+  student_id: string;
+  student_name?: string;
+  roll_number?: string;
+  status: NotebookStatus;
+  remarks?: string | null;
+  checked_by: string;
+  checked_at: string;
+}
+
+export type ComplaintCategory = 'teaching_quality' | 'facility' | 'fee_billing' | 'disciplinary' | 'general';
+export type ComplaintPriority = 'urgent' | 'high' | 'normal';
+export type ComplaintStatus = 'open' | 'under_investigation' | 'action_taken' | 'resolved';
+
+export interface ComplaintTicket {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  user_name?: string;
+  category: ComplaintCategory;
+  priority: ComplaintPriority;
+  subject: string;
+  description: string;
+  status: ComplaintStatus;
+  internal_notes?: string | null;
+  resolution_reply?: string | null;
+  resolved_by?: string | null;
+  resolved_at?: string | null;
   created_at: string;
   updated_at: string;
 }

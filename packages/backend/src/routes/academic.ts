@@ -20,9 +20,8 @@ export function academicRoutes(store: IDataStore) {
       const schema = z.object({
         name: z.string().min(1),
         code: z.string().min(1),
-        curriculum: z.string().min(1),
-        grade_level: z.string().min(1),
         description: z.string().optional(),
+        sort_order: z.number().int().default(1),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -54,8 +53,7 @@ export function academicRoutes(store: IDataStore) {
       const schema = z.object({
         name: z.string().min(1),
         code: z.string().min(1),
-        department: z.string().optional(),
-        is_active: z.boolean().default(true),
+        is_core: z.boolean().default(true),
       });
 
       const parseResult = schema.safeParse(request.body);

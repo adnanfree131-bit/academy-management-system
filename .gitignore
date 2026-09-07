@@ -1,13 +1,16 @@
 # Local compiled gstack binaries
 .agents/skills/gstack/browse/dist/browse
 .agents/skills/gstack/browse/dist/find-browse
+.agents/skills/gstack/browse/node_modules/
 .agents/skills/gstack/design/dist/design
 .agents/skills/gstack/make-pdf/dist/pdf
 .agents/skills/gstack/bin/gstack-global-discover
 
 # Node / cache
 node_modules/
-.tmp/
+**/node_modules/
+.agents/skills/gstack/browse/node_modules
+.agents/skills/gstack/browse/node_modules/
 dist/
 build/
 coverage/
