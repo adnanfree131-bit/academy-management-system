@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Menu, Search, Bell, Plus, Users, ChevronDown, Check } from 'lucide-react';
+import { Menu, Search, Bell, Plus, ChevronDown, LogOut, Shield } from 'lucide-react';
 
 interface HeaderProps {
   currentScreenTitle: string;
@@ -13,69 +13,9 @@ export const Header: React.FC<HeaderProps> = ({
   currentScreenTitle,
   onOpenSidebar,
   onNewAdmission,
-  onSwitchScreen,
 }) => {
-  const { user, tenant, switchDemoAccount } = useAuth();
-  const [roleMenuOpen, setRoleMenuOpen] = useState(false);
-  const [switching, setSwitching] = useState(false);
-
-  const demoAccounts = [
-    {
-      label: 'Adnan Rafiq (Administrator)',
-      email: 'adnan@apexacademy.edu.pk',
-      slug: 'apex',
-      badge: 'Admin',
-      screen: 'dashboard',
-      color: 'text-indigo-600',
-    },
-    {
-      label: 'Sir Tariq (Faculty)',
-      email: 'tariq@apexacademy.edu.pk',
-      slug: 'apex',
-      badge: 'Teacher',
-      screen: 'teacher',
-      color: 'text-emerald-600',
-    },
-    {
-      label: 'Muhammad Ali Raza (Student)',
-      email: 'student@apexacademy.edu.pk',
-      slug: 'apex',
-      badge: 'Student',
-      screen: 'student_portal',
-      color: 'text-sky-600',
-    },
-    {
-      label: 'Platform Super-Admin',
-      email: 'superadmin@apexacademyerp.com',
-      slug: 'apex',
-      badge: 'Super Admin',
-      screen: 'superadmin',
-      color: 'text-purple-600',
-    },
-    {
-      label: 'Crescent College (Expired License)',
-      email: 'admin@crescentcollege.edu.pk',
-      slug: 'crescent',
-      badge: 'Expired',
-      screen: 'dashboard',
-      color: 'text-rose-600',
-    },
-  ];
-
-  const handleSelectRole = async (acc: typeof demoAccounts[0]) => {
-    setSwitching(true);
-    setRoleMenuOpen(false);
-    try {
-      await switchDemoAccount(acc.email, acc.slug);
-      if (onSwitchScreen) {
-        onSwitchScreen(acc.screen);
-      }
-    } catch (err) {
-      console.error('Role switch failed:', err);
-    } finally {
-      setSwitching(false);
-    }
-  };
+  const { user, tenant, logout } = useAuth();
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   return (
     <header className="bg-white border-b border-slate-200/90 h-16 flex items-center justify-between px-4 sm:px-6 sticky top-0 z-30 shadow-xs">
@@ -93,65 +33,12 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="font-medium text-slate-600">{currentScreenTitle}</span>
           </div>
           <p className="text-[11px] text-slate-400 hidden sm:block">
-            Campus: {tenant?.campus_name || 'Gulberg III'} • Academic Session {tenant?.academic_session || '2026-27'}
+            Campus: {tenant?.campus_name || 'Main Campus'} • Academic Session {tenant?.academic_session || '2026-27'}
           </p>
         </div>
       </div>
 
       <div className="flex items-center gap-2.5">
-        {/* Quick Role Switcher Dropdown */}
-        <div className="relative">
-          <button
-            onClick={() => setRoleMenuOpen(!roleMenuOpen)}
-            disabled={switching}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200/80 transition-colors"
-            title="Switch Demo Role"
-          >
-            <Users className="w-3.5 h-3.5 text-indigo-600" />
-            <span className="hidden sm:inline font-mono text-[11px]">
-              {switching ? 'Switching...' : (user?.full_name?.includes('Physics') ? 'Sir Tariq' : user?.full_name?.includes('Director') ? 'Adnan Rafiq' : (user?.full_name || 'Adnan Rafiq'))}
-            </span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-indigo-50 text-indigo-700 font-mono">
-              {user?.role === 'tenant_admin' ? 'Admin' : user?.role?.replace('_', ' ') || 'Admin'}
-            </span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
-          </button>
-
-          {roleMenuOpen && (
-            <div className="absolute right-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-1">
-              <div className="px-3 py-1 border-b border-slate-100">
-                <p className="text-[10px] font-mono uppercase font-bold text-slate-400">Switch Demo Account</p>
-                <p className="text-[11px] text-slate-600">Preview system view for each role</p>
-              </div>
-              <div className="py-1">
-                {demoAccounts.map((acc) => {
-                  const isActive = user?.email.toLowerCase() === acc.email.toLowerCase();
-                  return (
-                    <button
-                      key={acc.email}
-                      onClick={() => handleSelectRole(acc)}
-                      className={`w-full text-left px-3 py-2 flex items-center justify-between hover:bg-slate-50 transition-colors ${
-                        isActive ? 'bg-indigo-50/60 font-semibold' : ''
-                      }`}
-                    >
-                      <div>
-                        <p className="text-xs text-slate-800 font-medium leading-tight">{acc.label}</p>
-                        <p className="text-[10px] font-mono text-slate-400">{acc.email}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border text-slate-700 bg-slate-50`}>
-                          {acc.badge}
-                        </span>
-                        {isActive && <Check className="w-3.5 h-3.5 text-indigo-600" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
         <div className="relative hidden lg:block w-52 xl:w-64">
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
           <input 
@@ -178,6 +65,48 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="hidden sm:inline">New Admission</span>
           </button>
         )}
+
+        {/* User Profile & Sign Out Menu */}
+        <div className="relative">
+          <button
+            onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 transition-colors"
+          >
+            <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-[11px]">
+              {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'A'}
+            </div>
+            <div className="hidden sm:block text-left">
+              <p className="font-semibold text-slate-900 leading-none text-xs">{user?.full_name || 'Administrator'}</p>
+              <p className="text-[10px] text-slate-500 leading-none mt-0.5">{user?.role === 'tenant_admin' ? 'Administrator' : user?.role || 'Staff'}</p>
+            </div>
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+          </button>
+
+          {profileMenuOpen && (
+            <div className="absolute right-0 mt-1.5 w-60 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1">
+              <div className="px-3.5 py-2 border-b border-slate-100">
+                <p className="text-xs font-bold text-slate-900 leading-tight">{user?.full_name || 'Administrator'}</p>
+                <p className="text-[11px] font-mono text-slate-500 truncate mt-0.5">{user?.email}</p>
+                <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-50 text-[10px] font-bold text-indigo-700 font-mono uppercase">
+                  <Shield className="w-3 h-3" />
+                  <span>{user?.role === 'tenant_admin' ? 'Tenant Administrator' : user?.role?.replace('_', ' ')}</span>
+                </div>
+              </div>
+              <div className="py-1">
+                <button
+                  onClick={() => {
+                    setProfileMenuOpen(false);
+                    logout();
+                  }}
+                  className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-xs text-rose-600 hover:bg-rose-50 font-semibold transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );
