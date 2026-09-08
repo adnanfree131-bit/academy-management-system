@@ -32,6 +32,29 @@ export interface TenantSettings {
   academic_session: string;
   campus_name: string;
   phone_country_code: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  bank_name?: string;
+  account_title?: string;
+  account_number?: string;
+  iban?: string;
+  branch_code?: string;
+  morning_shift_start?: string;
+  morning_shift_end?: string;
+  evening_shift_start?: string;
+  evening_shift_end?: string;
+  affiliation_number?: string;
+  liquidation_rules?: {
+    due_day?: number;
+    grace_days?: number;
+    late_fee_per_day?: number;
+    priority_order?: string[];
+  };
+  shifts?: {
+    morning?: { start?: string; end?: string };
+    evening?: { start?: string; end?: string };
+  };
   features: {
     mobile_pwa_enabled: boolean;
     whatsapp_rapid_queue: boolean;
@@ -167,13 +190,24 @@ export interface ApiResponse<T = unknown> {
 // 6. PHASE 2: ACADEMIC HIERARCHY & DYNAMIC ENROLLMENT (MODULES 2 & 3 & 5)
 // =============================================================================
 
+export interface FeeScheduleItem {
+  fee_head_id?: string;
+  head_name?: string;
+  fee_type?: string;
+  name?: string;
+  amount: number;
+  is_monthly?: boolean;
+  is_recurring?: boolean;
+}
+
 export interface AcademicProgram {
   id: string;
   tenant_id: string;
   name: string;      // e.g. "Grade 10", "FSc Pre-Medical", "MDCAT Crash"
-  code: string;      // e.g. "G10", "FSC-MED", "MDCAT"
+  code?: string | null; // Optional: e.g. "G10", "FSC-MED", "MDCAT"
   description?: string | null;
   sort_order: number;
+  fee_schedule?: FeeScheduleItem[];
   created_at: string;
   updated_at: string;
 }
@@ -209,6 +243,7 @@ export interface Batch {
   max_capacity: number;      // e.g. 50
   current_enrollment: number;
   room_number?: string | null; // Nullable for Single-Room default setup
+  fee_schedule?: FeeScheduleItem[];
   created_at: string;
   updated_at: string;
 }
@@ -279,6 +314,9 @@ export interface Student {
   status: StudentStatus;
   custom_field_values: Record<string, unknown>;
   subjects: string[];        // Array of enrolled Subject UUIDs
+  blood_group?: string | null;
+  fee_structure?: any;
+  first_invoice_id?: string | null;
   admission_date: string;
   created_at: string;
   updated_at: string;
@@ -502,7 +540,7 @@ export interface StudentFeeStructure {
   updated_at: string;
 }
 
-export type InvoiceStatus = 'unpaid' | 'partially_paid' | 'paid' | 'voided';
+export type InvoiceStatus = 'unpaid' | 'partially_paid' | 'paid' | 'voided' | 'PAID' | 'UNPAID' | 'PARTIAL' | 'OVERDUE' | 'VOID';
 
 export interface InvoiceItem {
   id: string;
@@ -530,13 +568,18 @@ export interface StudentInvoice {
   issue_date: string;          // YYYY-MM-DD
   due_date: string;            // YYYY-MM-DD
   subtotal_amount: number;
+  subtotal?: number;
   discount_amount: number;
+  discount_total?: number;
   net_amount: number;
+  net_total?: number;
   paid_amount: number;
   balance_amount: number;
+  balance_due?: number;
   status: InvoiceStatus;
   items: InvoiceItem[];
   notes?: string | null;
+  fine_amount?: number;
   created_at: string;
   updated_at: string;
 }
@@ -582,6 +625,43 @@ export interface FeeDiscount {
   mandatory_reason: string;    // Required audit remark
   approved_by: string;
   applied_at: string;
+}
+
+// =============================================================================
+// DYNAMIC OPERATIONAL INCOME & EXPENSE (ZERO HARDCODED HEADS)
+// =============================================================================
+
+export interface AccountHead {
+  id: string;
+  tenant_id: string;
+  type: 'income' | 'expense';
+  name: string;              // e.g. "Canteen Rent", "Building Rent", "Generator Fuel"
+  code: string;              // e.g. "INC-CANTEEN", "EXP-RENT"
+  description?: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export type FinancialPaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'online';
+
+export interface FinancialTransaction {
+  id: string;
+  tenant_id: string;
+  voucher_number: string;    // e.g. "VCH-EXP-2026-0001"
+  type: 'income' | 'expense';
+  account_head_id: string;
+  head_name: string;         // Denormalized snapshot
+  amount: number;
+  transaction_date: string;  // YYYY-MM-DD
+  date?: string;             // Convenient alias
+  payment_method: FinancialPaymentMethod;
+  reference_number?: string | null;
+  paid_to_or_received_from: string; // Vendor, payee, payer
+  payee_payer?: string;      // Convenient alias
+  description?: string | null;
+  attachment_url?: string | null;
+  recorded_by: string;       // Staff user
+  created_at: string;
 }
 
 export type SalaryContractType = 'fixed_monthly' | 'per_lecture';

@@ -14,7 +14,12 @@ import {
   ShieldCheck, 
   UserCheck,
   RefreshCw,
-  Plus
+  Plus,
+  DollarSign,
+  BookOpen,
+  CreditCard,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { 
   AcademicProgram, 
@@ -26,10 +31,23 @@ import {
   StudentInquiry, 
   InquiryStage 
 } from '@apex/shared-types';
+import { Student360Modal } from '../components/Student360Modal';
+import { StudentIDCardDesk } from './StudentIDCardDesk';
 
-export const EnrollmentView: React.FC = () => {
+export interface EnrollmentViewProps {
+  defaultTab?: 'directory' | 'id_cards' | 'inquiries' | 'new_admission';
+}
+
+export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'directory' }) => {
   const { token } = useAuth();
-  const [activeTab, setActiveTab] = useState<'directory' | 'inquiries' | 'new_admission'>('directory');
+  const [activeTab, setActiveTab] = useState<'directory' | 'id_cards' | 'inquiries' | 'new_admission'>(defaultTab);
+  const [selectedDirectoryStudentIds, setSelectedDirectoryStudentIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [defaultTab]);
 
   // Hierarchy and metadata state
   const [programs, setPrograms] = useState<AcademicProgram[]>([]);
@@ -80,6 +98,19 @@ export const EnrollmentView: React.FC = () => {
     elective_group_id: '',
     custom_field_values: {} as Record<string, any>,
   });
+  const [selectedEnrollSubjectIds, setSelectedEnrollSubjectIds] = useState<string[]>([]);
+  const [admitCustomSubjectIds, setAdmitCustomSubjectIds] = useState<string[]>([]);
+  const [bloodGroup, setBloodGroup] = useState('O+');
+  const [admissionTuition, setAdmissionTuition] = useState<number>(8000);
+  const [admissionFeeCharge, setAdmissionFeeCharge] = useState<number>(5000);
+  const [admissionExamCharge, setAdmissionExamCharge] = useState<number>(1500);
+  const [concessionType, setConcessionType] = useState<'none' | 'kinship' | 'merit' | 'hardship' | 'staff' | 'custom'>('none');
+  const [concessionMode, setConcessionMode] = useState<'percentage' | 'flat'>('percentage');
+  const [concessionVal, setConcessionVal] = useState<number>(0);
+  const [concessionReason, setConcessionReason] = useState<string>('');
+  const [generateFirstChallan, setGenerateFirstChallan] = useState(true);
+
+  const [createdStudentResult, setCreatedStudentResult] = useState<Student | null>(null);
   const [isSubmittingEnrollment, setIsSubmittingEnrollment] = useState(false);
   const [enrollSuccessMessage, setEnrollSuccessMessage] = useState<string | null>(null);
 
@@ -147,6 +178,25 @@ export const EnrollmentView: React.FC = () => {
     });
   }, [students, searchQuery, selectedBatchFilter]);
 
+  const toggleDirectoryStudent = (id: string) => {
+    const next = new Set(selectedDirectoryStudentIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedDirectoryStudentIds(next);
+  };
+
+  const toggleSelectAllFiltered = () => {
+    if (filteredStudents.length > 0 && filteredStudents.every(s => selectedDirectoryStudentIds.has(s.id))) {
+      const next = new Set(selectedDirectoryStudentIds);
+      filteredStudents.forEach(s => next.delete(s.id));
+      setSelectedDirectoryStudentIds(next);
+    } else {
+      const next = new Set(selectedDirectoryStudentIds);
+      filteredStudents.forEach(s => next.add(s.id));
+      setSelectedDirectoryStudentIds(next);
+    }
+  };
+
   // Filtered Inquiries
   const filteredInquiries = useMemo(() => {
     return inquiries.filter(i => {
@@ -195,6 +245,7 @@ export const EnrollmentView: React.FC = () => {
         body: JSON.stringify({
           batch_id: admitBatchId,
           elective_group_id: admitElectiveGroupId || undefined,
+          subjects: admitCustomSubjectIds.length > 0 ? admitCustomSubjectIds : undefined,
         }),
       });
 
@@ -205,6 +256,7 @@ export const EnrollmentView: React.FC = () => {
         setAdmitInquiryModal(null);
         setAdmitBatchId('');
         setAdmitElectiveGroupId('');
+        setAdmitCustomSubjectIds([]);
         setActiveTab('directory');
       } else {
         alert(result.error?.message || 'Admission failed');
@@ -253,6 +305,37 @@ export const EnrollmentView: React.FC = () => {
     }
   };
 
+  // Sync batch fee schedule when batch is selected
+  useEffect(() => {
+    if (enrollForm.batch_id) {
+      const b = batches.find(x => x.id === enrollForm.batch_id);
+      const p = programs.find(x => x.id === enrollForm.program_id);
+      const tuition = b?.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount 
+        ?? p?.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount 
+        ?? 8000;
+      const admission = b?.fee_schedule?.find(f => f.fee_type === 'admission')?.amount 
+        ?? p?.fee_schedule?.find(f => f.fee_type === 'admission')?.amount 
+        ?? 5000;
+      const exam = b?.fee_schedule?.find(f => f.fee_type === 'exam_lab')?.amount 
+        ?? p?.fee_schedule?.find(f => f.fee_type === 'exam_lab')?.amount 
+        ?? 1500;
+      setAdmissionTuition(tuition);
+      setAdmissionFeeCharge(admission);
+      setAdmissionExamCharge(exam);
+    }
+  }, [enrollForm.batch_id, enrollForm.program_id, batches, programs]);
+
+  const discountAmount = useMemo(() => {
+    if (concessionType === 'none' || concessionVal <= 0) return 0;
+    if (concessionMode === 'percentage') {
+      return Math.round((admissionTuition * Math.min(100, concessionVal)) / 100);
+    }
+    return Math.min(admissionTuition, concessionVal);
+  }, [concessionType, concessionMode, concessionVal, admissionTuition]);
+
+  const netMonthlyTuition = Math.max(0, admissionTuition - discountAmount);
+  const firstMonthTotal = netMonthlyTuition + admissionFeeCharge + admissionExamCharge;
+
   // Direct Admission Submit
   const handleEnrollStudent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -261,18 +344,25 @@ export const EnrollmentView: React.FC = () => {
       return;
     }
 
+    if (discountAmount > 0 && !concessionReason.trim()) {
+      alert('A justification reason is mandatory when applying a student fee concession.');
+      return;
+    }
+
     setIsSubmittingEnrollment(true);
     setEnrollSuccessMessage(null);
+    setCreatedStudentResult(null);
 
-    // Collect subjects from compulsory group + elective group
+    // Collect subjects: use granular selection if provided, else default to compulsory + elective group
     const compGroup = subjectGroups.find(g => g.program_id === enrollForm.program_id && g.type === 'compulsory');
-    let subjectIds = compGroup ? [...compGroup.subject_ids] : [];
+    let defaultIds = compGroup ? [...compGroup.subject_ids] : [];
     if (enrollForm.elective_group_id) {
       const elecGroup = subjectGroups.find(g => g.id === enrollForm.elective_group_id);
       if (elecGroup) {
-        subjectIds = [...subjectIds, ...elecGroup.subject_ids];
+        defaultIds = [...defaultIds, ...elecGroup.subject_ids];
       }
     }
+    const subjectIds = selectedEnrollSubjectIds.length > 0 ? selectedEnrollSubjectIds : defaultIds;
 
     try {
       const res = await fetch('/api/v1/sis/students', {
@@ -290,6 +380,18 @@ export const EnrollmentView: React.FC = () => {
           program_id: enrollForm.program_id,
           batch_id: enrollForm.batch_id,
           elective_group_id: enrollForm.elective_group_id || undefined,
+          blood_group: bloodGroup,
+          fee_structure: {
+            base_tuition: admissionTuition,
+            admission_fee: admissionFeeCharge,
+            exam_fee: admissionExamCharge,
+            concession_type: concessionMode,
+            concession_val: discountAmount > 0 ? concessionVal : 0,
+            concession_reason: discountAmount > 0 ? concessionReason : undefined,
+            net_tuition: netMonthlyTuition,
+            first_month_total: firstMonthTotal,
+          },
+          generate_first_month_invoice: generateFirstChallan,
           subjects: subjectIds,
           custom_field_values: enrollForm.custom_field_values,
           status: 'active',
@@ -304,7 +406,8 @@ export const EnrollmentView: React.FC = () => {
       }
 
       if (res.ok && result.success) {
-        setEnrollSuccessMessage(`Enrollment confirmed! Admission Number: ${result.data.admission_number} | Roll Number: ${result.data.roll_number}`);
+        setCreatedStudentResult(result.data);
+        setEnrollSuccessMessage(`Enrollment confirmed! Admission: ${result.data.admission_number} | Roll: ${result.data.roll_number}`);
         setEnrollForm({
           full_name: '',
           phone: '',
@@ -316,6 +419,9 @@ export const EnrollmentView: React.FC = () => {
           elective_group_id: '',
           custom_field_values: {},
         });
+        setConcessionType('none');
+        setConcessionVal(0);
+        setConcessionReason('');
         await fetchData();
       } else {
         alert(result?.error?.message || `Enrollment failed with status ${res.status}`);
@@ -351,6 +457,39 @@ export const EnrollmentView: React.FC = () => {
     return subjectGroups.filter(g => g.program_id === enrollForm.program_id && g.type === 'elective_track');
   }, [subjectGroups, enrollForm.program_id]);
 
+  // Auto-sync selected subjects when program or elective track changes
+  useEffect(() => {
+    if (!enrollForm.program_id) {
+      setSelectedEnrollSubjectIds([]);
+      return;
+    }
+    const compGroup = subjectGroups.find(g => g.program_id === enrollForm.program_id && g.type === 'compulsory');
+    const compIds = compGroup ? compGroup.subject_ids : [];
+    let elecIds: string[] = [];
+    if (enrollForm.elective_group_id) {
+      const elecGroup = subjectGroups.find(g => g.id === enrollForm.elective_group_id);
+      if (elecGroup) elecIds = elecGroup.subject_ids;
+    }
+    setSelectedEnrollSubjectIds([...new Set([...compIds, ...elecIds])]);
+  }, [enrollForm.program_id, enrollForm.elective_group_id, subjectGroups]);
+
+  // Auto-sync inquiry admission subjects when target batch or elective changes
+  useEffect(() => {
+    if (admitInquiryModal && admitBatchId) {
+      const batch = batches.find(b => b.id === admitBatchId);
+      if (batch) {
+        const compGroup = subjectGroups.find(g => g.program_id === batch.program_id && g.type === 'compulsory');
+        const compIds = compGroup ? compGroup.subject_ids : [];
+        let elecIds: string[] = [];
+        if (admitElectiveGroupId) {
+          const elecGroup = subjectGroups.find(g => g.id === admitElectiveGroupId);
+          if (elecGroup) elecIds = elecGroup.subject_ids;
+        }
+        setAdmitCustomSubjectIds([...new Set([...compIds, ...elecIds])]);
+      }
+    }
+  }, [admitInquiryModal, admitBatchId, admitElectiveGroupId, batches, subjectGroups]);
+
   return (
     <div className="space-y-6">
       {/* Top Banner & Tab Navigation */}
@@ -385,6 +524,22 @@ export const EnrollmentView: React.FC = () => {
           >
             <Users className="w-3.5 h-3.5 text-indigo-600" />
             <span>Student Directory ({students.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('id_cards')}
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+              activeTab === 'id_cards' 
+                ? 'bg-white text-slate-900 shadow-xs font-bold' 
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5 text-slate-700" />
+            <span>Student ID Cards</span>
+            {selectedDirectoryStudentIds.size > 0 && (
+              <span className="px-1.5 py-0.2 bg-slate-900 text-white rounded-full text-[10px] font-mono font-bold">
+                {selectedDirectoryStudentIds.size}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('inquiries')}
@@ -473,12 +628,53 @@ export const EnrollmentView: React.FC = () => {
             </div>
           </div>
 
+          {/* Selected Action Bar */}
+          {selectedDirectoryStudentIds.size > 0 && (
+            <div className="bg-slate-900 text-white rounded-xl p-3 px-4 flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-2 text-xs font-semibold">
+                <CheckSquare className="w-4 h-4 text-emerald-400" />
+                <span>{selectedDirectoryStudentIds.size} student{selectedDirectoryStudentIds.size > 1 ? 's' : ''} selected</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('id_cards')}
+                  className="px-3 py-1.5 bg-white text-slate-900 hover:bg-slate-100 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Generate & Print ID Cards ({selectedDirectoryStudentIds.size})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDirectoryStudentIds(new Set())}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition-colors"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Table */}
           <div className="bg-white border border-slate-200/90 rounded-xl shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                    <th className="py-3 px-3 w-10 text-center">
+                      <button
+                        type="button"
+                        onClick={toggleSelectAllFiltered}
+                        className="text-slate-500 hover:text-slate-800"
+                        title="Select/Deselect All Filtered"
+                      >
+                        {filteredStudents.length > 0 && filteredStudents.every(s => selectedDirectoryStudentIds.has(s.id)) ? (
+                          <CheckSquare className="w-4 h-4 text-slate-900" />
+                        ) : (
+                          <Square className="w-4 h-4 text-slate-300" />
+                        )}
+                      </button>
+                    </th>
                     <th className="py-3 px-4">Student Details</th>
                     <th className="py-3 px-4">Admission #</th>
                     <th className="py-3 px-4">Roll #</th>
@@ -492,20 +688,36 @@ export const EnrollmentView: React.FC = () => {
                 <tbody className="divide-y divide-slate-200/70">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400 font-mono">
+                      <td colSpan={9} className="py-8 text-center text-slate-400 font-mono">
                         <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                         Loading student records...
                       </td>
                     </tr>
                   ) : filteredStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400">
+                      <td colSpan={9} className="py-8 text-center text-slate-400">
                         No students found matching current filters.
                       </td>
                     </tr>
                   ) : (
                     filteredStudents.map(student => (
                       <tr key={student.id} className="hover:bg-slate-50/70 transition-colors group">
+                        <td className="py-3 px-3 text-center">
+                          <button
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation();
+                              toggleDirectoryStudent(student.id);
+                            }}
+                            className="text-slate-900"
+                          >
+                            {selectedDirectoryStudentIds.has(student.id) ? (
+                              <CheckSquare className="w-4 h-4 text-slate-900" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-300" />
+                            )}
+                          </button>
+                        </td>
                         <td className="py-3 px-4">
                           <div className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
                             {student.full_name}
@@ -563,6 +775,19 @@ export const EnrollmentView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: STUDENT ID CARDS GENERATOR & PRINTING STUDIO                         */}
+      {/* ========================================================================= */}
+      {activeTab === 'id_cards' && (
+        <StudentIDCardDesk
+          students={students}
+          batches={batches}
+          programs={programs}
+          initialSelectedIds={Array.from(selectedDirectoryStudentIds)}
+          onBackToDirectory={() => setActiveTab('directory')}
+        />
       )}
 
       {/* ========================================================================= */}
@@ -712,17 +937,45 @@ export const EnrollmentView: React.FC = () => {
           </div>
 
           {enrollSuccessMessage && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-800 flex items-center justify-between">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-xs text-emerald-800 space-y-3">
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <span className="font-bold">{enrollSuccessMessage}</span>
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span className="font-bold text-sm">{enrollSuccessMessage}</span>
               </div>
-              <button
-                onClick={() => setActiveTab('directory')}
-                className="px-3 py-1 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700"
-              >
-                View in Directory
-              </button>
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-emerald-200/60">
+                {createdStudentResult && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStudent(createdStudentResult)}
+                      className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+                    >
+                      <DollarSign className="w-3.5 h-3.5 text-indigo-300" />
+                      <span>View Student Profile</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (createdStudentResult) {
+                          setSelectedDirectoryStudentIds(new Set([createdStudentResult.id]));
+                        }
+                        setActiveTab('id_cards');
+                      }}
+                      className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+                    >
+                      <CreditCard className="w-3.5 h-3.5 text-slate-300" />
+                      <span>Print ID Card</span>
+                    </button>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('directory')}
+                  className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors"
+                >
+                  View in Directory
+                </button>
+              </div>
             </div>
           )}
 
@@ -803,16 +1056,142 @@ export const EnrollmentView: React.FC = () => {
                   </div>
                 )}
 
-                {/* Compulsory subjects automatic preview */}
-                {compulsoryGroupForEnroll && (
-                  <div className="sm:col-span-2 bg-white p-3 rounded-lg border border-slate-200 text-xs">
-                    <span className="font-bold text-slate-700">Auto-Assigned Compulsory Subjects:</span>
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {getSubjectNames(compulsoryGroupForEnroll.subject_ids).map((name, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[11px] font-semibold border border-emerald-200 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          {name}
-                        </span>
+                {/* Granular Subject Selection Register */}
+                {enrollForm.program_id && (
+                  <div className="sm:col-span-2 bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <BookOpen className="w-4 h-4 text-slate-800" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                            Enrolled Course Subjects ({selectedEnrollSubjectIds.length} Selected)
+                          </h4>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Check all subjects this student is attending. Uncheck if the student is admitted for partial subjects only.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const compIds = compulsoryGroupForEnroll?.subject_ids || [];
+                            const elecGroup = subjectGroups.find(g => g.id === enrollForm.elective_group_id);
+                            const elecIds = elecGroup?.subject_ids || [];
+                            setSelectedEnrollSubjectIds([...new Set([...compIds, ...elecIds])]);
+                          }}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition-colors shadow-2xs"
+                        >
+                          Select Recommended
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const elecGroup = subjectGroups.find(g => g.id === enrollForm.elective_group_id);
+                            setSelectedEnrollSubjectIds(elecGroup?.subject_ids || []);
+                          }}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition-colors shadow-2xs"
+                        >
+                          Electives Only
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedEnrollSubjectIds([])}
+                          className="px-2.5 py-1 text-slate-500 hover:text-slate-800 rounded-lg text-[11px] transition-colors"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {/* Compulsory Core Subjects */}
+                      {compulsoryGroupForEnroll && (
+                        <div className="space-y-1.5">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                            <span>Compulsory Subjects</span>
+                          </div>
+                          <div className="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                            {compulsoryGroupForEnroll.subject_ids.map(subId => {
+                              const sub = subjects.find(s => s.id === subId);
+                              const isChecked = selectedEnrollSubjectIds.includes(subId);
+                              return (
+                                <label
+                                  key={subId}
+                                  className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
+                                    isChecked ? 'bg-white shadow-2xs border border-emerald-200' : 'hover:bg-slate-100/70 border border-transparent'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        setSelectedEnrollSubjectIds(prev =>
+                                          prev.includes(subId) ? prev.filter(id => id !== subId) : [...prev, subId]
+                                        );
+                                      }}
+                                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                    />
+                                    <div>
+                                      <span className="font-semibold text-slate-900">{sub?.name || subId}</span>
+                                      <span className="text-[10px] font-mono text-slate-500 ml-2">({sub?.code || 'CORE'})</span>
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                    Core
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Elective Track Subjects */}
+                      {electiveGroupsForEnroll.map(eg => (
+                        <div key={eg.id} className="space-y-1.5">
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                            <span>{eg.name}</span>
+                          </div>
+                          <div className="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                            {eg.subject_ids.map(subId => {
+                              const sub = subjects.find(s => s.id === subId);
+                              const isChecked = selectedEnrollSubjectIds.includes(subId);
+                              return (
+                                <label
+                                  key={subId}
+                                  className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
+                                    isChecked ? 'bg-white shadow-2xs border border-indigo-200' : 'hover:bg-slate-100/70 border border-transparent'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        setSelectedEnrollSubjectIds(prev =>
+                                          prev.includes(subId) ? prev.filter(id => id !== subId) : [...prev, subId]
+                                        );
+                                      }}
+                                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                    />
+                                    <div>
+                                      <span className="font-semibold text-slate-900">{sub?.name || subId}</span>
+                                      <span className="text-[10px] font-mono text-slate-500 ml-2">({sub?.code || 'ELEC'})</span>
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
+                                    Elective
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -871,6 +1250,26 @@ export const EnrollmentView: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Blood Group (For Student ID Pass)
+                  </label>
+                  <select
+                    value={bloodGroup}
+                    onChange={e => setBloodGroup(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  >
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     Guardian / Father's Name <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -883,9 +1282,9 @@ export const EnrollmentView: React.FC = () => {
                   />
                 </div>
 
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Guardian Emergency Mobile / WhatsApp <span className="text-rose-500">*</span>
+                    Guardian Emergency Mobile <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -895,6 +1294,172 @@ export const EnrollmentView: React.FC = () => {
                     placeholder="0321-9876543"
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Step 3: Financial Schedule & Concession Plan */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">3</span>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Financial Schedule & Fee Concessions</h3>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
+                {/* Baseline Inherited from Batch */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1 text-[11px]">Monthly Tuition (PKR)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={admissionTuition}
+                      onChange={e => setAdmissionTuition(Number(e.target.value) || 0)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1 text-[11px]">Admission Fee (One-Time)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={admissionFeeCharge}
+                      onChange={e => setAdmissionFeeCharge(Number(e.target.value) || 0)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-bold mb-1 text-[11px]">Exam / Lab Charges</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={admissionExamCharge}
+                      onChange={e => setAdmissionExamCharge(Number(e.target.value) || 0)}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                {/* Concession / Discount Selector */}
+                <div className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                      Scholarship / Concession Category
+                    </span>
+                    {discountAmount > 0 && (
+                      <span className="text-[11px] font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        Saving: PKR {discountAmount.toLocaleString()}/month
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-slate-600 font-medium mb-1 text-[10px]">Concession Type</label>
+                      <select
+                        value={concessionType}
+                        onChange={e => {
+                          const type = e.target.value as any;
+                          setConcessionType(type);
+                          if (type === 'kinship') {
+                            setConcessionMode('percentage');
+                            setConcessionVal(20);
+                            setConcessionReason('Kinship / Sibling concession policy');
+                          } else if (type === 'merit') {
+                            setConcessionMode('percentage');
+                            setConcessionVal(25);
+                            setConcessionReason('Academic merit scholarship');
+                          } else if (type === 'hardship') {
+                            setConcessionMode('percentage');
+                            setConcessionVal(30);
+                            setConcessionReason('Financial hardship / Need-based assistance');
+                          } else if (type === 'staff') {
+                            setConcessionMode('percentage');
+                            setConcessionVal(50);
+                            setConcessionReason('Staff child benefit');
+                          } else if (type === 'none') {
+                            setConcessionVal(0);
+                            setConcessionReason('');
+                          }
+                        }}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium"
+                      >
+                        <option value="none">Standard Full Fee (No Concession)</option>
+                        <option value="kinship">Kinship / Sibling (20%)</option>
+                        <option value="merit">Academic Merit (25%)</option>
+                        <option value="hardship">Financial Hardship (30%)</option>
+                        <option value="staff">Staff Child (50%)</option>
+                        <option value="custom">Custom Concession</option>
+                      </select>
+                    </div>
+
+                    {concessionType !== 'none' && (
+                      <>
+                        <div>
+                          <label className="block text-slate-600 font-medium mb-1 text-[10px]">Discount Mode & Value</label>
+                          <div className="flex gap-1.5">
+                            <select
+                              value={concessionMode}
+                              onChange={e => setConcessionMode(e.target.value as any)}
+                              className="w-20 px-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold"
+                            >
+                              <option value="percentage">%</option>
+                              <option value="flat">PKR</option>
+                            </select>
+                            <input
+                              type="number"
+                              min={0}
+                              value={concessionVal}
+                              onChange={e => setConcessionVal(Number(e.target.value) || 0)}
+                              className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-slate-600 font-medium mb-1 text-[10px]">
+                            Justification / Approval Reason <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Sibling Roll #104 in Class 10"
+                            value={concessionReason}
+                            onChange={e => setConcessionReason(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Real-Time Net Admission Calculation Card */}
+                  <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div className="space-y-0.5">
+                      <span className="font-bold text-slate-800 block">First Month Admission Total Due:</span>
+                      <span className="text-[11px] text-slate-500 font-mono">
+                        Net Tuition: PKR {netMonthlyTuition.toLocaleString()} + Adm: PKR {admissionFeeCharge.toLocaleString()} + Exam: PKR {admissionExamCharge.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-base font-black text-indigo-950 font-mono">
+                        PKR {firstMonthTotal.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer pt-1">
+                    <input
+                      type="checkbox"
+                      checked={generateFirstChallan}
+                      onChange={e => setGenerateFirstChallan(e.target.checked)}
+                      className="w-4 h-4 text-indigo-600 rounded border-slate-300"
+                    />
+                    <span className="text-slate-700 text-xs font-semibold">
+                      Auto-generate first month admission invoice & 3-part bank challan immediately
+                    </span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -994,127 +1559,18 @@ export const EnrollmentView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* 360° SIS STUDENT PROFILE DRAWER                                          */}
+      {/* 360° SIS STUDENT PROFILE COMMAND CENTER & ID CARD MODAL                   */}
       {/* ========================================================================= */}
       {selectedStudent && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/60 backdrop-blur-xs flex justify-end">
-          <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 animate-in slide-in-from-right duration-200">
-            {/* Drawer Header */}
-            <div className="p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-xs">
-                  {selectedStudent.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 leading-snug">{selectedStudent.full_name}</h3>
-                  <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
-                    <span>{selectedStudent.admission_number}</span>
-                    <span>•</span>
-                    <span className="text-indigo-600 font-bold">Roll {selectedStudent.roll_number}</span>
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedStudent(null)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Drawer Body */}
-            <div className="flex-1 p-5 overflow-y-auto space-y-5 text-xs">
-              {/* Academic Placement */}
-              <div className="space-y-2">
-                <h4 className="font-bold uppercase tracking-wider text-slate-500 text-[10px]">Academic Placement</h4>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Program:</span>
-                    <span className="font-bold text-slate-900">{getProgramName(selectedStudent.program_id)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Allocated Batch:</span>
-                    <span className="font-bold text-indigo-700">{getBatchName(selectedStudent.batch_id)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Admission Date:</span>
-                    <span className="font-mono text-slate-800">{selectedStudent.admission_date}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Enrolled Subjects */}
-              <div className="space-y-2">
-                <h4 className="font-bold uppercase tracking-wider text-slate-500 text-[10px]">Enrolled Subjects & Modules</h4>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
-                  <div className="flex flex-wrap gap-1.5">
-                    {getSubjectNames(selectedStudent.subjects).map((subName, i) => (
-                      <span key={i} className="px-2 py-1 bg-white border border-slate-200 rounded text-slate-800 font-semibold shadow-2xs">
-                        {subName}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Guardian Particulars */}
-              <div className="space-y-2">
-                <h4 className="font-bold uppercase tracking-wider text-slate-500 text-[10px]">Guardian & Emergency Contact</h4>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Guardian Name:</span>
-                    <span className="font-bold text-slate-900">{selectedStudent.guardian_name}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Phone Number:</span>
-                    <span className="font-mono font-bold text-slate-800">{selectedStudent.guardian_phone}</span>
-                  </div>
-                  <div className="pt-2 border-t border-slate-200 flex gap-2">
-                    <a
-                      href={`https://wa.me/${selectedStudent.guardian_phone.replace(/[^0-9]/g, '')}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-center font-bold transition-colors"
-                    >
-                      WhatsApp Dispatch
-                    </a>
-                    <a
-                      href={`tel:${selectedStudent.guardian_phone}`}
-                      className="flex-1 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-center font-bold transition-colors"
-                    >
-                      Dial Phone
-                    </a>
-                  </div>
-                </div>
-              </div>
-
-              {/* Dynamic Custom Fields */}
-              {selectedStudent.custom_field_values && Object.keys(selectedStudent.custom_field_values).length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-bold uppercase tracking-wider text-slate-500 text-[10px]">Institutional Custom Details</h4>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
-                    {Object.entries(selectedStudent.custom_field_values).map(([k, v]) => (
-                      <div key={k} className="flex justify-between">
-                        <span className="text-slate-500 capitalize">{k.replace(/_/g, ' ')}:</span>
-                        <span className="font-bold text-slate-900">{String(v)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Drawer Footer */}
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
-              <button
-                onClick={() => setSelectedStudent(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-colors"
-              >
-                Close Profile
-              </button>
-            </div>
-          </div>
-        </div>
+        <Student360Modal
+          student={selectedStudent}
+          programs={programs}
+          batches={batches}
+          subjects={subjects}
+          subjectGroups={subjectGroups}
+          onClose={() => setSelectedStudent(null)}
+          onStudentUpdated={fetchData}
+        />
       )}
 
       {/* ========================================================================= */}
@@ -1169,6 +1625,47 @@ export const EnrollmentView: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              {admitBatchId && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Enrolled Subjects ({admitCustomSubjectIds.length} Selected)
+                  </label>
+                  <div className="max-h-36 overflow-y-auto bg-slate-50 p-2 rounded-lg border border-slate-200 space-y-1">
+                    {(() => {
+                      const batch = batches.find(b => b.id === admitBatchId);
+                      const pId = batch?.program_id;
+                      const cGroup = subjectGroups.find(g => g.program_id === pId && g.type === 'compulsory');
+                      const eGroup = admitElectiveGroupId ? subjectGroups.find(g => g.id === admitElectiveGroupId) : null;
+                      const availableIds = [...(cGroup ? cGroup.subject_ids : []), ...(eGroup ? eGroup.subject_ids : [])];
+                      if (availableIds.length === 0) return <span className="text-[11px] text-slate-400">No subjects assigned to this batch</span>;
+
+                      return availableIds.map(subId => {
+                        const sub = subjects.find(s => s.id === subId);
+                        const isChecked = admitCustomSubjectIds.includes(subId);
+                        return (
+                          <label key={subId} className="flex items-center justify-between text-xs cursor-pointer p-1.5 rounded hover:bg-slate-100/80 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  setAdmitCustomSubjectIds(prev => 
+                                    prev.includes(subId) ? prev.filter(id => id !== subId) : [...prev, subId]
+                                  );
+                                }}
+                                className="rounded text-indigo-600 w-3.5 h-3.5"
+                              />
+                              <span className="font-semibold text-slate-800">{sub?.name || subId}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono">({sub?.code || 'SUB'})</span>
+                          </label>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">

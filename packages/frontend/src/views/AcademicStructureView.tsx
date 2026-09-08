@@ -19,7 +19,8 @@ import {
   Split, 
   ChevronRight, 
   ShieldCheck, 
-  Check 
+  Check,
+  DollarSign 
 } from 'lucide-react';
 import { AcademicProgram, Batch, Subject, SubjectGroup, Student } from '@apex/shared-types';
 
@@ -59,6 +60,12 @@ export const AcademicStructureView: React.FC = () => {
     sort_order: 1,
   });
 
+  const [programFeeSchedule, setProgramFeeSchedule] = useState({
+    tuition: 8000,
+    admission: 5000,
+    exam_lab: 1500
+  });
+
   const [compulsorySelectedSubjectIds, setCompulsorySelectedSubjectIds] = useState<string[]>([]);
 
   const [electiveTrackForm, setElectiveTrackForm] = useState({
@@ -73,6 +80,12 @@ export const AcademicStructureView: React.FC = () => {
     academic_session: tenant?.academic_session || '2026-2027',
     max_capacity: 40,
     room_number: '',
+  });
+
+  const [batchFeeSchedule, setBatchFeeSchedule] = useState({
+    tuition: 8000,
+    admission: 5000,
+    exam_lab: 1500
   });
 
   const [subjectForm, setSubjectForm] = useState({
@@ -178,7 +191,7 @@ export const AcademicStructureView: React.FC = () => {
   const filteredPrograms = useMemo(() => {
     return programs.filter(p => 
       p.name.toLowerCase().includes(searchClassQuery.toLowerCase()) ||
-      p.code.toLowerCase().includes(searchClassQuery.toLowerCase())
+      (p.code || '').toLowerCase().includes(searchClassQuery.toLowerCase())
     );
   }, [programs, searchClassQuery]);
 
@@ -193,21 +206,34 @@ export const AcademicStructureView: React.FC = () => {
   // Handlers: Program
   const handleCreateProgram = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !programForm.name || !programForm.code) return;
+    if (!token || !programForm.name.trim()) return;
     setIsSubmitting(true);
     try {
+      const fee_schedule = [
+        { fee_type: 'tuition', name: 'Monthly Tuition Fee', amount: Number(programFeeSchedule.tuition) || 0, is_recurring: true },
+        { fee_type: 'admission', name: 'One-time Admission Fee', amount: Number(programFeeSchedule.admission) || 0, is_recurring: false },
+        { fee_type: 'exam_lab', name: 'Exam & Lab Charges', amount: Number(programFeeSchedule.exam_lab) || 0, is_recurring: false },
+      ];
+
+      const payload = {
+        ...programForm,
+        code: programForm.code.trim() ? programForm.code.trim() : undefined,
+        fee_schedule,
+      };
+
       const res = await fetch('/api/v1/academic/programs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(programForm),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error?.message || 'Failed to create class');
       
       setShowProgramModal(false);
       setProgramForm({ name: '', code: '', description: '', sort_order: programs.length + 1 });
+      setProgramFeeSchedule({ tuition: 8000, admission: 5000, exam_lab: 1500 });
       setSelectedProgramId(data.data.id);
-      triggerSuccess(`Class "${data.data.name}" created.`);
+      triggerSuccess(`Class "${data.data.name}" created with default fee baseline.`);
       fetchData();
     } catch (err: any) {
       alert(err.message || 'Error creating class');
@@ -335,6 +361,14 @@ export const AcademicStructureView: React.FC = () => {
   // Handlers: Batches
   const openAddBatchModal = () => {
     if (!activeProgram) return;
+    const defaultTuition = activeProgram.fee_schedule?.find((f: any) => f.fee_type === 'tuition')?.amount ?? 8000;
+    const defaultAdmission = activeProgram.fee_schedule?.find((f: any) => f.fee_type === 'admission')?.amount ?? 5000;
+    const defaultExam = activeProgram.fee_schedule?.find((f: any) => f.fee_type === 'exam_lab')?.amount ?? 1500;
+    setBatchFeeSchedule({
+      tuition: defaultTuition,
+      admission: defaultAdmission,
+      exam_lab: defaultExam,
+    });
     setBatchForm({
       program_id: activeProgram.id,
       name: '',
@@ -348,19 +382,28 @@ export const AcademicStructureView: React.FC = () => {
 
   const handleCreateBatch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !batchForm.program_id || !batchForm.name) return;
+    if (!token || !batchForm.program_id || !batchForm.name.trim()) return;
     setIsSubmitting(true);
     try {
+      const fee_schedule = [
+        { fee_type: 'tuition', name: 'Monthly Tuition Fee', amount: Number(batchFeeSchedule.tuition) || 0, is_recurring: true },
+        { fee_type: 'admission', name: 'One-time Admission Fee', amount: Number(batchFeeSchedule.admission) || 0, is_recurring: false },
+        { fee_type: 'exam_lab', name: 'Exam & Lab Charges', amount: Number(batchFeeSchedule.exam_lab) || 0, is_recurring: false },
+      ];
+
       const res = await fetch('/api/v1/academic/batches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(batchForm),
+        body: JSON.stringify({
+          ...batchForm,
+          fee_schedule,
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error?.message || 'Failed to create section/batch');
 
       setShowBatchModal(false);
-      triggerSuccess(`Section/Batch "${data.data.name}" allocated.`);
+      triggerSuccess(`Section/Batch "${data.data.name}" allocated with fee schedule.`);
       fetchData();
     } catch (err: any) {
       alert(err.message || 'Error creating section');
@@ -437,13 +480,13 @@ export const AcademicStructureView: React.FC = () => {
           </span>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black tracking-tight text-slate-900">Academic Hierarchy & Curriculum Hub</h1>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">Academic Structure & Classes</h1>
+              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
                 Session {tenant?.academic_session || '2026-2027'}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Interconnected Classes, Compulsory Buckets, Elective Tracks, and Section Shifts
+              Manage classes, compulsory subjects, elective streams, and section batches.
             </p>
           </div>
         </div>
@@ -874,6 +917,12 @@ export const AcademicStructureView: React.FC = () => {
                                     {b.room_number}
                                   </span>
                                 )}
+                                {b.fee_schedule && b.fee_schedule.length > 0 && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                    <DollarSign className="w-3 h-3 text-emerald-600" />
+                                    PKR {b.fee_schedule.find(f => f.fee_type === 'tuition')?.amount?.toLocaleString() || '0'}/mo
+                                  </span>
+                                )}
                               </div>
                             </div>
 
@@ -1061,21 +1110,25 @@ export const AcademicStructureView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">
-                    Class Code <span className="text-rose-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-700 font-bold">
+                      Class Code <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                  </div>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. FSC-MED, CLS-10"
+                    placeholder="Auto if blank (e.g. FSC-PM)"
                     value={programForm.code}
                     onChange={e => setProgramForm({ ...programForm, code: e.target.value.toUpperCase() })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Leave blank to auto-generate</span>
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">Display Order</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-700 font-bold">Display Order</label>
+                  </div>
                   <input
                     type="number"
                     min={1}
@@ -1083,6 +1136,7 @@ export const AcademicStructureView: React.FC = () => {
                     onChange={e => setProgramForm({ ...programForm, sort_order: parseInt(e.target.value) || 1 })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
+                  <span className="text-[10px] text-slate-400 block mt-0.5">Menu sequence (1 = Top priority)</span>
                 </div>
               </div>
 
@@ -1095,6 +1149,55 @@ export const AcademicStructureView: React.FC = () => {
                   onChange={e => setProgramForm({ ...programForm, description: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+              </div>
+
+              {/* Default Fee Schedule Baseline */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                    Default Class Fee Baseline
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-bold">
+                    Est. First Month: PKR {(Number(programFeeSchedule.tuition) || 0) + (Number(programFeeSchedule.admission) || 0) + (Number(programFeeSchedule.exam_lab) || 0)}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  Batches in this class inherit these defaults automatically during enrollment & billing.
+                </p>
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div>
+                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Monthly Tuition (PKR)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={programFeeSchedule.tuition}
+                      onChange={e => setProgramFeeSchedule({ ...programFeeSchedule, tuition: Number(e.target.value) || 0 })}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Admission Fee (PKR)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={programFeeSchedule.admission}
+                      onChange={e => setProgramFeeSchedule({ ...programFeeSchedule, admission: Number(e.target.value) || 0 })}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Exam / Lab Fee (PKR)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={programFeeSchedule.exam_lab}
+                      onChange={e => setProgramFeeSchedule({ ...programFeeSchedule, exam_lab: Number(e.target.value) || 0 })}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
@@ -1406,6 +1509,55 @@ export const AcademicStructureView: React.FC = () => {
                     onChange={e => setBatchForm({ ...batchForm, academic_session: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                </div>
+              </div>
+
+              {/* Batch Fee Schedule */}
+              <div className="p-3.5 bg-blue-50/50 border border-blue-100 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5 text-blue-600" />
+                    Section Fee Schedule
+                  </span>
+                  <span className="text-[10px] font-mono text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-full font-bold">
+                    Monthly Tuition: PKR {batchFeeSchedule.tuition}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  Inherited from class baseline. Can be customized for this specific section/cohort.
+                </p>
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div>
+                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Monthly Tuition (PKR)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={batchFeeSchedule.tuition}
+                      onChange={e => setBatchFeeSchedule({ ...batchFeeSchedule, tuition: Number(e.target.value) || 0 })}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Admission Fee (PKR)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={batchFeeSchedule.admission}
+                      onChange={e => setBatchFeeSchedule({ ...batchFeeSchedule, admission: Number(e.target.value) || 0 })}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Exam / Lab Fee (PKR)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={batchFeeSchedule.exam_lab}
+                      onChange={e => setBatchFeeSchedule({ ...batchFeeSchedule, exam_lab: Number(e.target.value) || 0 })}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
               </div>
 

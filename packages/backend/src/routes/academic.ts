@@ -19,9 +19,15 @@ export function academicRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       const schema = z.object({
         name: z.string().min(1),
-        code: z.string().min(1),
-        description: z.string().optional(),
+        code: z.string().optional().nullable(),
+        description: z.string().optional().nullable(),
         sort_order: z.number().int().default(1),
+        fee_schedule: z.array(z.object({
+          fee_head_id: z.string(),
+          head_name: z.string(),
+          amount: z.number().min(0),
+          is_monthly: z.boolean().optional()
+        })).optional(),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -33,9 +39,15 @@ export function academicRoutes(store: IDataStore) {
         });
       }
 
+      // If code was not supplied, auto-derive from name
+      const code = parseResult.data.code && parseResult.data.code.trim().length > 0
+        ? parseResult.data.code.trim().toUpperCase()
+        : parseResult.data.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase() || 'CLS';
+
       const program = await store.createProgram({
         tenant_id: user.tenant_id,
         ...parseResult.data,
+        code,
       });
 
       return reply.status(201).send({ success: true, data: program, timestamp: new Date().toISOString() });
@@ -166,6 +178,12 @@ export function academicRoutes(store: IDataStore) {
         academic_session: z.string().min(1).default('2026-2027'),
         max_capacity: z.number().int().min(1).default(40),
         room_number: z.string().optional(),
+        fee_schedule: z.array(z.object({
+          fee_head_id: z.string(),
+          head_name: z.string(),
+          amount: z.number().min(0),
+          is_monthly: z.boolean().optional()
+        })).optional(),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -235,5 +253,64 @@ export function academicRoutes(store: IDataStore) {
 
       return reply.status(201).send({ success: true, data: field, timestamp: new Date().toISOString() });
     });
+
+    // --- Academy Settings ---
+    const getAcademySettingsHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const tenant = await store.getTenantById(user.tenant_id);
+      if (!tenant) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'TENANT_NOT_FOUND', message: 'Tenant not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({
+        success: true,
+        data: {
+          id: tenant.id,
+          name: tenant.name,
+          slug: tenant.slug,
+          settings: tenant.settings || {},
+        },
+        timestamp: new Date().toISOString(),
+      });
+    };
+
+    fastify.get('/settings', getAcademySettingsHandler);
+    fastify.get('/academy-settings', getAcademySettingsHandler);
+
+    const updateAcademySettingsHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const { name, slug, settings } = request.body || {};
+      const updated = await store.updateTenantSettings(user.tenant_id, {
+        name,
+        slug,
+        settings,
+      });
+
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'TENANT_NOT_FOUND', message: 'Tenant not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.send({
+        success: true,
+        data: {
+          id: updated.id,
+          name: updated.name,
+          slug: updated.slug,
+          settings: updated.settings,
+        },
+        message: 'Academy institutional settings updated successfully.',
+        timestamp: new Date().toISOString(),
+      });
+    };
+
+    fastify.put('/settings', updateAcademySettingsHandler);
+    fastify.put('/academy-settings', updateAcademySettingsHandler);
   };
 }

@@ -464,7 +464,14 @@ export const AttendanceDeskView: React.FC = () => {
                             {student.roll_number}
                           </td>
                           <td className="py-3 px-4">
-                            <span className="font-bold text-slate-900 block">{student.full_name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900">{student.full_name}</span>
+                              {student.subjects && student.subjects.length > 0 && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-mono">
+                                  {student.subjects.length} Subjects
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10px] font-mono text-slate-400">{student.admission_number}</span>
                           </td>
                           <td className="py-3 px-4">

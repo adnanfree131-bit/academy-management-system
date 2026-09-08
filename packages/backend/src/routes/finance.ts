@@ -379,5 +379,160 @@ export function financeRoutes(store: IDataStore) {
     };
     fastify.get('/reports/fee-head-summary', getFeeHeadSummaryHandler);
     fastify.get('/finance/reports/fee-head-summary', getFeeHeadSummaryHandler);
+
+    // =========================================================================
+    // 9. DYNAMIC OPERATIONAL ACCOUNT HEADS (Income & Expense Tags)
+    // =========================================================================
+    const getAccountHeadsHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const { type } = request.query as { type?: 'income' | 'expense' };
+      const heads = await store.getAccountHeads(user.tenant_id, type);
+      return reply.send({ success: true, data: heads, timestamp: new Date().toISOString() });
+    };
+    fastify.get('/account-heads', getAccountHeadsHandler);
+    fastify.get('/finance/account-heads', getAccountHeadsHandler);
+
+    const createAccountHeadHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const schema = z.object({
+        type: z.enum(['income', 'expense']),
+        name: z.string().min(1),
+        code: z.string().optional().nullable(),
+        description: z.string().optional().nullable()
+      });
+
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid account head data', details: parse.error.flatten() },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      const derivedCode = parse.data.code && parse.data.code.trim().length > 0
+        ? parse.data.code.trim().toUpperCase()
+        : `${parse.data.type === 'income' ? 'INC' : 'EXP'}-${parse.data.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase()}`;
+
+      const head = await store.createAccountHead({
+        tenant_id: user.tenant_id,
+        type: parse.data.type,
+        name: parse.data.name,
+        code: derivedCode,
+        description: parse.data.description || null,
+        is_active: true
+      });
+
+      return reply.status(201).send({ success: true, data: head, timestamp: new Date().toISOString() });
+    };
+    fastify.post('/account-heads', createAccountHeadHandler);
+    fastify.post('/finance/account-heads', createAccountHeadHandler);
+
+    const deleteAccountHeadHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const { id } = request.params as { id: string };
+      const deleted = await store.deleteAccountHead(user.tenant_id, id);
+      if (!deleted) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Account head not found' },
+          timestamp: new Date().toISOString()
+        });
+      }
+      return reply.send({ success: true, message: 'Account head deactivated', timestamp: new Date().toISOString() });
+    };
+    fastify.delete('/account-heads/:id', deleteAccountHeadHandler);
+    fastify.delete('/finance/account-heads/:id', deleteAccountHeadHandler);
+
+    // =========================================================================
+    // 10. FINANCIAL TRANSACTIONS & VOUCHERS (Income & Expense Logging)
+    // =========================================================================
+    const getTransactionsHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const { type, head_id, startDate, endDate } = request.query as {
+        type?: 'income' | 'expense';
+        head_id?: string;
+        startDate?: string;
+        endDate?: string;
+      };
+      const transactions = await store.getFinancialTransactions(user.tenant_id, {
+        type,
+        head_id,
+        startDate,
+        endDate
+      });
+      return reply.send({ success: true, data: transactions, timestamp: new Date().toISOString() });
+    };
+    fastify.get('/transactions', getTransactionsHandler);
+    fastify.get('/finance/transactions', getTransactionsHandler);
+
+    const createTransactionHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const schema = z.object({
+        type: z.enum(['income', 'expense']),
+        account_head_id: z.string().min(1),
+        head_name: z.string().optional().nullable(),
+        amount: z.number().positive(),
+        transaction_date: z.string().optional().nullable(),
+        date: z.string().optional().nullable(),
+        payment_method: z.enum(['cash', 'bank_transfer', 'cheque', 'online']).default('cash'),
+        reference_number: z.string().optional().nullable(),
+        paid_to_or_received_from: z.string().optional().nullable(),
+        payee_payer: z.string().optional().nullable(),
+        description: z.string().optional().nullable(),
+        attachment_url: z.string().optional().nullable()
+      });
+
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid transaction data', details: parse.error.flatten() },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      // Auto resolve head_name if omitted
+      let headName = parse.data.head_name;
+      if (!headName) {
+        const heads = await store.getAccountHeads(user.tenant_id);
+        const head = heads.find(h => h.id === parse.data.account_head_id);
+        headName = head?.name || 'General';
+      }
+
+      const txDate = parse.data.transaction_date || parse.data.date || new Date().toISOString().slice(0, 10);
+      const payee = parse.data.paid_to_or_received_from || parse.data.payee_payer || 'General';
+
+      const tx = await store.createFinancialTransaction({
+        tenant_id: user.tenant_id,
+        type: parse.data.type,
+        account_head_id: parse.data.account_head_id,
+        head_name: headName,
+        amount: parse.data.amount,
+        transaction_date: txDate,
+        payment_method: parse.data.payment_method,
+        paid_to_or_received_from: payee,
+        reference_number: parse.data.reference_number || null,
+        description: parse.data.description || null,
+        attachment_url: parse.data.attachment_url || null,
+        recorded_by: user.email || 'Finance Desk'
+      });
+
+      return reply.status(201).send({ success: true, data: tx, timestamp: new Date().toISOString() });
+    };
+    fastify.post('/transactions', createTransactionHandler);
+    fastify.post('/finance/transactions', createTransactionHandler);
+
+    // =========================================================================
+    // 11. PROFIT & LOSS STATEMENT REPORT
+    // =========================================================================
+    const getProfitLossHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const { month } = request.query as { month?: string };
+      const report = await store.getProfitLossReport(user.tenant_id, month);
+      return reply.send({ success: true, data: report, timestamp: new Date().toISOString() });
+    };
+    fastify.get('/reports/profit-loss', getProfitLossHandler);
+    fastify.get('/finance/reports/profit-loss', getProfitLossHandler);
   };
 }

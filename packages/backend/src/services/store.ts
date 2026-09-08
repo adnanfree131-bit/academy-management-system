@@ -1,5 +1,6 @@
 import { 
   Tenant, 
+  TenantSettings,
   User, 
   AcademicProgram, 
   Subject, 
@@ -41,6 +42,8 @@ import {
   PayrollDeductionHead,
   StaffPayslipStatus,
   StaffPayslip,
+  AccountHead,
+  FinancialTransaction,
   DailyCashbookEntry,
   StudentLedgerEntry,
   QuestionChapter,
@@ -89,6 +92,7 @@ export interface IDataStore {
   // Tenancy & Auth
   getTenantBySlug(slug: string): Promise<Tenant | null>;
   getTenantById(id: string): Promise<Tenant | null>;
+  updateTenantSettings(tenantId: string, updates: { name?: string; slug?: string; settings?: Partial<TenantSettings> }): Promise<Tenant | null>;
   getUserByEmail(tenantId: string, email: string): Promise<User | null>;
   createOTP(tenantId: string, email: string, codeHash: string, expiresAt: Date): Promise<StoredOTP>;
   getActiveOTP(tenantId: string, email: string): Promise<StoredOTP | null>;
@@ -124,7 +128,8 @@ export interface IDataStore {
   // Student SIS (Phase 2)
   getStudents(tenantId: string, batchId?: string): Promise<Student[]>;
   createStudent(data: Omit<Student, 'id' | 'admission_number' | 'roll_number' | 'admission_date' | 'created_at' | 'updated_at'>): Promise<Student>;
-  admitInquiry(tenantId: string, inquiryId: string, batchId: string, electiveGroupId?: string): Promise<Student>;
+  updateStudent(tenantId: string, id: string, data: Partial<Student>): Promise<Student | null>;
+  admitInquiry(tenantId: string, inquiryId: string, batchId: string, electiveGroupId?: string, customSubjectIds?: string[]): Promise<Student>;
 
   // --- Phase 3: Timetable & Collision Engine ---
   getRooms(tenantId: string): Promise<Room[]>;
@@ -235,6 +240,27 @@ export interface IDataStore {
   getDailyCashbook(tenantId: string, date?: string): Promise<DailyCashbookEntry[]>;
   getStudentLedger(tenantId: string, studentId: string): Promise<StudentLedgerEntry[]>;
   getFeeHeadCollectionReport(tenantId: string): Promise<Array<{ fee_head_id: string; head_name: string; total_billed: number; total_collected: number; outstanding_balance: number }>>;
+
+  // --- Dynamic Operational Income & Expense (ZERO Hardcoding) ---
+  getAccountHeads(tenantId: string, type?: 'income' | 'expense'): Promise<AccountHead[]>;
+  createAccountHead(data: Omit<AccountHead, 'id' | 'created_at'>): Promise<AccountHead>;
+  deleteAccountHead(tenantId: string, id: string): Promise<boolean>;
+  getFinancialTransactions(tenantId: string, filters?: { type?: 'income' | 'expense'; head_id?: string; startDate?: string; endDate?: string }): Promise<FinancialTransaction[]>;
+  createFinancialTransaction(data: Omit<FinancialTransaction, 'id' | 'voucher_number' | 'created_at'>): Promise<FinancialTransaction>;
+  getProfitLossReport(tenantId: string, month?: string): Promise<{
+    totalFeeIncome: number;
+    otherIncome: number;
+    totalIncome: number;
+    totalExpenses: number;
+    netProfit: number;
+    incomeByHead: Record<string, number>;
+    expenseByHead: Record<string, number>;
+    total_income?: number;
+    total_expense?: number;
+    net_profit?: number;
+    income_breakdown?: Record<string, number>;
+    expense_breakdown?: Record<string, number>;
+  }>;
 
   // --- Phase 4: Staff Payroll & Interactive Salary Processing ---
   getStaffSalaryProfiles(tenantId: string): Promise<StaffSalaryProfile[]>;
@@ -364,6 +390,8 @@ export class InMemoryDataStore implements IDataStore {
   private invoices: StudentInvoice[] = [];
   private feePayments: FeePayment[] = [];
   private feeDiscounts: FeeDiscount[] = [];
+  private accountHeads: AccountHead[] = [];
+  private financialTransactions: FinancialTransaction[] = [];
   private staffSalaryProfiles: StaffSalaryProfile[] = [];
   private staffPayslips: StaffPayslip[] = [];
 
@@ -1425,6 +1453,21 @@ export class InMemoryDataStore implements IDataStore {
     return this.tenants.get(id) || null;
   }
 
+  async updateTenantSettings(tenantId: string, updates: { name?: string; slug?: string; settings?: Partial<TenantSettings> }): Promise<Tenant | null> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) return null;
+    if (updates.name) tenant.name = updates.name;
+    if (updates.slug) tenant.slug = updates.slug;
+    if (updates.settings) {
+      tenant.settings = {
+        ...tenant.settings,
+        ...updates.settings,
+      };
+    }
+    this.tenants.set(tenantId, tenant);
+    return tenant;
+  }
+
   async getUserByEmail(tenantId: string, email: string): Promise<User | null> {
     return this.users.get(`${tenantId}:${email.toLowerCase()}`) || null;
   }
@@ -1619,24 +1662,138 @@ export class InMemoryDataStore implements IDataStore {
     const batch = this.batches.find(b => b.id === data.batch_id);
     if (batch) batch.current_enrollment += 1;
 
+    // Auto-generate first month invoice if fee_structure is set
+    if (student.fee_structure && (student.fee_structure.first_month_total > 0 || (data as any).generate_first_month_invoice)) {
+      const invoiceId = crypto.randomUUID();
+      const invoiceCount = this.invoices.filter(i => i.tenant_id === data.tenant_id).length + 1;
+      const invoiceNumber = `INV-2026-${invoiceCount.toString().padStart(4, '0')}`;
+      const now = new Date();
+      const dueDate = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const billingMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+
+      const items: InvoiceItem[] = [];
+      const tuitionHead = this.feeHeads.find(h => h.tenant_id === data.tenant_id && h.code === 'TUITION') || this.feeHeads[0];
+      const admHead = this.feeHeads.find(h => h.tenant_id === data.tenant_id && h.code === 'ADMISSION') || tuitionHead;
+      const examHead = this.feeHeads.find(h => h.tenant_id === data.tenant_id && h.code === 'EXAM') || tuitionHead;
+
+      if (student.fee_structure.net_tuition > 0) {
+        items.push({
+          id: crypto.randomUUID(),
+          invoice_id: invoiceId,
+          fee_head_id: tuitionHead?.id || 'head-tuition',
+          head_name: 'Monthly Tuition Fee',
+          head_code: 'TUITION',
+          original_amount: student.fee_structure.base_tuition || student.fee_structure.net_tuition,
+          discount_amount: Math.max(0, (student.fee_structure.base_tuition || student.fee_structure.net_tuition) - student.fee_structure.net_tuition),
+          net_amount: student.fee_structure.net_tuition,
+          paid_amount: 0,
+          balance_due: student.fee_structure.net_tuition,
+        });
+      }
+
+      if (student.fee_structure.admission_fee > 0) {
+        items.push({
+          id: crypto.randomUUID(),
+          invoice_id: invoiceId,
+          fee_head_id: admHead?.id || 'head-admission',
+          head_name: 'Admission Fee',
+          head_code: 'ADMISSION',
+          original_amount: student.fee_structure.admission_fee,
+          discount_amount: 0,
+          net_amount: student.fee_structure.admission_fee,
+          paid_amount: 0,
+          balance_due: student.fee_structure.admission_fee,
+        });
+      }
+
+      if (student.fee_structure.exam_fee > 0) {
+        items.push({
+          id: crypto.randomUUID(),
+          invoice_id: invoiceId,
+          fee_head_id: examHead?.id || 'head-exam',
+          head_name: 'Exam & Lab Charges',
+          head_code: 'EXAM',
+          original_amount: student.fee_structure.exam_fee,
+          discount_amount: 0,
+          net_amount: student.fee_structure.exam_fee,
+          paid_amount: 0,
+          balance_due: student.fee_structure.exam_fee,
+        });
+      }
+
+      const totalAmount = items.reduce((acc, it) => acc + it.net_amount, 0);
+      if (items.length > 0) {
+        this.invoices.push({
+          id: invoiceId,
+          tenant_id: data.tenant_id,
+          student_id: student.id,
+          student_name: student.full_name,
+          roll_number: student.roll_number,
+          batch_id: student.batch_id,
+          batch_name: batch?.name || 'Section',
+          invoice_number: invoiceNumber,
+          billing_month: billingMonth,
+          due_date: dueDate,
+          issue_date: new Date().toISOString().split('T')[0],
+          subtotal_amount: items.reduce((acc, it) => acc + it.original_amount, 0),
+          subtotal: items.reduce((acc, it) => acc + it.original_amount, 0),
+          discount_amount: items.reduce((acc, it) => acc + it.discount_amount, 0),
+          discount_total: items.reduce((acc, it) => acc + it.discount_amount, 0),
+          fine_amount: 0,
+          net_amount: totalAmount,
+          net_total: totalAmount,
+          paid_amount: 0,
+          balance_amount: totalAmount,
+          balance_due: totalAmount,
+          status: 'UNPAID',
+          items,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        student.first_invoice_id = invoiceId;
+      }
+    }
+
     return student;
   }
 
-  async admitInquiry(tenantId: string, inquiryId: string, batchId: string, electiveGroupId?: string): Promise<Student> {
+  async updateStudent(tenantId: string, id: string, data: Partial<Student>): Promise<Student | null> {
+    const student = this.students.find(s => s.id === id && s.tenant_id === tenantId);
+    if (!student) return null;
+
+    Object.assign(student, {
+      ...data,
+      id: student.id,
+      tenant_id: student.tenant_id,
+      admission_number: student.admission_number,
+      admission_date: student.admission_date,
+      created_at: student.created_at,
+      updated_at: new Date().toISOString(),
+    });
+
+    return student;
+  }
+
+  async admitInquiry(tenantId: string, inquiryId: string, batchId: string, electiveGroupId?: string, customSubjectIds?: string[]): Promise<Student> {
     const inq = await this.updateInquiryStage(tenantId, inquiryId, 'admitted');
     if (!inq) throw new Error('Inquiry not found');
 
     const batch = this.batches.find(b => b.id === batchId && b.tenant_id === tenantId);
     if (!batch) throw new Error('Batch not found');
 
-    // Get compulsory subjects for the program
-    const compGroup = this.subjectGroups.find(g => g.tenant_id === tenantId && g.program_id === batch.program_id && g.type === 'compulsory');
-    let subjects = compGroup ? [...compGroup.subject_ids] : [];
+    let subjects: string[] = [];
+    if (customSubjectIds && customSubjectIds.length > 0) {
+      subjects = [...customSubjectIds];
+    } else {
+      // Get compulsory subjects for the program
+      const compGroup = this.subjectGroups.find(g => g.tenant_id === tenantId && g.program_id === batch.program_id && g.type === 'compulsory');
+      subjects = compGroup ? [...compGroup.subject_ids] : [];
 
-    if (electiveGroupId) {
-      const elecGroup = this.subjectGroups.find(g => g.id === electiveGroupId && g.tenant_id === tenantId);
-      if (elecGroup) {
-        subjects = [...subjects, ...elecGroup.subject_ids];
+      if (electiveGroupId) {
+        const elecGroup = this.subjectGroups.find(g => g.id === electiveGroupId && g.tenant_id === tenantId);
+        if (elecGroup) {
+          subjects = [...subjects, ...elecGroup.subject_ids];
+        }
       }
     }
 
@@ -2636,6 +2793,120 @@ export class InMemoryDataStore implements IDataStore {
     });
   }
 
+  // --- Dynamic Operational Income & Expense (ZERO Hardcoding) ---
+  async getAccountHeads(tenantId: string, type?: 'income' | 'expense'): Promise<AccountHead[]> {
+    return this.accountHeads.filter(h => h.tenant_id === tenantId && (!type || h.type === type) && h.is_active);
+  }
+
+  async createAccountHead(data: Omit<AccountHead, 'id' | 'created_at'>): Promise<AccountHead> {
+    const head: AccountHead = {
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
+      ...data,
+      is_active: data.is_active ?? true
+    };
+    this.accountHeads.push(head);
+    return head;
+  }
+
+  async deleteAccountHead(tenantId: string, id: string): Promise<boolean> {
+    const head = this.accountHeads.find(h => h.tenant_id === tenantId && h.id === id);
+    if (!head) return false;
+    head.is_active = false;
+    return true;
+  }
+
+  async getFinancialTransactions(tenantId: string, filters?: { type?: 'income' | 'expense'; head_id?: string; startDate?: string; endDate?: string }): Promise<FinancialTransaction[]> {
+    return this.financialTransactions.filter(t => {
+      if (t.tenant_id !== tenantId) return false;
+      if (filters?.type && t.type !== filters.type) return false;
+      if (filters?.head_id && t.account_head_id !== filters.head_id) return false;
+      if (filters?.startDate && t.transaction_date < filters.startDate) return false;
+      if (filters?.endDate && t.transaction_date > filters.endDate) return false;
+      return true;
+    }).sort((a, b) => b.transaction_date.localeCompare(a.transaction_date));
+  }
+
+  async createFinancialTransaction(data: Omit<FinancialTransaction, 'id' | 'voucher_number' | 'created_at'>): Promise<FinancialTransaction> {
+    const count = this.financialTransactions.filter(t => t.tenant_id === data.tenant_id && t.type === data.type).length + 1;
+    const prefix = data.type === 'income' ? 'INC' : 'EXP';
+    const year = new Date().getFullYear();
+    const voucher_number = `VCH-${prefix}-${year}-${count.toString().padStart(4, '0')}`;
+
+    const tx: FinancialTransaction = {
+      id: crypto.randomUUID(),
+      voucher_number,
+      created_at: new Date().toISOString(),
+      ...data
+    };
+    this.financialTransactions.push(tx);
+    return tx;
+  }
+
+  async getProfitLossReport(tenantId: string, month?: string): Promise<{
+    totalFeeIncome: number;
+    otherIncome: number;
+    totalIncome: number;
+    totalExpenses: number;
+    netProfit: number;
+    incomeByHead: Record<string, number>;
+    expenseByHead: Record<string, number>;
+    total_income?: number;
+    total_expense?: number;
+    net_profit?: number;
+    income_breakdown?: Record<string, number>;
+    expense_breakdown?: Record<string, number>;
+  }> {
+    const relevantPayments = this.feePayments.filter(p => {
+      if (p.tenant_id !== tenantId) return false;
+      if (month && !p.payment_date.startsWith(month)) return false;
+      return true;
+    });
+    const totalFeeIncome = relevantPayments.reduce((sum, p) => sum + Number(p.amount_paid), 0);
+
+    const relevantTx = this.financialTransactions.filter(t => {
+      if (t.tenant_id !== tenantId) return false;
+      if (month && !t.transaction_date.startsWith(month)) return false;
+      return true;
+    });
+
+    const incomeByHead: Record<string, number> = {
+      'Student Fee Collections': totalFeeIncome
+    };
+    const expenseByHead: Record<string, number> = {};
+    let otherIncome = 0;
+    let totalExpenses = 0;
+
+    for (const tx of relevantTx) {
+      const amt = Number(tx.amount);
+      if (tx.type === 'income') {
+        otherIncome += amt;
+        incomeByHead[tx.head_name] = (incomeByHead[tx.head_name] || 0) + amt;
+      } else {
+        totalExpenses += amt;
+        expenseByHead[tx.head_name] = (expenseByHead[tx.head_name] || 0) + amt;
+      }
+    }
+
+    const totalIncome = totalFeeIncome + otherIncome;
+    const netProfit = totalIncome - totalExpenses;
+
+    return {
+      totalFeeIncome,
+      otherIncome,
+      totalIncome,
+      totalExpenses,
+      netProfit,
+      incomeByHead,
+      expenseByHead,
+      total_income: totalIncome,
+      total_expense: totalExpenses,
+      net_profit: netProfit,
+      income_breakdown: incomeByHead,
+      expense_breakdown: expenseByHead,
+    };
+  }
+
   // --- Staff Salary Structures & Interactive Payroll ---
   async getStaffSalaryProfiles(tenantId: string): Promise<StaffSalaryProfile[]> {
     return this.staffSalaryProfiles.filter(p => p.tenant_id === tenantId);
@@ -3633,7 +3904,7 @@ export class InMemoryDataStore implements IDataStore {
 
     // Timetable slots for this teacher today
     const teacherSchedule = this.timetableSlots.filter(
-      s => s.tenant_id === tenantId && (s.teacher_id === teacherUserId || s.teacher_name.toLowerCase().includes('tariq'))
+      s => s.tenant_id === tenantId && (s.teacher_id === teacherUserId || (s.teacher_name?.toLowerCase() || '').includes('tariq'))
     );
 
     // Batches assigned
@@ -3659,7 +3930,7 @@ export class InMemoryDataStore implements IDataStore {
 
     // Geofence status
     const clockInRecord = this.staffAttendance.find(
-      sa => sa.tenant_id === tenantId && (sa.staff_id === teacherUserId || sa.staff_name.toLowerCase().includes('tariq')) && sa.date === today
+      sa => sa.tenant_id === tenantId && (sa.staff_id === teacherUserId || (sa.staff_name?.toLowerCase() || '').includes('tariq')) && sa.date === today
     );
 
     return {
@@ -3672,7 +3943,7 @@ export class InMemoryDataStore implements IDataStore {
       pending_grading_exams: pendingGradingExams,
       recent_diary_entries: recentDiary,
       geofence_status: {
-        is_clocked_in: !!clockInRecord && clockInRecord.status === 'present',
+        is_clocked_in: !!clockInRecord && (clockInRecord.status === 'on_time' || clockInRecord.status === 'late'),
         clocked_in_at: clockInRecord?.clock_in_time || '08:24 AM',
         distance_meters: clockInRecord?.distance_meters || 18
       }

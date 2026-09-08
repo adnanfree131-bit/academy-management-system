@@ -62,6 +62,41 @@ export const StaffClockInView: React.FC = () => {
     grace_period_minutes: 15,
   });
   const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [isAutoDetectingGps, setIsAutoDetectingGps] = useState(false);
+  const [autoDetectMsg, setAutoDetectMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleAutoDetectPerimeterGps = () => {
+    if (!navigator.geolocation) {
+      setAutoDetectMsg({ type: 'error', text: 'Geolocation is not supported by this browser.' });
+      return;
+    }
+    setIsAutoDetectingGps(true);
+    setAutoDetectMsg(null);
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat = parseFloat(pos.coords.latitude.toFixed(6));
+        const lng = parseFloat(pos.coords.longitude.toFixed(6));
+        setConfigForm(prev => ({
+          ...prev,
+          latitude: lat,
+          longitude: lng,
+        }));
+        setIsAutoDetectingGps(false);
+        setAutoDetectMsg({
+          type: 'success',
+          text: `Auto-detected GPS coordinates: ${lat}, ${lng} (±${Math.round(pos.coords.accuracy)}m accuracy)`,
+        });
+      },
+      err => {
+        setIsAutoDetectingGps(false);
+        setAutoDetectMsg({
+          type: 'error',
+          text: `GPS acquisition failed (${err.message}). Coordinates can still be typed manually.`,
+        });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   // Admin Record Adjustment Modal
   const [adjustingRecord, setAdjustingRecord] = useState<StaffAttendanceRecord | null>(null);
@@ -254,9 +289,9 @@ export const StaffClockInView: React.FC = () => {
             <MapPin className="w-5 h-5 text-indigo-400" />
           </span>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Staff Attendance & Check-In</h1>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Staff Attendance</h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Verify staff campus check-ins within designated boundaries, view daily logs, and manage shift records.
+              Record staff check-in, view daily attendance logs, and configure campus location.
             </p>
           </div>
         </div>
@@ -268,7 +303,7 @@ export const StaffClockInView: React.FC = () => {
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all"
             >
               <Sliders className="w-4 h-4 text-slate-500" />
-              <span>Campus Perimeter Settings</span>
+              <span>Location Settings</span>
             </button>
           )}
 
@@ -289,7 +324,7 @@ export const StaffClockInView: React.FC = () => {
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
               <Compass className="w-4 h-4 text-indigo-600 animate-spin" />
-              <h2 className="text-sm font-extrabold text-slate-900">Live Device Geolocation Gate</h2>
+              <h2 className="text-sm font-bold text-slate-900">Current Location</h2>
             </div>
             <button
               onClick={acquireGps}
@@ -297,7 +332,7 @@ export const StaffClockInView: React.FC = () => {
               className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition-all"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isAcquiringGps ? 'animate-spin' : ''}`} />
-              <span>{isAcquiringGps ? 'Detecting GPS...' : 'Acquire GPS Position'}</span>
+              <span>{isAcquiringGps ? 'Getting Location...' : 'Get Location'}</span>
             </button>
           </div>
 
@@ -561,29 +596,56 @@ export const StaffClockInView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Latitude</label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={configForm.latitude}
-                    onChange={e => setConfigForm(prev => ({ ...prev, latitude: parseFloat(e.target.value) }))}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-mono text-slate-800"
-                    required
-                  />
+              {/* Hardware GPS Auto-Fetch vs Manual Input */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700">Campus Center Coordinates</span>
+                  <button
+                    type="button"
+                    onClick={handleAutoDetectPerimeterGps}
+                    disabled={isAutoDetectingGps}
+                    className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                  >
+                    <Compass className={`w-3.5 h-3.5 ${isAutoDetectingGps ? 'animate-spin' : ''}`} />
+                    <span>{isAutoDetectingGps ? 'Detecting GPS...' : 'Auto-Detect Current GPS'}</span>
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Longitude</label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={configForm.longitude}
-                    onChange={e => setConfigForm(prev => ({ ...prev, longitude: parseFloat(e.target.value) }))}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-mono text-slate-800"
-                    required
-                  />
+
+                {autoDetectMsg && (
+                  <p className={`text-[11px] font-medium p-2 rounded-lg ${
+                    autoDetectMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+                  }`}>
+                    {autoDetectMsg.text}
+                  </p>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase font-mono mb-1">Latitude</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={configForm.latitude}
+                      onChange={e => setConfigForm(prev => ({ ...prev, latitude: parseFloat(e.target.value) }))}
+                      className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 font-mono text-slate-800"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase font-mono mb-1">Longitude</label>
+                    <input
+                      type="number"
+                      step="0.000001"
+                      value={configForm.longitude}
+                      onChange={e => setConfigForm(prev => ({ ...prev, longitude: parseFloat(e.target.value) }))}
+                      className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 font-mono text-slate-800"
+                      required
+                    />
+                  </div>
                 </div>
+                <p className="text-[10px] text-slate-400">
+                  Tip: Click "Auto-Detect Current GPS" while standing on campus grounds, or enter exact coordinates manually.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

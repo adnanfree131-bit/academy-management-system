@@ -117,7 +117,10 @@ export const HomeworkDesk: React.FC = () => {
 
       const [studData, chkData] = await Promise.all([studRes.json(), chkRes.json()]);
 
-      const studentList: Student[] = studData.success ? studData.data : [];
+      const allBatchStudents: Student[] = studData.success ? studData.data : [];
+      const studentList: Student[] = allBatchStudents.filter(s => 
+        !s.subjects || s.subjects.length === 0 || s.subjects.includes(selectedAssignment.subject_id)
+      );
       setStudents(studentList);
 
       const existingChecks: NotebookCheckRecord[] = chkData.success ? chkData.data : [];

@@ -82,8 +82,9 @@ export function sisRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       const { id } = request.params as { id: string };
       const schema = z.object({
-        batch_id: z.string().uuid(),
+        batch_id: z.string().min(1),
         elective_group_id: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        subjects: z.array(z.string()).optional(),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -100,7 +101,8 @@ export function sisRoutes(store: IDataStore) {
           user.tenant_id,
           id,
           parseResult.data.batch_id,
-          parseResult.data.elective_group_id
+          parseResult.data.elective_group_id,
+          parseResult.data.subjects
         );
         return reply.status(201).send({ success: true, data: student, timestamp: new Date().toISOString() });
       } catch (err: any) {
@@ -122,21 +124,56 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.post('/students', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      const rawBody = request.body || {};
+      const derivedFullName = rawBody.full_name || `${rawBody.first_name || ''} ${rawBody.last_name || ''}`.trim() || 'Enrolled Student';
+      const derivedPhone = rawBody.phone || rawBody.guardian_phone || '+92 300 0000000';
+
       const schema = z.object({
-        full_name: z.string().min(1),
-        phone: z.string().min(1),
+        full_name: z.string().default(derivedFullName),
+        phone: z.string().default(derivedPhone),
         email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
         guardian_name: z.string().min(1),
         guardian_phone: z.string().min(1),
-        program_id: z.string().uuid(),
-        batch_id: z.string().uuid(),
+        program_id: z.string().min(1),
+        batch_id: z.string().min(1),
         elective_group_id: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        blood_group: z.string().optional(),
+        fee_structure: z.object({
+          base_tuition: z.number().nonnegative().optional(),
+          tuition_fee: z.number().nonnegative().optional(),
+          admission_fee: z.number().nonnegative().default(0),
+          exam_fee: z.number().nonnegative().optional(),
+          exam_lab_charges: z.number().nonnegative().optional(),
+          concession_type: z.string().optional(),
+          concession_val: z.number().optional(),
+          concession_value: z.number().optional(),
+          concession_reason: z.string().optional(),
+          net_tuition: z.number().nonnegative().default(0),
+          first_month_total: z.number().nonnegative().default(0),
+        }).transform(fs => {
+          if (!fs) return undefined;
+          return {
+            base_tuition: fs.base_tuition ?? fs.tuition_fee ?? 0,
+            admission_fee: fs.admission_fee ?? 0,
+            exam_fee: fs.exam_fee ?? fs.exam_lab_charges ?? 0,
+            concession_type: (fs.concession_type === 'percentage' || fs.concession_type === 'flat') ? fs.concession_type : 'percentage',
+            concession_val: fs.concession_val ?? fs.concession_value ?? 0,
+            concession_reason: fs.concession_reason,
+            net_tuition: fs.net_tuition ?? (fs.base_tuition ?? fs.tuition_fee ?? 0),
+            first_month_total: fs.first_month_total ?? 0,
+          };
+        }).optional(),
+        generate_first_month_invoice: z.boolean().optional(),
         status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn']).default('active'),
         custom_field_values: z.record(z.any()).default({}),
         subjects: z.array(z.string()).default([]),
       });
 
-      const parseResult = schema.safeParse(request.body);
+      const parseResult = schema.safeParse({
+        ...rawBody,
+        full_name: derivedFullName,
+        phone: derivedPhone,
+      });
       if (!parseResult.success) {
         return reply.status(400).send({
           success: false,
@@ -151,6 +188,43 @@ export function sisRoutes(store: IDataStore) {
       });
 
       return reply.status(201).send({ success: true, data: student, timestamp: new Date().toISOString() });
+    });
+
+    fastify.patch('/students/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      const { id } = request.params as { id: string };
+
+      const schema = z.object({
+        full_name: z.string().optional(),
+        phone: z.string().optional(),
+        email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
+        guardian_name: z.string().optional(),
+        guardian_phone: z.string().optional(),
+        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn']).optional(),
+        subjects: z.array(z.string()).optional(),
+        fee_structure: z.any().optional(),
+        custom_field_values: z.record(z.any()).optional(),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid update payload', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const updated = await store.updateStudent(user.tenant_id, id, parseResult.data);
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Student not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
     });
   };
 }

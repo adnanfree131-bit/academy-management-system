@@ -19,6 +19,8 @@ import { GenericModuleView } from './views/GenericModuleView';
 import { TeacherPortalView } from './views/TeacherPortalView';
 import { StudentParentPortalView } from './views/StudentParentPortalView';
 import { SuperAdminControlPlaneView } from './views/SuperAdminControlPlaneView';
+import { IncomeExpenseDeskView } from './views/IncomeExpenseDeskView';
+import { AcademySettingsView } from './views/AcademySettingsView';
 import { TrialExpiredLockoutModal } from './components/TrialExpiredLockoutModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 
@@ -60,6 +62,7 @@ const getTitle = (screen: string, role?: string): string => {
   switch (screen) {
     case 'dashboard': return 'Dashboard';
     case 'classes': return 'Classes & Batches';
+    case 'id_cards': return 'Student ID Card Studio';
     case 'enrollment': return 'Student Admissions & Directory';
     case 'timetable': return 'Timetable & Scheduling';
     case 'attendance': return 'Student Attendance';
@@ -67,9 +70,11 @@ const getTitle = (screen: string, role?: string): string => {
     case 'homework': return 'Homework & Notebooks';
     case 'exams': return 'Exams & Results';
     case 'voucher': return 'Fee Invoices & Vouchers';
+    case 'expenses': return 'Income & Expense Management';
     case 'payroll': return 'Staff Payroll';
     case 'geofence': return 'Staff Attendance';
     case 'complaints': return 'Complaints & Feedback';
+    case 'settings': return 'Academy Settings';
     case 'mobile': return 'Mobile App';
     default: return 'Apex Academy';
   }
@@ -184,6 +189,8 @@ const MainLayout: React.FC = () => {
               <DashboardView onNavigate={setCurrentScreen} />
             ) : currentScreen === 'classes' ? (
               <AcademicStructureView />
+            ) : currentScreen === 'id_cards' ? (
+              <EnrollmentView defaultTab="id_cards" />
             ) : currentScreen === 'enrollment' ? (
               <EnrollmentView />
             ) : currentScreen === 'timetable' ? (
@@ -198,12 +205,16 @@ const MainLayout: React.FC = () => {
               <ExamDeskView />
             ) : currentScreen === 'voucher' ? (
               <FeeDeskView />
+            ) : currentScreen === 'expenses' ? (
+              <IncomeExpenseDeskView />
             ) : currentScreen === 'payroll' ? (
               <PayrollDeskView />
             ) : currentScreen === 'geofence' ? (
               <StaffClockInView />
             ) : currentScreen === 'complaints' ? (
               <ComplaintsDeskView />
+            ) : currentScreen === 'settings' ? (
+              <AcademySettingsView />
             ) : (
               <GenericModuleView moduleId={currentScreen} />
             )
