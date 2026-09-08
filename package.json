@@ -9,6 +9,7 @@
     "build": "pnpm -r run build",
     "test": "pnpm -r run test",
     "test:rls": "pnpm --filter @apex/supabase test",
+    "db:migrate": "pnpm --filter @apex/supabase run migrate",
     "dev:backend": "pnpm --filter @apex/backend dev",
     "dev:frontend": "pnpm --filter @apex/frontend dev",
     "lint": "pnpm -r run lint"
