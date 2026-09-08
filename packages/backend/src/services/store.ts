@@ -438,7 +438,7 @@ export class InMemoryDataStore implements IDataStore {
       iban: 'PK36ALFH01231005678901',
       branch_code: '0123 - Gulberg Main Boulevard',
       whatsapp_support: '+923001234567',
-      support_email: 'billing@apexacademyerp.com',
+      support_email: 'info@kampus.pk',
       monthly_subscription_fee: 15000,
       instructions: 'Please transfer your subscription fee via online banking / Raast / ATM and upload the screenshot with transaction reference number for immediate automated activation.',
       updated_at: new Date().toISOString()

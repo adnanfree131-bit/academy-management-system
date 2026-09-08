@@ -1035,7 +1035,7 @@ export const LoginModal: React.FC = () => {
             <div className="flex items-center gap-3">
               <span>Academic Session {currentSession}</span>
               <span>•</span>
-              <span>Support: edu@kampus.pk</span>
+              <span>Support: info@kampus.pk</span>
             </div>
           </div>
 

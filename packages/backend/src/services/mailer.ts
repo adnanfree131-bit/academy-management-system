@@ -102,10 +102,10 @@ export class DevConsoleMailerService implements IMailerService {
 
 export function createMailerService(): IMailerService {
   const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL;
-  const senderName = process.env.BREVO_SENDER_NAME || 'Apex Academy ERP';
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || 'info@kampus.pk';
+  const senderName = process.env.BREVO_SENDER_NAME || 'Kampus ERP';
 
-  if (apiKey && senderEmail) {
+  if (apiKey) {
     return new BrevoMailerService(apiKey, senderEmail, senderName);
   }
 

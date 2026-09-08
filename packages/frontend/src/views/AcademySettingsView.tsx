@@ -79,7 +79,7 @@ export const AcademySettingsView: React.FC = () => {
         setCampusName(s.campus_name || tenant?.campus_name || 'Main Campus');
         setAcademicSession(s.academic_session || tenant?.academic_session || '2026-2027');
         setPhone(s.phone || '+92 300 1234567');
-        setEmail(s.email || 'info@apexacademy.edu.pk');
+        setEmail(s.email || 'info@kampus.pk');
         setAddress(s.address || 'Campus Avenue, Main Boulevard, Lahore');
         setAffiliationNo(s.affiliation_number || 'BISE/LHR-2026/9941');
 
@@ -396,7 +396,6 @@ export const AcademySettingsView: React.FC = () => {
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="admin@apexacademy.edu.pk"
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
                 />
               </div>
