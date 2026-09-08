@@ -136,7 +136,7 @@ describe('Phase 1: Backend Fastify & Brevo OTP Authentication Engine', () => {
     expect(resAvail.statusCode).toBe(200);
     const bodyAvail = JSON.parse(resAvail.body);
     expect(bodyAvail.data.available).toBe(true);
-    expect(bodyAvail.data.domain).toBe('falcon-grammar.edu.kampus.pk');
+    expect(bodyAvail.data.domain).toBe('falcon-grammar.kampus.pk');
 
     // Check taken slug (apex)
     const resTaken = await app.inject({
@@ -252,7 +252,7 @@ describe('Phase 1: Backend Fastify & Brevo OTP Authentication Engine', () => {
     expect(body.data.city).toBe('Lahore');
     expect(body.data.phone).toBe('+92 300 5551234');
     expect(body.data.logo_url).toContain('data:image/png');
-    expect(body.data.domain).toBe('falcon-sci.edu.kampus.pk');
+    expect(body.data.domain).toBe('falcon-sci.kampus.pk');
   });
 
   it('11. Password reset flow dispatches Brevo OTP and updates password', async () => {

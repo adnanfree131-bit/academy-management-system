@@ -75,9 +75,9 @@ export const LoginModal: React.FC = () => {
 
   const getBaseDomain = () => {
     const hostname = window.location.hostname.toLowerCase();
-    if (hostname.includes('kampus.pk')) return 'edu.kampus.pk';
+    if (hostname.includes('kampus.pk')) return 'kampus.pk';
     if (hostname.includes('toolnestr.com')) return 'toolnestr.com';
-    return 'edu.kampus.pk';
+    return 'kampus.pk';
   };
 
   const baseDomain = getBaseDomain();
@@ -90,17 +90,17 @@ export const LoginModal: React.FC = () => {
       setTenantSlug(campusParam.toLowerCase().trim());
     } else {
       const hostname = window.location.hostname.toLowerCase();
-      if (hostname.endsWith('.edu.kampus.pk')) {
-        const sub = hostname.replace('.edu.kampus.pk', '');
-        if (sub && sub !== 'www') {
-          setTenantSlug(sub);
-        }
-      } else if (hostname.endsWith('.kampus.pk')) {
+      if (hostname.endsWith('.kampus.pk')) {
         const sub = hostname.replace('.kampus.pk', '');
-        if (sub && sub !== 'edu' && sub !== 'www') {
-          setTenantSlug(sub);
+        if (sub && sub !== 'www') {
+          // 'edu' is the main platform entry domain; default to 'apex'
+          if (sub === 'edu') {
+            setTenantSlug('apex');
+          } else {
+            setTenantSlug(sub);
+          }
         }
-      } else if (hostname.endsWith('.toolnestr.com') && !hostname.startsWith('edu.') && !hostname.startsWith('www.')) {
+      } else if (hostname.endsWith('.toolnestr.com') && !hostname.startsWith('www.')) {
         const sub = hostname.replace('.toolnestr.com', '');
         if (sub && sub !== 'edu' && sub !== 'www') {
           setTenantSlug(sub);
@@ -336,7 +336,9 @@ export const LoginModal: React.FC = () => {
 
   const currentAcademyName = branding?.name || 'Apex Academy';
   const currentSession = branding?.academic_session || '2026–2027';
-  const currentDomain = branding?.domain || `${tenantSlug}.${baseDomain}`;
+  const currentDomain = (typeof window !== 'undefined' && window.location.hostname.toLowerCase() === 'edu.kampus.pk')
+    ? 'edu.kampus.pk'
+    : (branding?.domain || `${tenantSlug}.${baseDomain}`);
   const currentLogo = branding?.logo_url || null;
 
   return (

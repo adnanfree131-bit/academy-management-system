@@ -51,7 +51,7 @@ export class BrevoMailerService implements IMailerService {
 
           <p style="color: #64748b; font-size: 12px;">This code will expire in ${params.expiresInMinutes} minutes. If you did not request this login, please ignore this email.</p>
           <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
-          <p style="color: #94a3b8; font-size: 11px; margin-bottom: 0;">Apex Academy Management ERP • Enterprise Cloud</p>
+          <p style="color: #94a3b8; font-size: 11px; margin-bottom: 0;">Academy Management System • edu.kampus.pk</p>
         </div>
       `,
     };

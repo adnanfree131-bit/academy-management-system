@@ -449,7 +449,7 @@ export class InMemoryDataStore implements IDataStore {
       id: 'a0000000-0000-0000-0000-000000000001',
       name: 'Apex Academy Lahore',
       slug: 'apex',
-      domain: 'apex.edu.pk',
+      domain: 'apex.kampus.pk',
       status: 'active',
       tier: 'enterprise',
       max_students: 1200,
@@ -1401,8 +1401,13 @@ export class InMemoryDataStore implements IDataStore {
     if (!slug) {
       return null;
     }
+    const clean = slug.toLowerCase().trim();
     for (const tenant of this.tenants.values()) {
-      if (tenant.slug.toLowerCase() === slug.toLowerCase()) return tenant;
+      if (tenant.slug.toLowerCase() === clean) return tenant;
+    }
+    // 'edu', 'main', or portal queries resolve to primary tenant
+    if (clean === 'edu' || clean === 'main' || clean === 'portal') {
+      return this.tenants.get('a0000000-0000-0000-0000-000000000001') || null;
     }
     return null;
   }
@@ -1425,7 +1430,7 @@ export class InMemoryDataStore implements IDataStore {
     const rawSlug = params.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
     const cleanSlug = rawSlug || 'academy-' + Math.floor(100 + Math.random() * 900);
     const tenantId = crypto.randomUUID();
-    const baseDomain = process.env.BASE_DOMAIN || 'edu.kampus.pk';
+    const baseDomain = process.env.BASE_DOMAIN || 'kampus.pk';
     const newTenant: Tenant = {
       id: tenantId,
       name: params.name.trim(),

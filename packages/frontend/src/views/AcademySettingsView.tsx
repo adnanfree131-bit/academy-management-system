@@ -29,7 +29,7 @@ export const AcademySettingsView: React.FC = () => {
   const [campusName, setCampusName] = useState<string>('');
   const [city, setCity] = useState<string>('Lahore');
   const [subdomain, setSubdomain] = useState<string>('apex');
-  const [domain, setDomain] = useState<string>('apex.toolnestr.com');
+  const [domain, setDomain] = useState<string>('apex.kampus.pk');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [academicSession, setAcademicSession] = useState<string>('2026-2027');
