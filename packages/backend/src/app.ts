@@ -15,6 +15,8 @@ import { complaintsRoutes } from './routes/complaints.js';
 import { financeRoutes } from './routes/finance.js';
 import { payrollRoutes } from './routes/payroll.js';
 import { examRoutes } from './routes/exams.js';
+import { whatsappRoutes } from './routes/whatsapp.js';
+import { absenteeRoutes } from './routes/absentee.js';
 
 export interface AppOptions {
   store?: IDataStore;
@@ -86,6 +88,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
   // Phase 5 Routes: Examination Bank, Excel Chapter Upload & Hybrid Evaluation
   await fastify.register(examRoutes(store), { prefix: '/api/v1/exams' });
+
+  // Phase 6 Routes: WhatsApp Direct Messaging Engine & Absentee Retention Desk
+  await fastify.register(whatsappRoutes(store), { prefix: '/api/v1/whatsapp' });
+  await fastify.register(absenteeRoutes(store), { prefix: '/api/v1/absentee' });
 
   return fastify;
 }

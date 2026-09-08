@@ -37,7 +37,12 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
     const mig5Sql = fs.readFileSync(mig5Path, 'utf8');
     await db.exec(mig5Sql);
 
-    // 6. Execute Dual-Tenant Seed Fixture
+    // 6. Execute Migration 00006 (WhatsApp Templates, Absentee & Retention Desk)
+    const mig6Path = path.join(__dirname, '../migrations/00006_whatsapp_absentee_retention.sql');
+    const mig6Sql = fs.readFileSync(mig6Path, 'utf8');
+    await db.exec(mig6Sql);
+
+    // 7. Execute Dual-Tenant Seed Fixture
     const seedPath = path.join(__dirname, '../seeds/001_dual_tenant_seed.sql');
     const seedSql = fs.readFileSync(seedPath, 'utf8');
     await db.exec(seedSql);
@@ -411,5 +416,118 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
       `)
     ).rejects.toThrow(/new row violates row-level security policy/i);
   });
+
+  it('Gate 17: Phase 6 - Tenant Isolation on WhatsApp Templates & Audit Logs', async () => {
+    // Tenant A creates a WhatsApp template and dispatches an audit log
+    await db.exec(`SET app.current_tenant_id = '${TENANT_A_ID}';`);
+    await db.exec(`
+      INSERT INTO whatsapp_templates (id, tenant_id, title, category, body, is_default)
+      VALUES (
+        'aa100000-0000-0000-0000-000000000001',
+        '${TENANT_A_ID}',
+        'Morning Absence Alert',
+        'ABSENCE',
+        'Dear {guardian_name}, {student_name} was marked absent today.',
+        true
+      );
+
+      INSERT INTO whatsapp_audit_logs (
+        id, tenant_id, student_id, recipient_phone, phone_type, template_id, message_body, status
+      ) VALUES (
+        'aa200000-0000-0000-0000-000000000001',
+        '${TENANT_A_ID}',
+        'a5000000-0000-0000-0000-000000000001',
+        '+923001234567',
+        'PRIMARY',
+        'aa100000-0000-0000-0000-000000000001',
+        'Dear Tariq, Hamza was marked absent today.',
+        'SENT'
+      );
+    `);
+
+    // Tenant A queries templates & audit logs
+    const tmplA = await db.query<{ title: string }>('SELECT title FROM whatsapp_templates');
+    expect(tmplA.rows.length).toBe(1);
+    expect(tmplA.rows[0].title).toBe('Morning Absence Alert');
+
+    const logsA = await db.query<{ recipient_phone: string }>('SELECT recipient_phone FROM whatsapp_audit_logs');
+    expect(logsA.rows.length).toBe(1);
+    expect(logsA.rows[0].recipient_phone).toBe('+923001234567');
+
+    // Tenant B context
+    await db.exec(`SET app.current_tenant_id = '${TENANT_B_ID}';`);
+    const tmplB = await db.query<{ title: string }>('SELECT title FROM whatsapp_templates');
+    expect(tmplB.rows.length).toBe(0);
+
+    const logsB = await db.query<{ recipient_phone: string }>('SELECT recipient_phone FROM whatsapp_audit_logs');
+    expect(logsB.rows.length).toBe(0);
+
+    // Cross-tenant template insert must be blocked
+    await expect(
+      db.exec(`
+        INSERT INTO whatsapp_templates (tenant_id, title, category, body)
+        VALUES ('${TENANT_A_ID}', 'Illegal Template', 'GENERAL', 'Hello');
+      `)
+    ).rejects.toThrow(/new row violates row-level security policy/i);
+  });
+
+  it('Gate 18: Phase 6 - Tenant Isolation on Daily Absentee Follow-Ups & Retention Cases', async () => {
+    // Tenant A creates an absentee follow-up and a retention counseling case
+    await db.exec(`SET app.current_tenant_id = '${TENANT_A_ID}';`);
+    await db.exec(`
+      INSERT INTO absentee_followups (
+        id, tenant_id, student_id, batch_id, date, consecutive_days, call_outcome, reason_category, parent_remarks, status
+      ) VALUES (
+        'aa300000-0000-0000-0000-000000000001',
+        '${TENANT_A_ID}',
+        'a5000000-0000-0000-0000-000000000001',
+        'a3000000-0000-0000-0000-000000000001',
+        CURRENT_DATE,
+        2,
+        'CONNECTED',
+        'MEDICAL',
+        'Fever and flu, returning Thursday',
+        'CONTACTED'
+      );
+
+      INSERT INTO retention_counseling_cases (
+        id, tenant_id, student_id, monthly_attendance_pct, consecutive_absences, risk_level, status
+      ) VALUES (
+        'aa400000-0000-0000-0000-000000000001',
+        '${TENANT_A_ID}',
+        'a5000000-0000-0000-0000-000000000001',
+        64.5,
+        4,
+        'CRITICAL',
+        'OPEN'
+      );
+    `);
+
+    // Tenant A queries
+    const followupsA = await db.query<{ parent_remarks: string }>('SELECT parent_remarks FROM absentee_followups');
+    expect(followupsA.rows.length).toBe(1);
+    expect(followupsA.rows[0].parent_remarks).toContain('Fever and flu');
+
+    const retentionA = await db.query<{ risk_level: string }>('SELECT risk_level FROM retention_counseling_cases');
+    expect(retentionA.rows.length).toBe(1);
+    expect(retentionA.rows[0].risk_level).toBe('CRITICAL');
+
+    // Tenant B context
+    await db.exec(`SET app.current_tenant_id = '${TENANT_B_ID}';`);
+    const followupsB = await db.query<{ id: string }>('SELECT id FROM absentee_followups');
+    expect(followupsB.rows.length).toBe(0);
+
+    const retentionB = await db.query<{ id: string }>('SELECT id FROM retention_counseling_cases');
+    expect(retentionB.rows.length).toBe(0);
+
+    // Cross-tenant absentee followup insert must be blocked
+    await expect(
+      db.exec(`
+        INSERT INTO absentee_followups (tenant_id, student_id, batch_id, date, status)
+        VALUES ('${TENANT_A_ID}', 'a5000000-0000-0000-0000-000000000001', 'a3000000-0000-0000-0000-000000000001', CURRENT_DATE, 'PENDING');
+      `)
+    ).rejects.toThrow(/new row violates row-level security policy/i);
+  });
 });
+
 

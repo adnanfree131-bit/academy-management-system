@@ -814,3 +814,113 @@ export interface StudentOfficialReportCard {
   rank?: number;
   total_students?: number;
 }
+
+// =============================================================================
+// PHASE 6: WHATSAPP DIRECT MESSAGING & ABSENTEE RETENTION DESK
+// =============================================================================
+
+export type WhatsAppTemplateCategory = 'ABSENCE' | 'FEE_REMINDER' | 'EXAM_RESULT' | 'GENERAL';
+export type WhatsAppPhoneType = 'PRIMARY' | 'BACKUP';
+
+export interface WhatsAppTemplate {
+  id: string;
+  tenant_id: string;
+  title: string;
+  category: WhatsAppTemplateCategory;
+  body: string;
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WhatsAppAuditLog {
+  id: string;
+  tenant_id: string;
+  student_id: string;
+  student_name?: string;
+  roll_number?: string;
+  recipient_phone: string;
+  phone_type: WhatsAppPhoneType;
+  template_id?: string | null;
+  message_body: string;
+  status: 'OPENED' | 'SENT' | 'FAILED';
+  dispatched_by?: string | null;
+  dispatched_by_name?: string | null;
+  dispatched_at: string;
+}
+
+export interface WhatsAppSanitizedUrlResult {
+  phone: string;
+  clean_phone: string;
+  is_valid: boolean;
+  message: string;
+  encoded_url: string;
+  warning?: string | null;
+}
+
+export type AbsenteeCallOutcome = 'CONNECTED' | 'NO_ANSWER' | 'SWITCHED_OFF' | 'WHATSAPP_SENT';
+export type AbsenteeReasonCategory = 'MEDICAL' | 'EMERGENCY' | 'TRANSPORT' | 'FEE_DISPUTE' | 'TRUANCY' | 'OTHER';
+export type AbsenteeFollowupStatus = 'PENDING' | 'CONTACTED' | 'UNREACHABLE' | 'RESOLVED_EXCUSED';
+export type RetentionRiskLevel = 'MODERATE' | 'HIGH' | 'CRITICAL';
+
+export interface AbsenteeFollowupItem {
+  id: string;
+  tenant_id: string;
+  student_id: string;
+  student_name: string;
+  roll_number: string;
+  guardian_name: string;
+  guardian_phone: string;
+  backup_phone?: string | null;
+  batch_id: string;
+  batch_name: string;
+  date: string;
+  consecutive_days: number;
+  call_outcome?: AbsenteeCallOutcome | null;
+  reason_category?: AbsenteeReasonCategory | null;
+  parent_remarks?: string | null;
+  expected_return_date?: string | null;
+  is_snoozed: boolean;
+  snooze_until?: string | null;
+  status: AbsenteeFollowupStatus;
+  staff_counselor_id?: string | null;
+  staff_counselor_name?: string | null;
+  last_whatsapp_sent_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AbsenteeDeskSummaryKPI {
+  total_absentees: number;
+  contacted_count: number;
+  contacted_percentage: number;
+  unreachable_count: number;
+  pending_count: number;
+  excused_count: number;
+}
+
+export interface RetentionCounselingCase {
+  id: string;
+  tenant_id: string;
+  student_id: string;
+  student_name: string;
+  roll_number: string;
+  batch_name: string;
+  monthly_attendance_pct: number;
+  consecutive_absences: number;
+  risk_level: RetentionRiskLevel;
+  scheduled_meeting_date?: string | null;
+  counseling_notes?: string | null;
+  status: 'OPEN' | 'SCHEDULED' | 'RESOLVED' | 'DROPPED_OUT';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AbsenteeResolutionReport {
+  total_absences: number;
+  followup_rate: number;
+  reason_breakdown: Record<AbsenteeReasonCategory, number>;
+  medical_leave_converted: number;
+  prevented_dropouts: number;
+}
+

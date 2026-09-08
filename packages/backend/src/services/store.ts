@@ -51,7 +51,20 @@ import {
   ExcelQuestionImportRow,
   StudentOfficialReportCard,
   ExamQuestionType,
-  EvaluationStatus
+  EvaluationStatus,
+  WhatsAppTemplate,
+  WhatsAppTemplateCategory,
+  WhatsAppAuditLog,
+  WhatsAppPhoneType,
+  WhatsAppSanitizedUrlResult,
+  AbsenteeFollowupItem,
+  AbsenteeCallOutcome,
+  AbsenteeReasonCategory,
+  AbsenteeFollowupStatus,
+  AbsenteeDeskSummaryKPI,
+  RetentionRiskLevel,
+  RetentionCounselingCase,
+  AbsenteeResolutionReport
 } from '@apex/shared-types';
 
 export interface StoredOTP {
@@ -253,6 +266,37 @@ export interface IDataStore {
   }): Promise<StudentExamEvaluation>;
   getExamEvaluations(tenantId: string, examId: string): Promise<StudentExamEvaluation[]>;
   getStudentReportCard(tenantId: string, examId: string, studentId: string): Promise<StudentOfficialReportCard | null>;
+
+  // Phase 6: WhatsApp Messaging & Absentee Retention Desk
+  sanitizePhoneNumber(phone: string, countryCode?: string): { clean_phone: string; is_valid: boolean; warning?: string };
+  replaceDynamicTags(template: string, data: Record<string, any>): string;
+  generateWhatsAppLink(phone: string, message: string, countryCode?: string): WhatsAppSanitizedUrlResult;
+  getWhatsAppTemplates(tenantId: string, category?: string): Promise<WhatsAppTemplate[]>;
+  createWhatsAppTemplate(tenantId: string, data: Omit<WhatsAppTemplate, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>): Promise<WhatsAppTemplate>;
+  updateWhatsAppTemplate(tenantId: string, id: string, data: Partial<Omit<WhatsAppTemplate, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>): Promise<WhatsAppTemplate | null>;
+  deleteWhatsAppTemplate(tenantId: string, id: string): Promise<boolean>;
+  logWhatsAppDispatch(tenantId: string, data: Omit<WhatsAppAuditLog, 'id' | 'tenant_id' | 'dispatched_at'>): Promise<WhatsAppAuditLog>;
+  getWhatsAppAuditLogs(tenantId: string, studentId?: string): Promise<WhatsAppAuditLog[]>;
+  checkDuplicateAlertToday(tenantId: string, studentId: string, templateCategory: string): Promise<{ wasDispatchedToday: boolean; lastDispatchedAt?: string; dispatchedBy?: string }>;
+
+  syncDailyAbsenteeRoster(tenantId: string, date: string): Promise<AbsenteeFollowupItem[]>;
+  getAbsenteeFollowups(tenantId: string, filters?: { date?: string; batchId?: string; status?: string }): Promise<AbsenteeFollowupItem[]>;
+  getAbsenteeDeskKPI(tenantId: string, date: string): Promise<AbsenteeDeskSummaryKPI>;
+  logParentResponse(
+    tenantId: string,
+    id: string,
+    data: {
+      call_outcome: AbsenteeCallOutcome;
+      reason_category: AbsenteeReasonCategory;
+      parent_remarks?: string;
+      expected_return_date?: string;
+      convert_to_medical_leave?: boolean;
+    },
+    counselorId?: string
+  ): Promise<AbsenteeFollowupItem | null>;
+  getRetentionCases(tenantId: string): Promise<RetentionCounselingCase[]>;
+  scheduleRetentionMeeting(tenantId: string, caseId: string, meetingDate: string, notes: string): Promise<RetentionCounselingCase | null>;
+  getAbsenteeResolutionReport(tenantId: string, month: string): Promise<AbsenteeResolutionReport>;
 }
 
 export class InMemoryDataStore implements IDataStore {
@@ -296,6 +340,12 @@ export class InMemoryDataStore implements IDataStore {
   private exams: Exam[] = [];
   private examQuestions: ExamQuestion[] = [];
   private studentExamEvaluations: StudentExamEvaluation[] = [];
+
+  // Phase 6 Collections
+  private whatsappTemplates: WhatsAppTemplate[] = [];
+  private whatsappAuditLogs: WhatsAppAuditLog[] = [];
+  private absenteeFollowups: AbsenteeFollowupItem[] = [];
+  private retentionCases: RetentionCounselingCase[] = [];
 
   constructor() {
     // 1. Seed Tenants
@@ -1112,6 +1162,152 @@ export class InMemoryDataStore implements IDataStore {
       status: 'GRADED',
       evaluated_by: 'a1000000-0000-0000-0000-000000000002',
       evaluated_by_name: 'Sir Tariq Physics',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+
+    // =========================================================================
+    // SEED PHASE 6: WHATSAPP TEMPLATES, ABSENTEE FOLLOW-UPS & RETENTION CASES
+    // =========================================================================
+    const tmplAbsence: WhatsAppTemplate = {
+      id: 'tmpl-absence-1',
+      tenant_id: tenantA.id,
+      title: 'Daily Morning Absence Alert',
+      category: 'ABSENCE',
+      body: 'Dear {guardian_name}, your child {student_name} (Roll: {roll_number}) was marked *ABSENT* today ({current_date}) in batch {batch_name}. If this is an emergency or illness, please contact {academy_phone}. Regards, {academy_name}.',
+      is_default: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const tmplFee: WhatsAppTemplate = {
+      id: 'tmpl-fee-1',
+      tenant_id: tenantA.id,
+      title: 'Fee Payment Reminder',
+      category: 'FEE_REMINDER',
+      body: 'Dear {guardian_name}, this is a gentle reminder from {academy_name} that the fee of *Rs. {due_amount}* for {student_name} (Roll: {roll_number}) in {batch_name} is due by *{due_date}*. Thank you.',
+      is_default: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const tmplExam: WhatsAppTemplate = {
+      id: 'tmpl-exam-1',
+      tenant_id: tenantA.id,
+      title: 'Official Exam Result Published',
+      category: 'EXAM_RESULT',
+      body: 'Dear {guardian_name}, assessment results for *{exam_title}* are published! {student_name} (Roll: {roll_number}) scored *{obtained_marks}/{total_marks} Marks* ({percentage}%). Remarks: {teacher_remarks}. {academy_name}.',
+      is_default: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const tmplGeneral: WhatsAppTemplate = {
+      id: 'tmpl-general-1',
+      tenant_id: tenantA.id,
+      title: 'General Academy Announcement',
+      category: 'GENERAL',
+      body: 'Dear {guardian_name}, please note this important update from {academy_name} for batch {batch_name}. For details, call {academy_phone}.',
+      is_default: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    this.whatsappTemplates.push(tmplAbsence, tmplFee, tmplExam, tmplGeneral);
+
+    // Seed Demo Absentees for today
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    this.absenteeFollowups.push({
+      id: 'af-1',
+      tenant_id: tenantA.id,
+      student_id: 'stud-2',
+      student_name: 'Hamza Tariq',
+      roll_number: 'A-102',
+      guardian_name: 'Tariq Mehmood',
+      guardian_phone: '+923001234567',
+      backup_phone: '+923219876543',
+      batch_id: batchA.id,
+      batch_name: batchA.name,
+      date: todayStr,
+      consecutive_days: 1,
+      call_outcome: null,
+      reason_category: null,
+      parent_remarks: null,
+      expected_return_date: null,
+      is_snoozed: false,
+      snooze_until: null,
+      status: 'PENDING',
+      staff_counselor_id: null,
+      staff_counselor_name: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+
+    this.absenteeFollowups.push({
+      id: 'af-2',
+      tenant_id: tenantA.id,
+      student_id: 'stud-3',
+      student_name: 'Ayesha Noor',
+      roll_number: 'A-103',
+      guardian_name: 'Noor Muhammad',
+      guardian_phone: '+923334455667',
+      backup_phone: null,
+      batch_id: batchA.id,
+      batch_name: batchA.name,
+      date: todayStr,
+      consecutive_days: 2,
+      call_outcome: 'CONNECTED',
+      reason_category: 'MEDICAL',
+      parent_remarks: 'High seasonal fever, visiting hospital for lab tests today.',
+      expected_return_date: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+      is_snoozed: true,
+      snooze_until: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+      status: 'RESOLVED_EXCUSED',
+      staff_counselor_id: 'a1000000-0000-0000-0000-000000000001',
+      staff_counselor_name: 'Director Adnan',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+
+    this.absenteeFollowups.push({
+      id: 'af-3',
+      tenant_id: tenantA.id,
+      student_id: 'stud-4',
+      student_name: 'Bilal Khan',
+      roll_number: 'A-104',
+      guardian_name: 'Zahid Khan',
+      guardian_phone: '+923455566778',
+      backup_phone: '+923123456789',
+      batch_id: batchA.id,
+      batch_name: batchA.name,
+      date: todayStr,
+      consecutive_days: 4,
+      call_outcome: 'NO_ANSWER',
+      reason_category: 'TRUANCY',
+      parent_remarks: 'Called twice in the morning; phone rang but no answer.',
+      expected_return_date: null,
+      is_snoozed: false,
+      snooze_until: null,
+      status: 'UNREACHABLE',
+      staff_counselor_id: 'a1000000-0000-0000-0000-000000000001',
+      staff_counselor_name: 'Director Adnan',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+
+    this.retentionCases.push({
+      id: 'ret-1',
+      tenant_id: tenantA.id,
+      student_id: 'stud-4',
+      student_name: 'Bilal Khan',
+      roll_number: 'A-104',
+      batch_name: batchA.name,
+      monthly_attendance_pct: 58.5,
+      consecutive_absences: 4,
+      risk_level: 'CRITICAL',
+      scheduled_meeting_date: null,
+      counseling_notes: 'Consecutive unexplained absences for 4 straight days. Father phone repeatedly unattended.',
+      status: 'OPEN',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     });
@@ -2826,6 +3022,352 @@ export class InMemoryDataStore implements IDataStore {
       },
       rank: rank > 0 ? rank : 1,
       total_students: Math.max(allEvals.length, 1)
+    };
+  }
+
+  // ===========================================================================
+  // PHASE 6: WHATSAPP MESSAGING & ABSENTEE RETENTION DESK
+  // ===========================================================================
+
+  sanitizePhoneNumber(phone: string, countryCode: string = '92'): { clean_phone: string; is_valid: boolean; warning?: string } {
+    if (!phone) {
+      return { clean_phone: '', is_valid: false, warning: 'Phone number is missing.' };
+    }
+
+    let digits = phone.replace(/\D/g, '');
+    while (digits.startsWith('0')) {
+      digits = digits.substring(1);
+    }
+
+    const cleanCountry = countryCode.replace(/\D/g, '') || '92';
+    if (!digits.startsWith(cleanCountry)) {
+      digits = cleanCountry + digits;
+    }
+
+    const isValid = digits.length >= 10 && digits.length <= 15;
+    let warning: string | undefined;
+    if (!isValid) {
+      warning = `Phone number ${phone} seems incomplete or invalid (${digits.length} digits).`;
+    }
+
+    return { clean_phone: digits, is_valid: isValid, warning };
+  }
+
+  replaceDynamicTags(template: string, data: Record<string, any>): string {
+    let result = template;
+    for (const [key, val] of Object.entries(data)) {
+      const tag = `{${key}}`;
+      const cleanVal = val !== undefined && val !== null ? String(val) : '';
+      result = result.split(tag).join(cleanVal);
+    }
+    result = result.replace(/\{[a-zA-Z0-9_]+\}/g, '');
+    return result;
+  }
+
+  generateWhatsAppLink(phone: string, message: string, countryCode: string = '92'): WhatsAppSanitizedUrlResult {
+    const sanitization = this.sanitizePhoneNumber(phone, countryCode);
+    const encoded = encodeURIComponent(message);
+    const encoded_url = `https://wa.me/${sanitization.clean_phone}?text=${encoded}`;
+
+    return {
+      phone,
+      clean_phone: sanitization.clean_phone,
+      is_valid: sanitization.is_valid,
+      message,
+      encoded_url,
+      warning: sanitization.warning
+    };
+  }
+
+  async getWhatsAppTemplates(tenantId: string, category?: string): Promise<WhatsAppTemplate[]> {
+    return this.whatsappTemplates.filter(t => {
+      if (t.tenant_id !== tenantId) return false;
+      if (category && t.category !== category) return false;
+      return true;
+    });
+  }
+
+  async createWhatsAppTemplate(tenantId: string, data: Omit<WhatsAppTemplate, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>): Promise<WhatsAppTemplate> {
+    const tmpl: WhatsAppTemplate = {
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      ...data,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+    if (tmpl.is_default) {
+      this.whatsappTemplates.forEach(t => {
+        if (t.tenant_id === tenantId && t.category === tmpl.category) {
+          t.is_default = false;
+        }
+      });
+    }
+    this.whatsappTemplates.push(tmpl);
+    return tmpl;
+  }
+
+  async updateWhatsAppTemplate(tenantId: string, id: string, data: Partial<Omit<WhatsAppTemplate, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>): Promise<WhatsAppTemplate | null> {
+    const tmpl = this.whatsappTemplates.find(t => t.id === id && t.tenant_id === tenantId);
+    if (!tmpl) return null;
+
+    if (data.is_default) {
+      this.whatsappTemplates.forEach(t => {
+        if (t.tenant_id === tenantId && t.category === (data.category || tmpl.category) && t.id !== id) {
+          t.is_default = false;
+        }
+      });
+    }
+
+    Object.assign(tmpl, data, { updated_at: new Date().toISOString() });
+    return tmpl;
+  }
+
+  async deleteWhatsAppTemplate(tenantId: string, id: string): Promise<boolean> {
+    const idx = this.whatsappTemplates.findIndex(t => t.id === id && t.tenant_id === tenantId);
+    if (idx === -1) return false;
+    this.whatsappTemplates.splice(idx, 1);
+    return true;
+  }
+
+  async logWhatsAppDispatch(tenantId: string, data: Omit<WhatsAppAuditLog, 'id' | 'tenant_id' | 'dispatched_at'>): Promise<WhatsAppAuditLog> {
+    const student = this.students.find(s => s.id === data.student_id);
+    const user = data.dispatched_by ? Array.from(this.users.values()).find(u => u.id === data.dispatched_by) : undefined;
+
+    const log: WhatsAppAuditLog = {
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      ...data,
+      student_name: student ? student.full_name : data.student_name,
+      roll_number: student ? student.roll_number : data.roll_number,
+      dispatched_by_name: user ? user.full_name : undefined,
+      dispatched_at: new Date().toISOString()
+    };
+    this.whatsappAuditLogs.push(log);
+
+    const today = new Date().toISOString().split('T')[0];
+    const followup = this.absenteeFollowups.find(f => f.student_id === data.student_id && f.tenant_id === tenantId && f.date === today);
+    if (followup) {
+      followup.last_whatsapp_sent_at = log.dispatched_at;
+      if (followup.status === 'PENDING') {
+        followup.status = 'CONTACTED';
+        followup.call_outcome = 'WHATSAPP_SENT';
+      }
+    }
+
+    return log;
+  }
+
+  async getWhatsAppAuditLogs(tenantId: string, studentId?: string): Promise<WhatsAppAuditLog[]> {
+    return this.whatsappAuditLogs
+      .filter(l => {
+        if (l.tenant_id !== tenantId) return false;
+        if (studentId && l.student_id !== studentId) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(b.dispatched_at).getTime() - new Date(a.dispatched_at).getTime());
+  }
+
+  async checkDuplicateAlertToday(tenantId: string, studentId: string, _templateCategory: string): Promise<{ wasDispatchedToday: boolean; lastDispatchedAt?: string; dispatchedBy?: string }> {
+    const today = new Date().toISOString().split('T')[0];
+    const logs = this.whatsappAuditLogs.filter(l => {
+      if (l.tenant_id !== tenantId || l.student_id !== studentId) return false;
+      const logDate = l.dispatched_at.split('T')[0];
+      return logDate === today;
+    });
+
+    if (logs.length > 0) {
+      const latest = logs[logs.length - 1];
+      return {
+        wasDispatchedToday: true,
+        lastDispatchedAt: latest.dispatched_at,
+        dispatchedBy: latest.dispatched_by_name || undefined
+      };
+    }
+
+    return { wasDispatchedToday: false };
+  }
+
+  async syncDailyAbsenteeRoster(tenantId: string, date: string): Promise<AbsenteeFollowupItem[]> {
+    const absentees = this.studentAttendance.filter(a => a.tenant_id === tenantId && a.date === date && a.status === 'absent');
+
+    for (const att of absentees) {
+      const existing = this.absenteeFollowups.find(f => f.tenant_id === tenantId && f.student_id === att.student_id && f.date === date);
+      if (!existing) {
+        const student = this.students.find(s => s.id === att.student_id);
+        const batch = student?.batch_id ? this.batches.find(b => b.id === student.batch_id) : undefined;
+
+        const prevFollowup = this.absenteeFollowups
+          .filter(f => f.tenant_id === tenantId && f.student_id === att.student_id && f.date < date)
+          .sort((a, b) => b.date.localeCompare(a.date))[0];
+        const consecutive = prevFollowup ? prevFollowup.consecutive_days + 1 : 1;
+
+        this.absenteeFollowups.push({
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          student_id: att.student_id,
+          student_name: student?.full_name || 'Student',
+          roll_number: student?.roll_number || 'N/A',
+          guardian_name: student?.guardian_name || 'Guardian',
+          guardian_phone: student?.guardian_phone || '+923000000000',
+          backup_phone: '+923210000000',
+          batch_id: batch?.id || 'batch-1',
+          batch_name: batch?.name || 'Batch',
+          date,
+          consecutive_days: consecutive,
+          call_outcome: null,
+          reason_category: null,
+          parent_remarks: null,
+          expected_return_date: null,
+          is_snoozed: false,
+          snooze_until: null,
+          status: 'PENDING',
+          staff_counselor_id: null,
+          staff_counselor_name: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      }
+    }
+
+    return this.getAbsenteeFollowups(tenantId, { date });
+  }
+
+  async getAbsenteeFollowups(tenantId: string, filters?: { date?: string; batchId?: string; status?: string }): Promise<AbsenteeFollowupItem[]> {
+    const today = new Date().toISOString().split('T')[0];
+    const targetDate = filters?.date || today;
+
+    // Handle date rollover for demo seeds
+    const existingForTarget = this.absenteeFollowups.filter(f => f.tenant_id === tenantId && f.date === targetDate);
+    if (existingForTarget.length === 0) {
+      this.absenteeFollowups.forEach(f => {
+        if (f.tenant_id === tenantId && (f.id === 'af-1' || f.id === 'af-2' || f.id === 'af-3')) {
+          f.date = targetDate;
+        }
+      });
+    }
+
+    return this.absenteeFollowups
+      .filter(f => {
+        if (f.tenant_id !== tenantId) return false;
+        if (f.date !== targetDate) return false;
+        if (filters?.batchId && f.batch_id !== filters.batchId) return false;
+        if (filters?.status && filters.status !== 'ALL' && f.status !== filters.status) return false;
+        return true;
+      })
+      .sort((a, b) => b.consecutive_days - a.consecutive_days);
+  }
+
+  async getAbsenteeDeskKPI(tenantId: string, date: string): Promise<AbsenteeDeskSummaryKPI> {
+    await this.getAbsenteeFollowups(tenantId, { date });
+    const followups = this.absenteeFollowups.filter(f => f.tenant_id === tenantId && f.date === date);
+    const total = followups.length;
+    const contacted = followups.filter(f => f.status === 'CONTACTED' || f.status === 'RESOLVED_EXCUSED').length;
+    const unreachable = followups.filter(f => f.status === 'UNREACHABLE').length;
+    const pending = followups.filter(f => f.status === 'PENDING').length;
+    const excused = followups.filter(f => f.status === 'RESOLVED_EXCUSED').length;
+
+    const contacted_percentage = total > 0 ? Number(((contacted / total) * 100).toFixed(1)) : 0;
+
+    return {
+      total_absentees: total,
+      contacted_count: contacted,
+      contacted_percentage,
+      unreachable_count: unreachable,
+      pending_count: pending,
+      excused_count: excused
+    };
+  }
+
+  async logParentResponse(
+    tenantId: string,
+    id: string,
+    data: {
+      call_outcome: AbsenteeCallOutcome;
+      reason_category: AbsenteeReasonCategory;
+      parent_remarks?: string;
+      expected_return_date?: string;
+      convert_to_medical_leave?: boolean;
+    },
+    counselorId?: string
+  ): Promise<AbsenteeFollowupItem | null> {
+    const item = this.absenteeFollowups.find(f => f.id === id && f.tenant_id === tenantId);
+    if (!item) return null;
+
+    const counselor = counselorId ? Array.from(this.users.values()).find(u => u.id === counselorId) : undefined;
+
+    item.call_outcome = data.call_outcome;
+    item.reason_category = data.reason_category;
+    item.parent_remarks = data.parent_remarks || item.parent_remarks;
+    item.expected_return_date = data.expected_return_date || item.expected_return_date;
+    item.staff_counselor_id = counselorId || item.staff_counselor_id;
+    item.staff_counselor_name = counselor ? counselor.full_name : item.staff_counselor_name;
+    item.updated_at = new Date().toISOString();
+
+    if (data.convert_to_medical_leave) {
+      item.status = 'RESOLVED_EXCUSED';
+      const att = this.studentAttendance.find(a => a.tenant_id === tenantId && a.student_id === item.student_id && a.date === item.date);
+      if (att) {
+        att.status = 'excused';
+        att.remarks = `Converted to approved leave by ${item.staff_counselor_name || 'Staff'}: ${data.parent_remarks || 'Medical reasons'}`;
+      }
+    } else if (data.call_outcome === 'NO_ANSWER' || data.call_outcome === 'SWITCHED_OFF') {
+      item.status = 'UNREACHABLE';
+    } else {
+      item.status = 'CONTACTED';
+    }
+
+    if (data.expected_return_date) {
+      item.is_snoozed = true;
+      item.snooze_until = data.expected_return_date;
+    }
+
+    return item;
+  }
+
+  async getRetentionCases(tenantId: string): Promise<RetentionCounselingCase[]> {
+    return this.retentionCases.filter(c => c.tenant_id === tenantId);
+  }
+
+  async scheduleRetentionMeeting(tenantId: string, caseId: string, meetingDate: string, notes: string): Promise<RetentionCounselingCase | null> {
+    const c = this.retentionCases.find(rc => rc.id === caseId && rc.tenant_id === tenantId);
+    if (!c) return null;
+
+    c.scheduled_meeting_date = meetingDate;
+    c.counseling_notes = notes;
+    c.status = 'SCHEDULED';
+    c.updated_at = new Date().toISOString();
+    return c;
+  }
+
+  async getAbsenteeResolutionReport(tenantId: string, month: string): Promise<AbsenteeResolutionReport> {
+    const followups = this.absenteeFollowups.filter(f => f.tenant_id === tenantId && f.date.startsWith(month));
+    const total = followups.length;
+    const contacted = followups.filter(f => f.status === 'CONTACTED' || f.status === 'RESOLVED_EXCUSED').length;
+    const excused = followups.filter(f => f.status === 'RESOLVED_EXCUSED').length;
+
+    const breakdown: Record<AbsenteeReasonCategory, number> = {
+      MEDICAL: 0,
+      EMERGENCY: 0,
+      TRANSPORT: 0,
+      FEE_DISPUTE: 0,
+      TRUANCY: 0,
+      OTHER: 0
+    };
+
+    followups.forEach(f => {
+      if (f.reason_category && breakdown[f.reason_category] !== undefined) {
+        breakdown[f.reason_category]++;
+      }
+    });
+
+    const cases = this.retentionCases.filter(c => c.tenant_id === tenantId && c.status === 'RESOLVED');
+
+    return {
+      total_absences: total,
+      followup_rate: total > 0 ? Number(((contacted / total) * 100).toFixed(1)) : 0,
+      reason_breakdown: breakdown,
+      medical_leave_converted: excused,
+      prevented_dropouts: cases.length
     };
   }
 }
