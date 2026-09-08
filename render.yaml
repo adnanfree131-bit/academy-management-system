@@ -3,7 +3,7 @@ services:
     name: apex-academy-backend
     runtime: node
     plan: free
-    region: frankfurt
+    region: singapore
     buildCommand: corepack enable && pnpm install && pnpm -F @apex/shared-types build && pnpm -F @apex/backend build
     startCommand: pnpm -F @apex/backend start
     healthCheckPath: /api/v1/health
