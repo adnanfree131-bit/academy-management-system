@@ -354,18 +354,23 @@ export const EnrollmentView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Banner & Tab Navigation */}
-      <div className="bg-white border border-slate-200/90 rounded-xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-black tracking-tight text-slate-900">Student Admissions & Directory</h1>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-              <ShieldCheck className="w-3 h-3 text-indigo-600" />
-              Student Records
-            </span>
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs">
+            <UserPlus className="w-5 h-5 text-indigo-400" />
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black tracking-tight text-slate-900">Student Admissions & Directory</h1>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                <ShieldCheck className="w-3 h-3 text-indigo-600" />
+                Student Records
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Manage student admissions, review inquiries, and maintain student records.
+            </p>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Manage student admissions, review inquiries, and maintain student records.
-          </p>
         </div>
 
         {/* Tab Switcher */}

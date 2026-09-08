@@ -5,7 +5,7 @@ import {
   CheckSquare, 
   PhoneForwarded, 
   UserPlus, 
-  Printer, 
+  Receipt,
   Wallet, 
   Smartphone, 
   LogOut, 
@@ -18,7 +18,6 @@ import {
   GraduationCap, 
   UserCheck, 
   Award,
-  CreditCard,
   ShieldAlert,
   ShieldCheck,
   X 
@@ -146,7 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <LayoutDashboard className="w-4 h-4" />
+                        <LayoutDashboard className={`w-4 h-4 ${currentScreen === 'teacher' ? 'text-white' : 'text-emerald-600'}`} />
                         <span>Faculty Overview</span>
                       </button>
 
@@ -158,7 +157,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Calendar className="w-4 h-4 text-indigo-500" />
+                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-indigo-500'}`} />
                         <span>Class Schedule</span>
                       </button>
 
@@ -170,7 +169,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <CheckSquare className="w-4 h-4 text-teal-500" />
+                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-white' : 'text-teal-500'}`} />
                         <span>Take Attendance</span>
                       </button>
 
@@ -182,7 +181,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <BookOpen className="w-4 h-4 text-amber-500" />
+                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-amber-500'}`} />
                         <span>Homework & Notebooks</span>
                       </button>
 
@@ -194,7 +193,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Award className="w-4 h-4 text-purple-500" />
+                        <Award className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-purple-500'}`} />
                         <span>Grade Examinations</span>
                       </button>
 
@@ -206,7 +205,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <MapPin className="w-4 h-4 text-rose-500" />
+                        <MapPin className={`w-4 h-4 ${currentScreen === 'geofence' ? 'text-white' : 'text-rose-500'}`} />
                         <span>Campus Check-In</span>
                       </button>
                     </div>
@@ -225,7 +224,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <MessageSquare className="w-4 h-4 text-sky-500" />
+                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-sky-500'}`} />
                         <span>Faculty Feedback</span>
                       </button>
                     </div>
@@ -252,7 +251,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <UserCheck className="w-4 h-4" />
+                        <UserCheck className={`w-4 h-4 ${currentScreen === 'student_portal' ? 'text-white' : 'text-sky-600'}`} />
                         <span>Student Overview</span>
                       </button>
 
@@ -264,7 +263,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Calendar className="w-4 h-4 text-indigo-500" />
+                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-indigo-500'}`} />
                         <span>Class Timetable</span>
                       </button>
 
@@ -276,7 +275,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <CreditCard className="w-4 h-4 text-emerald-500" />
+                        <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-white' : 'text-emerald-500'}`} />
                         <span>Fee Invoices & Payments</span>
                       </button>
 
@@ -288,7 +287,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <BookOpen className="w-4 h-4 text-amber-500" />
+                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-amber-500'}`} />
                         <span>Homework Diary</span>
                       </button>
 
@@ -300,7 +299,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Award className="w-4 h-4 text-purple-500" />
+                        <Award className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-purple-500'}`} />
                         <span>Report Cards</span>
                       </button>
                     </div>
@@ -319,7 +318,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <MessageSquare className="w-4 h-4 text-slate-500" />
+                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-slate-500'}`} />
                         <span>Complaints & Requests</span>
                       </button>
                     </div>
@@ -345,7 +344,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                       }`}
                     >
-                      <ShieldAlert className="w-4 h-4" />
+                      <ShieldAlert className={`w-4 h-4 ${currentScreen === 'superadmin' ? 'text-white' : 'text-purple-600'}`} />
                       <span>Academy Directory</span>
                     </button>
 
@@ -357,7 +356,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                       }`}
                     >
-                      <LayoutDashboard className="w-4 h-4 text-slate-500" />
+                      <LayoutDashboard className={`w-4 h-4 ${currentScreen === 'dashboard' ? 'text-white' : 'text-slate-500'}`} />
                       <span>Campus Overview</span>
                     </button>
                   </div>
@@ -382,7 +381,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <LayoutDashboard className="w-4 h-4 text-indigo-600" />
+                        <LayoutDashboard className={`w-4 h-4 ${currentScreen === 'dashboard' ? 'text-white' : 'text-indigo-600'}`} />
                         <span>Dashboard</span>
                       </button>
                     </div>
@@ -401,7 +400,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <UserPlus className="w-4 h-4 text-blue-500" />
+                        <UserPlus className={`w-4 h-4 ${currentScreen === 'enrollment' ? 'text-white' : 'text-blue-500'}`} />
                         <span>Student Admissions</span>
                       </button>
 
@@ -413,7 +412,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Calendar className="w-4 h-4 text-emerald-500" />
+                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-emerald-500'}`} />
                         <span>Timetable & Scheduling</span>
                       </button>
                     </div>
@@ -432,7 +431,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <CheckSquare className="w-4 h-4 text-teal-500" />
+                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-white' : 'text-teal-500'}`} />
                         <span>Student Attendance</span>
                       </button>
 
@@ -445,10 +444,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <PhoneForwarded className="w-4 h-4 text-rose-500" />
+                          <PhoneForwarded className={`w-4 h-4 ${currentScreen === 'absentee' ? 'text-white' : 'text-rose-500'}`} />
                           <span>Absence Follow-Up</span>
                         </div>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200 font-mono">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono transition-colors ${
+                          currentScreen === 'absentee'
+                            ? 'bg-rose-500 text-white'
+                            : 'bg-rose-50 text-rose-600 border border-rose-200'
+                        }`}>
                           28
                         </span>
                       </button>
@@ -461,7 +464,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <BookOpen className="w-4 h-4 text-amber-500" />
+                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-amber-500'}`} />
                         <span>Homework & Notebooks</span>
                       </button>
 
@@ -473,7 +476,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <MapPin className="w-4 h-4 text-indigo-500" />
+                        <MapPin className={`w-4 h-4 ${currentScreen === 'geofence' ? 'text-white' : 'text-indigo-500'}`} />
                         <span>Staff Attendance</span>
                       </button>
 
@@ -485,7 +488,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <MessageSquare className="w-4 h-4 text-slate-500" />
+                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-slate-500'}`} />
                         <span>Complaints & Feedback</span>
                       </button>
                     </div>
@@ -504,7 +507,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <GraduationCap className="w-4 h-4 text-purple-500" />
+                        <GraduationCap className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-purple-500'}`} />
                         <span>Exams & Results</span>
                       </button>
                     </div>
@@ -523,7 +526,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Printer className="w-4 h-4 text-emerald-500" />
+                        <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-white' : 'text-emerald-500'}`} />
                         <span>Fee Invoices & Vouchers</span>
                       </button>
 
@@ -535,7 +538,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Wallet className="w-4 h-4 text-amber-500" />
+                        <Wallet className={`w-4 h-4 ${currentScreen === 'payroll' ? 'text-white' : 'text-amber-500'}`} />
                         <span>Staff Payroll</span>
                       </button>
                     </div>
@@ -557,10 +560,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Smartphone className="w-4 h-4" />
+                    <Smartphone className={`w-4 h-4 ${currentScreen === 'mobile' ? 'text-white' : 'text-emerald-600'}`} />
                     <span>Mobile App</span>
                   </div>
-                  <span className="text-[9px] bg-emerald-700 text-white px-1.5 py-0.5 rounded-md font-mono font-bold">
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold ${
+                    currentScreen === 'mobile' ? 'bg-white/20 text-white' : 'bg-emerald-700 text-white'
+                  }`}>
                     PWA
                   </span>
                 </button>
