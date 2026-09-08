@@ -73,47 +73,48 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
         <aside className="w-64 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex flex-col justify-between h-[calc(100vh-1.5rem)]">
           
-          <div className="space-y-4 overflow-y-auto">
-            {/* Institutional Brand Header */}
-            <div className="border-b border-slate-100 pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className={`w-8 h-8 rounded-xl text-white font-bold flex items-center justify-center text-sm shadow-xs ${
-                    role === 'teacher' ? 'bg-emerald-600' :
-                    role === 'student' ? 'bg-sky-600' :
-                    role === 'super_admin' ? 'bg-purple-600' :
-                    'bg-indigo-600'
-                  }`}>
-                    {role === 'teacher' ? <BookOpen className="w-4 h-4" /> :
-                     role === 'student' ? <GraduationCap className="w-4 h-4" /> :
-                     role === 'super_admin' ? <ShieldCheck className="w-4 h-4" /> :
-                     <GraduationCap className="w-4 h-4" />}
-                  </div>
-                  <div className="truncate">
-                    <span className="font-extrabold text-sm text-slate-900 tracking-tight block leading-tight truncate">
-                      {role === 'super_admin' ? 'Apex Platform' : (tenant?.name || 'Apex Academy')}
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-500 font-semibold">{roleSubtitle}</span>
-                  </div>
+          {/* Institutional Brand Header (Pinned Static Top) */}
+          <div className="border-b border-slate-100 pb-3 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-8 h-8 rounded-xl text-white font-bold flex items-center justify-center text-sm shadow-xs ${
+                  role === 'teacher' ? 'bg-emerald-600' :
+                  role === 'student' ? 'bg-sky-600' :
+                  role === 'super_admin' ? 'bg-purple-600' :
+                  'bg-indigo-600'
+                }`}>
+                  {role === 'teacher' ? <BookOpen className="w-4 h-4" /> :
+                   role === 'student' ? <GraduationCap className="w-4 h-4" /> :
+                   role === 'super_admin' ? <ShieldCheck className="w-4 h-4" /> :
+                   <GraduationCap className="w-4 h-4" />}
                 </div>
-                <button onClick={onClose} className="md:hidden text-slate-400 hover:text-slate-700 p-1">
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="truncate">
+                  <span className="font-extrabold text-sm text-slate-900 tracking-tight block leading-tight truncate">
+                    {role === 'super_admin' ? 'Apex Platform' : (tenant?.name || 'Apex Academy')}
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-500 font-semibold">{roleSubtitle}</span>
+                </div>
               </div>
-              
-              {role !== 'super_admin' && (
-                <div className="mt-2.5 pt-2 border-t border-slate-100/80 flex items-center justify-between text-[11px] text-slate-500">
-                  <span className="flex items-center gap-1 truncate max-w-[140px]">
-                    <Building2 className="w-3 h-3 text-slate-400 flex-shrink-0" />
-                    <span className="truncate">{tenant?.campus_name || 'Main Campus'}</span>
-                  </span>
-                  <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">
-                    {tenant?.academic_session || '2026-27'}
-                  </span>
-                </div>
-              )}
+              <button onClick={onClose} className="md:hidden text-slate-400 hover:text-slate-700 p-1">
+                <X className="w-4 h-4" />
+              </button>
             </div>
+            
+            {role !== 'super_admin' && (
+              <div className="mt-2.5 pt-2 border-t border-slate-100/80 flex items-center justify-between text-[11px] text-slate-500">
+                <span className="flex items-center gap-1 truncate max-w-[140px]">
+                  <Building2 className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                  <span className="truncate">{tenant?.campus_name || 'Main Campus'}</span>
+                </span>
+                <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">
+                  {tenant?.academic_session || '2026-27'}
+                </span>
+              </div>
+            )}
+          </div>
 
+          {/* Scrollable Navigation Body */}
+          <div className="flex-1 min-h-0 py-3 space-y-4 overflow-y-auto pr-1 -mr-1">
             {/* Quick Jump Search */}
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
@@ -587,8 +588,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </nav>
           </div>
 
-          {/* User Profile Card */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+          {/* User Profile Card (Pinned Static Bottom) */}
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5 truncate">
               <div className={`w-8 h-8 rounded-xl text-white font-mono text-xs font-bold flex items-center justify-center shadow-2xs flex-shrink-0 ${
                 role === 'teacher' ? 'bg-emerald-600' :
