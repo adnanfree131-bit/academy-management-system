@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   GraduationCap,
@@ -216,6 +216,28 @@ export const ExamDeskView: React.FC = () => {
 
   // Active exam object for evaluation desk
   const currentExam = exams.find(e => e.id === evalSelectedExamId);
+
+  // Strict Elective Filtering:
+  // Only students who are enrolled in this batch AND are enrolled in currentExam.subject_id appear
+  const eligibleStudents = useMemo(() => {
+    if (!currentExam) return [];
+    return students.filter(st => {
+      const matchBatch = st.batch_id === currentExam.batch_id;
+      const matchSubject = !st.subjects || st.subjects.length === 0 || st.subjects.includes(currentExam.subject_id);
+      return matchBatch && matchSubject;
+    });
+  }, [students, currentExam]);
+
+  useEffect(() => {
+    if (eligibleStudents.length > 0) {
+      if (!evalSelectedStudentId || !eligibleStudents.some(s => s.id === evalSelectedStudentId)) {
+        setEvalSelectedStudentId(eligibleStudents[0].id);
+      }
+    } else {
+      setEvalSelectedStudentId('');
+    }
+  }, [eligibleStudents, evalSelectedStudentId]);
+
   const currentStudent = students.find(s => s.id === evalSelectedStudentId);
 
   // Compute live marks for evaluation desk
@@ -843,15 +865,22 @@ export const ExamDeskView: React.FC = () => {
               </div>
 
               <div>
-                <span className="block text-[10px] text-slate-500 uppercase font-bold">Select Student:</span>
+                <span className="block text-[10px] text-slate-500 uppercase font-bold">
+                  Select Student ({eligibleStudents.length} enrolled in subject):
+                </span>
                 <select
                   value={evalSelectedStudentId}
                   onChange={e => setEvalSelectedStudentId(e.target.value)}
-                  className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800"
+                  disabled={eligibleStudents.length === 0}
+                  className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
                 >
-                  {students.map(st => (
-                    <option key={st.id} value={st.id}>{st.full_name} ({st.roll_number})</option>
-                  ))}
+                  {eligibleStudents.length === 0 ? (
+                    <option value="">No enrolled students in this subject</option>
+                  ) : (
+                    eligibleStudents.map(st => (
+                      <option key={st.id} value={st.id}>{st.full_name} ({st.roll_number})</option>
+                    ))
+                  )}
                 </select>
               </div>
             </div>

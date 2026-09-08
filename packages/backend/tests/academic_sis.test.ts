@@ -297,4 +297,40 @@ describe('Phase 2: Academic Hierarchy, Custom Form Fields, Inquiries & SIS API',
     });
     expect(delSubRes.statusCode).toBe(200);
   });
+
+  it('9. Interconnected Hierarchy: Subject group creation, retrieval by program_id, and deletion', async () => {
+    // Create new Track Group for program
+    const createGroupRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/academic/groups',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        program_id: 'p1',
+        name: 'Computer Science (ICS Track)',
+        type: 'elective_track',
+        subject_ids: ['s1', 's2'],
+      },
+    });
+    expect(createGroupRes.statusCode).toBe(201);
+    const createdGroup = JSON.parse(createGroupRes.body).data;
+    expect(createdGroup.name).toBe('Computer Science (ICS Track)');
+
+    // Query groups by program_id
+    const queryGroupsRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/academic/groups?program_id=p1',
+      headers: { authorization: `Bearer ${apexToken}` },
+    });
+    expect(queryGroupsRes.statusCode).toBe(200);
+    const groups = JSON.parse(queryGroupsRes.body).data;
+    expect(groups.some((g: any) => g.id === createdGroup.id)).toBe(true);
+
+    // Delete group
+    const delGroupRes = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/academic/groups/${createdGroup.id}`,
+      headers: { authorization: `Bearer ${apexToken}` },
+    });
+    expect(delGroupRes.statusCode).toBe(200);
+  });
 });

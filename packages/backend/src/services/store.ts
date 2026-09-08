@@ -106,6 +106,7 @@ export interface IDataStore {
 
   getSubjectGroups(tenantId: string, programId?: string): Promise<SubjectGroup[]>;
   createSubjectGroup(data: Omit<SubjectGroup, 'id' | 'created_at'>): Promise<SubjectGroup>;
+  deleteSubjectGroup(tenantId: string, id: string): Promise<boolean>;
 
   getBatches(tenantId: string, programId?: string): Promise<Batch[]>;
   createBatch(data: Omit<Batch, 'id' | 'created_at' | 'updated_at' | 'current_enrollment'>): Promise<Batch>;
@@ -1516,6 +1517,12 @@ export class InMemoryDataStore implements IDataStore {
     };
     this.subjectGroups.push(group);
     return group;
+  }
+
+  async deleteSubjectGroup(tenantId: string, id: string): Promise<boolean> {
+    const initLen = this.subjectGroups.length;
+    this.subjectGroups = this.subjectGroups.filter(g => !(g.tenant_id === tenantId && g.id === id));
+    return this.subjectGroups.length < initLen;
   }
 
   async getBatches(tenantId: string, programId?: string): Promise<Batch[]> {

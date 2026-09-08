@@ -112,7 +112,7 @@ export function academicRoutes(store: IDataStore) {
     fastify.post('/groups', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       const schema = z.object({
-        program_id: z.string().uuid(),
+        program_id: z.string().min(1),
         name: z.string().min(1),
         type: z.enum(['compulsory', 'elective_track']),
         subject_ids: z.array(z.string()).min(1),
@@ -135,6 +135,20 @@ export function academicRoutes(store: IDataStore) {
       return reply.status(201).send({ success: true, data: group, timestamp: new Date().toISOString() });
     });
 
+    fastify.delete('/groups/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      const { id } = request.params as { id: string };
+      const deleted = await store.deleteSubjectGroup(user.tenant_id, id);
+      if (!deleted) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Subject group not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({ success: true, message: 'Subject group deleted successfully', timestamp: new Date().toISOString() });
+    });
+
     // --- Batches ---
     fastify.get('/batches', async (request: any, reply) => {
       const user = request.user as JWTPayload;
@@ -146,7 +160,7 @@ export function academicRoutes(store: IDataStore) {
     fastify.post('/batches', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       const schema = z.object({
-        program_id: z.string().uuid(),
+        program_id: z.string().min(1),
         name: z.string().min(1),
         shift: z.enum(['morning', 'evening']),
         academic_session: z.string().min(1).default('2026-2027'),
