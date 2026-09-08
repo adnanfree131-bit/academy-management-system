@@ -11,21 +11,75 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function runMigration() {
-  const connectionString = process.argv[2] || process.env.DATABASE_URL;
+function getClientConfig(raw: string): pg.ClientConfig {
+  let cleaned = raw.trim();
 
-  if (!connectionString) {
+  // Handle postgres(ql)://user:[password]@host:port/database
+  const bracketMatch = cleaned.match(/^(postgres(?:ql)?:\/\/)([^:]+):\[([^\]]+)\]@([^:]+):(\d+)\/(.+)$/);
+  if (bracketMatch) {
+    const [, , user, pass, host, port, db] = bracketMatch;
+    return {
+      user,
+      password: pass,
+      host,
+      port: Number(port),
+      database: db.split('?')[0],
+      ssl: { rejectUnauthorized: false },
+    };
+  }
+
+  // Handle when password has unencoded '@' sign: postgres(ql)://user:password@with@at@host:port/database
+  // Everything after the last '@' is host:port/database
+  const atParts = cleaned.split('@');
+  if (atParts.length > 2) {
+    const hostPortDb = atParts[atParts.length - 1];
+    const userPassPart = atParts.slice(0, -1).join('@');
+    const firstColonIdx = userPassPart.indexOf('://');
+    if (firstColonIdx !== -1) {
+      const auth = userPassPart.substring(firstColonIdx + 3);
+      const colonIdx = auth.indexOf(':');
+      if (colonIdx !== -1) {
+        const user = auth.substring(0, colonIdx);
+        let pass = auth.substring(colonIdx + 1);
+        if (pass.startsWith('[') && pass.endsWith(']')) {
+          pass = pass.slice(1, -1);
+        }
+        const hostPortMatch = hostPortDb.match(/^([^:]+):(\d+)\/(.+)$/);
+        if (hostPortMatch) {
+          const [, host, port, db] = hostPortMatch;
+          return {
+            user,
+            password: pass,
+            host,
+            port: Number(port),
+            database: db.split('?')[0],
+            ssl: { rejectUnauthorized: false },
+          };
+        }
+      }
+    }
+  }
+
+  return {
+    connectionString: cleaned,
+    ssl: { rejectUnauthorized: false },
+  };
+}
+
+async function runMigration() {
+  const rawConnectionString = process.argv[2] || process.env.DATABASE_URL;
+
+  if (!rawConnectionString) {
     console.error('❌ Error: No DATABASE_URL provided.');
     console.error('Usage: pnpm --filter @apex/supabase run migrate <connection_string>');
     console.error('Or set DATABASE_URL in .env');
     process.exit(1);
   }
 
-  console.log('🔄 Connecting to PostgreSQL database...');
-  const client = new pg.Client({
-    connectionString,
-    ssl: { rejectUnauthorized: false },
-  });
+  const clientConfig = getClientConfig(rawConnectionString);
+  console.log('🔄 Connecting to PostgreSQL database (Host: ' + (clientConfig.host || 'URI') + ', Port: ' + (clientConfig.port || 'default') + ')...');
+  
+  const client = new pg.Client(clientConfig);
 
   try {
     await client.connect();
@@ -43,6 +97,14 @@ async function runMigration() {
     await client.query(sql);
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     console.log(`🎉 Migrations completed successfully in ${duration}s!`);
+
+    const seedPath = path.resolve(__dirname, '../seeds/001_dual_tenant_seed.sql');
+    if (fs.existsSync(seedPath)) {
+      console.log('🌱 Seeding initial academy data (Tenants, Admin Users, Batches)...');
+      const seedSql = fs.readFileSync(seedPath, 'utf8');
+      await client.query(seedSql);
+      console.log('✅ Seed data applied successfully!');
+    }
 
     // Verify created tables
     const res = await client.query(`
