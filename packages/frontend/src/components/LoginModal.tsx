@@ -73,6 +73,15 @@ export const LoginModal: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const getBaseDomain = () => {
+    const hostname = window.location.hostname.toLowerCase();
+    if (hostname.includes('kampus.pk')) return 'edu.kampus.pk';
+    if (hostname.includes('toolnestr.com')) return 'toolnestr.com';
+    return 'edu.kampus.pk';
+  };
+
+  const baseDomain = getBaseDomain();
+
   // Initialize tenant slug from URL query or subdomain
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -81,7 +90,17 @@ export const LoginModal: React.FC = () => {
       setTenantSlug(campusParam.toLowerCase().trim());
     } else {
       const hostname = window.location.hostname.toLowerCase();
-      if (hostname.endsWith('.toolnestr.com') && !hostname.startsWith('edu.') && !hostname.startsWith('www.')) {
+      if (hostname.endsWith('.edu.kampus.pk')) {
+        const sub = hostname.replace('.edu.kampus.pk', '');
+        if (sub && sub !== 'www') {
+          setTenantSlug(sub);
+        }
+      } else if (hostname.endsWith('.kampus.pk')) {
+        const sub = hostname.replace('.kampus.pk', '');
+        if (sub && sub !== 'edu' && sub !== 'www') {
+          setTenantSlug(sub);
+        }
+      } else if (hostname.endsWith('.toolnestr.com') && !hostname.startsWith('edu.') && !hostname.startsWith('www.')) {
         const sub = hostname.replace('.toolnestr.com', '');
         if (sub && sub !== 'edu' && sub !== 'www') {
           setTenantSlug(sub);
@@ -118,7 +137,7 @@ export const LoginModal: React.FC = () => {
     }
 
     const clean = regSlug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
-    const domain = `${clean}.toolnestr.com`;
+    const domain = `${clean}.${baseDomain}`;
 
     setSlugAvailability({ status: 'checking', domain });
 
@@ -317,7 +336,7 @@ export const LoginModal: React.FC = () => {
 
   const currentAcademyName = branding?.name || 'Apex Academy';
   const currentSession = branding?.academic_session || '2026–2027';
-  const currentDomain = branding?.domain || `${tenantSlug}.toolnestr.com`;
+  const currentDomain = branding?.domain || `${tenantSlug}.${baseDomain}`;
   const currentLogo = branding?.logo_url || null;
 
   return (
@@ -619,7 +638,7 @@ export const LoginModal: React.FC = () => {
                       className="w-full pl-3 pr-1 py-2 text-xs text-slate-900 font-mono font-medium focus:outline-none bg-transparent"
                     />
                     <span className="px-3 py-2 text-xs font-mono text-slate-400 bg-slate-100/80 border-l border-slate-200 select-none shrink-0">
-                      .toolnestr.com
+                      .{baseDomain}
                     </span>
                   </div>
                 </div>
@@ -1014,7 +1033,7 @@ export const LoginModal: React.FC = () => {
             <div className="flex items-center gap-3">
               <span>Academic Session {currentSession}</span>
               <span>•</span>
-              <span>Support: edu@toolnestr.com</span>
+              <span>Support: edu@kampus.pk</span>
             </div>
           </div>
 

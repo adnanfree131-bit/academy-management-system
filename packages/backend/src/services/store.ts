@@ -1425,11 +1425,12 @@ export class InMemoryDataStore implements IDataStore {
     const rawSlug = params.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
     const cleanSlug = rawSlug || 'academy-' + Math.floor(100 + Math.random() * 900);
     const tenantId = crypto.randomUUID();
+    const baseDomain = process.env.BASE_DOMAIN || 'edu.kampus.pk';
     const newTenant: Tenant = {
       id: tenantId,
       name: params.name.trim(),
       slug: cleanSlug,
-      domain: `${cleanSlug}.toolnestr.com`,
+      domain: `${cleanSlug}.${baseDomain}`,
       status: 'active',
       tier: 'starter',
       max_students: 500,
@@ -1445,7 +1446,7 @@ export class InMemoryDataStore implements IDataStore {
         phone: params.phone?.trim() || null,
         logo_url: params.logo_url || null,
         subdomain: cleanSlug,
-        domain: `${cleanSlug}.toolnestr.com`,
+        domain: `${cleanSlug}.${baseDomain}`,
         domain_verified: true,
         phone_country_code: '+92',
         features: {
