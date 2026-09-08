@@ -4,6 +4,7 @@ import { LoginModal } from './components/LoginModal';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { DashboardView } from './views/DashboardView';
+import { AcademicStructureView } from './views/AcademicStructureView';
 import { EnrollmentView } from './views/EnrollmentView';
 import { TimetableDesk } from './views/TimetableDesk';
 import { AttendanceDeskView } from './views/AttendanceDeskView';
@@ -58,6 +59,7 @@ const getTitle = (screen: string, role?: string): string => {
   // Tenant Admin (Principal / Director)
   switch (screen) {
     case 'dashboard': return 'Dashboard';
+    case 'classes': return 'Classes & Batches';
     case 'enrollment': return 'Student Admissions & Directory';
     case 'timetable': return 'Timetable & Scheduling';
     case 'attendance': return 'Student Attendance';
@@ -180,6 +182,8 @@ const MainLayout: React.FC = () => {
           (
             currentScreen === 'dashboard' ? (
               <DashboardView onNavigate={setCurrentScreen} />
+            ) : currentScreen === 'classes' ? (
+              <AcademicStructureView />
             ) : currentScreen === 'enrollment' ? (
               <EnrollmentView />
             ) : currentScreen === 'timetable' ? (

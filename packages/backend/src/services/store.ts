@@ -98,15 +98,18 @@ export interface IDataStore {
   // Academic Hierarchy (Phase 2)
   getPrograms(tenantId: string): Promise<AcademicProgram[]>;
   createProgram(data: Omit<AcademicProgram, 'id' | 'created_at' | 'updated_at'>): Promise<AcademicProgram>;
+  deleteProgram(tenantId: string, id: string): Promise<boolean>;
   
   getSubjects(tenantId: string): Promise<Subject[]>;
   createSubject(data: Omit<Subject, 'id' | 'created_at'>): Promise<Subject>;
+  deleteSubject(tenantId: string, id: string): Promise<boolean>;
 
   getSubjectGroups(tenantId: string, programId?: string): Promise<SubjectGroup[]>;
   createSubjectGroup(data: Omit<SubjectGroup, 'id' | 'created_at'>): Promise<SubjectGroup>;
 
   getBatches(tenantId: string, programId?: string): Promise<Batch[]>;
   createBatch(data: Omit<Batch, 'id' | 'created_at' | 'updated_at' | 'current_enrollment'>): Promise<Batch>;
+  deleteBatch(tenantId: string, id: string): Promise<boolean>;
 
   // Custom Fields (Phase 2)
   getCustomFields(tenantId: string, entityType: 'student' | 'inquiry'): Promise<CustomFieldDefinition[]>;
@@ -1473,6 +1476,12 @@ export class InMemoryDataStore implements IDataStore {
     return program;
   }
 
+  async deleteProgram(tenantId: string, id: string): Promise<boolean> {
+    const initLen = this.programs.length;
+    this.programs = this.programs.filter(p => !(p.tenant_id === tenantId && p.id === id));
+    return this.programs.length < initLen;
+  }
+
   async getSubjects(tenantId: string): Promise<Subject[]> {
     return this.subjects.filter(s => s.tenant_id === tenantId);
   }
@@ -1485,6 +1494,12 @@ export class InMemoryDataStore implements IDataStore {
     };
     this.subjects.push(subject);
     return subject;
+  }
+
+  async deleteSubject(tenantId: string, id: string): Promise<boolean> {
+    const initLen = this.subjects.length;
+    this.subjects = this.subjects.filter(s => !(s.tenant_id === tenantId && s.id === id));
+    return this.subjects.length < initLen;
   }
 
   async getSubjectGroups(tenantId: string, programId?: string): Promise<SubjectGroup[]> {
@@ -1519,6 +1534,12 @@ export class InMemoryDataStore implements IDataStore {
     };
     this.batches.push(batch);
     return batch;
+  }
+
+  async deleteBatch(tenantId: string, id: string): Promise<boolean> {
+    const initLen = this.batches.length;
+    this.batches = this.batches.filter(b => !(b.tenant_id === tenantId && b.id === id));
+    return this.batches.length < initLen;
   }
 
   // --- Custom Fields Methods ---

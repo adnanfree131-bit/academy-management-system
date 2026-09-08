@@ -41,6 +41,20 @@ export function academicRoutes(store: IDataStore) {
       return reply.status(201).send({ success: true, data: program, timestamp: new Date().toISOString() });
     });
 
+    fastify.delete('/programs/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      const { id } = request.params as { id: string };
+      const deleted = await store.deleteProgram(user.tenant_id, id);
+      if (!deleted) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Program not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({ success: true, message: 'Program deleted successfully', timestamp: new Date().toISOString() });
+    });
+
     // --- Subjects ---
     fastify.get('/subjects', async (request: any, reply) => {
       const user = request.user as JWTPayload;
@@ -71,6 +85,20 @@ export function academicRoutes(store: IDataStore) {
       });
 
       return reply.status(201).send({ success: true, data: subject, timestamp: new Date().toISOString() });
+    });
+
+    fastify.delete('/subjects/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      const { id } = request.params as { id: string };
+      const deleted = await store.deleteSubject(user.tenant_id, id);
+      if (!deleted) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Subject not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({ success: true, message: 'Subject deleted successfully', timestamp: new Date().toISOString() });
     });
 
     // --- Subject Groups ---
@@ -141,6 +169,20 @@ export function academicRoutes(store: IDataStore) {
       });
 
       return reply.status(201).send({ success: true, data: batch, timestamp: new Date().toISOString() });
+    });
+
+    fastify.delete('/batches/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      const { id } = request.params as { id: string };
+      const deleted = await store.deleteBatch(user.tenant_id, id);
+      if (!deleted) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Batch not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({ success: true, message: 'Batch deleted successfully', timestamp: new Date().toISOString() });
     });
 
     // --- Custom Fields ---

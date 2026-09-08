@@ -20,6 +20,7 @@ import {
   Award,
   ShieldAlert,
   ShieldCheck,
+  Layers,
   X 
 } from 'lucide-react';
 
@@ -402,6 +403,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <UserPlus className={`w-4 h-4 ${currentScreen === 'enrollment' ? 'text-white' : 'text-blue-500'}`} />
                         <span>Student Admissions</span>
+                      </button>
+
+                      <button 
+                        onClick={() => handleNavClick('classes')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
+                          currentScreen === 'classes'
+                            ? 'bg-slate-900 text-white font-bold shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                        }`}
+                      >
+                        <Layers className={`w-4 h-4 ${currentScreen === 'classes' ? 'text-white' : 'text-indigo-500'}`} />
+                        <span>Classes & Batches</span>
                       </button>
 
                       <button 

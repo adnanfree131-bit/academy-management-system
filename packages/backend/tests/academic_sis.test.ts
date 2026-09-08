@@ -223,4 +223,78 @@ describe('Phase 2: Academic Hierarchy, Custom Form Fields, Inquiries & SIS API',
     expect(newStudent.custom_field_values.blood_group).toBe('O+');
     expect(newStudent.subjects).toContain('s1');
   });
+
+  it('8. Academic Management CRUD: Create and delete program, batch, and subject', async () => {
+    // Create new Program
+    const createProgRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/academic/programs',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        name: 'Class 9 - Matric Science',
+        code: 'CLS-09',
+        description: 'Secondary School Certificate Grade 9',
+        sort_order: 1,
+      },
+    });
+    expect(createProgRes.statusCode).toBe(201);
+    const createdProg = JSON.parse(createProgRes.body).data;
+    expect(createdProg.name).toBe('Class 9 - Matric Science');
+
+    // Create Batch for this Program
+    const createBatchRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/academic/batches',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        program_id: createdProg.id,
+        name: 'Section Alpha - Morning',
+        shift: 'morning',
+        academic_session: '2026-2027',
+        max_capacity: 45,
+        room_number: 'Room 102',
+      },
+    });
+    expect(createBatchRes.statusCode).toBe(201);
+    const createdBatch = JSON.parse(createBatchRes.body).data;
+    expect(createdBatch.name).toBe('Section Alpha - Morning');
+
+    // Create Subject
+    const createSubRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/academic/subjects',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        name: 'Computer Science',
+        code: 'CS-101',
+        is_core: false,
+      },
+    });
+    expect(createSubRes.statusCode).toBe(201);
+    const createdSub = JSON.parse(createSubRes.body).data;
+
+    // Delete Batch
+    const delBatchRes = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/academic/batches/${createdBatch.id}`,
+      headers: { authorization: `Bearer ${apexToken}` },
+    });
+    expect(delBatchRes.statusCode).toBe(200);
+
+    // Delete Program
+    const delProgRes = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/academic/programs/${createdProg.id}`,
+      headers: { authorization: `Bearer ${apexToken}` },
+    });
+    expect(delProgRes.statusCode).toBe(200);
+
+    // Delete Subject
+    const delSubRes = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/academic/subjects/${createdSub.id}`,
+      headers: { authorization: `Bearer ${apexToken}` },
+    });
+    expect(delSubRes.statusCode).toBe(200);
+  });
 });
