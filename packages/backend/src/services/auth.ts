@@ -38,10 +38,10 @@ export class AuthService {
       throw new Error(`Your account status is '${user.status}'. Please contact academy administration.`);
     }
 
-    // Determine OTP: static dev bypass or cryptographically secure 6-digit code
+    // Determine OTP: static bypass (if STATIC_OTP or DEV_STATIC_OTP configured) or cryptographically secure 6-digit code
     const isDev = process.env.NODE_ENV !== 'production';
-    const staticOtp = process.env.DEV_STATIC_OTP;
-    const otp = (isDev && staticOtp) 
+    const staticOtp = process.env.STATIC_OTP || (isDev ? process.env.DEV_STATIC_OTP : undefined);
+    const otp = staticOtp 
       ? staticOtp 
       : (Math.floor(100000 + Math.random() * 900000)).toString();
 
@@ -65,7 +65,7 @@ export class AuthService {
       message: `A 6-digit verification code has been sent to ${email}`,
       cooldown_seconds: 60,
       expires_in_seconds: expiresInMinutes * 60,
-      dev_otp_preview: isDev ? otp : undefined,
+      dev_otp_preview: (isDev || Boolean(process.env.STATIC_OTP)) ? otp : undefined,
     };
   }
 
