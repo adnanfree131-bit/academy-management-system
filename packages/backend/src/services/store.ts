@@ -92,6 +92,14 @@ export interface IDataStore {
   // Tenancy & Auth
   getTenantBySlug(slug: string): Promise<Tenant | null>;
   getTenantById(id: string): Promise<Tenant | null>;
+  createTenant(params: {
+    name: string;
+    slug: string;
+    campus_name?: string;
+    admin_name: string;
+    admin_email: string;
+    logo_url?: string;
+  }): Promise<{ tenant: Tenant; admin: User }>;
   updateTenantSettings(tenantId: string, updates: { name?: string; slug?: string; settings?: Partial<TenantSettings> }): Promise<Tenant | null>;
   getUserByEmail(tenantId: string, email: string): Promise<User | null>;
   createOTP(tenantId: string, email: string, codeHash: string, expiresAt: Date): Promise<StoredOTP>;
@@ -517,6 +525,68 @@ export class InMemoryDataStore implements IDataStore {
 
   async getTenantById(id: string): Promise<Tenant | null> {
     return this.tenants.get(id) || this.tenants.values().next().value || null;
+  }
+
+  async createTenant(params: {
+    name: string;
+    slug: string;
+    campus_name?: string;
+    admin_name: string;
+    admin_email: string;
+    logo_url?: string;
+  }): Promise<{ tenant: Tenant; admin: User }> {
+    const rawSlug = params.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+    const cleanSlug = rawSlug || 'academy-' + Math.floor(100 + Math.random() * 900);
+    const tenantId = crypto.randomUUID();
+    const newTenant: Tenant = {
+      id: tenantId,
+      name: params.name.trim(),
+      slug: cleanSlug,
+      domain: `${cleanSlug}.toolnestr.com`,
+      status: 'active',
+      tier: 'starter',
+      max_students: 500,
+      max_staff: 50,
+      trial_ends_at: new Date(Date.now() + 86400000 * 30).toISOString(),
+      settings: {
+        currency: 'PKR',
+        timezone: 'Asia/Karachi',
+        date_format: 'DD/MM/YYYY',
+        academic_session: '2026-2027',
+        campus_name: params.campus_name?.trim() || 'Main Campus',
+        phone_country_code: '+92',
+        features: {
+          mobile_pwa_enabled: true,
+          whatsapp_rapid_queue: true,
+          geofence_attendance: true,
+        },
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.tenants.set(newTenant.id, newTenant);
+
+    const adminUser: User = {
+      id: crypto.randomUUID(),
+      tenant_id: newTenant.id,
+      email: params.admin_email.toLowerCase().trim(),
+      full_name: params.admin_name.trim(),
+      role: 'tenant_admin',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.users.set(`${newTenant.id}:${adminUser.email}`, adminUser);
+
+    // Seed initial operational fee heads for the newly registered academy
+    const defaultFeeHeads: FeeHead[] = [
+      { id: crypto.randomUUID(), tenant_id: newTenant.id, name: 'Monthly Tuition Fee', code: 'TUITION', is_system_default: true, default_amount: 5000, priority_order: 1, created_at: new Date().toISOString() },
+      { id: crypto.randomUUID(), tenant_id: newTenant.id, name: 'Admission Fee', code: 'ADMISSION', is_system_default: true, default_amount: 10000, priority_order: 2, created_at: new Date().toISOString() },
+      { id: crypto.randomUUID(), tenant_id: newTenant.id, name: 'Examination Fee', code: 'EXAM', is_system_default: true, default_amount: 2500, priority_order: 3, created_at: new Date().toISOString() },
+    ];
+    this.feeHeads.push(...defaultFeeHeads);
+
+    return { tenant: newTenant, admin: adminUser };
   }
 
   async updateTenantSettings(tenantId: string, updates: { name?: string; slug?: string; settings?: Partial<TenantSettings> }): Promise<Tenant | null> {
