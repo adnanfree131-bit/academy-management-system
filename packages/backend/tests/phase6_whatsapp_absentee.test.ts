@@ -8,7 +8,7 @@ describe('Phase 6: WhatsApp Messaging Engine & Absentee Retention Desk', () => {
   let token: string;
   let tenantBToken: string;
   const tenantId = 'a0000000-0000-0000-0000-000000000001'; // Apex Academy
-  const tenantBId = 'b0000000-0000-0000-0000-000000000002'; // Crescent College
+  const tenantBId = 'b0000000-0000-0000-0000-000000000002'; // Crescent Academy
 
   beforeAll(async () => {
     const store = new InMemoryDataStore();

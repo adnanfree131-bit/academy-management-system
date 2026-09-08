@@ -678,7 +678,7 @@ export const FeeDeskView: React.FC = () => {
                     <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex justify-between items-center">
                       <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                         <CheckCircle2 className="w-4 h-4 text-indigo-600" />
-                        Liquidation Distribution (Review & Manual Override)
+                        Payment Allocation Order (Review & Manual Override)
                       </span>
                       {isOverrideActive && (
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
@@ -1302,7 +1302,7 @@ export const FeeDeskView: React.FC = () => {
                 <div key={idx} className="bg-white border border-slate-300 p-3 rounded-lg flex flex-col justify-between text-[11px] space-y-2 shadow-2xs print:shadow-none">
                   <div className="space-y-1.5 border-b border-slate-200 pb-2 text-center">
                     <h4 className="font-black text-slate-900 tracking-tight text-xs uppercase">{tenant?.name || 'APEX ACADEMY LAHORE'}</h4>
-                    <p className="text-[9px] text-slate-500 font-mono">Gulberg III Campus, Lahore • +92 300 1112233</p>
+                    <p className="text-[9px] text-slate-500 font-mono">{tenant?.campus_name || 'Main Campus'} • Official Fee Challan</p>
                     <span className="inline-block px-2 py-0.5 rounded bg-slate-900 text-white font-mono text-[9px] font-bold tracking-wider">
                       {copyTitle}
                     </span>

@@ -56,12 +56,12 @@ describe('Phase 7: Multi-Portal Dashboards, SaaS Billing Lockout & Control Plane
       role: 'super_admin'
     });
 
-    // 5. Authenticate Crescent College Admin (Locked Tenant)
+    // 5. Authenticate Crescent Academy Admin (Locked Tenant)
     crescentAdminToken = app.jwt.sign({
       sub: 'b1000000-0000-0000-0000-000000000001',
       user_id: 'b1000000-0000-0000-0000-000000000001',
       tenant_id: TENANT_B_ID,
-      email: 'admin@crescentcollege.edu.pk',
+      email: 'admin@crescentacademy.edu.pk',
       role: 'tenant_admin'
     });
   });

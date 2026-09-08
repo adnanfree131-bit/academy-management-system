@@ -23,7 +23,7 @@ interface StudentPortalProps {
 }
 
 export const StudentParentPortalView: React.FC<StudentPortalProps> = ({ forcedTab }) => {
-  const { token } = useAuth();
+  const { token, tenant } = useAuth();
   const [overview, setOverview] = useState<StudentParentPortalOverview | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'schedule' | 'fees' | 'homework' | 'reports'>(forcedTab || 'schedule');
@@ -77,12 +77,12 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({ forcedTa
   return (
     <div className="space-y-6">
       
-      {/* Student 360 Header Profile Card */}
+      {/* Student Profile Header Card */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-700 to-indigo-500 text-white flex items-center justify-center font-bold text-xl shadow-sm">
-              {profile?.full_name?.charAt(0) || 'M'}
+            <div className="w-12 h-14 rounded border border-slate-300 bg-slate-100 text-slate-800 flex items-center justify-center font-bold text-lg font-mono shrink-0">
+              {profile?.full_name?.charAt(0) || 'S'}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -189,7 +189,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({ forcedTa
                 <Clock className="w-4 h-4 text-indigo-600" />
                 Today's Lecture Timetable
               </h2>
-              <span className="text-xs font-mono text-slate-400">Gulberg III Campus</span>
+              <span className="text-xs font-mono text-slate-400">{tenant?.campus_name || 'Main Campus'}</span>
             </div>
 
             <div className="space-y-3">
@@ -258,10 +258,10 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({ forcedTa
       {activeTab === 'fees' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-5 bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl space-y-3 shadow-md">
-              <span className="text-[11px] text-indigo-300 uppercase tracking-wider font-bold">Online Bank Transfer</span>
-              <h3 className="text-xl font-black">Pay via Raast / 1Link Bank Transfer</h3>
-              <p className="text-xs text-indigo-200 leading-relaxed">
+            <div className="p-5 bg-slate-900 border border-slate-800 text-white rounded-xl space-y-3 shadow-xs">
+              <span className="text-[11px] text-slate-300 uppercase tracking-wider font-bold">Bank Transfer</span>
+              <h3 className="text-xl font-bold">Pay via Raast / 1Link Bank Transfer</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
                 Pay tuition fees directly through your mobile banking app using the academy's official IBAN or Raast ID.
               </p>
               <button
@@ -482,19 +482,19 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({ forcedTa
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <CreditCard className="w-5 h-5 text-indigo-600" />
-              Apex Academy Official Payment Details
+              {tenant?.name || 'Academy'} Payment Details
             </h3>
 
             <div className="space-y-3 text-xs">
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-[10px] text-slate-400 uppercase font-bold block">Bank Name</span>
                 <span className="font-bold text-slate-900 text-sm block">Bank Alfalah Limited</span>
-                <span className="text-slate-500 text-[11px]">Gulberg III Campus Branch, Lahore</span>
+                <span className="text-slate-500 text-[11px]">{tenant?.campus_name || 'Main Campus'} Branch</span>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <span className="text-[10px] text-slate-400 uppercase font-bold block">Account Title</span>
-                <span className="font-bold text-slate-900 text-sm block">Apex Academy Institutional Fees</span>
+                <span className="font-bold text-slate-900 text-sm block">{tenant?.name || 'Academy'} Collection Account</span>
               </div>
 
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">

@@ -36,7 +36,7 @@ describe('Phase 8: Academy Settings, Income/Expense Operations & Admission Finan
 
     it('PUT /api/v1/academic/academy-settings updates institutional profile, bank details & policies', async () => {
       const updatePayload = {
-        name: 'Apex Premier Science College',
+        name: 'Apex Premier Science Academy',
         settings: {
           campus_name: 'Gulberg Executive Campus',
           academic_session: '2026-2027',
@@ -45,7 +45,7 @@ describe('Phase 8: Academy Settings, Income/Expense Operations & Admission Finan
           address: 'Main Boulevard, Gulberg III, Lahore',
           affiliation_number: 'BISE/LHR-2026/9988',
           bank_name: 'Meezan Bank Limited',
-          account_title: 'Apex Premier College Collection A/C',
+          account_title: 'Apex Premier Academy Collection A/C',
           account_number: '0102-0104882910',
           iban: 'PK36MEZN0001020104882910',
           branch_code: 'Gulberg Branch (0102)',
@@ -72,7 +72,7 @@ describe('Phase 8: Academy Settings, Income/Expense Operations & Admission Finan
       expect(res.statusCode).toBe(200);
       const body = res.json();
       expect(body.success).toBe(true);
-      expect(body.data.name).toBe('Apex Premier Science College');
+      expect(body.data.name).toBe('Apex Premier Science Academy');
       expect(body.data.settings.campus_name).toBe('Gulberg Executive Campus');
       expect(body.data.settings.bank_name).toBe('Meezan Bank Limited');
       expect(body.data.settings.iban).toBe('PK36MEZN0001020104882910');
@@ -86,7 +86,7 @@ describe('Phase 8: Academy Settings, Income/Expense Operations & Admission Finan
         headers: { authorization: `Bearer ${adminToken}` }
       });
       const getBody = getRes.json();
-      expect(getBody.data.name).toBe('Apex Premier Science College');
+      expect(getBody.data.name).toBe('Apex Premier Science Academy');
       expect(getBody.data.settings.campus_name).toBe('Gulberg Executive Campus');
     });
   });

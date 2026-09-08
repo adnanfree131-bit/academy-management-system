@@ -9,7 +9,7 @@ See [AGENTS.md](./AGENTS.md) for full gstack workflows, skill commands, and engi
 
 ## 🚫 STRICT RULE: ZERO AI SLOP IN TEXT, UI & DESIGN
 
-To ensure an authentic, institutional ERP experience for real school and college administrators, **NEVER** introduce AI slop patterns in wording, design, or layout.
+To ensure an authentic, institutional ERP experience for real school and academy administrators, **NEVER** introduce AI slop patterns in wording, design, or layout.
 
 ### 1. Wording & Text Blacklist (No AI Buzzwords or Grasping Phrasing)
 * **Never use grandiose, marketing, or sci-fi buzzwords**:

@@ -583,7 +583,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 1: STUDENT DIRECTORY & 360 PROFILE                                   */}
+      {/* TAB 1: STUDENT DIRECTORY & STUDENT PROFILE                                 */}
       {/* ========================================================================= */}
       {activeTab === 'directory' && (
         <div className="space-y-4">
@@ -1559,7 +1559,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       )}
 
       {/* ========================================================================= */}
-      {/* 360° SIS STUDENT PROFILE COMMAND CENTER & ID CARD MODAL                   */}
+      {/* STUDENT PROFILE & ID CARD MODAL                                           */}
       {/* ========================================================================= */}
       {selectedStudent && (
         <Student360Modal

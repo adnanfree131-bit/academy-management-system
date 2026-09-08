@@ -7,7 +7,7 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
   let db: PGlite;
 
   const TENANT_A_ID = 'a0000000-0000-0000-0000-000000000001'; // Apex Academy
-  const TENANT_B_ID = 'b0000000-0000-0000-0000-000000000002'; // Crescent College
+  const TENANT_B_ID = 'b0000000-0000-0000-0000-000000000002'; // Crescent Academy
 
   beforeAll(async () => {
     db = new PGlite();
@@ -120,7 +120,7 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
     );
     expect(tenantRes.rows.length).toBe(1);
     expect(tenantRes.rows[0].id).toBe(TENANT_B_ID);
-    expect(tenantRes.rows[0].name).toBe('Crescent College Karachi');
+    expect(tenantRes.rows[0].name).toBe('Crescent Academy Karachi');
   });
 
   it('Gate 4: Cross-Tenant Injection: Tenant A must be BLOCKED from inserting row for Tenant B', async () => {

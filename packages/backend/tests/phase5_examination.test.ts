@@ -8,7 +8,7 @@ describe('Phase 5: Examination Bank, Excel Chapter Upload & Hybrid Evaluation', 
   let token: string;
   let tenantBToken: string;
   const tenantId = 'a0000000-0000-0000-0000-000000000001'; // Apex Academy
-  const tenantBId = 'b0000000-0000-0000-0000-000000000002'; // Crescent College
+  const tenantBId = 'b0000000-0000-0000-0000-000000000002'; // Crescent Academy
 
   beforeAll(async () => {
     const store = new InMemoryDataStore();

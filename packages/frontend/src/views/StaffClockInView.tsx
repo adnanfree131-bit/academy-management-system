@@ -455,7 +455,7 @@ export const StaffClockInView: React.FC = () => {
           <div className="space-y-3 text-xs">
             <div className="flex justify-between py-1 border-b border-slate-100">
               <span className="text-slate-500">Campus Venue:</span>
-              <span className="font-bold text-slate-800">{config?.campus_name || 'Gulberg III Campus'}</span>
+              <span className="font-bold text-slate-800">{config?.campus_name || 'Main Campus'}</span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-100 font-mono text-[11px]">
               <span className="text-slate-500">Campus Lat / Lng:</span>

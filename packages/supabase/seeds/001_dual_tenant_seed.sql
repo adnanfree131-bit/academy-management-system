@@ -15,11 +15,11 @@ VALUES (
   '{"currency": "PKR", "timezone": "Asia/Karachi", "date_format": "DD/MM/YYYY", "academic_session": "2026-2027", "campus_name": "Gulberg III Campus", "phone_country_code": "+92", "features": {"mobile_pwa_enabled": true, "whatsapp_rapid_queue": true, "geofence_attendance": true}}'::jsonb
 ) ON CONFLICT (id) DO NOTHING;
 
--- Tenant B (Crescent College)
+-- Tenant B (Crescent Academy)
 INSERT INTO tenants (id, name, slug, status, tier, max_students, max_staff, settings)
 VALUES (
   'b0000000-0000-0000-0000-000000000002',
-  'Crescent College Karachi',
+  'Crescent Academy Karachi',
   'crescent',
   'trial',
   'starter',
@@ -50,7 +50,7 @@ ON CONFLICT (id) DO NOTHING;
 -- Tenant A Programs & Batches
 INSERT INTO programs (id, tenant_id, name, code, description)
 VALUES 
-  ('a2000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'MDCAT Comprehensive Prep', 'MDCAT-PREP', 'Medical college entry preparation')
+  ('a2000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'MDCAT Comprehensive Prep', 'MDCAT-PREP', 'Medical entry test preparation')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO batches (id, tenant_id, program_id, name, shift, academic_session, max_capacity, room_number)

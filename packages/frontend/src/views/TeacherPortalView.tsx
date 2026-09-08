@@ -18,7 +18,7 @@ interface TeacherPortalProps {
 }
 
 export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) => {
-  const { user, token } = useAuth();
+  const { user, token, tenant } = useAuth();
   const [overview, setOverview] = useState<TeacherPortalOverview | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -78,7 +78,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Gulberg III Campus • Lecture schedule, batch attendance & student evaluations
+                {tenant?.campus_name || 'Main Campus'} • Lecture schedule, batch attendance & student evaluations
               </p>
             </div>
           </div>
@@ -269,12 +269,12 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
           </div>
 
           {/* Diary & Physical Notebook Checking Shortcut */}
-          <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-2xl p-5 text-white space-y-3 shadow-md">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 text-white space-y-3 shadow-xs">
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-emerald-400" />
               <h3 className="font-bold text-xs uppercase tracking-wider">Notebook Inspection</h3>
             </div>
-            <p className="text-xs text-indigo-200 leading-relaxed">
+            <p className="text-xs text-slate-300 leading-relaxed">
               Record student notebook completion status (Complete, Incomplete, Missing) for today's classes.
             </p>
             <button

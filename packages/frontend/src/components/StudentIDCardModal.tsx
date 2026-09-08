@@ -24,7 +24,7 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
   program,
   academyName = 'Apex Academy',
   campusPhone = '+92 42 35889000',
-  campusAddress = 'Main Campus, Gulberg III, Lahore',
+  campusAddress = 'Main Campus',
   onClose,
 }) => {
   const [viewMode, setViewMode] = useState<'both' | 'front' | 'back'>('both');

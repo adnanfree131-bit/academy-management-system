@@ -38,12 +38,10 @@ export class AuthService {
       throw new Error(`Your account status is '${user.status}'. Please contact academy administration.`);
     }
 
-    // Determine OTP: static bypass (if STATIC_OTP or DEV_STATIC_OTP configured) or cryptographically secure 6-digit code
-    const isDev = process.env.NODE_ENV !== 'production';
-    const staticOtp = process.env.STATIC_OTP || (isDev ? process.env.DEV_STATIC_OTP : undefined);
-    const otp = staticOtp 
-      ? staticOtp 
-      : (Math.floor(100000 + Math.random() * 900000)).toString();
+    // When Brevo or production is active, always generate a cryptographically secure 6-digit OTP
+    const isDev = process.env.NODE_ENV !== 'production' && !process.env.BREVO_API_KEY;
+    const staticOtp = isDev ? (process.env.STATIC_OTP || process.env.DEV_STATIC_OTP) : undefined;
+    const otp = staticOtp || crypto.randomInt(100000, 1000000).toString();
 
     const codeHash = this.hashOTP(otp);
     const expiresInMinutes = 10;
@@ -62,10 +60,10 @@ export class AuthService {
 
     return {
       success: true,
-      message: `A 6-digit verification code has been sent to ${email}`,
+      message: `A 6-digit verification code has been dispatched to ${email}`,
       cooldown_seconds: 60,
       expires_in_seconds: expiresInMinutes * 60,
-      dev_otp_preview: (isDev || Boolean(process.env.STATIC_OTP)) ? otp : undefined,
+      dev_otp_preview: isDev ? otp : undefined,
     };
   }
 

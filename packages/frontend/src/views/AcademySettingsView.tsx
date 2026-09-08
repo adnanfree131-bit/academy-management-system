@@ -31,12 +31,12 @@ export const AcademySettingsView: React.FC = () => {
 
   // Bank Details for Challan
   const [bankName, setBankName] = useState<string>('Meezan Bank Limited');
-  const [accountTitle, setAccountTitle] = useState<string>('Apex Academy Revenue Account');
+  const [accountTitle, setAccountTitle] = useState<string>('Academy Collection Account');
   const [accountNumber, setAccountNumber] = useState<string>('0102-0104882910');
   const [iban, setIban] = useState<string>('PK36MEZN0001020104882910');
-  const [branchCode, setBranchCode] = useState<string>('Gulberg Main Branch (0102)');
+  const [branchCode, setBranchCode] = useState<string>('Main Branch (0101)');
 
-  // Policies & Liquidation
+  // Policies & Payment Allocation
   const [dueDay, setDueDay] = useState<number>(10);
   const [graceDays, setGraceDays] = useState<number>(5);
   const [lateFeePerDay, setLateFeePerDay] = useState<number>(50);

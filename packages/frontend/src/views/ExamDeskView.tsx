@@ -845,8 +845,8 @@ export const ExamDeskView: React.FC = () => {
         <div className="bg-white p-6 rounded-b-xl border-x border-b border-slate-200 shadow-xs space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Streamlined Hybrid Grading Flow & Teacher Feedback</h2>
-              <p className="text-xs text-slate-500">100% Fully Auto-Checked MCQs with instant scoring + Manual marks and question-level feedback remarks for Short & Long questions.</p>
+              <h2 className="text-base font-bold text-slate-900">Hybrid Examination Grading & Teacher Feedback</h2>
+              <p className="text-xs text-slate-500">Auto-scored objective questions with question-level manual grading and remarks for descriptive responses.</p>
             </div>
 
             {/* Exam & Student Selector */}
@@ -1388,7 +1388,7 @@ export const ExamDeskView: React.FC = () => {
               {/* Paper Header */}
               <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
                 <h2 className="text-xl font-black uppercase tracking-wide font-sans">{tenant?.name || 'APEX ACADEMY LAHORE'}</h2>
-                <p className="text-xs font-sans text-slate-600">Gulberg III Campus, Lahore • Academic Session 2026-2027</p>
+                <p className="text-xs font-sans text-slate-600">{tenant?.campus_name || 'Main Campus'} • Academic Session {tenant?.academic_session || '2026-2027'}</p>
                 <h3 className="text-base font-bold uppercase underline mt-2">{selectedExamForPaper.title}</h3>
                 <div className="flex justify-between text-xs font-sans pt-2">
                   <span><strong>Subject:</strong> {selectedExamForPaper.subject_name || 'Physics'}</span>
@@ -1738,7 +1738,7 @@ export const ExamDeskView: React.FC = () => {
               {/* Academy Branding Header */}
               <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
                 <h2 className="text-lg font-black uppercase tracking-tight">{tenant?.name || 'APEX ACADEMY LAHORE'}</h2>
-                <p className="text-[10px] text-slate-500">Gulberg III Campus, Lahore • Official Assessment Report Card</p>
+                <p className="text-[10px] text-slate-500">{tenant?.campus_name || 'Main Campus'} • Official Assessment Report Card</p>
                 <span className="inline-block px-3 py-0.5 rounded bg-indigo-900 text-white text-[10px] font-bold tracking-widest mt-1">
                   ACADEMIC PERFORMANCE STATEMENT
                 </span>
