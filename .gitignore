@@ -12,6 +12,8 @@ node_modules/
 .agents/skills/gstack/browse/node_modules
 .agents/skills/gstack/browse/node_modules/
 dist/
+!packages/shared-types/dist/
+!packages/shared-types/dist/**
 build/
 coverage/
 .turbo/
