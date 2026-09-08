@@ -1,51 +1,79 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   Mail, 
+  Lock,
+  Eye,
+  EyeOff,
   ArrowRight, 
   RefreshCw, 
   ShieldCheck, 
   ArrowLeft,
   CheckCircle2,
-  Lock,
   GraduationCap,
   User,
   PlusCircle,
-  LogIn
+  LogIn,
+  MapPin,
+  Phone,
+  UploadCloud,
+  X,
+  AlertCircle,
+  Check
 } from 'lucide-react';
-
-interface AcademyBranding {
-  name: string;
-  slug: string;
-  campus_name: string;
-  academic_session: string;
-  domain: string;
-}
+import { AcademyBranding } from '@apex/shared-types';
 
 export const LoginModal: React.FC = () => {
-  const { requestOTP, verifyOTP } = useAuth();
+  const { 
+    loginWithPassword, 
+    registerAcademy, 
+    verifyRegistrationOTP, 
+    forgotPassword, 
+    resetPassword 
+  } = useAuth();
 
   // Mode & Steps
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [step, setStep] = useState<'form' | 'otp'>('form');
+  const [step, setStep] = useState<'form' | 'otp' | 'forgot_password_request' | 'forgot_password_reset'>('form');
 
-  // Login Form (empty, zero prefilled text)
+  // Daily Login Form (zero prefilled data, zero placeholders)
   const [tenantSlug, setTenantSlug] = useState<string>('apex');
   const [email, setEmail] = useState<string>('');
-  const [otp, setOtp] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
-  // Registration Form (empty, zero prefilled text)
+  // Registration Form
   const [regName, setRegName] = useState<string>('');
+  const [regSlug, setRegSlug] = useState<string>('');
+  const [slugAvailability, setSlugAvailability] = useState<{
+    status: 'idle' | 'checking' | 'available' | 'unavailable';
+    domain: string;
+    message?: string;
+  }>({ status: 'idle', domain: '' });
+  const [regCity, setRegCity] = useState<string>('');
+  const [regPhone, setRegPhone] = useState<string>('');
+  const [regLogoUrl, setRegLogoUrl] = useState<string | null>(null);
   const [regAdminName, setRegAdminName] = useState<string>('');
   const [regEmail, setRegEmail] = useState<string>('');
+  const [regPassword, setRegPassword] = useState<string>('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState<string>('');
+  const [showRegPassword, setShowRegPassword] = useState<boolean>(false);
 
-  // Branding & Feedback State
+  // Verification & Reset State
+  const [otp, setOtp] = useState<string>('');
+  const [resetNewPassword, setResetNewPassword] = useState<string>('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState<string>('');
+  const [showResetPassword, setShowResetPassword] = useState<boolean>(false);
+
+  // Feedback State
   const [branding, setBranding] = useState<AcademyBranding | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  // Initialize slug from URL params or subdomain
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Initialize tenant slug from URL query or subdomain
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const campusParam = params.get('campus');
@@ -62,7 +90,7 @@ export const LoginModal: React.FC = () => {
     }
   }, []);
 
-  // Fetch dynamic branding whenever tenantSlug changes in login mode
+  // Fetch dynamic branding whenever tenantSlug changes
   useEffect(() => {
     if (!tenantSlug.trim()) return;
     const fetchBranding = async () => {
@@ -75,60 +103,134 @@ export const LoginModal: React.FC = () => {
           }
         }
       } catch {
-        // Retain default branding on error
+        // Retain default branding
       }
     };
     const timer = setTimeout(fetchBranding, 300);
     return () => clearTimeout(timer);
   }, [tenantSlug]);
 
-  // Handle Login OTP Request
-  const handleRequestOTP = async (e: React.FormEvent) => {
+  // Real-time Subdomain Availability Checker
+  useEffect(() => {
+    if (!regSlug.trim()) {
+      setSlugAvailability({ status: 'idle', domain: '' });
+      return;
+    }
+
+    const clean = regSlug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+    const domain = `${clean}.toolnestr.com`;
+
+    setSlugAvailability({ status: 'checking', domain });
+
+    const checkTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/v1/auth/check-domain?slug=${encodeURIComponent(clean)}`);
+        const body = await res.json();
+        if (body.success && body.data) {
+          setSlugAvailability({
+            status: body.data.available ? 'available' : 'unavailable',
+            domain: body.data.domain,
+            message: body.data.message,
+          });
+        } else {
+          setSlugAvailability({
+            status: 'unavailable',
+            domain,
+            message: body.error?.message || 'Unavailable',
+          });
+        }
+      } catch {
+        setSlugAvailability({
+          status: 'available',
+          domain,
+        });
+      }
+    }, 400);
+
+    return () => clearTimeout(checkTimer);
+  }, [regSlug]);
+
+  // Handle Logo Upload (Optional)
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file (PNG, JPG, SVG).');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Image file size must be less than 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setRegLogoUrl(reader.result as string);
+      setError(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ---------------------------------------------------------------------------
+  // 1. Handle Daily Password Login
+  // ---------------------------------------------------------------------------
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
+    if (!email.trim() || !password) return;
     setError(null);
     setLoading(true);
 
     try {
-      const res = await requestOTP(email.trim(), tenantSlug.trim() || 'apex');
-      setMessage(res.message);
-      setStep('otp');
+      await loginWithPassword(email.trim(), password, tenantSlug.trim() || undefined);
     } catch (err: any) {
-      setError(err.message || 'Failed to dispatch verification code.');
+      setError(err.message || 'Invalid email or password.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Academy Registration
-  const handleRegisterAcademy = async (e: React.FormEvent) => {
+  // ---------------------------------------------------------------------------
+  // 2. Handle Academy Registration
+  // ---------------------------------------------------------------------------
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (regPassword.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    if (regPassword !== regConfirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    if (slugAvailability.status === 'unavailable') {
+      setError('Please choose an available subdomain identifier.');
+      return;
+    }
+
     setLoading(true);
 
-    const derivedSlug = regName.trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16) || 'academy';
-
     try {
-      const res = await fetch('/api/v1/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: regName.trim(),
-          slug: derivedSlug,
-          campus_name: 'Main Campus',
-          admin_name: regAdminName.trim() || 'Administrator',
-          admin_email: regEmail.trim().toLowerCase(),
-        }),
+      const cleanSlug = regSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+      const res = await registerAcademy({
+        name: regName.trim(),
+        slug: cleanSlug,
+        city: regCity.trim() || undefined,
+        phone: regPhone.trim() || undefined,
+        logo_url: regLogoUrl || undefined,
+        admin_name: regAdminName.trim(),
+        admin_email: regEmail.trim().toLowerCase(),
+        password: regPassword,
       });
 
-      const body = await res.json();
-      if (!res.ok) {
-        throw new Error(body.error?.message || 'Failed to register academy.');
-      }
-
-      setTenantSlug(body.data.tenant.slug);
-      setEmail(body.data.admin.email);
-      setMessage(body.data.message || `Verification code sent to ${body.data.admin.email}`);
+      setTenantSlug(cleanSlug);
+      setEmail(regEmail.trim().toLowerCase());
+      setMessage(res.message);
       setStep('otp');
     } catch (err: any) {
       setError(err.message || 'Failed to register academy.');
@@ -137,7 +239,9 @@ export const LoginModal: React.FC = () => {
     }
   };
 
-  // Handle Verify OTP
+  // ---------------------------------------------------------------------------
+  // 3. Handle Registration OTP Verification
+  // ---------------------------------------------------------------------------
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp.trim()) return;
@@ -145,45 +249,114 @@ export const LoginModal: React.FC = () => {
     setLoading(true);
 
     try {
-      await verifyOTP(email.trim(), otp.trim(), tenantSlug.trim() || 'apex');
+      await verifyRegistrationOTP(email.trim(), otp.trim(), tenantSlug.trim());
     } catch (err: any) {
-      setError(err.message || 'Verification failed. Please check your passcode.');
+      setError(err.message || 'Verification failed. Please check your 6-digit code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // 4. Handle Forgot Password Request
+  // ---------------------------------------------------------------------------
+  const handleForgotPasswordRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setError(null);
+    setLoading(true);
+
+    try {
+      const res = await forgotPassword(email.trim(), tenantSlug.trim() || undefined);
+      setMessage(res.message);
+      setStep('forgot_password_reset');
+    } catch (err: any) {
+      setError(err.message || 'Failed to request password reset code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // 5. Handle Reset Password Confirmation
+  // ---------------------------------------------------------------------------
+  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (resetNewPassword.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    if (resetNewPassword !== resetConfirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await resetPassword(
+        email.trim(), 
+        otp.trim(), 
+        resetNewPassword, 
+        tenantSlug.trim() || undefined
+      );
+      setMessage(res.message);
+      setStep('form');
+      setMode('login');
+      setPassword('');
+      setOtp('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to update password.');
     } finally {
       setLoading(false);
     }
   };
 
   const currentAcademyName = branding?.name || 'Apex Academy';
-  const currentCampusName = branding?.campus_name || 'Main Campus';
   const currentSession = branding?.academic_session || '2026–2027';
+  const currentDomain = branding?.domain || `${tenantSlug}.toolnestr.com`;
+  const currentLogo = branding?.logo_url || null;
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 sm:p-6 lg:p-10 font-sans">
-      <div className="w-full max-w-6xl bg-white sm:rounded-2xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[660px]">
+      <div className="w-full max-w-6xl bg-white sm:rounded-2xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[680px]">
         
         {/* ================================================================ */}
-        {/* LEFT COLUMN: INSTITUTIONAL SHOWCASE (5/12 cols)                  */}
+        {/* LEFT COLUMN: WHITE-LABELED INSTITUTIONAL SHOWCASE (5/12 cols)     */}
         {/* ================================================================ */}
         <div className="hidden lg:flex lg:col-span-5 bg-slate-950 text-white p-10 flex-col justify-between relative overflow-hidden border-r border-slate-900">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
           
           <div className="relative z-10">
-            {/* Academy Crest & Title */}
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-white shadow-inner">
-                <GraduationCap className="w-5 h-5 text-indigo-400" />
-              </div>
+            {/* Dynamic Academy Branding / Logo */}
+            <div className="flex items-center gap-3.5">
+              {currentLogo ? (
+                <div className="w-12 h-12 rounded-xl bg-white p-1 border border-slate-700 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                  <img 
+                    src={currentLogo} 
+                    alt={currentAcademyName} 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-white shadow-inner shrink-0">
+                  <GraduationCap className="w-5 h-5 text-indigo-400" />
+                </div>
+              )}
               <div>
-                <span className="text-sm font-bold tracking-tight text-white block leading-none">{currentAcademyName}</span>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mt-1 block">Academy Management System</span>
+                <span className="text-base font-bold tracking-tight text-white block leading-tight">{currentAcademyName}</span>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mt-0.5 block">Academy Management System</span>
               </div>
             </div>
 
-            {/* Academic Information */}
+            {/* Academic Information: Clean Session Tag (No city/campus clutter) */}
             <div className="mt-14 space-y-4">
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                <span>Session {currentSession} • {currentCampusName}</span>
+                <span>Academic Session {currentSession}</span>
               </div>
               <h2 className="text-2xl font-bold tracking-tight text-white leading-tight">
                 Academic Administration & Student Records
@@ -214,28 +387,28 @@ export const LoginModal: React.FC = () => {
             </div>
           </div>
 
+          {/* Clean Portal Domain Identifier */}
           <div className="relative z-10 pt-6 border-t border-slate-900 flex items-center justify-between text-[11px] text-slate-500 font-mono">
             <span className="flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5 text-slate-400" />
               <span>Institutional Portal</span>
             </span>
-            <span>{branding?.domain || 'edu.toolnestr.com'}</span>
+            <span className="text-slate-400 font-semibold">{currentDomain}</span>
           </div>
         </div>
 
         {/* ================================================================ */}
-        {/* RIGHT COLUMN: LOGIN & ONBOARDING FORM (7/12 cols)                */}
+        {/* RIGHT COLUMN: PORTAL FORMS (7/12 cols)                            */}
         {/* ================================================================ */}
-        <div className="lg:col-span-7 bg-white p-8 sm:p-12 lg:p-12 flex flex-col justify-between min-h-[600px]">
+        <div className="lg:col-span-7 bg-white p-8 sm:p-10 lg:p-12 flex flex-col justify-between min-h-[600px] overflow-y-auto">
           
-          {/* Top Bar: Campus Badge & Mode Switcher */}
+          {/* Top Bar: Academy Identifier & Mode Switcher */}
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div className="text-xs font-semibold text-slate-700">
               <span>{currentAcademyName}</span>
-              <span className="text-slate-400 font-normal"> • {currentCampusName}</span>
             </div>
 
-            {/* Mode Switcher */}
+            {/* Mode Switcher (Visible only in form step) */}
             {step === 'form' && (
               <div className="inline-flex p-1 bg-slate-100 rounded-lg text-xs font-semibold">
                 <button
@@ -262,46 +435,48 @@ export const LoginModal: React.FC = () => {
             )}
           </div>
 
-          {/* Form Content Area */}
+          {/* Main Form Content */}
           <div className="max-w-md w-full mx-auto my-auto py-4">
             
-            {/* Form Headline */}
+            {/* Headings */}
             <div className="mb-6">
               <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-                {step === 'otp' 
-                  ? 'Verification Code' 
-                  : mode === 'login' 
-                    ? 'Sign In' 
-                    : 'Register Academy'}
+                {step === 'otp' && 'Verify Academy Email'}
+                {step === 'forgot_password_request' && 'Reset Password'}
+                {step === 'forgot_password_reset' && 'Set New Password'}
+                {step === 'form' && (mode === 'login' ? 'Sign In' : 'Register Academy')}
               </h2>
               <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                {step === 'otp'
-                  ? `Enter the 6-digit verification code dispatched to ${email}`
-                  : mode === 'login'
-                    ? 'Enter your institutional email to access your academy account.'
-                    : 'Enter your academy details to create a new academy profile and administrator account.'}
+                {step === 'otp' && `Enter the 6-digit verification code dispatched to ${email}`}
+                {step === 'forgot_password_request' && 'Enter your institutional email to receive a password reset code.'}
+                {step === 'forgot_password_reset' && `Enter the 6-digit code dispatched to ${email} and choose your new password.`}
+                {step === 'form' && (mode === 'login' 
+                  ? 'Enter your institutional email and password to access your academy account.' 
+                  : 'Create your academy profile, choose your subdomain, and set up your director account.')}
               </p>
             </div>
 
             {/* Error Message */}
             {error && (
               <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-rose-600 shrink-0"></span>
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
-            {/* Notification / Dispatch Message */}
-            {message && step === 'otp' && (
+            {/* Info Message */}
+            {message && (
               <div className="mb-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-medium flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{message}</span>
               </div>
             )}
 
-            {/* STEP 1A: SIGN IN FORM */}
+            {/* ------------------------------------------------------------- */}
+            {/* 1. DAILY SIGN IN FORM: EMAIL + PASSWORD                       */}
+            {/* ------------------------------------------------------------- */}
             {step === 'form' && mode === 'login' && (
-              <form onSubmit={handleRequestOTP} className="space-y-4">
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                     Email Address
@@ -319,19 +494,51 @@ export const LoginModal: React.FC = () => {
                   </div>
                 </div>
 
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => { setStep('forgot_password_request'); setError(null); setMessage(null); }}
+                      className="text-[11px] text-slate-500 hover:text-slate-900 font-medium cursor-pointer"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="w-full pl-10 pr-10 py-2.5 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
                 <button
                   type="submit"
-                  disabled={loading || !email.trim()}
-                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-1 cursor-pointer"
+                  disabled={loading || !email.trim() || !password}
+                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Sending Verification Code...</span>
+                      <span>Signing in...</span>
                     </>
                   ) : (
                     <>
-                      <span>Request Verification Code</span>
+                      <span>Sign In</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
@@ -352,9 +559,12 @@ export const LoginModal: React.FC = () => {
               </form>
             )}
 
-            {/* STEP 1B: REGISTER ACADEMY FORM */}
+            {/* ------------------------------------------------------------- */}
+            {/* 2. REGISTER ACADEMY FORM                                      */}
+            {/* ------------------------------------------------------------- */}
             {step === 'form' && mode === 'register' && (
-              <form onSubmit={handleRegisterAcademy} className="space-y-3.5">
+              <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
+                {/* Academy Name */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Academy Name
@@ -362,13 +572,140 @@ export const LoginModal: React.FC = () => {
                   <input
                     type="text"
                     value={regName}
-                    onChange={(e) => setRegName(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setRegName(val);
+                      if (!regSlug || regSlug === regName.toLowerCase().replace(/[^a-z0-9]/g, '')) {
+                        setRegSlug(val.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20));
+                      }
+                    }}
                     required
                     autoFocus
                     className="w-full px-3.5 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
                   />
                 </div>
 
+                {/* Subdomain Identifier with Real-time Availability Check */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Subdomain Identifier
+                    </label>
+                    {slugAvailability.status === 'checking' && (
+                      <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        Verifying...
+                      </span>
+                    )}
+                    {slugAvailability.status === 'available' && (
+                      <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 font-mono">
+                        <Check className="w-3 h-3" />
+                        Available
+                      </span>
+                    )}
+                    {slugAvailability.status === 'unavailable' && (
+                      <span className="text-[10px] text-rose-600 font-semibold flex items-center gap-1 font-mono">
+                        <X className="w-3 h-3" />
+                        Taken
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex rounded-lg border border-slate-300 overflow-hidden bg-slate-50/50 focus-within:ring-1 focus-within:ring-slate-900 focus-within:border-slate-900 focus-within:bg-white transition-all">
+                    <input
+                      type="text"
+                      value={regSlug}
+                      onChange={(e) => setRegSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                      required
+                      className="w-full pl-3 pr-1 py-2 text-xs text-slate-900 font-mono font-medium focus:outline-none bg-transparent"
+                    />
+                    <span className="px-3 py-2 text-xs font-mono text-slate-400 bg-slate-100/80 border-l border-slate-200 select-none shrink-0">
+                      .toolnestr.com
+                    </span>
+                  </div>
+                </div>
+
+                {/* City & Phone (Two Column) */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      City
+                    </label>
+                    <div className="relative">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={regCity}
+                        onChange={(e) => setRegCity(e.target.value)}
+                        required
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Contact Phone
+                    </label>
+                    <div className="relative">
+                      <Phone className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                      <input
+                        type="tel"
+                        value={regPhone}
+                        onChange={(e) => setRegPhone(e.target.value)}
+                        required
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Optional Logo Upload */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Academy Logo <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    {regLogoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setRegLogoUrl(null)}
+                        className="text-[10px] text-rose-600 hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  
+                  {regLogoUrl ? (
+                    <div className="flex items-center gap-3 p-2 border border-slate-200 rounded-lg bg-slate-50/50">
+                      <div className="w-10 h-10 rounded border border-slate-300 bg-white p-1 overflow-hidden flex items-center justify-center shrink-0">
+                        <img src={regLogoUrl} alt="Logo preview" className="w-full h-full object-contain" />
+                      </div>
+                      <span className="text-xs text-slate-600 font-medium truncate">Logo uploaded</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                        onChange={handleLogoSelect}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full py-2 px-3 border border-dashed border-slate-300 hover:border-slate-400 rounded-lg text-xs text-slate-500 hover:text-slate-700 flex items-center justify-center gap-2 bg-slate-50/50 transition-all cursor-pointer"
+                      >
+                        <UploadCloud className="w-4 h-4 text-slate-400" />
+                        <span>Upload Logo (PNG, JPG, SVG)</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Administrator Name & Email */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Administrator Name
@@ -401,15 +738,57 @@ export const LoginModal: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Password & Confirm Password */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                      <input
+                        type={showRegPassword ? 'text' : 'password'}
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        required
+                        className="w-full pl-8 pr-8 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Confirm Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                      <input
+                        type={showRegPassword ? 'text' : 'password'}
+                        value={regConfirmPassword}
+                        onChange={(e) => setRegConfirmPassword(e.target.value)}
+                        required
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <button
                   type="submit"
-                  disabled={loading || !regName.trim() || !regEmail.trim()}
+                  disabled={loading || !regName.trim() || !regSlug.trim() || !regEmail.trim() || !regPassword || slugAvailability.status === 'unavailable'}
                   className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Creating Academy Profile...</span>
+                      <span>Provisioning Domain & Dispatching Code...</span>
                     </>
                   ) : (
                     <>
@@ -431,7 +810,9 @@ export const LoginModal: React.FC = () => {
               </form>
             )}
 
-            {/* STEP 2: VERIFICATION CODE SCREEN */}
+            {/* ------------------------------------------------------------- */}
+            {/* 3. REGISTRATION OTP VERIFICATION SCREEN                      */}
+            {/* ------------------------------------------------------------- */}
             {step === 'otp' && (
               <form onSubmit={handleVerifyOTP} className="space-y-4">
                 <div>
@@ -463,7 +844,7 @@ export const LoginModal: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <span>Verify & Sign In</span>
+                      <span>Verify & Activate Academy</span>
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                     </>
                   )}
@@ -476,15 +857,150 @@ export const LoginModal: React.FC = () => {
                     className="text-slate-600 hover:text-slate-900 text-[11px] flex items-center gap-1 cursor-pointer"
                   >
                     <ArrowLeft className="w-3 h-3" />
-                    Back to email
+                    Back to registration
                   </button>
+                </div>
+              </form>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* 4. FORGOT PASSWORD: REQUEST CODE                             */}
+            {/* ------------------------------------------------------------- */}
+            {step === 'forgot_password_request' && (
+              <form onSubmit={handleForgotPasswordRequest} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Institutional Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoFocus
+                      className="w-full pl-10 pr-3.5 py-2.5 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || !email.trim()}
+                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Sending Reset Code...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Send Password Reset Code</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </button>
+
+                <div className="pt-2 text-center">
                   <button
                     type="button"
-                    onClick={handleRequestOTP}
-                    disabled={loading}
-                    className="text-slate-900 font-semibold hover:underline text-[11px] cursor-pointer"
+                    onClick={() => { setStep('form'); setError(null); setMessage(null); }}
+                    className="text-[11px] text-slate-500 hover:text-slate-900 font-medium flex items-center justify-center gap-1 mx-auto cursor-pointer"
                   >
-                    Resend Code
+                    <ArrowLeft className="w-3 h-3" />
+                    Return to Sign In
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* 5. FORGOT PASSWORD: ENTER CODE & SET NEW PASSWORD            */}
+            {/* ------------------------------------------------------------- */}
+            {step === 'forgot_password_reset' && (
+              <form onSubmit={handleResetPasswordSubmit} className="space-y-3.5">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 text-center">
+                    6-Digit Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                    required
+                    autoFocus
+                    className="w-full text-center tracking-[0.5em] text-xl font-mono font-bold bg-slate-50 border border-slate-300 rounded-lg py-2.5 text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                    <input
+                      type={showResetPassword ? 'text' : 'password'}
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                      required
+                      className="w-full pl-8 pr-8 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResetPassword(!showResetPassword)}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showResetPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                    <input
+                      type={showResetPassword ? 'text' : 'password'}
+                      value={resetConfirmPassword}
+                      onChange={(e) => setResetConfirmPassword(e.target.value)}
+                      required
+                      className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || otp.length !== 6 || !resetNewPassword}
+                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                >
+                  {loading ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Updating Password...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Update Password & Sign In</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </button>
+
+                <div className="pt-2 text-center">
+                  <button
+                    type="button"
+                    onClick={() => { setStep('form'); setError(null); setMessage(null); }}
+                    className="text-[11px] text-slate-500 hover:text-slate-900 font-medium flex items-center justify-center gap-1 mx-auto cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3 h-3" />
+                    Return to Sign In
                   </button>
                 </div>
               </form>

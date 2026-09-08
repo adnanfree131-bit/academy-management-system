@@ -6,7 +6,7 @@
 // =============================================================================
 // 1. TENANCY & SUBSCRIPTION
 // =============================================================================
-export type TenantStatus = 'active' | 'trial' | 'grace_period' | 'locked' | 'suspended';
+export type TenantStatus = 'active' | 'trial' | 'grace_period' | 'locked' | 'suspended' | 'pending_verification';
 export type SubscriptionTier = 'starter' | 'standard' | 'enterprise';
 
 export interface Tenant {
@@ -33,7 +33,7 @@ export interface TenantSettings {
   campus_name: string;
   phone_country_code: string;
   address?: string;
-  phone?: string;
+  phone?: string | null;
   email?: string;
   bank_name?: string;
   account_title?: string;
@@ -55,6 +55,11 @@ export interface TenantSettings {
     morning?: { start?: string; end?: string };
     evening?: { start?: string; end?: string };
   };
+  logo_url?: string | null;
+  city?: string | null;
+  domain?: string | null;
+  subdomain?: string | null;
+  domain_verified?: boolean;
   features: {
     mobile_pwa_enabled: boolean;
     whatsapp_rapid_queue: boolean;
@@ -84,6 +89,7 @@ export interface User {
   full_name: string;
   role: UserRole;
   status: UserStatus;
+  password_hash?: string;
   avatar_url?: string | null;
   metadata?: Record<string, unknown>;
   last_login_at?: string | null;
@@ -149,7 +155,63 @@ export interface AuthSessionResponse {
     status: TenantStatus;
     academic_session: string;
     campus_name: string;
+    logo_url?: string | null;
+    city?: string | null;
   };
+}
+
+export interface LoginWithPasswordRequest {
+  email: string;
+  password: string;
+  tenant_slug?: string;
+}
+
+export interface RegisterAcademyRequest {
+  name: string;
+  slug: string;
+  city?: string;
+  phone?: string;
+  logo_url?: string;
+  admin_name: string;
+  admin_email: string;
+  password: string;
+}
+
+export interface VerifyRegistrationOTPRequest {
+  email: string;
+  otp: string;
+  tenant_slug: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+  tenant_slug?: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  otp: string;
+  new_password: string;
+  tenant_slug?: string;
+}
+
+export interface DomainAvailabilityResponse {
+  slug: string;
+  available: boolean;
+  domain: string;
+  message?: string;
+}
+
+export interface AcademyBranding {
+  id: string;
+  name: string;
+  slug: string;
+  campus_name: string;
+  academic_session: string;
+  domain: string;
+  logo_url?: string | null;
+  city?: string | null;
+  phone?: string | null;
 }
 
 // =============================================================================

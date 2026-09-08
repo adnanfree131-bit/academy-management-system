@@ -78,6 +78,8 @@ import {
   SuperAdminTenantSummary
 } from '@apex/shared-types';
 
+import { hashPassword, verifyPassword } from './password.js';
+
 export interface StoredOTP {
   id: string;
   tenant_id: string;
@@ -96,12 +98,18 @@ export interface IDataStore {
     name: string;
     slug: string;
     campus_name?: string;
+    city?: string;
+    phone?: string;
     admin_name: string;
     admin_email: string;
     logo_url?: string;
+    password_hash?: string;
   }): Promise<{ tenant: Tenant; admin: User }>;
   updateTenantSettings(tenantId: string, updates: { name?: string; slug?: string; settings?: Partial<TenantSettings> }): Promise<Tenant | null>;
   getUserByEmail(tenantId: string, email: string): Promise<User | null>;
+  getUserByEmailGlobal(email: string): Promise<User[]>;
+  checkSlugAvailable(slug: string): Promise<boolean>;
+  updateUserPassword(tenantId: string, email: string, passwordHash: string): Promise<boolean>;
   createOTP(tenantId: string, email: string, codeHash: string, expiresAt: Date): Promise<StoredOTP>;
   getActiveOTP(tenantId: string, email: string): Promise<StoredOTP | null>;
   incrementOTPAttempts(id: string): Promise<void>;
@@ -466,6 +474,7 @@ export class InMemoryDataStore implements IDataStore {
     this.tenants.set(primaryTenant.id, primaryTenant);
 
     // 2. Initial Administrator Accounts
+    const defaultPasswordHash = hashPassword('Admin@123');
     const users: User[] = [
       {
         id: 'a1000000-0000-0000-0000-000000000001',
@@ -474,6 +483,7 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Campus Director',
         role: 'tenant_admin',
         status: 'active',
+        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -484,6 +494,7 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Academy Administrator',
         role: 'tenant_admin',
         status: 'active',
+        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -516,6 +527,7 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   private seedTestData() {
+    const defaultPasswordHash = hashPassword('Admin@123');
     const tenantAId = 'a0000000-0000-0000-0000-000000000001';
     const tenantB: Tenant = {
       id: 'b0000000-0000-0000-0000-000000000002',
@@ -570,6 +582,7 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Director Adnan',
         role: 'tenant_admin',
         status: 'active',
+        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -580,6 +593,7 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Sir Tariq Physics',
         role: 'teacher',
         status: 'active',
+        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -590,6 +604,7 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Sir Hamza Math',
         role: 'teacher',
         status: 'active',
+        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -600,6 +615,7 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Dr. Ayesha Biology',
         role: 'teacher',
         status: 'active',
+        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -610,6 +626,7 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Muhammad Ali Raza (Student / Parent)',
         role: 'student',
         status: 'active',
+        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -620,6 +637,7 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Super Admin Control Plane',
         role: 'super_admin',
         status: 'active',
+        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -630,6 +648,7 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Principal Crescent Academy',
         role: 'tenant_admin',
         status: 'active',
+        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -640,6 +659,7 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Principal Fatima',
         role: 'tenant_admin',
         status: 'active',
+        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -650,6 +670,7 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'M. Hamza Guardian',
         role: 'parent',
         status: 'active',
+        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1394,9 +1415,12 @@ export class InMemoryDataStore implements IDataStore {
     name: string;
     slug: string;
     campus_name?: string;
+    city?: string;
+    phone?: string;
     admin_name: string;
     admin_email: string;
     logo_url?: string;
+    password_hash?: string;
   }): Promise<{ tenant: Tenant; admin: User }> {
     const rawSlug = params.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
     const cleanSlug = rawSlug || 'academy-' + Math.floor(100 + Math.random() * 900);
@@ -1417,6 +1441,12 @@ export class InMemoryDataStore implements IDataStore {
         date_format: 'DD/MM/YYYY',
         academic_session: '2026-2027',
         campus_name: params.campus_name?.trim() || 'Main Campus',
+        city: params.city?.trim() || null,
+        phone: params.phone?.trim() || null,
+        logo_url: params.logo_url || null,
+        subdomain: cleanSlug,
+        domain: `${cleanSlug}.toolnestr.com`,
+        domain_verified: true,
         phone_country_code: '+92',
         features: {
           mobile_pwa_enabled: true,
@@ -1436,6 +1466,7 @@ export class InMemoryDataStore implements IDataStore {
       full_name: params.admin_name.trim(),
       role: 'tenant_admin',
       status: 'active',
+      password_hash: params.password_hash || hashPassword('Admin@123'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -1480,11 +1511,38 @@ export class InMemoryDataStore implements IDataStore {
       full_name: email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Administrator',
       role: 'tenant_admin',
       status: 'active',
+      password_hash: hashPassword('Admin@123'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
     this.users.set(key, newUser);
     return newUser;
+  }
+
+  async getUserByEmailGlobal(email: string): Promise<User[]> {
+    const clean = email.toLowerCase().trim();
+    const results: User[] = [];
+    for (const u of this.users.values()) {
+      if (u.email.toLowerCase() === clean) {
+        results.push(u);
+      }
+    }
+    return results;
+  }
+
+  async checkSlugAvailable(slug: string): Promise<boolean> {
+    const clean = slug.toLowerCase().trim();
+    if (!clean) return false;
+    const existing = await this.getTenantBySlug(clean);
+    return !existing;
+  }
+
+  async updateUserPassword(tenantId: string, email: string, passwordHash: string): Promise<boolean> {
+    const user = await this.getUserByEmail(tenantId, email);
+    if (!user) return false;
+    user.password_hash = passwordHash;
+    user.updated_at = new Date().toISOString();
+    return true;
   }
 
   async createOTP(tenantId: string, email: string, codeHash: string, expiresAt: Date): Promise<StoredOTP> {

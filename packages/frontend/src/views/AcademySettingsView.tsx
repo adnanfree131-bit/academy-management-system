@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   Building2,
@@ -8,7 +8,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
-  DollarSign
+  DollarSign,
+  GraduationCap,
+  UploadCloud,
+  X,
+  Globe
 } from 'lucide-react';
 import { TenantSettings } from '@apex/shared-types';
 
@@ -23,6 +27,11 @@ export const AcademySettingsView: React.FC = () => {
   // Form State
   const [academyName, setAcademyName] = useState<string>('');
   const [campusName, setCampusName] = useState<string>('');
+  const [city, setCity] = useState<string>('Lahore');
+  const [subdomain, setSubdomain] = useState<string>('apex');
+  const [domain, setDomain] = useState<string>('apex.toolnestr.com');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [academicSession, setAcademicSession] = useState<string>('2026-2027');
   const [phone, setPhone] = useState<string>('');
   const [email, setEmail] = useState<string>('');
@@ -74,6 +83,11 @@ export const AcademySettingsView: React.FC = () => {
         setAddress(s.address || 'Campus Avenue, Main Boulevard, Lahore');
         setAffiliationNo(s.affiliation_number || 'BISE/LHR-2026/9941');
 
+        if (s.logo_url) setLogoUrl(s.logo_url);
+        if (s.city) setCity(s.city);
+        if (s.subdomain || t.slug) setSubdomain(s.subdomain || t.slug);
+        if (s.domain || t.domain) setDomain(s.domain || t.domain);
+
         if (s.bank_name) setBankName(s.bank_name);
         if (s.account_title) setAccountTitle(s.account_title);
         if (s.account_number) setAccountNumber(s.account_number);
@@ -109,6 +123,25 @@ export const AcademySettingsView: React.FC = () => {
     fetchSettings();
   }, [token]);
 
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('Please select an image file (PNG, JPG, SVG).');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMsg('Logo file size must be less than 2MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLogoUrl(reader.result as string);
+      setErrorMsg(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
   // Save Settings
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,6 +157,11 @@ export const AcademySettingsView: React.FC = () => {
       phone,
       email,
       address,
+      city,
+      logo_url: logoUrl,
+      subdomain,
+      domain,
+      domain_verified: true,
       affiliation_number: affiliationNo,
       bank_name: bankName,
       account_title: accountTitle,
@@ -220,6 +258,69 @@ export const AcademySettingsView: React.FC = () => {
               <h2 className="text-sm font-extrabold text-slate-900">Institution Identity & Profile</h2>
             </div>
 
+            {/* Academy Logo Card */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border border-slate-200 rounded-xl bg-slate-50/50">
+              <div className="w-16 h-16 rounded-xl border border-slate-300 bg-white p-1 overflow-hidden flex items-center justify-center shrink-0 shadow-xs">
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Academy Logo" className="w-full h-full object-contain" />
+                ) : (
+                  <GraduationCap className="w-8 h-8 text-slate-400" />
+                )}
+              </div>
+              <div className="space-y-1">
+                <span className="block text-xs font-bold text-slate-800">Academy Brand Logo</span>
+                <span className="block text-[11px] text-slate-500">
+                  Reflected on your white-labeled login screen, student profiles, and official fee challans.
+                </span>
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => logoInputRef.current?.click()}
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>{logoUrl ? 'Change Logo' : 'Upload Logo'}</span>
+                  </button>
+                  {logoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setLogoUrl(null)}
+                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Remove Logo</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Dedicated Portal Domain Card (Verified & Active) */}
+            <div className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0">
+                  <Globe className="w-4 h-4 text-slate-700" />
+                </div>
+                <div>
+                  <span className="block text-xs font-bold text-slate-800">Dedicated Portal Domain</span>
+                  <span className="block text-[11px] font-mono text-slate-600 mt-0.5">
+                    https://{subdomain}.toolnestr.com
+                  </span>
+                </div>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100/80 border border-emerald-300 text-emerald-800 rounded-full text-xs font-semibold">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Domain Verified & Active</span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">Institution Name</label>
@@ -241,6 +342,17 @@ export const AcademySettingsView: React.FC = () => {
                   placeholder="e.g. Gulberg III Campus"
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">City</label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={e => setCity(e.target.value)}
+                  placeholder="e.g. Lahore"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
                 />
               </div>
 

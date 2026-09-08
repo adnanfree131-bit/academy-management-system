@@ -16,6 +16,20 @@ export interface TenantSession {
   status: string;
   academic_session: string;
   campus_name: string;
+  logo_url?: string | null;
+  city?: string | null;
+  domain?: string | null;
+}
+
+export interface RegisterAcademyPayload {
+  name: string;
+  slug: string;
+  city?: string;
+  phone?: string;
+  logo_url?: string;
+  admin_name: string;
+  admin_email: string;
+  password: string;
 }
 
 interface AuthContextType {
@@ -23,8 +37,13 @@ interface AuthContextType {
   tenant: TenantSession | null;
   token: string | null;
   isLoading: boolean;
+  loginWithPassword: (email: string, password: string, tenantSlug?: string) => Promise<{ success: boolean }>;
+  registerAcademy: (payload: RegisterAcademyPayload) => Promise<{ success: boolean; message: string; dev_otp?: string; tenant: any; admin: any }>;
+  verifyRegistrationOTP: (email: string, otp: string, tenantSlug: string) => Promise<{ success: boolean }>;
   requestOTP: (email: string, tenantSlug: string) => Promise<{ success: boolean; message: string; dev_otp?: string }>;
   verifyOTP: (email: string, otp: string, tenantSlug: string) => Promise<{ success: boolean; message?: string }>;
+  forgotPassword: (email: string, tenantSlug?: string) => Promise<{ success: boolean; message: string; dev_otp?: string }>;
+  resetPassword: (email: string, otp: string, newPassword: string, tenantSlug?: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   switchDemoAccount: (email: string, tenantSlug?: string) => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -63,6 +82,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             status: body.data.tenant.status,
             academic_session: body.data.tenant.settings?.academic_session || '2026-2027',
             campus_name: body.data.tenant.settings?.campus_name || 'Main Campus',
+            logo_url: body.data.tenant.settings?.logo_url || null,
+            city: body.data.tenant.settings?.city || null,
+            domain: body.data.tenant.domain || null,
           });
         } else {
           // Token expired or invalid
@@ -80,6 +102,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     loadUser();
   }, [token]);
+
+  /**
+   * Daily Operational Login with Email & Password
+   */
+  const loginWithPassword = async (email: string, password: string, tenantSlug?: string) => {
+    const res = await fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+        tenant_slug: tenantSlug?.trim() || undefined,
+      }),
+    });
+
+    const body = await res.json();
+    if (!res.ok) {
+      throw new Error(body.error?.message || 'Invalid email or password.');
+    }
+
+    const sessionData = body.data;
+    localStorage.setItem('apex_jwt_token', sessionData.token);
+    setToken(sessionData.token);
+    setUser(sessionData.user);
+    setTenant(sessionData.tenant);
+
+    return { success: true };
+  };
+
+  /**
+   * Register a new academy with subdomain provisioning & Brevo OTP dispatch
+   */
+  const registerAcademy = async (payload: RegisterAcademyPayload) => {
+    const res = await fetch('/api/v1/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const body = await res.json();
+    if (!res.ok) {
+      throw new Error(body.error?.message || 'Failed to register academy.');
+    }
+
+    return {
+      success: true,
+      message: body.data.message,
+      dev_otp: body.data.otp_preview,
+      tenant: body.data.tenant,
+      admin: body.data.admin,
+    };
+  };
+
+  /**
+   * Verify Registration 6-Digit OTP & start session
+   */
+  const verifyRegistrationOTP = async (email: string, otp: string, tenantSlug: string) => {
+    const res = await fetch('/api/v1/auth/verify-registration-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), otp: otp.trim(), tenant_slug: tenantSlug.trim() }),
+    });
+
+    const body = await res.json();
+    if (!res.ok) {
+      throw new Error(body.error?.message || 'Verification failed.');
+    }
+
+    const sessionData = body.data;
+    localStorage.setItem('apex_jwt_token', sessionData.token);
+    setToken(sessionData.token);
+    setUser(sessionData.user);
+    setTenant(sessionData.tenant);
+
+    return { success: true };
+  };
 
   const requestOTP = async (email: string, tenantSlug: string) => {
     const res = await fetch('/api/v1/auth/request-otp', {
@@ -121,6 +219,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true };
   };
 
+  const forgotPassword = async (email: string, tenantSlug?: string) => {
+    const res = await fetch('/api/v1/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), tenant_slug: tenantSlug?.trim() || undefined }),
+    });
+
+    const body = await res.json();
+    if (!res.ok) {
+      throw new Error(body.error?.message || 'Failed to request password reset code.');
+    }
+
+    return {
+      success: true,
+      message: body.data?.message || body.message || 'Verification code sent.',
+      dev_otp: body.data?.dev_otp_preview,
+    };
+  };
+
+  const resetPassword = async (email: string, otp: string, newPassword: string, tenantSlug?: string) => {
+    const res = await fetch('/api/v1/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: email.trim(),
+        otp: otp.trim(),
+        new_password: newPassword,
+        tenant_slug: tenantSlug?.trim() || undefined,
+      }),
+    });
+
+    const body = await res.json();
+    if (!res.ok) {
+      throw new Error(body.error?.message || 'Failed to update password.');
+    }
+
+    return {
+      success: true,
+      message: body.message || 'Password updated successfully.',
+    };
+  };
+
   const logout = () => {
     localStorage.removeItem('apex_jwt_token');
     setToken(null);
@@ -145,6 +285,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           status: body.data.tenant.status,
           academic_session: body.data.tenant.settings?.academic_session || '2026-2027',
           campus_name: body.data.tenant.settings?.campus_name || 'Main Campus',
+          logo_url: body.data.tenant.settings?.logo_url || null,
+          city: body.data.tenant.settings?.city || null,
+          domain: body.data.tenant.domain || null,
         });
       }
     } catch (err) {
@@ -155,19 +298,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const switchDemoAccount = async (targetEmail: string, slug = 'apex') => {
     setIsLoading(true);
     try {
-      const res = await requestOTP(targetEmail, slug);
-      const otpCode = res.dev_otp || '123456';
-      await verifyOTP(targetEmail, otpCode, slug);
-    } catch (err) {
-      console.error('Failed switching demo account:', err);
-      throw err;
+      // Direct password login for fast demo switching
+      await loginWithPassword(targetEmail, 'Admin@123', slug);
+    } catch {
+      // Fallback to OTP flow
+      try {
+        const res = await requestOTP(targetEmail, slug);
+        const otpCode = res.dev_otp || '123456';
+        await verifyOTP(targetEmail, otpCode, slug);
+      } catch (err) {
+        console.error('Failed switching demo account:', err);
+        throw err;
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, tenant, token, isLoading, requestOTP, verifyOTP, logout, switchDemoAccount, refreshSession }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        tenant,
+        token,
+        isLoading,
+        loginWithPassword,
+        registerAcademy,
+        verifyRegistrationOTP,
+        requestOTP,
+        verifyOTP,
+        forgotPassword,
+        resetPassword,
+        logout,
+        switchDemoAccount,
+        refreshSession,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

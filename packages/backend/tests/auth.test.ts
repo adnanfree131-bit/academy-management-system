@@ -126,4 +126,174 @@ describe('Phase 1: Backend Fastify & Brevo OTP Authentication Engine', () => {
     expect(meBody.data.user.full_name).toBe('Director Adnan');
     expect(meBody.data.tenant.slug).toBe('apex');
   });
+
+  it('7. Subdomain availability check returns status and domain', async () => {
+    // Check available slug
+    const resAvail = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/check-domain?slug=falcon-grammar',
+    });
+    expect(resAvail.statusCode).toBe(200);
+    const bodyAvail = JSON.parse(resAvail.body);
+    expect(bodyAvail.data.available).toBe(true);
+    expect(bodyAvail.data.domain).toBe('falcon-grammar.toolnestr.com');
+
+    // Check taken slug (apex)
+    const resTaken = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/check-domain?slug=apex',
+    });
+    expect(resTaken.statusCode).toBe(200);
+    const bodyTaken = JSON.parse(resTaken.body);
+    expect(bodyTaken.data.available).toBe(false);
+  });
+
+  it('8. Daily Operational Sign In with Email & Password', async () => {
+    // Successful login with seeded user
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'adnan@apexacademy.edu.pk',
+        password: 'Admin@123',
+        tenant_slug: 'apex',
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.success).toBe(true);
+    expect(body.data.token).toBeDefined();
+    expect(body.data.user.email).toBe('adnan@apexacademy.edu.pk');
+
+    // Failed login with incorrect password
+    const resFail = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'adnan@apexacademy.edu.pk',
+        password: 'WrongPassword123',
+        tenant_slug: 'apex',
+      },
+    });
+    expect(resFail.statusCode).toBe(401);
+    const bodyFail = JSON.parse(resFail.body);
+    expect(bodyFail.success).toBe(false);
+  });
+
+  it('9. Register Academy with city, phone, logo, password, and verify via Brevo OTP', async () => {
+    sentOTPs = [];
+    const regRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      payload: {
+        name: 'Falcon Science Academy',
+        slug: 'falcon-sci',
+        city: 'Lahore',
+        phone: '+92 300 5551234',
+        logo_url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        admin_name: 'Director Farhan',
+        admin_email: 'farhan@falconscience.edu.pk',
+        password: 'FalconPassword@2026',
+      },
+    });
+
+    expect(regRes.statusCode).toBe(201);
+    const regBody = JSON.parse(regRes.body);
+    expect(regBody.success).toBe(true);
+    expect(regBody.data.tenant.slug).toBe('falcon-sci');
+    expect(regBody.data.tenant.city).toBe('Lahore');
+    expect(regBody.data.tenant.logo_url).toContain('data:image/png');
+    expect(sentOTPs.length).toBe(1);
+    expect(sentOTPs[0].toEmail).toBe('farhan@falconscience.edu.pk');
+
+    // Verify registration OTP
+    const verifyRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/verify-registration-otp',
+      payload: {
+        email: 'farhan@falconscience.edu.pk',
+        otp: sentOTPs[0].otp,
+        tenant_slug: 'falcon-sci',
+      },
+    });
+
+    expect(verifyRes.statusCode).toBe(200);
+    const verifyBody = JSON.parse(verifyRes.body);
+    expect(verifyBody.success).toBe(true);
+    expect(verifyBody.data.token).toBeDefined();
+    expect(verifyBody.data.user.role).toBe('tenant_admin');
+    expect(verifyBody.data.tenant.status).toBe('active');
+
+    // Subsequent daily login with password succeeds
+    const dailyLoginRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'farhan@falconscience.edu.pk',
+        password: 'FalconPassword@2026',
+        tenant_slug: 'falcon-sci',
+      },
+    });
+    expect(dailyLoginRes.statusCode).toBe(200);
+  });
+
+  it('10. Branding endpoint returns white-labeled logo, city, phone, and domain', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/branding?slug=falcon-sci',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.body);
+    expect(body.success).toBe(true);
+    expect(body.data.name).toBe('Falcon Science Academy');
+    expect(body.data.slug).toBe('falcon-sci');
+    expect(body.data.city).toBe('Lahore');
+    expect(body.data.phone).toBe('+92 300 5551234');
+    expect(body.data.logo_url).toContain('data:image/png');
+    expect(body.data.domain).toBe('falcon-sci.toolnestr.com');
+  });
+
+  it('11. Password reset flow dispatches Brevo OTP and updates password', async () => {
+    sentOTPs = [];
+    const forgotRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/forgot-password',
+      payload: {
+        email: 'farhan@falconscience.edu.pk',
+        tenant_slug: 'falcon-sci',
+      },
+    });
+
+    expect(forgotRes.statusCode).toBe(200);
+    expect(sentOTPs.length).toBe(1);
+    const resetOTP = sentOTPs[0].otp;
+
+    // Reset password with code
+    const resetRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/reset-password',
+      payload: {
+        email: 'farhan@falconscience.edu.pk',
+        otp: resetOTP,
+        new_password: 'NewFalconPassword@999',
+        tenant_slug: 'falcon-sci',
+      },
+    });
+
+    expect(resetRes.statusCode).toBe(200);
+
+    // Login with new password succeeds
+    const newLoginRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: 'farhan@falconscience.edu.pk',
+        password: 'NewFalconPassword@999',
+        tenant_slug: 'falcon-sci',
+      },
+    });
+    expect(newLoginRes.statusCode).toBe(200);
+  });
 });
