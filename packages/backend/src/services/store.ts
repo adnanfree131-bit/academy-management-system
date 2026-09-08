@@ -2591,14 +2591,14 @@ export class InMemoryDataStore implements IDataStore {
 
     // Apply allocations to individual invoice items
     for (const alloc of allocations) {
-      const item = invoice.items.find(i => i.fee_head_id === alloc.fee_head_id);
+      const item = invoice.items.find((i: InvoiceItem) => i.fee_head_id === alloc.fee_head_id);
       if (item) {
         item.paid_amount += Number(alloc.allocated_amount);
         item.balance_due = Math.max(0, item.net_amount - item.paid_amount);
       }
     }
 
-    invoice.paid_amount = invoice.items.reduce((s, it) => s + it.paid_amount, 0);
+    invoice.paid_amount = invoice.items.reduce((s: number, it: InvoiceItem) => s + it.paid_amount, 0);
     invoice.balance_amount = Math.max(0, invoice.net_amount - invoice.paid_amount);
     invoice.status = invoice.balance_amount <= 0 ? 'paid' : (invoice.paid_amount > 0 ? 'partially_paid' : 'unpaid');
     invoice.updated_at = new Date().toISOString();
@@ -2674,7 +2674,7 @@ export class InMemoryDataStore implements IDataStore {
 
       // Distribute discount to items (proportionately or to first eligible head)
       if (data.fee_head_id) {
-        const item = invoice.items.find(it => it.fee_head_id === data.fee_head_id);
+        const item = invoice.items.find((it: InvoiceItem) => it.fee_head_id === data.fee_head_id);
         if (item) {
           item.discount_amount += actualDiscount;
           item.net_amount = Math.max(0, item.original_amount - item.discount_amount);
@@ -2776,7 +2776,7 @@ export class InMemoryDataStore implements IDataStore {
       let collected = 0;
 
       tenantInvoices.forEach(inv => {
-        const item = inv.items.find(it => it.fee_head_id === head.id);
+        const item = inv.items.find((it: InvoiceItem) => it.fee_head_id === head.id);
         if (item) {
           billed += item.net_amount;
           collected += item.paid_amount;
