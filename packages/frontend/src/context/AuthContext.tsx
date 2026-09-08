@@ -26,6 +26,8 @@ interface AuthContextType {
   requestOTP: (email: string, tenantSlug: string) => Promise<{ success: boolean; message: string; dev_otp?: string }>;
   verifyOTP: (email: string, otp: string, tenantSlug: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
+  switchDemoAccount: (email: string, tenantSlug?: string) => Promise<void>;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -126,8 +128,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTenant(null);
   };
 
+  const refreshSession = async () => {
+    const currentToken = localStorage.getItem('apex_jwt_token');
+    if (!currentToken) return;
+    try {
+      const res = await fetch('/api/v1/auth/me', {
+        headers: { Authorization: `Bearer ${currentToken}` }
+      });
+      if (res.ok) {
+        const body = await res.json();
+        setUser(body.data.user);
+        setTenant({
+          id: body.data.tenant.id,
+          name: body.data.tenant.name,
+          slug: body.data.tenant.slug,
+          status: body.data.tenant.status,
+          academic_session: body.data.tenant.settings?.academic_session || '2026-2027',
+          campus_name: body.data.tenant.settings?.campus_name || 'Main Campus',
+        });
+      }
+    } catch (err) {
+      console.error('Failed to refresh session:', err);
+    }
+  };
+
+  const switchDemoAccount = async (targetEmail: string, slug = 'apex') => {
+    setIsLoading(true);
+    try {
+      const res = await requestOTP(targetEmail, slug);
+      const otpCode = res.dev_otp || '123456';
+      await verifyOTP(targetEmail, otpCode, slug);
+    } catch (err) {
+      console.error('Failed switching demo account:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, tenant, token, isLoading, requestOTP, verifyOTP, logout }}>
+    <AuthContext.Provider value={{ user, tenant, token, isLoading, requestOTP, verifyOTP, logout, switchDemoAccount, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

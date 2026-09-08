@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginModal } from './components/LoginModal';
 import { Sidebar } from './components/Sidebar';
@@ -15,6 +15,11 @@ import { PayrollDeskView } from './views/PayrollDeskView';
 import { ExamDeskView } from './views/ExamDeskView';
 import { AbsenteeRetentionDeskView } from './views/AbsenteeRetentionDeskView';
 import { GenericModuleView } from './views/GenericModuleView';
+import { TeacherPortalView } from './views/TeacherPortalView';
+import { StudentParentPortalView } from './views/StudentParentPortalView';
+import { SuperAdminControlPlaneView } from './views/SuperAdminControlPlaneView';
+import { TrialExpiredLockoutModal } from './components/TrialExpiredLockoutModal';
+import { MobileBottomNav } from './components/MobileBottomNav';
 
 const titleMap: Record<string, string> = {
   dashboard: 'Executive Dashboard',
@@ -29,12 +34,28 @@ const titleMap: Record<string, string> = {
   voucher: 'Fee Invoices & Vouchers',
   payroll: 'Staff Payroll & Salaries',
   mobile: 'Native Mobile Experience (PWA Parity)',
+  teacher: 'Faculty Academic Desk',
+  student_portal: 'Student & Parent Academic Portal',
+  superadmin: 'Super-Admin SaaS Control Plane',
 };
 
 const MainLayout: React.FC = () => {
-  const { user, isLoading } = useAuth();
+  const { user, tenant, isLoading, refreshSession } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<string>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+
+  // Set initial screen based on user role when logging in
+  useEffect(() => {
+    if (user) {
+      if (user.role === 'teacher') {
+        setCurrentScreen('teacher');
+      } else if (user.role === 'student') {
+        setCurrentScreen('student_portal');
+      } else if (user.role === 'super_admin') {
+        setCurrentScreen('superadmin');
+      }
+    }
+  }, [user?.role, user?.id]);
 
   if (isLoading) {
     return (
@@ -51,8 +72,15 @@ const MainLayout: React.FC = () => {
     return <LoginModal />;
   }
 
+  const isTenantLocked = tenant?.status === 'locked';
+
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="min-h-screen flex bg-slate-50 relative">
+      {/* 30-Day Trial Expired Lockout Modal */}
+      {isTenantLocked && (
+        <TrialExpiredLockoutModal onUnlocked={refreshSession} />
+      )}
+
       <Sidebar
         currentScreen={currentScreen}
         onSelectScreen={setCurrentScreen}
@@ -65,11 +93,18 @@ const MainLayout: React.FC = () => {
           currentScreenTitle={titleMap[currentScreen] || 'Dashboard'}
           onOpenSidebar={() => setSidebarOpen(true)}
           onNewAdmission={() => setCurrentScreen('enrollment')}
+          onSwitchScreen={setCurrentScreen}
         />
 
-        <main className="flex-1 p-4 sm:p-6 w-full space-y-5 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 pb-20 md:pb-6 w-full space-y-5 overflow-y-auto">
           {currentScreen === 'dashboard' ? (
             <DashboardView onNavigate={setCurrentScreen} />
+          ) : currentScreen === 'teacher' ? (
+            <TeacherPortalView onNavigate={setCurrentScreen} />
+          ) : currentScreen === 'student_portal' ? (
+            <StudentParentPortalView onNavigate={setCurrentScreen} />
+          ) : currentScreen === 'superadmin' ? (
+            <SuperAdminControlPlaneView />
           ) : currentScreen === 'timetable' ? (
             <TimetableDesk />
           ) : currentScreen === 'attendance' ? (
@@ -94,6 +129,14 @@ const MainLayout: React.FC = () => {
             <GenericModuleView moduleId={currentScreen} />
           )}
         </main>
+
+        {/* Mobile Bottom Navigation Bar (< 768px touch screen devices) */}
+        <MobileBottomNav
+          currentScreen={currentScreen}
+          onSelectScreen={setCurrentScreen}
+          onOpenMenu={() => setSidebarOpen(true)}
+          userRole={user.role}
+        />
       </div>
     </div>
   );

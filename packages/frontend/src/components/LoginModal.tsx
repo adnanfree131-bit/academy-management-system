@@ -47,12 +47,13 @@ export const LoginModal: React.FC = () => {
     }
   };
 
-  const handleQuickLogin = async (demoEmail: string) => {
+  const handleQuickLogin = async (demoEmail: string, slug = 'apex') => {
     setError(null);
     setLoading(true);
     try {
-      await requestOTP(demoEmail, 'apex');
-      await verifyOTP(demoEmail, '123456', 'apex');
+      const res = await requestOTP(demoEmail, slug);
+      const code = res.dev_otp || '123456';
+      await verifyOTP(demoEmail, code, slug);
     } catch (err: any) {
       setError(err.message || 'Quick login failed.');
     } finally {
@@ -145,18 +146,52 @@ export const LoginModal: React.FC = () => {
                 )}
               </button>
 
-              <div className="pt-2 space-y-2">
+              <div className="pt-2 space-y-1.5 border-t border-slate-100">
+                <p className="text-[10px] font-mono uppercase font-bold text-slate-400 text-center tracking-wider">
+                  ⚡ 1-Click Role Direct Access (Dev Mode)
+                </p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleQuickLogin('adnan@apexacademy.edu.pk', 'apex')}
+                    className="py-1.5 px-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-900 rounded-lg text-[11px] font-bold text-left truncate transition-colors"
+                  >
+                    👔 Director Adnan
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleQuickLogin('tariq@apexacademy.edu.pk', 'apex')}
+                    className="py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-900 rounded-lg text-[11px] font-bold text-left truncate transition-colors"
+                  >
+                    👨‍🏫 Sir Tariq (Teacher)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleQuickLogin('student@apexacademy.edu.pk', 'apex')}
+                    className="py-1.5 px-2 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-900 rounded-lg text-[11px] font-bold text-left truncate transition-colors"
+                  >
+                    🎓 Student / Parent
+                  </button>
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleQuickLogin('superadmin@apexacademyerp.com', 'apex')}
+                    className="py-1.5 px-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-900 rounded-lg text-[11px] font-bold text-left truncate transition-colors"
+                  >
+                    🛡️ Super Admin
+                  </button>
+                </div>
                 <button
                   type="button"
                   disabled={loading}
-                  onClick={() => handleQuickLogin('adnan@apexacademy.edu.pk')}
-                  className="w-full py-2 px-3 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                  onClick={() => handleQuickLogin('admin@crescentcollege.edu.pk', 'crescent')}
+                  className="w-full py-1.5 px-2 bg-rose-50 hover:bg-rose-100 border border-rose-300 text-rose-900 rounded-lg text-[11px] font-bold text-center transition-colors"
                 >
-                  <span>⚡ 1-Click Dev Sign-In (Director Adnan)</span>
+                  🔒 Locked Academy Demo (Crescent College)
                 </button>
-                <p className="text-[11px] text-center text-slate-400">
-                  Switch User: <button type="button" onClick={() => setEmail('tariq@apexacademy.edu.pk')} className="text-indigo-600 font-semibold hover:underline">Sir Tariq (Teacher)</button>
-                </p>
               </div>
             </form>
           ) : (

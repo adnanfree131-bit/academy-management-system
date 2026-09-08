@@ -42,7 +42,12 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
     const mig6Sql = fs.readFileSync(mig6Path, 'utf8');
     await db.exec(mig6Sql);
 
-    // 7. Execute Dual-Tenant Seed Fixture
+    // 7. Execute Migration 00007 (SaaS Billing, Platform Banking Config, Subscription Receipts)
+    const mig7Path = path.join(__dirname, '../migrations/00007_saas_billing_lockout.sql');
+    const mig7Sql = fs.readFileSync(mig7Path, 'utf8');
+    await db.exec(mig7Sql);
+
+    // 8. Execute Dual-Tenant Seed Fixture
     const seedPath = path.join(__dirname, '../seeds/001_dual_tenant_seed.sql');
     const seedSql = fs.readFileSync(seedPath, 'utf8');
     await db.exec(seedSql);
@@ -527,6 +532,69 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
         VALUES ('${TENANT_A_ID}', 'a5000000-0000-0000-0000-000000000001', 'a3000000-0000-0000-0000-000000000001', CURRENT_DATE, 'PENDING');
       `)
     ).rejects.toThrow(/new row violates row-level security policy/i);
+  });
+
+  it('Gate 19: Subscription Payment Proof Receipts table must enforce strict tenant isolation', async () => {
+    // Tenant A context
+    await db.exec(`SET app.current_tenant_id = '${TENANT_A_ID}';`);
+    await db.exec(`
+      INSERT INTO subscription_payment_receipts (
+        tenant_id,
+        amount,
+        plan_duration_months,
+        payment_method,
+        reference_number,
+        status
+      ) VALUES (
+        '${TENANT_A_ID}',
+        15000.00,
+        1,
+        'BANK_TRANSFER',
+        'ALFALAH-REF-99201',
+        'PENDING'
+      );
+    `);
+
+    // Tenant A queries receipts
+    const receiptsA = await db.query<{ reference_number: string }>('SELECT reference_number FROM subscription_payment_receipts');
+    expect(receiptsA.rows.length).toBe(1);
+    expect(receiptsA.rows[0].reference_number).toBe('ALFALAH-REF-99201');
+
+    // Tenant B context
+    await db.exec(`SET app.current_tenant_id = '${TENANT_B_ID}';`);
+    const receiptsB = await db.query<{ id: string }>('SELECT id FROM subscription_payment_receipts');
+    expect(receiptsB.rows.length).toBe(0);
+
+    // Cross-tenant subscription receipt insert must be rejected
+    await expect(
+      db.exec(`
+        INSERT INTO subscription_payment_receipts (
+          tenant_id,
+          amount,
+          plan_duration_months,
+          payment_method,
+          reference_number
+        ) VALUES (
+          '${TENANT_A_ID}',
+          15000.00,
+          1,
+          'BANK_TRANSFER',
+          'ILLEGAL-CROSS-TENANT'
+        );
+      `)
+    ).rejects.toThrow(/new row violates row-level security policy/i);
+  });
+
+  it('Gate 20: Super Admin bypass allows full global view across all tenant subscription receipts', async () => {
+    // Super-Admin context
+    await db.exec(`
+      RESET app.current_tenant_id;
+      SET app.is_super_admin = 'true';
+    `);
+
+    const allReceipts = await db.query<{ reference_number: string }>('SELECT reference_number FROM subscription_payment_receipts');
+    expect(allReceipts.rows.length).toBeGreaterThanOrEqual(1);
+    expect(allReceipts.rows[0].reference_number).toBe('ALFALAH-REF-99201');
   });
 });
 

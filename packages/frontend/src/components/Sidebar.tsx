@@ -16,6 +16,8 @@ import {
   MapPin,
   MessageSquare,
   GraduationCap,
+  UserCheck,
+  ShieldAlert,
   X
 } from 'lucide-react';
 
@@ -256,7 +258,66 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               </div>
 
-              {/* Section 3: Omnichannel Access */}
+              {/* Section 3: Role Portals & Multi-Academy */}
+              <div>
+                <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
+                  Role Portals & Multi-Academy
+                </p>
+                <div className="space-y-1">
+                  <button 
+                    onClick={() => handleNavClick('teacher')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
+                      currentScreen === 'teacher'
+                        ? 'bg-slate-900 text-white font-bold shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <GraduationCap className="w-4 h-4 text-emerald-500" />
+                      <span>Faculty Academic Desk</span>
+                    </div>
+                    <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded font-mono font-bold">
+                      TEACHER
+                    </span>
+                  </button>
+
+                  <button 
+                    onClick={() => handleNavClick('student_portal')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
+                      currentScreen === 'student_portal'
+                        ? 'bg-slate-900 text-white font-bold shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <UserCheck className="w-4 h-4 text-sky-500" />
+                      <span>Student & Parent Portal</span>
+                    </div>
+                    <span className="text-[9px] bg-sky-50 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded font-mono font-bold">
+                      STUDENT
+                    </span>
+                  </button>
+
+                  <button 
+                    onClick={() => handleNavClick('superadmin')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
+                      currentScreen === 'superadmin'
+                        ? 'bg-slate-900 text-white font-bold shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <ShieldAlert className="w-4 h-4 text-purple-500" />
+                      <span>Super-Admin SaaS Plane</span>
+                    </div>
+                    <span className="text-[9px] bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded font-mono font-bold">
+                      SUPER
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Section 4: Omnichannel Access */}
               <div>
                 <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
                   Omnichannel Access

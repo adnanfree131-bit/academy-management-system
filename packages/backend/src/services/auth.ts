@@ -19,8 +19,8 @@ export class AuthService {
       throw new Error(`Tenant with identifier '${tenantSlug}' does not exist.`);
     }
 
-    if (tenant.status === 'locked' || tenant.status === 'suspended') {
-      throw new Error(`This academy account is currently ${tenant.status}. Please contact billing support.`);
+    if (tenant.status === 'suspended') {
+      throw new Error(`This academy account is currently suspended. Please contact platform support.`);
     }
 
     const user = await this.store.getUserByEmail(tenant.id, email);

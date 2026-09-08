@@ -17,6 +17,8 @@ import { payrollRoutes } from './routes/payroll.js';
 import { examRoutes } from './routes/exams.js';
 import { whatsappRoutes } from './routes/whatsapp.js';
 import { absenteeRoutes } from './routes/absentee.js';
+import { saasRoutes } from './routes/saas.js';
+import { portalRoutes } from './routes/portal.js';
 
 export interface AppOptions {
   store?: IDataStore;
@@ -92,6 +94,10 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   // Phase 6 Routes: WhatsApp Direct Messaging Engine & Absentee Retention Desk
   await fastify.register(whatsappRoutes(store), { prefix: '/api/v1/whatsapp' });
   await fastify.register(absenteeRoutes(store), { prefix: '/api/v1/absentee' });
+
+  // Phase 7 Routes: Multi-Portal Dashboards, SaaS Billing Lockout & Control Plane
+  await fastify.register(saasRoutes(store), { prefix: '/api/v1/saas' });
+  await fastify.register(portalRoutes(store), { prefix: '/api/v1/portal' });
 
   return fastify;
 }

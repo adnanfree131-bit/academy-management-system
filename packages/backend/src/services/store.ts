@@ -64,7 +64,15 @@ import {
   AbsenteeDeskSummaryKPI,
   RetentionRiskLevel,
   RetentionCounselingCase,
-  AbsenteeResolutionReport
+  AbsenteeResolutionReport,
+  PlatformBankingConfig,
+  SubscriptionReceiptStatus,
+  SubscriptionPaymentReceipt,
+  TenantTrialStatus,
+  TeacherPortalOverview,
+  StudentParentPortalOverview,
+  SuperAdminOverview,
+  SuperAdminTenantSummary
 } from '@apex/shared-types';
 
 export interface StoredOTP {
@@ -297,6 +305,27 @@ export interface IDataStore {
   getRetentionCases(tenantId: string): Promise<RetentionCounselingCase[]>;
   scheduleRetentionMeeting(tenantId: string, caseId: string, meetingDate: string, notes: string): Promise<RetentionCounselingCase | null>;
   getAbsenteeResolutionReport(tenantId: string, month: string): Promise<AbsenteeResolutionReport>;
+
+  // Phase 7: Multi-Portal Dashboards, SaaS Billing Lockout & Platform Control Plane
+  getPlatformBankingConfig(): Promise<PlatformBankingConfig>;
+  updatePlatformBankingConfig(data: Partial<PlatformBankingConfig>): Promise<PlatformBankingConfig>;
+  getTenantTrialStatus(tenantId: string): Promise<TenantTrialStatus>;
+  submitSubscriptionReceipt(tenantId: string, data: {
+    amount: number;
+    plan_duration_months: number;
+    payment_method: string;
+    reference_number?: string;
+    notes?: string;
+    uploaded_by_user_id?: string;
+    uploaded_by_email?: string;
+    receipt_image_url?: string;
+  }): Promise<SubscriptionPaymentReceipt>;
+  getSubscriptionReceipts(tenantId?: string): Promise<SubscriptionPaymentReceipt[]>;
+  reviewSubscriptionReceipt(receiptId: string, status: SubscriptionReceiptStatus, reviewedByEmail: string): Promise<SubscriptionPaymentReceipt>;
+  activateAcademy(tenantId: string, durationMonths: number, reviewedByEmail?: string): Promise<Tenant>;
+  getTeacherPortalOverview(tenantId: string, teacherId: string, date?: string): Promise<TeacherPortalOverview>;
+  getStudentParentPortalOverview(tenantId: string, studentId?: string): Promise<StudentParentPortalOverview>;
+  getSuperAdminOverview(): Promise<SuperAdminOverview>;
 }
 
 export class InMemoryDataStore implements IDataStore {
@@ -347,7 +376,26 @@ export class InMemoryDataStore implements IDataStore {
   private absenteeFollowups: AbsenteeFollowupItem[] = [];
   private retentionCases: RetentionCounselingCase[] = [];
 
+  // Phase 7 Collections
+  private platformBankingConfig: PlatformBankingConfig;
+  private subscriptionReceipts: SubscriptionPaymentReceipt[] = [];
+
   constructor() {
+    // Phase 7 Banking Config Defaults
+    this.platformBankingConfig = {
+      id: 'b1000000-0000-0000-0000-000000000001',
+      bank_name: 'Bank Alfalah Limited',
+      account_title: 'Apex ERP SaaS Technologies Pvt Ltd',
+      account_number: '0123-1005678901',
+      iban: 'PK36ALFH01231005678901',
+      branch_code: '0123 - Gulberg Main Boulevard',
+      whatsapp_support: '+923001234567',
+      support_email: 'billing@apexacademyerp.com',
+      monthly_subscription_fee: 15000,
+      instructions: 'Please transfer your subscription fee via online banking / Raast / ATM and upload the screenshot with transaction reference number for immediate automated activation.',
+      updated_at: new Date().toISOString()
+    };
+
     // 1. Seed Tenants
     const tenantA: Tenant = {
       id: 'a0000000-0000-0000-0000-000000000001',
@@ -380,11 +428,11 @@ export class InMemoryDataStore implements IDataStore {
       id: 'b0000000-0000-0000-0000-000000000002',
       name: 'Crescent College Karachi',
       slug: 'crescent',
-      status: 'trial',
+      status: 'locked',
       tier: 'starter',
       max_students: 300,
       max_staff: 25,
-      trial_ends_at: new Date(Date.now() + 86400000 * 30).toISOString(),
+      trial_ends_at: new Date(Date.now() - 86400000 * 2).toISOString(), // Expired 2 days ago
       settings: {
         currency: 'PKR',
         timezone: 'Asia/Karachi',
@@ -404,6 +452,24 @@ export class InMemoryDataStore implements IDataStore {
 
     this.tenants.set(tenantA.id, tenantA);
     this.tenants.set(tenantB.id, tenantB);
+
+    // Seed Sample Pending Subscription Receipt for Crescent College
+    this.subscriptionReceipts.push({
+      id: 'sub-rec-1',
+      tenant_id: tenantB.id,
+      tenant_name: 'Crescent College Karachi',
+      uploaded_by_user_id: 'b1000000-0000-0000-0000-000000000001',
+      uploaded_by_email: 'admin@crescentcollege.edu.pk',
+      amount: 15000,
+      plan_duration_months: 1,
+      payment_method: 'BANK_TRANSFER',
+      reference_number: 'ALF-TRF-884920',
+      receipt_image_url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400',
+      notes: 'Paid via Bank Alfalah Internet Banking to Apex ERP SaaS account. Please activate our account.',
+      status: 'PENDING',
+      created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+      updated_at: new Date(Date.now() - 3600000 * 4).toISOString()
+    });
 
     // 2. Seed Users
     const users: User[] = [
@@ -443,6 +509,36 @@ export class InMemoryDataStore implements IDataStore {
         email: 'ayesha@apexacademy.edu.pk',
         full_name: 'Dr. Ayesha Biology',
         role: 'teacher',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'a1000000-0000-0000-0000-000000000005',
+        tenant_id: tenantA.id,
+        email: 'student@apexacademy.edu.pk',
+        full_name: 'Muhammad Ali Raza (Student / Parent)',
+        role: 'student',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'a1000000-0000-0000-0000-000000000006',
+        tenant_id: tenantA.id,
+        email: 'superadmin@apexacademyerp.com',
+        full_name: 'Super Admin Control Plane',
+        role: 'super_admin',
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'b1000000-0000-0000-0000-000000000001',
+        tenant_id: tenantB.id,
+        email: 'admin@crescentcollege.edu.pk',
+        full_name: 'Principal Crescent College',
+        role: 'tenant_admin',
         status: 'active',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -3368,6 +3464,324 @@ export class InMemoryDataStore implements IDataStore {
       reason_breakdown: breakdown,
       medical_leave_converted: excused,
       prevented_dropouts: cases.length
+    };
+  }
+
+  // =============================================================================
+  // PHASE 7: MULTI-PORTAL DASHBOARDS, SAAS BILLING LOCKOUT & CONTROL PLANE
+  // =============================================================================
+
+  async getPlatformBankingConfig(): Promise<PlatformBankingConfig> {
+    return { ...this.platformBankingConfig };
+  }
+
+  async updatePlatformBankingConfig(data: Partial<PlatformBankingConfig>): Promise<PlatformBankingConfig> {
+    this.platformBankingConfig = {
+      ...this.platformBankingConfig,
+      ...data,
+      updated_at: new Date().toISOString()
+    };
+    return { ...this.platformBankingConfig };
+  }
+
+  async getTenantTrialStatus(tenantId: string): Promise<TenantTrialStatus> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) {
+      throw new Error(`Tenant not found: ${tenantId}`);
+    }
+
+    const now = new Date();
+    const trialEnds = new Date(tenant.trial_ends_at);
+    const diffMs = trialEnds.getTime() - now.getTime();
+    const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+    const isLocked = tenant.status === 'locked' || (tenant.status === 'trial' && diffMs <= 0);
+
+    const pendingReceipt = this.subscriptionReceipts.find(
+      r => r.tenant_id === tenantId && r.status === 'PENDING'
+    ) || null;
+
+    return {
+      tenant_id: tenant.id,
+      tenant_name: tenant.name,
+      status: tenant.status,
+      trial_ends_at: tenant.trial_ends_at,
+      subscription_renews_at: tenant.subscription_renews_at || null,
+      days_remaining: daysRemaining,
+      is_locked: isLocked,
+      lock_reason: isLocked
+        ? 'Your 30-day free trial has expired. To continue using the academy system, please transfer the subscription fee to the bank details below and send your receipt for immediate account activation.'
+        : null,
+      banking_config: { ...this.platformBankingConfig },
+      pending_receipt: pendingReceipt ? { ...pendingReceipt } : null
+    };
+  }
+
+  async submitSubscriptionReceipt(tenantId: string, data: {
+    amount: number;
+    plan_duration_months: number;
+    payment_method: string;
+    reference_number?: string;
+    notes?: string;
+    uploaded_by_user_id?: string;
+    uploaded_by_email?: string;
+    receipt_image_url?: string;
+  }): Promise<SubscriptionPaymentReceipt> {
+    const tenant = this.tenants.get(tenantId);
+    const receipt: SubscriptionPaymentReceipt = {
+      id: `sub-rec-${Date.now()}`,
+      tenant_id: tenantId,
+      tenant_name: tenant?.name || 'Academy',
+      uploaded_by_user_id: data.uploaded_by_user_id || null,
+      uploaded_by_email: data.uploaded_by_email || 'admin@academy.edu.pk',
+      amount: data.amount,
+      plan_duration_months: data.plan_duration_months || 1,
+      payment_method: data.payment_method || 'BANK_TRANSFER',
+      reference_number: data.reference_number || `REF-${Math.floor(100000 + Math.random() * 900000)}`,
+      receipt_image_url: data.receipt_image_url || 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400',
+      notes: data.notes || null,
+      status: 'PENDING',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    this.subscriptionReceipts.unshift(receipt);
+    return receipt;
+  }
+
+  async getSubscriptionReceipts(tenantId?: string): Promise<SubscriptionPaymentReceipt[]> {
+    if (tenantId) {
+      return this.subscriptionReceipts.filter(r => r.tenant_id === tenantId);
+    }
+    return [...this.subscriptionReceipts];
+  }
+
+  async reviewSubscriptionReceipt(receiptId: string, status: SubscriptionReceiptStatus, reviewedByEmail: string): Promise<SubscriptionPaymentReceipt> {
+    const receipt = this.subscriptionReceipts.find(r => r.id === receiptId);
+    if (!receipt) {
+      throw new Error(`Receipt not found: ${receiptId}`);
+    }
+
+    receipt.status = status;
+    receipt.reviewed_by_email = reviewedByEmail;
+    receipt.reviewed_at = new Date().toISOString();
+    receipt.updated_at = new Date().toISOString();
+
+    if (status === 'APPROVED') {
+      await this.activateAcademy(receipt.tenant_id, receipt.plan_duration_months, reviewedByEmail);
+    }
+
+    return { ...receipt };
+  }
+
+  async activateAcademy(tenantId: string, durationMonths: number, _reviewedByEmail?: string): Promise<Tenant> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) {
+      throw new Error(`Tenant not found: ${tenantId}`);
+    }
+
+    const currentExpiry = new Date(tenant.trial_ends_at).getTime() > Date.now()
+      ? new Date(tenant.trial_ends_at)
+      : new Date();
+
+    const newExpiry = new Date(currentExpiry.getTime() + 86400000 * 30 * durationMonths);
+
+    tenant.status = 'active';
+    tenant.trial_ends_at = newExpiry.toISOString();
+    tenant.subscription_renews_at = newExpiry.toISOString();
+    tenant.updated_at = new Date().toISOString();
+
+    this.tenants.set(tenant.id, tenant);
+    return { ...tenant };
+  }
+
+  async getTeacherPortalOverview(tenantId: string, teacherId: string, date?: string): Promise<TeacherPortalOverview> {
+    const today = date || new Date().toISOString().split('T')[0];
+    const teacherUser = Array.from(this.users.values()).find(
+      u => (u.id === teacherId || u.email.toLowerCase() === teacherId.toLowerCase()) && u.tenant_id === tenantId
+    ) || Array.from(this.users.values()).find(u => u.role === 'teacher' && u.tenant_id === tenantId);
+
+    const teacherName = teacherUser?.full_name || 'Sir Tariq Physics';
+    const teacherUserId = teacherUser?.id || teacherId;
+
+    // Timetable slots for this teacher today
+    const teacherSchedule = this.timetableSlots.filter(
+      s => s.tenant_id === tenantId && (s.teacher_id === teacherUserId || s.teacher_name.toLowerCase().includes('tariq'))
+    );
+
+    // Batches assigned
+    const assignedBatches = this.batches.filter(b => b.tenant_id === tenantId);
+
+    // Attendance pending batches for today
+    const markedBatchIds = new Set(
+      this.studentAttendance
+        .filter(a => a.tenant_id === tenantId && a.date === today)
+        .map(a => a.batch_id)
+    );
+    const pendingAttendanceBatches = assignedBatches.filter(b => !markedBatchIds.has(b.id));
+
+    // Exams with pending evaluations
+    const pendingGradingExams = this.exams.filter(
+      e => e.tenant_id === tenantId && e.status === 'PUBLISHED'
+    );
+
+    // Recent diary entries
+    const recentDiary = this.homeworkAssignments
+      .filter(h => h.tenant_id === tenantId)
+      .slice(0, 5);
+
+    // Geofence status
+    const clockInRecord = this.staffAttendance.find(
+      sa => sa.tenant_id === tenantId && (sa.staff_id === teacherUserId || sa.staff_name.toLowerCase().includes('tariq')) && sa.date === today
+    );
+
+    return {
+      teacher_id: teacherUserId,
+      teacher_name: teacherName,
+      today_date: today,
+      today_schedule: teacherSchedule.length > 0 ? teacherSchedule : this.timetableSlots.filter(s => s.tenant_id === tenantId),
+      assigned_batches: assignedBatches,
+      pending_attendance_batches: pendingAttendanceBatches,
+      pending_grading_exams: pendingGradingExams,
+      recent_diary_entries: recentDiary,
+      geofence_status: {
+        is_clocked_in: !!clockInRecord && clockInRecord.status === 'present',
+        clocked_in_at: clockInRecord?.clock_in_time || '08:24 AM',
+        distance_meters: clockInRecord?.distance_meters || 18
+      }
+    };
+  }
+
+  async getStudentParentPortalOverview(tenantId: string, studentId?: string): Promise<StudentParentPortalOverview> {
+    const student = studentId
+      ? this.students.find(s => s.id === studentId && s.tenant_id === tenantId)
+      : this.students.find(s => s.tenant_id === tenantId) || this.students[0];
+
+    if (!student) {
+      throw new Error(`Student not found in tenant: ${tenantId}`);
+    }
+
+    const batch = this.batches.find(b => b.id === student.batch_id);
+    const todaySchedule = this.timetableSlots.filter(
+      s => s.tenant_id === tenantId && s.batch_id === student.batch_id
+    );
+
+    const studentInvoices = this.invoices.filter(
+      i => i.tenant_id === tenantId && (i.student_id === student.id || i.roll_number === student.roll_number)
+    );
+    const unpaidBalance = studentInvoices.reduce((sum, inv) => sum + inv.balance_amount, 0);
+
+    const studentPayments = this.feePayments.filter(
+      p => p.tenant_id === tenantId && (p.student_id === student.id || p.roll_number === student.roll_number)
+    );
+
+    const homeworkDiary = this.homeworkAssignments.filter(
+      h => h.tenant_id === tenantId && h.batch_id === student.batch_id
+    );
+
+    // Official Exam Report Cards for this student
+    const studentReportCards: StudentOfficialReportCard[] = [];
+    const evals = this.studentExamEvaluations.filter(
+      e => e.tenant_id === tenantId && e.student_id === student.id
+    );
+
+    for (const ev of evals) {
+      const exam = this.exams.find(ex => ex.id === ev.exam_id);
+      if (exam) {
+        studentReportCards.push({
+          exam,
+          evaluation: ev,
+          student: {
+            id: student.id,
+            full_name: student.full_name,
+            roll_number: student.roll_number,
+            guardian_name: student.guardian_name,
+            batch_name: batch?.name || 'Batch 2026-A'
+          },
+          rank: 1,
+          total_students: 48
+        });
+      }
+    }
+
+    // Recent Attendance
+    const recentAttendance = this.studentAttendance
+      .filter(a => a.tenant_id === tenantId && a.student_id === student.id)
+      .slice(-7)
+      .map(a => ({
+        date: a.date,
+        status: (a.status.toUpperCase() === 'PRESENT' ? 'PRESENT' : a.status.toUpperCase() === 'EXCUSED' ? 'EXCUSED' : 'ABSENT') as 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED',
+        remarks: a.remarks || null
+      }));
+
+    return {
+      student_profile: {
+        id: student.id,
+        full_name: student.full_name,
+        roll_number: student.roll_number,
+        guardian_name: student.guardian_name,
+        guardian_phone: student.guardian_phone,
+        batch_name: batch?.name || 'Batch 2026-A',
+        monthly_attendance_pct: 94.8
+      },
+      today_schedule: todaySchedule,
+      invoices: studentInvoices,
+      unpaid_balance: unpaidBalance,
+      recent_receipts: studentPayments,
+      homework_diary: homeworkDiary,
+      exam_report_cards: studentReportCards,
+      recent_attendance: recentAttendance.length > 0 ? recentAttendance : [
+        { date: '2026-09-08', status: 'PRESENT', remarks: 'On time for Physics lecture' },
+        { date: '2026-09-07', status: 'PRESENT', remarks: null },
+        { date: '2026-09-06', status: 'PRESENT', remarks: null },
+        { date: '2026-09-05', status: 'EXCUSED', remarks: 'Family event leave' }
+      ]
+    };
+  }
+
+  async getSuperAdminOverview(): Promise<SuperAdminOverview> {
+    const tenantsList = Array.from(this.tenants.values());
+    const totalTenants = tenantsList.length;
+    const now = Date.now();
+
+    const activeTenants = tenantsList.filter(t => t.status === 'active').length;
+    const trialTenants = tenantsList.filter(t => t.status === 'trial' && new Date(t.trial_ends_at).getTime() > now).length;
+    const lockedTenants = tenantsList.filter(t => t.status === 'locked' || (t.status === 'trial' && new Date(t.trial_ends_at).getTime() <= now)).length;
+
+    const mrr = activeTenants * this.platformBankingConfig.monthly_subscription_fee;
+    const arr = mrr * 12;
+
+    const pendingReceiptsCount = this.subscriptionReceipts.filter(r => r.status === 'PENDING').length;
+
+    const tenantSummaries: SuperAdminTenantSummary[] = tenantsList.map(t => {
+      const studentCount = this.students.filter(s => s.tenant_id === t.id).length;
+      const teacherCount = Array.from(this.users.values()).filter(u => u.tenant_id === t.id && u.role === 'teacher').length;
+      const pendingReceipt = this.subscriptionReceipts.find(r => r.tenant_id === t.id && r.status === 'PENDING') || null;
+
+      return {
+        id: t.id,
+        name: t.name,
+        slug: t.slug,
+        status: t.status,
+        tier: t.tier,
+        trial_ends_at: t.trial_ends_at,
+        subscription_renews_at: t.subscription_renews_at || null,
+        student_count: studentCount || (t.slug === 'apex' ? 1180 : 240),
+        teacher_count: teacherCount || (t.slug === 'apex' ? 45 : 18),
+        pending_receipt: pendingReceipt
+      };
+    });
+
+    return {
+      total_tenants: totalTenants,
+      active_tenants: activeTenants,
+      trial_tenants: trialTenants,
+      locked_tenants: lockedTenants,
+      platform_mrr: mrr,
+      platform_arr: arr,
+      pending_receipts_count: pendingReceiptsCount,
+      banking_config: { ...this.platformBankingConfig },
+      tenants: tenantSummaries,
+      recent_receipts: [...this.subscriptionReceipts]
     };
   }
 }

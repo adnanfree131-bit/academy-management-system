@@ -924,3 +924,121 @@ export interface AbsenteeResolutionReport {
   prevented_dropouts: number;
 }
 
+// =============================================================================
+// PHASE 7: MULTI-PORTAL DASHBOARDS, SAAS BILLING LOCKOUT & MOBILE/CAPACITOR
+// =============================================================================
+
+export interface PlatformBankingConfig {
+  id: string;
+  bank_name: string;
+  account_title: string;
+  account_number: string;
+  iban?: string | null;
+  branch_code?: string | null;
+  whatsapp_support?: string | null;
+  support_email?: string | null;
+  monthly_subscription_fee: number;
+  instructions?: string | null;
+  updated_at: string;
+}
+
+export type SubscriptionReceiptStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface SubscriptionPaymentReceipt {
+  id: string;
+  tenant_id: string;
+  tenant_name?: string;
+  uploaded_by_user_id?: string | null;
+  uploaded_by_email?: string | null;
+  amount: number;
+  plan_duration_months: number;
+  payment_method: string;
+  reference_number?: string | null;
+  receipt_image_url?: string | null;
+  notes?: string | null;
+  status: SubscriptionReceiptStatus;
+  reviewed_by_email?: string | null;
+  reviewed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TenantTrialStatus {
+  tenant_id: string;
+  tenant_name: string;
+  status: string; // 'active' | 'trial' | 'locked' | 'suspended'
+  trial_ends_at: string;
+  subscription_renews_at?: string | null;
+  days_remaining: number;
+  is_locked: boolean;
+  lock_reason?: string | null;
+  banking_config?: PlatformBankingConfig;
+  pending_receipt?: SubscriptionPaymentReceipt | null;
+}
+
+export interface TeacherPortalOverview {
+  teacher_id: string;
+  teacher_name: string;
+  today_date: string;
+  today_schedule: TimetableSlot[];
+  assigned_batches: Batch[];
+  pending_attendance_batches: Batch[];
+  pending_grading_exams: Exam[];
+  recent_diary_entries: HomeworkAssignment[];
+  geofence_status: {
+    is_clocked_in: boolean;
+    clocked_in_at?: string | null;
+    distance_meters?: number | null;
+  };
+}
+
+export interface StudentParentPortalOverview {
+  student_profile: {
+    id: string;
+    full_name: string;
+    roll_number: string;
+    guardian_name: string;
+    guardian_phone: string;
+    batch_name: string;
+    monthly_attendance_pct: number;
+  };
+  today_schedule: TimetableSlot[];
+  invoices: StudentInvoice[];
+  unpaid_balance: number;
+  recent_receipts: FeePayment[];
+  homework_diary: HomeworkAssignment[];
+  exam_report_cards: StudentOfficialReportCard[];
+  recent_attendance: {
+    date: string;
+    status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
+    remarks?: string | null;
+  }[];
+}
+
+export interface SuperAdminTenantSummary {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  tier: string;
+  trial_ends_at: string;
+  subscription_renews_at?: string | null;
+  student_count: number;
+  teacher_count: number;
+  pending_receipt?: SubscriptionPaymentReceipt | null;
+}
+
+export interface SuperAdminOverview {
+  total_tenants: number;
+  active_tenants: number;
+  trial_tenants: number;
+  locked_tenants: number;
+  platform_mrr: number;
+  platform_arr: number;
+  pending_receipts_count: number;
+  banking_config: PlatformBankingConfig;
+  tenants: SuperAdminTenantSummary[];
+  recent_receipts: SubscriptionPaymentReceipt[];
+}
+
+
