@@ -13,7 +13,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc",
     "dev": "tsc -b -w",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
