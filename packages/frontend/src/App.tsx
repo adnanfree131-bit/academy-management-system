@@ -21,22 +21,56 @@ import { SuperAdminControlPlaneView } from './views/SuperAdminControlPlaneView';
 import { TrialExpiredLockoutModal } from './components/TrialExpiredLockoutModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 
-const titleMap: Record<string, string> = {
-  dashboard: 'Executive Dashboard',
-  timetable: 'Academic Timetable & Schedule Engine',
-  attendance: 'Student Attendance & Leave Desk',
-  geofence: 'Staff Attendance & GPS Geofencing',
-  homework: 'Homework Diary & Notebook Inspection',
-  absentee: 'Absence Follow-Up & Retention Desk',
-  enrollment: 'Student Admissions & SIS',
-  complaints: 'Complaints & Feedback Portal',
-  exams: 'Examination Bank & Evaluation Desk',
-  voucher: 'Fee Invoices & Vouchers',
-  payroll: 'Staff Payroll & Salaries',
-  mobile: 'Native Mobile Experience (PWA Parity)',
-  teacher: 'Faculty Academic Desk',
-  student_portal: 'Student & Parent Academic Portal',
-  superadmin: 'Super-Admin SaaS Control Plane',
+const getTitle = (screen: string, role?: string): string => {
+  if (role === 'teacher') {
+    switch (screen) {
+      case 'teacher': return 'Faculty Academic Desk';
+      case 'timetable': return 'My Teaching Schedule & Rooms';
+      case 'attendance': return 'Batch Student Attendance Roll Call';
+      case 'homework': return 'Homework Diary & Notebook Inspection';
+      case 'exams': return 'Exam Evaluation & Grading Desk';
+      case 'geofence': return 'Staff GPS Geofence Clock-In';
+      case 'complaints': return 'Academic Feedback & Inquiries';
+      default: return 'Faculty Desk';
+    }
+  }
+
+  if (role === 'student') {
+    switch (screen) {
+      case 'student_portal': return 'Student & Parent 360 Desk';
+      case 'timetable': return 'My Weekly Class Timetable';
+      case 'voucher': return 'Fee Invoices & Online Payments';
+      case 'homework': return 'Homework Diary & Assignments';
+      case 'exams': return 'Official Examination Report Cards';
+      case 'complaints': return 'Submit Support Request / Concern';
+      default: return 'Student Portal';
+    }
+  }
+
+  if (role === 'super_admin') {
+    switch (screen) {
+      case 'superadmin': return 'Global SaaS Multi-Academy Control Plane';
+      case 'dashboard': return 'Tenant Operational Overview';
+      default: return 'Super-Admin Console';
+    }
+  }
+
+  // Tenant Admin (Principal / Director)
+  switch (screen) {
+    case 'dashboard': return 'Executive Academy Overview';
+    case 'enrollment': return 'Student Admissions & SIS Registry';
+    case 'timetable': return 'Academic Timetable & 4-Way Collision Engine';
+    case 'attendance': return 'Student Attendance & Leave Desk';
+    case 'absentee': return 'Morning Absentee Follow-Up & WhatsApp Desk';
+    case 'homework': return 'Homework Diary & Physical Notebook Checks';
+    case 'exams': return 'Examination Bank & Evaluation Desk';
+    case 'voucher': return 'Fee Invoices & 3-Slip Paper-Saver Vouchers';
+    case 'payroll': return 'Staff Attendance-Linked Payroll Desk';
+    case 'geofence': return 'Campus GPS Geofencing Attendance';
+    case 'complaints': return 'Institutional Complaints & Feedback';
+    case 'mobile': return 'Native Mobile Touch Experience (Capacitor / PWA)';
+    default: return 'Academy ERP';
+  }
 };
 
 const MainLayout: React.FC = () => {
@@ -53,6 +87,8 @@ const MainLayout: React.FC = () => {
         setCurrentScreen('student_portal');
       } else if (user.role === 'super_admin') {
         setCurrentScreen('superadmin');
+      } else {
+        setCurrentScreen('dashboard');
       }
     }
   }, [user?.role, user?.id]);
@@ -90,43 +126,83 @@ const MainLayout: React.FC = () => {
 
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
         <Header
-          currentScreenTitle={titleMap[currentScreen] || 'Dashboard'}
+          currentScreenTitle={getTitle(currentScreen, user.role)}
           onOpenSidebar={() => setSidebarOpen(true)}
           onNewAdmission={() => setCurrentScreen('enrollment')}
           onSwitchScreen={setCurrentScreen}
         />
 
         <main className="flex-1 p-4 sm:p-6 pb-20 md:pb-6 w-full space-y-5 overflow-y-auto">
-          {currentScreen === 'dashboard' ? (
-            <DashboardView onNavigate={setCurrentScreen} />
-          ) : currentScreen === 'teacher' ? (
-            <TeacherPortalView onNavigate={setCurrentScreen} />
-          ) : currentScreen === 'student_portal' ? (
-            <StudentParentPortalView onNavigate={setCurrentScreen} />
-          ) : currentScreen === 'superadmin' ? (
-            <SuperAdminControlPlaneView />
-          ) : currentScreen === 'timetable' ? (
-            <TimetableDesk />
-          ) : currentScreen === 'attendance' ? (
-            <AttendanceDeskView />
-          ) : currentScreen === 'geofence' ? (
-            <StaffClockInView />
-          ) : currentScreen === 'homework' ? (
-            <HomeworkDesk />
-          ) : currentScreen === 'enrollment' ? (
-            <EnrollmentView />
-          ) : currentScreen === 'complaints' ? (
-            <ComplaintsDeskView />
-          ) : currentScreen === 'voucher' ? (
-            <FeeDeskView />
-          ) : currentScreen === 'payroll' ? (
-            <PayrollDeskView />
-          ) : currentScreen === 'exams' ? (
-            <ExamDeskView />
-          ) : currentScreen === 'absentee' ? (
-            <AbsenteeRetentionDeskView />
-          ) : (
-            <GenericModuleView moduleId={currentScreen} />
+          {/* ROLE: STUDENT / PARENT VIEW ROUTING */}
+          {user.role === 'student' ? (
+            currentScreen === 'complaints' ? (
+              <ComplaintsDeskView />
+            ) : (
+              <StudentParentPortalView
+                forcedTab={
+                  currentScreen === 'voucher' ? 'fees' :
+                  currentScreen === 'homework' ? 'homework' :
+                  currentScreen === 'exams' ? 'reports' :
+                  'schedule'
+                }
+                onNavigate={setCurrentScreen}
+              />
+            )
+          ) : /* ROLE: FACULTY TEACHER VIEW ROUTING */
+          user.role === 'teacher' ? (
+            currentScreen === 'teacher' ? (
+              <TeacherPortalView onNavigate={setCurrentScreen} />
+            ) : currentScreen === 'timetable' ? (
+              <TimetableDesk />
+            ) : currentScreen === 'attendance' ? (
+              <AttendanceDeskView />
+            ) : currentScreen === 'homework' ? (
+              <HomeworkDesk />
+            ) : currentScreen === 'exams' ? (
+              <ExamDeskView />
+            ) : currentScreen === 'geofence' ? (
+              <StaffClockInView />
+            ) : currentScreen === 'complaints' ? (
+              <ComplaintsDeskView />
+            ) : (
+              <TeacherPortalView onNavigate={setCurrentScreen} />
+            )
+          ) : /* ROLE: SUPER ADMIN VIEW ROUTING */
+          user.role === 'super_admin' ? (
+            currentScreen === 'superadmin' ? (
+              <SuperAdminControlPlaneView />
+            ) : currentScreen === 'dashboard' ? (
+              <DashboardView onNavigate={setCurrentScreen} />
+            ) : (
+              <SuperAdminControlPlaneView />
+            )
+          ) : /* ROLE: TENANT ADMIN (Principal / Director) */
+          (
+            currentScreen === 'dashboard' ? (
+              <DashboardView onNavigate={setCurrentScreen} />
+            ) : currentScreen === 'enrollment' ? (
+              <EnrollmentView />
+            ) : currentScreen === 'timetable' ? (
+              <TimetableDesk />
+            ) : currentScreen === 'attendance' ? (
+              <AttendanceDeskView />
+            ) : currentScreen === 'absentee' ? (
+              <AbsenteeRetentionDeskView />
+            ) : currentScreen === 'homework' ? (
+              <HomeworkDesk />
+            ) : currentScreen === 'exams' ? (
+              <ExamDeskView />
+            ) : currentScreen === 'voucher' ? (
+              <FeeDeskView />
+            ) : currentScreen === 'payroll' ? (
+              <PayrollDeskView />
+            ) : currentScreen === 'geofence' ? (
+              <StaffClockInView />
+            ) : currentScreen === 'complaints' ? (
+              <ComplaintsDeskView />
+            ) : (
+              <GenericModuleView moduleId={currentScreen} />
+            )
           )}
         </main>
 

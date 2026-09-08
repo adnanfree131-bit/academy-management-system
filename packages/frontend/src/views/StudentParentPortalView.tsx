@@ -19,14 +19,21 @@ import {
 
 interface StudentPortalProps {
   onNavigate?: (screen: string) => void;
+  forcedTab?: 'schedule' | 'fees' | 'homework' | 'reports';
 }
 
-export const StudentParentPortalView: React.FC<StudentPortalProps> = () => {
+export const StudentParentPortalView: React.FC<StudentPortalProps> = ({ forcedTab }) => {
   const { token } = useAuth();
   const [overview, setOverview] = useState<StudentParentPortalOverview | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'schedule' | 'fees' | 'homework' | 'reports'>('schedule');
+  const [activeTab, setActiveTab] = useState<'schedule' | 'fees' | 'homework' | 'reports'>(forcedTab || 'schedule');
   const [showPayModal, setShowPayModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (forcedTab) {
+      setActiveTab(forcedTab);
+    }
+  }, [forcedTab]);
 
   const fetchOverview = async () => {
     if (!token) return;

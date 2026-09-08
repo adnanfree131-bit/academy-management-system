@@ -169,13 +169,15 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
         </button>
 
-        <button 
-          onClick={onNewAdmission}
-          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center gap-1.5 transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">New Admission</span>
-        </button>
+        {user?.role === 'tenant_admin' && (
+          <button 
+            onClick={onNewAdmission}
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center gap-1.5 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">New Admission</span>
+          </button>
+        )}
       </div>
     </header>
   );
