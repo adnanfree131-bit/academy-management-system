@@ -56,7 +56,6 @@ export const LoginModal: React.FC = () => {
     if (campusParam) {
       setTenantSlug(campusParam.toLowerCase().trim());
     } else {
-      // Check subdomain (e.g. crescent.edu.toolnestr.com)
       const hostParts = window.location.hostname.split('.');
       if (hostParts.length > 2 && !['www', 'edu', 'academy', 'localhost'].includes(hostParts[0])) {
         setTenantSlug(hostParts[0].toLowerCase());
@@ -77,7 +76,7 @@ export const LoginModal: React.FC = () => {
           }
         }
       } catch {
-        // Fallback gracefully to default branding
+        // Retain default branding on error
       }
     };
     const timer = setTimeout(fetchBranding, 300);
@@ -161,61 +160,61 @@ export const LoginModal: React.FC = () => {
 
   const currentAcademyName = branding?.name || (tenantSlug === 'apex' ? 'Apex Academy' : `${tenantSlug.toUpperCase()} Academy`);
   const currentCampusName = branding?.campus_name || 'Main Campus';
-  const currentSession = branding?.academic_session || 'Session 2026–2027';
+  const currentSession = branding?.academic_session || '2026–2027';
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 sm:p-6 lg:p-10 font-sans">
       <div className="w-full max-w-6xl bg-white sm:rounded-2xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[660px]">
         
         {/* ================================================================ */}
-        {/* LEFT COLUMN: INSTITUTIONAL SHOWCASE & BRANDING (5/12 cols)       */}
+        {/* LEFT COLUMN: INSTITUTIONAL SHOWCASE (5/12 cols)                  */}
         {/* ================================================================ */}
         <div className="hidden lg:flex lg:col-span-5 bg-slate-950 text-white p-10 flex-col justify-between relative overflow-hidden border-r border-slate-900">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
           
           <div className="relative z-10">
-            {/* Dynamic Institution Brand Crest */}
+            {/* Academy Crest & Title */}
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-white shadow-inner">
                 <GraduationCap className="w-5 h-5 text-indigo-400" />
               </div>
               <div>
                 <span className="text-sm font-bold tracking-tight text-white block leading-none">{currentAcademyName}</span>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mt-1 block">Campus Management ERP</span>
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mt-1 block">Academy Management System</span>
               </div>
             </div>
 
-            {/* Editorial Statement */}
+            {/* Academic Information */}
             <div className="mt-14 space-y-4">
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                <span>{currentSession} • {currentCampusName}</span>
+                <span>Session {currentSession} • {currentCampusName}</span>
               </div>
               <h2 className="text-2xl font-bold tracking-tight text-white leading-tight">
-                Enterprise Academic Administration & Student Information System.
+                Academic Administration & Student Records
               </h2>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Centralized academic structure, itemized fee invoicing, attendance tracking, and comprehensive examination results engineered for institutions of scale.
+                Institutional portal for managing student admissions, academic batches, itemized fee challans, class attendance registers, and official examination results.
               </p>
             </div>
 
-            {/* Verified Capabilities */}
+            {/* Core Modules List */}
             <div className="mt-8 space-y-3 text-xs text-slate-300">
               <div className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Multi-Campus Academic Structure & Batches</span>
+                <span>Student Admissions & Student Profiles</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Multi-Head Fee Ledgers & Automated Challans</span>
+                <span>Classes, Batches & Academic Timetables</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Daily Class Attendance & Absentee Retention</span>
+                <span>Fee Ledger & 3-Part Bank Challans</span>
               </div>
               <div className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Brevo Transactional Verification & Subdomains</span>
+                <span>Daily Class Attendance & Examination Marksheets</span>
               </div>
             </div>
           </div>
@@ -223,28 +222,25 @@ export const LoginModal: React.FC = () => {
           <div className="relative z-10 pt-6 border-t border-slate-900 flex items-center justify-between text-[11px] text-slate-500 font-mono">
             <span className="flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5 text-slate-400" />
-              <span>256-Bit Encrypted Session</span>
+              <span>Institutional Portal</span>
             </span>
-            <span>Domain: {branding?.domain || 'edu.toolnestr.com'}</span>
+            <span>{branding?.domain || 'edu.toolnestr.com'}</span>
           </div>
         </div>
 
         {/* ================================================================ */}
-        {/* RIGHT COLUMN: AUTHENTICATION & ONBOARDING CONSOLE (7/12 cols)     */}
+        {/* RIGHT COLUMN: LOGIN & ONBOARDING FORM (7/12 cols)                */}
         {/* ================================================================ */}
         <div className="lg:col-span-7 bg-white p-8 sm:p-12 lg:p-12 flex flex-col justify-between min-h-[600px]">
           
-          {/* Top Bar: Operational Status & Mode Switcher */}
+          {/* Top Bar: Campus Badge & Mode Switcher */}
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span>All Systems Operational</span>
+            <div className="text-xs font-semibold text-slate-700">
+              <span>{currentAcademyName}</span>
+              <span className="text-slate-400 font-normal"> • {currentCampusName}</span>
             </div>
 
-            {/* Mode Switcher Tabs */}
+            {/* Mode Switcher */}
             {step === 'form' && (
               <div className="inline-flex p-1 bg-slate-100 rounded-lg text-xs font-semibold">
                 <button
@@ -278,17 +274,17 @@ export const LoginModal: React.FC = () => {
             <div className="mb-6">
               <h2 className="text-2xl font-bold tracking-tight text-slate-900">
                 {step === 'otp' 
-                  ? 'Two-Factor Verification' 
+                  ? 'Verification Code' 
                   : mode === 'login' 
-                    ? `Sign In to ${currentAcademyName}` 
-                    : 'Register New Academy'}
+                    ? 'Sign In' 
+                    : 'Register Academy'}
               </h2>
               <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
                 {step === 'otp'
                   ? `Enter the 6-digit verification code dispatched to ${email}`
                   : mode === 'login'
-                    ? 'Enter your institutional credentials to access your administrative console.'
-                    : 'Create your dedicated academy workspace, custom subdomain, and administrator profile.'}
+                    ? 'Enter your institutional email to access your academy account.'
+                    : 'Enter your academy details to create a new academy profile and administrator account.'}
               </p>
             </div>
 
@@ -308,12 +304,12 @@ export const LoginModal: React.FC = () => {
               </div>
             )}
 
-            {/* STEP 1A: LOGIN FORM */}
+            {/* STEP 1A: SIGN IN FORM */}
             {step === 'form' && mode === 'login' && (
               <form onSubmit={handleRequestOTP} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Campus Identifier / Slug
+                    Academy Code
                   </label>
                   <div className="relative">
                     <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
@@ -326,14 +322,11 @@ export const LoginModal: React.FC = () => {
                       className="w-full pl-10 pr-3.5 py-2.5 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all font-mono"
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 mt-1 block">
-                    Workspace: {tenantSlug ? `${tenantSlug}.toolnestr.com` : 'edu.toolnestr.com'}
-                  </span>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Institutional Email Address
+                    Email Address
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
@@ -357,11 +350,11 @@ export const LoginModal: React.FC = () => {
                   {loading ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Dispatching Code via Brevo...</span>
+                      <span>Sending Verification Code...</span>
                     </>
                   ) : (
                     <>
-                      <span>Continue with Verification Code</span>
+                      <span>Request Verification Code</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
@@ -369,25 +362,25 @@ export const LoginModal: React.FC = () => {
 
                 <div className="pt-2 text-center">
                   <p className="text-[11px] text-slate-400">
-                    Need a new academy?{' '}
+                    New institution?{' '}
                     <button
                       type="button"
                       onClick={() => setMode('register')}
-                      className="text-slate-900 font-semibold underline hover:text-indigo-600"
+                      className="text-slate-900 font-semibold underline hover:text-indigo-600 cursor-pointer"
                     >
-                      Register your school or college
+                      Register your academy
                     </button>
                   </p>
                 </div>
               </form>
             )}
 
-            {/* STEP 1B: ACADEMY ONBOARDING REGISTRATION FORM */}
+            {/* STEP 1B: REGISTER ACADEMY FORM */}
             {step === 'form' && mode === 'register' && (
               <form onSubmit={handleRegisterAcademy} className="space-y-3.5">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Academy / College Name
+                    Academy Name
                   </label>
                   <input
                     type="text"
@@ -398,7 +391,7 @@ export const LoginModal: React.FC = () => {
                         setRegSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 15));
                       }
                     }}
-                    placeholder="e.g. Crescent Collegiate Lahore"
+                    placeholder="e.g. Crescent Academy Lahore"
                     required
                     autoFocus
                     className="w-full px-3.5 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
@@ -408,7 +401,7 @@ export const LoginModal: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Subdomain Identifier
+                      Academy Code
                     </label>
                     <input
                       type="text"
@@ -421,7 +414,7 @@ export const LoginModal: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Campus City / Branch
+                      Campus Branch
                     </label>
                     <input
                       type="text"
@@ -433,14 +426,11 @@ export const LoginModal: React.FC = () => {
                     />
                   </div>
                 </div>
-                <span className="text-[10px] text-slate-400 block -mt-1 font-mono">
-                  Your URL will be: <strong>{regSlug || 'subdomain'}.toolnestr.com</strong>
-                </span>
 
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Director / Admin Name
+                      Administrator Name
                     </label>
                     <div className="relative">
                       <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
@@ -448,7 +438,7 @@ export const LoginModal: React.FC = () => {
                         type="text"
                         value={regAdminName}
                         onChange={(e) => setRegAdminName(e.target.value)}
-                        placeholder="Prof. Tariq"
+                        placeholder="Muhammad Tariq"
                         required
                         className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
                       />
@@ -456,7 +446,7 @@ export const LoginModal: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Institutional Email
+                      Administrator Email
                     </label>
                     <div className="relative">
                       <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
@@ -464,7 +454,7 @@ export const LoginModal: React.FC = () => {
                         type="email"
                         value={regEmail}
                         onChange={(e) => setRegEmail(e.target.value)}
-                        placeholder="director@crescent.edu"
+                        placeholder="admin@crescent.edu.pk"
                         required
                         className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
                       />
@@ -480,11 +470,11 @@ export const LoginModal: React.FC = () => {
                   {loading ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Provisioning Workspace & Sending Code...</span>
+                      <span>Creating Academy Profile...</span>
                     </>
                   ) : (
                     <>
-                      <span>Register Academy & Send Passcode</span>
+                      <span>Register Academy & Send Code</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
@@ -494,26 +484,21 @@ export const LoginModal: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setMode('login')}
-                    className="text-xs text-slate-500 hover:text-slate-900 font-medium"
+                    className="text-xs text-slate-500 hover:text-slate-900 font-medium cursor-pointer"
                   >
-                    Already have an academy? <strong className="text-slate-900 underline">Sign In</strong>
+                    Already registered? <strong className="text-slate-900 underline">Sign In</strong>
                   </button>
                 </div>
               </form>
             )}
 
-            {/* STEP 2: VERIFY OTP SCREEN (Shared for both Login and Registration) */}
+            {/* STEP 2: VERIFICATION CODE SCREEN */}
             {step === 'otp' && (
               <form onSubmit={handleVerifyOTP} className="space-y-4">
                 <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-slate-700">
-                      6-Digit Verification Code
-                    </label>
-                    <span className="text-[11px] font-mono text-slate-500">
-                      Sent via <strong>edu@toolnestr.com</strong>
-                    </span>
-                  </div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    6-Digit Verification Code
+                  </label>
                   <div className="relative">
                     <input
                       type="text"
@@ -534,9 +519,9 @@ export const LoginModal: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setOtp(devOtp)}
-                      className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold rounded transition-colors"
+                      className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-bold rounded transition-colors cursor-pointer"
                     >
-                      Auto-fill
+                      Insert {devOtp}
                     </button>
                   </div>
                 )}
@@ -549,11 +534,11 @@ export const LoginModal: React.FC = () => {
                   {loading ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Validating Session...</span>
+                      <span>Verifying Passcode...</span>
                     </>
                   ) : (
                     <>
-                      <span>Enter Academy ERP</span>
+                      <span>Verify & Sign In</span>
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                     </>
                   )}
@@ -566,7 +551,7 @@ export const LoginModal: React.FC = () => {
                     className="text-slate-600 hover:text-slate-900 text-[11px] flex items-center gap-1 cursor-pointer"
                   >
                     <ArrowLeft className="w-3 h-3" />
-                    Back to credentials
+                    Back to email
                   </button>
                   <button
                     type="button"
@@ -582,15 +567,13 @@ export const LoginModal: React.FC = () => {
 
           </div>
 
-          {/* Compliance & Help Desk Footer */}
+          {/* Clean Institutional Footer */}
           <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400">
             <span>© 2026 {currentAcademyName}</span>
             <div className="flex items-center gap-3">
-              <span className="hover:text-slate-600 transition-colors">Privacy Policy</span>
+              <span>Academic Session {currentSession}</span>
               <span>•</span>
-              <span className="hover:text-slate-600 transition-colors">Terms of Service</span>
-              <span>•</span>
-              <span className="hover:text-slate-600 transition-colors">IT Support: edu@toolnestr.com</span>
+              <span>Support: edu@toolnestr.com</span>
             </div>
           </div>
 

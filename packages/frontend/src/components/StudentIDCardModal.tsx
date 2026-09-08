@@ -22,7 +22,7 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
   student,
   batch,
   program,
-  academyName = 'Apex College & Preparatory Academy',
+  academyName = 'Apex Academy',
   campusPhone = '+92 42 35889000',
   campusAddress = 'Main Campus, Gulberg III, Lahore',
   onClose,

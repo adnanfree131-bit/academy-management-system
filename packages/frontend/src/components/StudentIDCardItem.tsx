@@ -25,7 +25,7 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
   student,
   batch,
   program,
-  academyName = 'Apex College & Preparatory Academy',
+  academyName = 'Apex Academy',
   campusPhone = '+92 42 35889000',
   campusAddress = 'Main Campus, Gulberg III, Lahore',
   validUntil = '30-JUN-2027',
