@@ -308,9 +308,9 @@ export const AttendanceDeskView: React.FC = () => {
             <CheckSquare className="w-5 h-5" />
           </span>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Student Attendance & Leave Desk</h1>
-            <p className="text-xs text-slate-500 font-mono mt-0.5">
-              Rapid 15-Second Entry Roster • Approved Leave Auto-Excuses • Multi-Tenant Containment
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Student Attendance & Leaves</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Record daily class attendance, review attendance records, and manage student leave requests.
             </p>
           </div>
         </div>

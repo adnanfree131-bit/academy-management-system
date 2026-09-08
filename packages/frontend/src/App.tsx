@@ -24,52 +24,52 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 const getTitle = (screen: string, role?: string): string => {
   if (role === 'teacher') {
     switch (screen) {
-      case 'teacher': return 'Faculty Academic Desk';
-      case 'timetable': return 'My Teaching Schedule & Rooms';
-      case 'attendance': return 'Batch Student Attendance Roll Call';
-      case 'homework': return 'Homework Diary & Notebook Inspection';
-      case 'exams': return 'Exam Evaluation & Grading Desk';
-      case 'geofence': return 'Staff GPS Geofence Clock-In';
-      case 'complaints': return 'Academic Feedback & Inquiries';
-      default: return 'Faculty Desk';
+      case 'teacher': return 'Faculty Overview';
+      case 'timetable': return 'Class Schedule';
+      case 'attendance': return 'Take Attendance';
+      case 'homework': return 'Homework & Notebooks';
+      case 'exams': return 'Grade Examinations';
+      case 'geofence': return 'Campus Check-In';
+      case 'complaints': return 'Faculty Feedback';
+      default: return 'Faculty Portal';
     }
   }
 
   if (role === 'student') {
     switch (screen) {
-      case 'student_portal': return 'Student & Parent 360 Desk';
-      case 'timetable': return 'My Weekly Class Timetable';
-      case 'voucher': return 'Fee Invoices & Online Payments';
-      case 'homework': return 'Homework Diary & Assignments';
-      case 'exams': return 'Official Examination Report Cards';
-      case 'complaints': return 'Submit Support Request / Concern';
+      case 'student_portal': return 'Student Overview';
+      case 'timetable': return 'Class Timetable';
+      case 'voucher': return 'Fee Invoices & Payments';
+      case 'homework': return 'Homework Diary';
+      case 'exams': return 'Report Cards';
+      case 'complaints': return 'Complaints & Requests';
       default: return 'Student Portal';
     }
   }
 
   if (role === 'super_admin') {
     switch (screen) {
-      case 'superadmin': return 'Global SaaS Multi-Academy Control Plane';
-      case 'dashboard': return 'Tenant Operational Overview';
-      default: return 'Super-Admin Console';
+      case 'superadmin': return 'Platform Administration';
+      case 'dashboard': return 'Campus Overview';
+      default: return 'System Administration';
     }
   }
 
   // Tenant Admin (Principal / Director)
   switch (screen) {
-    case 'dashboard': return 'Executive Academy Overview';
-    case 'enrollment': return 'Student Admissions & SIS Registry';
-    case 'timetable': return 'Academic Timetable & 4-Way Collision Engine';
-    case 'attendance': return 'Student Attendance & Leave Desk';
-    case 'absentee': return 'Morning Absentee Follow-Up & WhatsApp Desk';
-    case 'homework': return 'Homework Diary & Physical Notebook Checks';
-    case 'exams': return 'Examination Bank & Evaluation Desk';
-    case 'voucher': return 'Fee Invoices & 3-Slip Paper-Saver Vouchers';
-    case 'payroll': return 'Staff Attendance-Linked Payroll Desk';
-    case 'geofence': return 'Campus GPS Geofencing Attendance';
-    case 'complaints': return 'Institutional Complaints & Feedback';
-    case 'mobile': return 'Native Mobile Touch Experience (Capacitor / PWA)';
-    default: return 'Academy ERP';
+    case 'dashboard': return 'Dashboard';
+    case 'enrollment': return 'Student Admissions & Directory';
+    case 'timetable': return 'Timetable & Scheduling';
+    case 'attendance': return 'Student Attendance';
+    case 'absentee': return 'Absence Follow-Up';
+    case 'homework': return 'Homework & Notebooks';
+    case 'exams': return 'Exams & Results';
+    case 'voucher': return 'Fee Invoices & Vouchers';
+    case 'payroll': return 'Staff Payroll';
+    case 'geofence': return 'Staff Attendance';
+    case 'complaints': return 'Complaints & Feedback';
+    case 'mobile': return 'Mobile App';
+    default: return 'Apex Academy';
   }
 };
 

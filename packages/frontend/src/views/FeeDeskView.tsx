@@ -347,10 +347,10 @@ export const FeeDeskView: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2.5">
             <Receipt className="w-5 h-5 text-indigo-600" />
-            Fee Management & Financial Operations
+            Fees & Student Billing
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Multi-head itemized challans, priority auto-distribution with review override, and paper-saver printable vouchers.
+            Issue monthly fee vouchers, record student payments, manage concessions, and print fee slips.
           </p>
         </div>
 
@@ -1369,7 +1369,7 @@ export const FeeDeskView: React.FC = () => {
                       <span className="border-t border-slate-400 pt-0.5 px-2">Bank Officer Stamp</span>
                       <span className="border-t border-slate-400 pt-0.5 px-2">Depositor Signature</span>
                     </div>
-                    <p className="text-center text-[8px] text-slate-400">Zero Late Fines Applied • Strict ERP Multi-Tenant Standard</p>
+                    <p className="text-center text-[8px] text-slate-400">Zero Late Fines Applied • Official Fee Voucher</p>
                   </div>
                 </div>
               ))}

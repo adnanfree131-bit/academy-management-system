@@ -22,10 +22,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       <div className="bg-white border border-slate-200/90 rounded-xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-black tracking-tight text-slate-900">Executive Academy Overview</h1>
+            <h1 className="text-xl font-black tracking-tight text-slate-900">Campus Overview</h1>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              Live Operations
+              Campus Active
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">Gulberg III Campus • Morning & Evening Sessions</p>
@@ -37,14 +37,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>Open Attendance Desk</span>
+            <span>Take Attendance</span>
           </button>
           <button 
             onClick={() => onNavigate('voucher')}
             className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
           >
             <CreditCard className="w-3.5 h-3.5" />
-            <span>Generate Vouchers</span>
+            <span>Fee Vouchers</span>
           </button>
         </div>
       </div>
@@ -74,17 +74,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
         <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-semibold">Unexcused Absentees</span>
+            <span className="text-xs font-semibold">Absent Students</span>
             <AlertTriangle className="w-4 h-4 text-rose-500" />
           </div>
           <p className="text-2xl font-black text-rose-600 font-mono">28</p>
           <div className="flex items-center justify-between mt-1">
-            <span className="text-[11px] text-slate-500">Require Follow-Up</span>
+            <span className="text-[11px] text-slate-500">Pending Follow-Up</span>
             <button 
               onClick={() => onNavigate('absentee')}
               className="text-[11px] font-bold text-indigo-600 hover:underline flex items-center"
             >
-              Action Desk <ArrowUpRight className="w-3 h-3" />
+              Follow-Up <ArrowUpRight className="w-3 h-3" />
             </button>
           </div>
         </div>
@@ -107,16 +107,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Clock className="w-4 h-4 text-indigo-600" />
-              Live Batch Sessions & Timetable
+              Today's Classes & Timetable
             </h2>
-            <span className="text-xs text-slate-400 font-mono">Real-Time Sync</span>
+            <span className="text-xs text-slate-400 font-mono">Today's Schedule</span>
           </div>
 
           <div className="space-y-2.5">
             {[
-              { batch: 'MDCAT Morning - Physics Batch A', teacher: 'Sir Tariq', room: 'Hall 1', time: '08:30 - 10:00 AM', status: 'In Progress', count: '48/50' },
-              { batch: 'FSc Part-I - Chemistry Evening', teacher: 'Prof. Shakeel', room: 'Lab 2', time: '10:15 - 11:45 AM', status: 'Scheduled', count: '42 Enrolled' },
-              { batch: 'ECAT Advanced - Mathematics', teacher: 'Engr. Bilal', room: 'Hall 3', time: '12:00 - 01:30 PM', status: 'Scheduled', count: '55 Enrolled' },
+              { batch: 'MDCAT Morning - Batch A', teacher: 'Sir Tariq', room: 'Hall 1', time: '08:30 - 10:00 AM', status: 'In Progress', count: '48/50' },
+              { batch: 'FSc Pre-Medical - Section B', teacher: 'Prof. Shakeel', room: 'Lab 2', time: '10:15 - 11:45 AM', status: 'Scheduled', count: '42 Enrolled' },
+              { batch: 'ECAT Engineering - Section A', teacher: 'Engr. Bilal', room: 'Hall 3', time: '12:00 - 01:30 PM', status: 'Scheduled', count: '55 Enrolled' },
             ].map((session, idx) => (
               <div key={idx} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors">
                 <div>
@@ -145,7 +145,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Send className="w-4 h-4 text-rose-500" />
-              Retention Priority Queue
+              Absence Follow-Up Queue
             </h2>
             <span className="text-[10px] font-bold bg-rose-50 text-rose-600 px-2 py-0.5 rounded border border-rose-200">
               28 Pending
@@ -153,11 +153,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </div>
 
           <p className="text-xs text-slate-500">
-            Automated WhatsApp notification dispatch ready for consecutive absentees without medical leave slips.
+            WhatsApp absence notices prepared for consecutive unexcused absentees.
           </p>
 
           <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 space-y-1">
-            <p className="font-bold">⚠️ High-Risk Retention Warning</p>
+            <p className="font-bold flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+              Multi-Day Absence Notice
+            </p>
             <p className="text-[11px] leading-relaxed">
               3 students in MDCAT Morning have 3+ consecutive absences this week. Immediate guardian outreach advised.
             </p>
@@ -167,7 +170,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             onClick={() => onNavigate('absentee')}
             className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg shadow-xs flex items-center justify-center gap-1.5 transition-colors"
           >
-            <span>Open Follow-Up Desk</span>
+            <span>Open Absence Follow-Up</span>
             <ArrowUpRight className="w-3.5 h-3.5" />
           </button>
         </div>

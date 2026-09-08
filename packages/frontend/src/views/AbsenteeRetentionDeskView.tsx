@@ -14,7 +14,9 @@ import {
   ChevronLeft,
   X,
   FileCheck,
-  FileText
+  FileText,
+  AlertTriangle,
+  CheckCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -380,10 +382,10 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                  Absence Retention Desk & WhatsApp Rapid Queue
+                  Absence Follow-Up & Parent Notifications
                 </h1>
                 <p className="text-xs text-slate-500">
-                  Daily morning front-desk follow-up roster, 1-click medical leave conversion, zero-API-cost WhatsApp deep-links with dynamic tags, and chronic dropout prevention.
+                  Daily morning follow-up roster, parent communications, leave conversion, and student attendance tracking.
                 </p>
               </div>
             </div>
@@ -399,7 +401,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
             >
               <Zap className="w-4 h-4" />
-              Launch WhatsApp Rapid Queue
+              Start WhatsApp Follow-Up
             </button>
             <button
               onClick={handleSyncAttendance}
@@ -445,7 +447,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           <div className="p-3 bg-purple-50/70 rounded-xl border border-purple-200/80 col-span-2 sm:col-span-1">
             <div className="text-[11px] font-semibold text-purple-800 uppercase tracking-wider">Medical Leaves</div>
             <div className="text-2xl font-black text-purple-900 mt-1">{kpi.excused_count}</div>
-            <div className="text-[10px] text-purple-700 mt-0.5">1-click converted</div>
+            <div className="text-[10px] text-purple-700 mt-0.5">Excused absences</div>
           </div>
         </div>
 
@@ -597,8 +599,9 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
                           <td className="p-3">
                             {item.consecutive_days >= 3 ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
-                                ⚠️ Day {item.consecutive_days} (Critical Risk)
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                                Day {item.consecutive_days} (High Absence)
                               </span>
                             ) : item.consecutive_days === 2 ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
@@ -699,7 +702,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                               <button
                                 onClick={() => handleOpenWhatsAppModal(item)}
                                 className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 font-bold rounded-lg text-xs flex items-center gap-1 transition-all"
-                                title="Send 1-Click WhatsApp Alert"
+                                title="Send WhatsApp Notification"
                               >
                                 <MessageCircle className="w-3.5 h-3.5" />
                                 WhatsApp
@@ -743,13 +746,13 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         <div className="space-y-4">
           <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold">
-                ⚠️
+              <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold shadow-xs">
+                <AlertTriangle className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h3 className="font-bold text-rose-950 text-sm">Automated Dropout Risk Detector</h3>
+                <h3 className="font-bold text-rose-950 text-sm">Attendance Alert & Counseling List</h3>
                 <p className="text-xs text-rose-800">
-                  Flags students with monthly attendance below 70% or 4+ consecutive unexplained absences. Schedule mandatory parent counseling meetings to prevent dropouts.
+                  Identifies students with monthly attendance below 70% or multiple consecutive unexcused absences. Schedule parent counseling meetings to address attendance gaps.
                 </p>
               </div>
             </div>
@@ -937,7 +940,8 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
             {duplicateWarning && (
               <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs font-semibold flex items-center gap-2">
-                <span>⚠️ {duplicateWarning}</span>
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>{duplicateWarning}</span>
               </div>
             )}
 
@@ -1004,7 +1008,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                     <p className="whitespace-pre-wrap leading-relaxed">{customMessageText}</p>
                     <div className="flex justify-end items-center gap-1 text-[10px] text-slate-400">
                       <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      <span className="text-blue-500 font-black">✓✓</span>
+                      <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
                     </div>
                   </div>
                 </div>
@@ -1120,11 +1124,11 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                     className="w-4 h-4 text-purple-600 rounded border-purple-300 focus:ring-purple-500"
                   />
                   <span className="font-bold text-purple-900 text-xs">
-                    1-Click Convert to Approved Medical Leave
+                    Convert to Approved Medical Leave
                   </span>
                 </label>
                 <p className="text-[10px] text-purple-700 pl-6">
-                  Instantly changes today's attendance record from ABSENT to EXCUSED without requiring the class teacher to reopen the attendance sheet!
+                  Updates today's attendance status from absent to excused leave.
                 </p>
               </div>
 
@@ -1158,7 +1162,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-emerald-600" />
                 <h3 className="font-black text-slate-900 text-sm">
-                  WhatsApp Rapid Queue Mode
+                  WhatsApp Attendance Follow-Up
                 </h3>
               </div>
               <div className="flex items-center gap-2">
@@ -1171,8 +1175,8 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
               </div>
             </div>
 
-            {/* Student Header */}
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
+            {/* Student details header */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center">
               <div>
                 <h4 className="font-black text-slate-900 text-sm">{rapidCurrentItem.student_name}</h4>
                 <p className="text-xs text-slate-500 font-mono">Roll: {rapidCurrentItem.roll_number} • {rapidCurrentItem.batch_name}</p>
@@ -1180,8 +1184,9 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
               </div>
               <div className="text-right">
                 {rapidCurrentItem.consecutive_days >= 3 ? (
-                  <span className="px-2.5 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-300 animate-pulse block">
-                    Day {rapidCurrentItem.consecutive_days} ⚠️
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                    Day {rapidCurrentItem.consecutive_days}
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block">

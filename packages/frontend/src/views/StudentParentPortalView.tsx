@@ -259,10 +259,10 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({ forcedTa
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-5 bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl space-y-3 shadow-md">
-              <span className="text-[11px] text-indigo-300 uppercase tracking-wider font-bold">Online Fee Payment Gateway</span>
-              <h3 className="text-xl font-black">Transfer Online via Raast or 1Link</h3>
+              <span className="text-[11px] text-indigo-300 uppercase tracking-wider font-bold">Online Bank Transfer</span>
+              <h3 className="text-xl font-black">Pay via Raast / 1Link Bank Transfer</h3>
               <p className="text-xs text-indigo-200 leading-relaxed">
-                Pay tuition fees directly through your mobile banking app using the academy's official IBAN or instant Raast ID with zero transaction fee.
+                Pay tuition fees directly through your mobile banking app using the academy's official IBAN or Raast ID.
               </p>
               <button
                 onClick={() => setShowPayModal(true)}
@@ -274,7 +274,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({ forcedTa
             </div>
 
             <div className="p-5 bg-white border border-slate-200 rounded-2xl space-y-2 shadow-xs">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Financial Standing</span>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fee Balance</span>
               <div className="text-2xl font-black font-mono text-slate-900">
                 PKR {unpaidBalance.toLocaleString()}
               </div>
@@ -378,7 +378,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({ forcedTa
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-indigo-600" />
-              Assigned Homework & Notebook Inspections
+              Assigned Homework & Tasks
             </h3>
             <span className="text-xs text-slate-400 font-mono">Academic Session 2026-2027</span>
           </div>
@@ -396,7 +396,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({ forcedTa
                       <p className="text-xs text-slate-600 mt-1 leading-relaxed">{hw.description}</p>
                     </div>
                     <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded text-[10px] font-bold">
-                      Checked: DONE ✓
+                      Checked: Complete
                     </span>
                   </div>
 
@@ -420,9 +420,9 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({ forcedTa
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <Award className="w-4 h-4 text-purple-600" />
-                Published Examination Report Cards
+                Published Examination Results
               </h3>
-              <span className="text-xs text-slate-400 font-mono">Formal Institutional Evaluations</span>
+              <span className="text-xs text-slate-400 font-mono">Term Examinations</span>
             </div>
 
             <div className="space-y-4">

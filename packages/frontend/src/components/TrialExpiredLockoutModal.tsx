@@ -120,12 +120,12 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
               <div>
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 bg-rose-500/40 text-rose-200 text-[10px] font-black uppercase tracking-wider rounded-md border border-rose-400/40">
-                    Institutional Lockout
+                    Subscription Expired
                   </span>
                   <span className="text-xs text-rose-200 font-mono">Status: {trialStatus.status.toUpperCase()}</span>
                 </div>
                 <h2 className="text-xl font-black tracking-tight mt-1">
-                  30-Day Free Trial Expired — {trialStatus.tenant_name}
+                  Subscription Expired — {trialStatus.tenant_name}
                 </h2>
               </div>
             </div>
@@ -186,7 +186,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
               <div className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-indigo-600" />
                 <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
-                  Super-Admin Official Bank Details
+                  Official Payment Bank Details
                 </h3>
               </div>
 
@@ -376,7 +376,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center gap-1.5">
             <Building2 className="w-3.5 h-3.5 text-slate-400" />
-            <span>Multi-Tenant SaaS Licensing & Verification Engine</span>
+            <span>Subscription & Licensing Verification</span>
           </div>
           <button
             onClick={logout}

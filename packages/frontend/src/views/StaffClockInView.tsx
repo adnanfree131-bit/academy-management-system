@@ -254,9 +254,9 @@ export const StaffClockInView: React.FC = () => {
             <MapPin className="w-5 h-5 text-indigo-400" />
           </span>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Staff Attendance & GPS Geofence Verification</h1>
-            <p className="text-xs text-slate-500 font-mono mt-0.5">
-              Haversine Distance Perimeter Gate • Anti-Spoofing Perimeter • Shift Start Cutoff Enforcement
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Staff Attendance & Check-In</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Verify staff campus check-ins within designated boundaries, view daily logs, and manage shift records.
             </p>
           </div>
         </div>
@@ -446,7 +446,7 @@ export const StaffClockInView: React.FC = () => {
 
           <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl text-[11px] text-slate-500 leading-relaxed">
             <ShieldCheck className="w-4 h-4 text-slate-600 inline mr-1" />
-            Staff clock-in requests are cryptographically bound to the institutional GPS boundary via Haversine calculation.
+            Staff check-ins require location verification within the campus perimeter.
           </div>
         </div>
       </div>

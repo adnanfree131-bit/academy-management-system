@@ -252,9 +252,9 @@ export const HomeworkDesk: React.FC = () => {
             <BookOpen className="w-5 h-5 text-indigo-400" />
           </span>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Homework Diary & Physical Notebook Inspection</h1>
-            <p className="text-xs text-slate-500 font-mono mt-0.5">
-              100% In-Class Physical Checking Standard • Done / Incomplete / Missing Tri-State Roster
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Homework & Notebook Checking</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Assign homework topics, track due dates, and record notebook completion status.
             </p>
           </div>
         </div>

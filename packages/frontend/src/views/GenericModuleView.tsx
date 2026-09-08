@@ -13,12 +13,12 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
           <div>
             <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <CheckCircle2 className="w-5 h-5 text-indigo-600" />
-              Student Attendance Desk
+              Student Attendance
             </h1>
-            <p className="text-xs text-slate-500">Fast batch attendance marking with instant parent SMS/WhatsApp triggers</p>
+            <p className="text-xs text-slate-500">Record class attendance and send parent notifications</p>
           </div>
           <button className="px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl hover:bg-indigo-700 shadow-xs">
-            Save & Dispatch Alerts
+            Save Attendance
           </button>
         </div>
 
@@ -69,12 +69,12 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
           <div>
             <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <Phone className="w-5 h-5 text-rose-600" />
-              Absence Follow-Up & Retention Desk
+              Absence Follow-Up
             </h1>
-            <p className="text-xs text-slate-500">28 students pending follow-up outreach with 1-click WhatsApp messaging</p>
+            <p className="text-xs text-slate-500">28 students pending follow-up outreach via WhatsApp</p>
           </div>
           <button className="px-4 py-2 bg-emerald-600 text-white font-bold text-xs rounded-xl hover:bg-emerald-700 shadow-xs">
-            Start Rapid Outreach Queue
+            Start WhatsApp Follow-Up
           </button>
         </div>
       </div>
@@ -88,9 +88,9 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
           <div>
             <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <Printer className="w-5 h-5 text-indigo-600" />
-              Fee Invoices & Vouchers Desk
+              Fee Invoices & Vouchers
             </h1>
-            <p className="text-xs text-slate-500">3-slip vertical A4 print format (Academy, Student, and Bank copies)</p>
+            <p className="text-xs text-slate-500">Standard 3-copy printable fee vouchers (Academy, Student, Bank)</p>
           </div>
           <button className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 shadow-xs">
             Print Batch Vouchers (PDF)
@@ -109,7 +109,7 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
               <Wallet className="w-5 h-5 text-emerald-600" />
               Staff Payroll & Salaries
             </h1>
-            <p className="text-xs text-slate-500">Automated salary computation linked directly to staff attendance</p>
+            <p className="text-xs text-slate-500">Calculate salaries and generate staff payslips</p>
           </div>
           <button className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 shadow-xs">
             Generate Monthly Pay Slips
@@ -126,9 +126,9 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
           <div>
             <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-indigo-600" />
-              Student Admissions & SIS Desk
+              Student Admissions & Directory
             </h1>
-            <p className="text-xs text-slate-500">Dynamic admission form builder with zero hardcoded academic fields</p>
+            <p className="text-xs text-slate-500">Register new students, review inquiries, and update records</p>
           </div>
           <button className="px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl hover:bg-indigo-700 shadow-xs">
             New Student Registration
@@ -145,9 +145,9 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
           <div>
             <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <Smartphone className="w-5 h-5 text-emerald-600" />
-              Native Mobile Experience (PWA Parity)
+              Mobile App (PWA)
             </h1>
-            <p className="text-xs text-slate-500">Module 17: Fixed bottom tab bar, pull-to-refresh, and web haptics</p>
+            <p className="text-xs text-slate-500">Optimized mobile view for smartphones and tablets</p>
           </div>
           <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-lg">
             PWA Ready

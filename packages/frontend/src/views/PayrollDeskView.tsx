@@ -206,10 +206,10 @@ export const PayrollDeskView: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2.5">
             <Wallet className="w-5 h-5 text-indigo-600" />
-            Staff Payroll & Salary Processing Desk
+            Staff Payroll & Salaries
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Side-by-side attendance validation, dynamic earning/deduction line items, and printable PDF payslips.
+            Calculate monthly staff salaries, record deductions and allowances, and generate payslips.
           </p>
         </div>
 
@@ -288,7 +288,7 @@ export const PayrollDeskView: React.FC = () => {
             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
               <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-indigo-600" />
-                Attendance & GPS Geofence Audit
+                Attendance & Clock-In Summary
               </h3>
               <span className="text-[10px] font-mono text-slate-400">Month: {selectedMonth}</span>
             </div>

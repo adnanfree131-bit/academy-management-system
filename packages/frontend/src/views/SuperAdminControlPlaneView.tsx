@@ -170,13 +170,13 @@ export const SuperAdminControlPlaneView: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black tracking-tight">Apex ERP Global SaaS Control Plane</h1>
+                <h1 className="text-xl font-black tracking-tight">Platform Administration & Multi-Tenant Management</h1>
                 <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-extrabold uppercase rounded-md">
-                  Super-Admin Active
+                  Super Administrator
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Manage all registered academy tenants, subscription renewals, 30-day trial locks, and banking configuration.
+                Manage registered academies, license renewals, trial access, and platform settings.
               </p>
             </div>
           </div>
@@ -285,7 +285,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
             <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
               Institutional Academy Tenants & Subscription Status
             </h3>
-            <span className="text-xs text-slate-500 font-mono">1-Click Instant Renewal</span>
+            <span className="text-xs text-slate-500 font-mono">Instant Renewal</span>
           </div>
 
           <table className="w-full text-left text-xs border-collapse">

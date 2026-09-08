@@ -20,6 +20,7 @@ import {
   Award,
   CreditCard,
   ShieldAlert,
+  ShieldCheck,
   X 
 } from 'lucide-react';
 
@@ -49,10 +50,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Role subtitle badge
   const roleSubtitle = 
-    role === 'teacher' ? 'Faculty Teacher Desk' :
-    role === 'student' ? 'Student & Parent Portal' :
-    role === 'super_admin' ? 'Global SaaS Control' :
-    'Enterprise Admin ERP';
+    role === 'teacher' ? 'Faculty Portal' :
+    role === 'student' ? 'Student Portal' :
+    role === 'super_admin' ? 'Platform Console' :
+    'Campus Administration';
 
   return (
     <>
@@ -77,17 +78,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="border-b border-slate-100 pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className={`w-8 h-8 rounded-xl text-white font-bold font-mono flex items-center justify-center text-sm shadow-xs ${
+                  <div className={`w-8 h-8 rounded-xl text-white font-bold flex items-center justify-center text-sm shadow-xs ${
                     role === 'teacher' ? 'bg-emerald-600' :
                     role === 'student' ? 'bg-sky-600' :
                     role === 'super_admin' ? 'bg-purple-600' :
                     'bg-indigo-600'
                   }`}>
-                    {role === 'teacher' ? '👨‍🏫' : role === 'student' ? '🎓' : role === 'super_admin' ? '🛡️' : 'Æ'}
+                    {role === 'teacher' ? <BookOpen className="w-4 h-4" /> :
+                     role === 'student' ? <GraduationCap className="w-4 h-4" /> :
+                     role === 'super_admin' ? <ShieldCheck className="w-4 h-4" /> :
+                     <GraduationCap className="w-4 h-4" />}
                   </div>
                   <div className="truncate">
                     <span className="font-extrabold text-sm text-slate-900 tracking-tight block leading-tight truncate">
-                      {role === 'super_admin' ? 'Apex ERP Platform' : (tenant?.name || 'Apex Academy')}
+                      {role === 'super_admin' ? 'Apex Platform' : (tenant?.name || 'Apex Academy')}
                     </span>
                     <span className="text-[10px] font-mono text-slate-500 font-semibold">{roleSubtitle}</span>
                   </div>
@@ -131,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div>
                     <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-emerald-700 font-bold mb-1.5 flex items-center gap-1.5">
                       <GraduationCap className="w-3.5 h-3.5" />
-                      Faculty Desk
+                      Teaching Desk
                     </p>
                     <div className="space-y-1">
                       <button 
@@ -143,7 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <LayoutDashboard className="w-4 h-4" />
-                        <span>Faculty Desk</span>
+                        <span>Faculty Overview</span>
                       </button>
 
                       <button 
@@ -155,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <Calendar className="w-4 h-4 text-indigo-500" />
-                        <span>My Teaching Schedule</span>
+                        <span>Class Schedule</span>
                       </button>
 
                       <button 
@@ -167,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <CheckSquare className="w-4 h-4 text-teal-500" />
-                        <span>Batch Attendance Roll Call</span>
+                        <span>Take Attendance</span>
                       </button>
 
                       <button 
@@ -191,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <Award className="w-4 h-4 text-purple-500" />
-                        <span>Exam Grading Desk</span>
+                        <span>Grade Examinations</span>
                       </button>
 
                       <button 
@@ -203,14 +207,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <MapPin className="w-4 h-4 text-rose-500" />
-                        <span>Campus GPS Clock-In</span>
+                        <span>Campus Check-In</span>
                       </button>
                     </div>
                   </div>
 
                   <div>
                     <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
-                      Communication
+                      Messages
                     </p>
                     <div className="space-y-1">
                       <button 
@@ -222,7 +226,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <MessageSquare className="w-4 h-4 text-sky-500" />
-                        <span>Academic Feedback</span>
+                        <span>Faculty Feedback</span>
                       </button>
                     </div>
                   </div>
@@ -237,7 +241,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div>
                     <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-sky-700 font-bold mb-1.5 flex items-center gap-1.5">
                       <UserCheck className="w-3.5 h-3.5" />
-                      Student & Parent Desk
+                      Student Portal
                     </p>
                     <div className="space-y-1">
                       <button 
@@ -249,7 +253,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <UserCheck className="w-4 h-4" />
-                        <span>Academic 360 Desk</span>
+                        <span>Student Overview</span>
                       </button>
 
                       <button 
@@ -273,7 +277,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <CreditCard className="w-4 h-4 text-emerald-500" />
-                        <span>Fee Invoices & Online Pay</span>
+                        <span>Fee Invoices & Payments</span>
                       </button>
 
                       <button 
@@ -297,14 +301,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <Award className="w-4 h-4 text-purple-500" />
-                        <span>Official Report Cards</span>
+                        <span>Report Cards</span>
                       </button>
                     </div>
                   </div>
 
                   <div>
                     <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
-                      Support Desk
+                      Support
                     </p>
                     <div className="space-y-1">
                       <button 
@@ -316,7 +320,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <MessageSquare className="w-4 h-4 text-slate-500" />
-                        <span>Submit Feedback / Concern</span>
+                        <span>Complaints & Requests</span>
                       </button>
                     </div>
                   </div>
@@ -324,13 +328,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
 
               {/* ============================================================
-                  ROLE: SUPER ADMIN (SaaS Operator)
+                  ROLE: SUPER ADMIN (Platform Operator)
                   ============================================================ */}
               {role === 'super_admin' && (
                 <div>
                   <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-purple-700 font-bold mb-1.5 flex items-center gap-1.5">
                     <ShieldAlert className="w-3.5 h-3.5" />
-                    Global SaaS Operations
+                    Platform Administration
                   </p>
                   <div className="space-y-1">
                     <button 
@@ -342,7 +346,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }`}
                     >
                       <ShieldAlert className="w-4 h-4" />
-                      <span>SaaS Control Plane</span>
+                      <span>Academy Directory</span>
                     </button>
 
                     <button 
@@ -354,7 +358,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       }`}
                     >
                       <LayoutDashboard className="w-4 h-4 text-slate-500" />
-                      <span>Tenant Operations View</span>
+                      <span>Campus Overview</span>
                     </button>
                   </div>
                 </div>
@@ -367,7 +371,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <div>
                     <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
-                      Executive Overview
+                      Overview
                     </p>
                     <div className="space-y-1">
                       <button 
@@ -379,14 +383,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <LayoutDashboard className="w-4 h-4 text-indigo-600" />
-                        <span>Executive Dashboard</span>
+                        <span>Dashboard</span>
                       </button>
                     </div>
                   </div>
 
                   <div>
                     <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
-                      Academic Administration
+                      Academic Management
                     </p>
                     <div className="space-y-1">
                       <button 
@@ -398,7 +402,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <UserPlus className="w-4 h-4 text-blue-500" />
-                        <span>Admissions & Student SIS</span>
+                        <span>Student Admissions</span>
                       </button>
 
                       <button 
@@ -417,7 +421,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                   <div>
                     <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
-                      Daily Operations & Attendance
+                      Daily Operations
                     </p>
                     <div className="space-y-1">
                       <button 
@@ -429,7 +433,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <CheckSquare className="w-4 h-4 text-teal-500" />
-                        <span>Student Attendance Desk</span>
+                        <span>Student Attendance</span>
                       </button>
 
                       <button 
@@ -470,7 +474,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <MapPin className="w-4 h-4 text-indigo-500" />
-                        <span>Staff Geofence Clock-In</span>
+                        <span>Staff Attendance</span>
                       </button>
 
                       <button 
@@ -501,14 +505,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <GraduationCap className="w-4 h-4 text-purple-500" />
-                        <span>Exam Bank & Evaluation</span>
+                        <span>Exams & Results</span>
                       </button>
                     </div>
                   </div>
 
                   <div>
                     <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
-                      Finance & Accounts
+                      Finance
                     </p>
                     <div className="space-y-1">
                       <button 
@@ -532,14 +536,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <Wallet className="w-4 h-4 text-amber-500" />
-                        <span>Staff Payroll & Salaries</span>
+                        <span>Staff Payroll</span>
                       </button>
                     </div>
                   </div>
                 </>
               )}
 
-              {/* Mobile Web App (PWA) Badge */}
+              {/* Mobile Access */}
               <div>
                 <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
                   Mobile Access
@@ -554,10 +558,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <div className="flex items-center gap-2.5">
                     <Smartphone className="w-4 h-4" />
-                    <span>Android / PWA View</span>
+                    <span>Mobile App</span>
                   </div>
                   <span className="text-[9px] bg-emerald-700 text-white px-1.5 py-0.5 rounded-md font-mono font-bold">
-                    APK
+                    PWA
                   </span>
                 </button>
               </div>
@@ -565,7 +569,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </nav>
           </div>
 
-          {/* Institutional Operator Card */}
+          {/* User Profile Card */}
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2.5 truncate">
               <div className={`w-8 h-8 rounded-xl text-white font-mono text-xs font-bold flex items-center justify-center shadow-2xs flex-shrink-0 ${
@@ -574,11 +578,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 role === 'super_admin' ? 'bg-purple-600' :
                 'bg-slate-900'
               }`}>
-                {user?.full_name ? user.full_name.substring(0, 2).toUpperCase() : 'AD'}
+                {(user?.full_name?.includes('Physics') ? 'ST' : user?.full_name?.includes('Director') ? 'AR' : user?.full_name?.substring(0, 2).toUpperCase()) || 'AR'}
               </div>
               <div className="truncate">
                 <p className="text-xs font-bold text-slate-900 leading-tight truncate">
-                  {user?.full_name || 'Director Adnan'}
+                  {user?.full_name?.includes('Physics') ? 'Sir Tariq' : user?.full_name?.includes('Director') ? 'Adnan Rafiq' : (user?.full_name || 'Adnan Rafiq')}
                 </p>
                 <p className="text-[10px] text-slate-400 flex items-center gap-1 capitalize">
                   <span className={`w-1.5 h-1.5 rounded-full ${
@@ -587,7 +591,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     role === 'super_admin' ? 'bg-purple-500' :
                     'bg-indigo-500'
                   }`} />
-                  {role?.replace('_', ' ') || 'Admin'}
+                  {role === 'tenant_admin' ? 'Campus Administrator' :
+                   role === 'teacher' ? 'Faculty Member' :
+                   role === 'student' ? 'Enrolled Student' :
+                   'Platform Admin'}
                 </p>
               </div>
             </div>

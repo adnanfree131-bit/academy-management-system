@@ -6,9 +6,14 @@ import {
   RefreshCw, 
   KeyRound, 
   Building2, 
-  Sparkles,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ShieldCheck,
+  BookOpen,
+  GraduationCap,
+  Settings,
+  Lock,
+  UserCheck
 } from 'lucide-react';
 
 export const LoginModal: React.FC = () => {
@@ -78,17 +83,17 @@ export const LoginModal: React.FC = () => {
         
         {/* Institutional Branding Header */}
         <div className="bg-slate-900 p-6 sm:p-8 text-white text-center relative border-b border-slate-800">
-          <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white font-mono font-black text-2xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-indigo-600/30">
-            Æ
+          <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mx-auto mb-3 shadow-lg shadow-indigo-600/30">
+            <GraduationCap className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Apex Academy ERP</h1>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Apex Academy Management System</h1>
           <p className="text-sm text-slate-400 mt-1 max-w-xl mx-auto">
-            Multi-Tenant Institutional Operations & Role-Optimized Portals
+            Campus Administration & Academic Portal
           </p>
           
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-800/80 text-xs font-mono text-slate-300 mt-3 border border-slate-700">
-            <Sparkles className="w-4 h-4 text-emerald-400" />
-            <span>Select a 1-Click Demo Persona or Sign In with Custom Credentials</span>
+            <UserCheck className="w-4 h-4 text-indigo-400" />
+            <span>Select an account to explore or sign in with your email</span>
           </div>
         </div>
 
@@ -108,37 +113,42 @@ export const LoginModal: React.FC = () => {
           )}
 
           {/* ============================================================
-              1-CLICK DEMO PERSONA SHOWCASE (PRIMARY TESTBED)
+              DEMO ACCOUNTS (PRIMARY TESTBED)
               ============================================================ */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-900 flex items-center gap-2 font-mono">
-                  <span>⚡ 1-Click Demo Roles & Workflows</span>
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                  <span>Demo Accounts</span>
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Click any role to test its specific menu hierarchy, permissions, and features:
+                  Select any account to test role permissions and features:
                 </p>
               </div>
               <span className="hidden sm:inline-block px-2.5 py-1 rounded-md bg-slate-100 text-[10px] font-mono font-bold text-slate-600">
-                Zero Configuration Required
+                Instant Access
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
               
-              {/* Card 1: Director Adnan (Admin) */}
+              {/* Card 1: Administrator */}
               <div className="p-4 rounded-2xl border-2 border-indigo-100 bg-indigo-50/40 hover:bg-indigo-50/80 transition-all flex flex-col justify-between space-y-3">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xl">👔</span>
+                    <span className="p-1.5 rounded-lg bg-indigo-100 text-indigo-700">
+                      <ShieldCheck className="w-4 h-4" />
+                    </span>
                     <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-mono text-[10px] font-bold">
-                      ADMIN ERP
+                      ADMINISTRATOR
                     </span>
                   </div>
-                  <h3 className="font-extrabold text-slate-900 text-sm">Director Adnan</h3>
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 text-sm">Adnan Rafiq</h3>
+                    <p className="text-[10px] text-indigo-600 font-semibold">Campus Director</p>
+                  </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Full Operations: Admissions SIS, Timetable Collision Engine, Attendance, WhatsApp Retention, Fees & Payroll.
+                    Student admissions, faculty timetables, attendance tracking, fee billing, and staff payroll.
                   </p>
                 </div>
                 <button
@@ -154,25 +164,30 @@ export const LoginModal: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <span>Enter Admin ERP</span>
+                      <span>Login as Administrator</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
                 </button>
               </div>
 
-              {/* Card 2: Sir Tariq (Teacher) */}
+              {/* Card 2: Faculty */}
               <div className="p-4 rounded-2xl border-2 border-emerald-100 bg-emerald-50/40 hover:bg-emerald-50/80 transition-all flex flex-col justify-between space-y-3">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xl">👨‍🏫</span>
+                    <span className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700">
+                      <BookOpen className="w-4 h-4" />
+                    </span>
                     <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-mono text-[10px] font-bold">
-                      TEACHER DESK
+                      FACULTY
                     </span>
                   </div>
-                  <h3 className="font-extrabold text-slate-900 text-sm">Sir Tariq Physics</h3>
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 text-sm">Sir Tariq</h3>
+                    <p className="text-[10px] text-emerald-600 font-semibold">Senior Physics Faculty</p>
+                  </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Faculty Desk: Today's schedule, batch attendance roll calls, homework diary, notebook checklist & exam grading.
+                    Daily lecture schedule, batch attendance roll call, homework assignments, and exam grading.
                   </p>
                 </div>
                 <button
@@ -188,25 +203,30 @@ export const LoginModal: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <span>Enter Teacher Desk</span>
+                      <span>Login as Teacher</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
                 </button>
               </div>
 
-              {/* Card 3: Muhammad Ali Raza (Student / Parent) */}
+              {/* Card 3: Student & Parent */}
               <div className="p-4 rounded-2xl border-2 border-sky-100 bg-sky-50/40 hover:bg-sky-50/80 transition-all flex flex-col justify-between space-y-3">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xl">🎓</span>
+                    <span className="p-1.5 rounded-lg bg-sky-100 text-sky-700">
+                      <GraduationCap className="w-4 h-4" />
+                    </span>
                     <span className="px-2 py-0.5 bg-sky-100 text-sky-800 rounded font-mono text-[10px] font-bold">
-                      STUDENT PORTAL
+                      STUDENT & PARENT
                     </span>
                   </div>
-                  <h3 className="font-extrabold text-slate-900 text-sm">Muhammad Ali Raza</h3>
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 text-sm">Muhammad Ali Raza</h3>
+                    <p className="text-[10px] text-sky-600 font-semibold">MDCAT Morning - Batch A</p>
+                  </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Student 360 Desk: Class timetable, fee invoice with online Raast bank details, homework diary & printed report cards.
+                    Class timetable, fee invoices with online payment details, homework diary, and report cards.
                   </p>
                 </div>
                 <button
@@ -222,7 +242,7 @@ export const LoginModal: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <span>Enter Student Portal</span>
+                      <span>Login as Student</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
@@ -231,14 +251,16 @@ export const LoginModal: React.FC = () => {
 
             </div>
 
-            {/* Row 2: Super Admin & Locked Academy Demo */}
+            {/* Row 2: Super Admin & License Expiration Demo */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               <div className="p-3 rounded-xl border border-purple-200 bg-purple-50/30 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 truncate">
-                  <span className="text-lg">🛡️</span>
+                  <span className="p-1.5 rounded-lg bg-purple-100 text-purple-700 shrink-0">
+                    <Settings className="w-4 h-4" />
+                  </span>
                   <div className="truncate">
-                    <p className="text-xs font-bold text-slate-900 leading-tight">Super-Admin SaaS Control Plane</p>
-                    <p className="text-[10px] text-slate-500 truncate">Multi-Academy directory, 1-click renewals & receipts</p>
+                    <p className="text-xs font-bold text-slate-900 leading-tight">Platform Super-Admin</p>
+                    <p className="text-[10px] text-slate-500 truncate">Multi-campus directory, subscription licenses & settings</p>
                   </div>
                 </div>
                 <button
@@ -247,16 +269,18 @@ export const LoginModal: React.FC = () => {
                   onClick={() => handleQuickLogin('superadmin@apexacademyerp.com', 'apex', 'superadmin')}
                   className="py-1.5 px-3 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shrink-0 transition-colors"
                 >
-                  {activeRoleLoading === 'superadmin' ? '...' : 'Launch Plane →'}
+                  {activeRoleLoading === 'superadmin' ? '...' : 'Super-Admin'}
                 </button>
               </div>
 
               <div className="p-3 rounded-xl border border-rose-200 bg-rose-50/30 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 truncate">
-                  <span className="text-lg">🔒</span>
+                  <span className="p-1.5 rounded-lg bg-rose-100 text-rose-700 shrink-0">
+                    <Lock className="w-4 h-4" />
+                  </span>
                   <div className="truncate">
-                    <p className="text-xs font-bold text-slate-900 leading-tight">Locked Academy Demo (Crescent College)</p>
-                    <p className="text-[10px] text-slate-500 truncate">30-day trial expired lockout screen with receipt upload</p>
+                    <p className="text-xs font-bold text-slate-900 leading-tight">Crescent College (Expired License)</p>
+                    <p className="text-[10px] text-slate-500 truncate">Trial expired lockout screen with receipt upload</p>
                   </div>
                 </div>
                 <button
@@ -265,7 +289,7 @@ export const LoginModal: React.FC = () => {
                   onClick={() => handleQuickLogin('admin@crescentcollege.edu.pk', 'crescent', 'crescent')}
                   className="py-1.5 px-3 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shrink-0 transition-colors"
                 >
-                  {activeRoleLoading === 'crescent' ? '...' : 'Test Lockout →'}
+                  {activeRoleLoading === 'crescent' ? '...' : 'Preview Lockout'}
                 </button>
               </div>
             </div>
@@ -282,7 +306,7 @@ export const LoginModal: React.FC = () => {
             >
               <span className="flex items-center gap-2">
                 <KeyRound className="w-4 h-4 text-slate-400" />
-                <span>Or Sign In with Custom Email & Brevo OTP Passcode</span>
+                <span>Sign in with email and verification code</span>
               </span>
               {showCustomLogin ? (
                 <ChevronUp className="w-4 h-4 text-slate-400" />

@@ -451,10 +451,10 @@ export const ExamDeskView: React.FC = () => {
         <div>
           <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2.5">
             <GraduationCap className="w-7 h-7 text-indigo-600" />
-            Examination, Question Bank & Assessment Desk
+            Examinations & Grading
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Dual question bank modes, Excel chapter upload, simple total marks exam setup, and hybrid auto-MCQs + question remarks grading.
+            Create exam papers, manage chapter question banks, grade student submissions, and publish report cards.
           </p>
         </div>
 
@@ -553,7 +553,7 @@ export const ExamDeskView: React.FC = () => {
           }`}
         >
           <PenTool className="w-4 h-4" />
-          Hybrid Evaluation Desk & Question Remarks
+          Grading & Student Evaluation
         </button>
       </div>
 
@@ -562,8 +562,8 @@ export const ExamDeskView: React.FC = () => {
         <div className="bg-white p-6 rounded-b-xl border-x border-b border-slate-200 shadow-xs space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Academic Exams & Tests Registry</h2>
-              <p className="text-xs text-slate-500">Track assessment schedules, question allocations, and 1-click printable student test papers.</p>
+              <h2 className="text-base font-bold text-slate-900">Scheduled Exams & Tests</h2>
+              <p className="text-xs text-slate-500">View upcoming exams, syllabus breakdown, and printable test papers.</p>
             </div>
           </div>
 
@@ -865,9 +865,9 @@ export const ExamDeskView: React.FC = () => {
               </span>
               <button
                 onClick={() => setEvalSaveSuccess('')}
-                className="text-emerald-700 hover:text-emerald-900 font-bold"
+                className="text-emerald-700 hover:text-emerald-900 font-bold p-0.5"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -876,18 +876,18 @@ export const ExamDeskView: React.FC = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Left 2 Columns: Checking & Grading Console */}
               <div className="lg:col-span-2 space-y-6">
-                {/* SECTION A: OBJECTIVE MCQS (100% Fully Auto-Checked) */}
+                {/* SECTION A: OBJECTIVE MCQS */}
                 <div className="border border-blue-200 rounded-xl p-5 bg-blue-50/30 space-y-4">
                   <div className="flex items-center justify-between border-b border-blue-200 pb-3">
                     <div className="flex items-center gap-2">
                       <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center">1</span>
                       <div>
                         <h3 className="font-bold text-xs text-blue-950 uppercase">{currentExam.section_labels.mcq}</h3>
-                        <p className="text-[11px] text-blue-700">100% Fully Auto-Graded in milliseconds</p>
+                        <p className="text-[11px] text-blue-700">Objective Questions (Auto-Graded)</p>
                       </div>
                     </div>
                     <span className="px-2.5 py-1 rounded bg-blue-600 text-white font-black text-xs">
-                      Auto Score: {autoCalculatedMcqScore} / {currentExam.mcq_total_marks || (currentExam.mcq_count * currentExam.mcq_marks_per_q)} Marks
+                      MCQ Score: {autoCalculatedMcqScore} / {currentExam.mcq_total_marks || (currentExam.mcq_count * currentExam.mcq_marks_per_q)} Marks
                     </span>
                   </div>
 
@@ -1457,7 +1457,7 @@ export const ExamDeskView: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-600">
-              Paste rows copied directly from Excel. The engine automatically creates missing chapter folders and parses mixed MCQs, Short, and Long questions.
+              Paste rows copied directly from Excel. The system automatically creates chapter categories and imports MCQs, Short, and Long questions.
             </p>
 
             {importSuccessMsg && (

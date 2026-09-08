@@ -293,9 +293,9 @@ export const TimetableDesk: React.FC = () => {
               <Calendar className="w-5 h-5" />
             </span>
             <div>
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Academic Timetable & Schedule Engine</h1>
-              <p className="text-xs text-slate-500 font-mono mt-0.5">
-                4-Way Collision Prevention (Teacher • Batch • Room • Timeslot) & Substitute Routing
+              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Class Timetables & Schedules</h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Manage class schedules, classroom allocations, conflict detection, and substitute faculty assignments.
               </p>
             </div>
           </div>
@@ -376,13 +376,13 @@ export const TimetableDesk: React.FC = () => {
 
         {/* Single-Room vs Multi-Room Indicator */}
         <div className="flex items-center gap-2 text-xs font-mono">
-          <span className="text-slate-400">Room Engine:</span>
+          <span className="text-slate-400">Room Allocation:</span>
           <span className={`px-2 py-0.5 rounded-md font-bold text-[11px] ${
             multiRoomEnabled 
               ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' 
               : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
           }`}>
-            {multiRoomEnabled ? 'Multi-Room Double-Booking Guard Active' : 'Single-Room Unified Default (Auto-Managed)'}
+            {multiRoomEnabled ? 'Multi-Room Campus' : 'Single-Room Facility'}
           </span>
         </div>
       </div>
@@ -391,7 +391,7 @@ export const TimetableDesk: React.FC = () => {
       {isLoading ? (
         <div className="p-12 text-center text-slate-400 bg-white border border-slate-200 rounded-2xl">
           <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
-          <p className="text-xs font-mono">Loading Institutional Timetable Engine...</p>
+          <p className="text-xs font-mono">Loading class schedule...</p>
         </div>
       ) : filteredSlots.length === 0 ? (
         <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl">
@@ -615,13 +615,13 @@ export const TimetableDesk: React.FC = () => {
               {isCheckingCollision ? (
                 <div className="p-3 rounded-xl bg-slate-50 text-slate-500 text-xs flex items-center gap-2">
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-500" />
-                  <span>Verifying 4-way collision engine...</span>
+                  <span>Checking for schedule conflicts...</span>
                 </div>
               ) : collisionState?.has_conflict ? (
                 <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold block">Collision Detected:</span>
+                    <span className="font-bold block">Schedule Conflict Detected:</span>
                     <span className="text-[11px] text-rose-700">{collisionState.message}</span>
                   </div>
                 </div>

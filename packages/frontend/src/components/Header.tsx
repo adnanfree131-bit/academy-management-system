@@ -21,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const demoAccounts = [
     {
-      label: 'Director Adnan (Admin)',
+      label: 'Adnan Rafiq (Administrator)',
       email: 'adnan@apexacademy.edu.pk',
       slug: 'apex',
       badge: 'Admin',
@@ -29,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
       color: 'text-indigo-600',
     },
     {
-      label: 'Sir Tariq Physics (Faculty)',
+      label: 'Sir Tariq (Faculty)',
       email: 'tariq@apexacademy.edu.pk',
       slug: 'apex',
       badge: 'Teacher',
@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
       color: 'text-emerald-600',
     },
     {
-      label: 'Muhammad Ali (Student & Parent)',
+      label: 'Muhammad Ali Raza (Student)',
       email: 'student@apexacademy.edu.pk',
       slug: 'apex',
       badge: 'Student',
@@ -45,7 +45,7 @@ export const Header: React.FC<HeaderProps> = ({
       color: 'text-sky-600',
     },
     {
-      label: 'Super Admin Control Plane',
+      label: 'Platform Super-Admin',
       email: 'superadmin@apexacademyerp.com',
       slug: 'apex',
       badge: 'Super Admin',
@@ -53,10 +53,10 @@ export const Header: React.FC<HeaderProps> = ({
       color: 'text-purple-600',
     },
     {
-      label: 'Crescent College (Locked Trial)',
+      label: 'Crescent College (Expired License)',
       email: 'admin@crescentcollege.edu.pk',
       slug: 'crescent',
-      badge: 'Locked Demo',
+      badge: 'Expired',
       screen: 'dashboard',
       color: 'text-rose-600',
     },
@@ -109,10 +109,10 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Users className="w-3.5 h-3.5 text-indigo-600" />
             <span className="hidden sm:inline font-mono text-[11px]">
-              {switching ? 'Switching...' : (user?.full_name?.split(' ')[0] || 'Role Switcher')}
+              {switching ? 'Switching...' : (user?.full_name?.includes('Physics') ? 'Sir Tariq' : user?.full_name?.includes('Director') ? 'Adnan Rafiq' : (user?.full_name || 'Adnan Rafiq'))}
             </span>
             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-indigo-50 text-indigo-700 font-mono">
-              {user?.role?.replace('_', ' ') || 'Admin'}
+              {user?.role === 'tenant_admin' ? 'Admin' : user?.role?.replace('_', ' ') || 'Admin'}
             </span>
             <ChevronDown className="w-3 h-3 text-slate-400" />
           </button>
@@ -120,8 +120,8 @@ export const Header: React.FC<HeaderProps> = ({
           {roleMenuOpen && (
             <div className="absolute right-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in slide-in-from-top-1">
               <div className="px-3 py-1 border-b border-slate-100">
-                <p className="text-[10px] font-mono uppercase font-bold text-slate-400">1-Click Role Switcher</p>
-                <p className="text-[11px] text-slate-600">Simulate any persona in real-time</p>
+                <p className="text-[10px] font-mono uppercase font-bold text-slate-400">Switch Demo Account</p>
+                <p className="text-[11px] text-slate-600">Preview system view for each role</p>
               </div>
               <div className="py-1">
                 {demoAccounts.map((acc) => {

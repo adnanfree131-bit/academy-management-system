@@ -12,7 +12,7 @@ import {
   X, 
   Phone, 
   ShieldCheck, 
-  Sparkles,
+  UserCheck,
   RefreshCw,
   Plus
 } from 'lucide-react';
@@ -357,14 +357,14 @@ export const EnrollmentView: React.FC = () => {
       <div className="bg-white border border-slate-200/90 rounded-xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-black tracking-tight text-slate-900">Student Admissions & SIS</h1>
+            <h1 className="text-xl font-black tracking-tight text-slate-900">Student Admissions & Directory</h1>
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
               <ShieldCheck className="w-3 h-3 text-indigo-600" />
-              Dynamic Hierarchy Engine
+              Student Records
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Database-driven academic structure • 1-Click Inquiry Admission • 360° Student Information Profiles
+            Manage student admissions, review inquiries, and maintain student records.
           </p>
         </div>
 
@@ -481,7 +481,7 @@ export const EnrollmentView: React.FC = () => {
                     <th className="py-3 px-4">Guardian Contact</th>
                     <th className="py-3 px-4">Subjects</th>
                     <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4 text-right">360° SIS</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70">
@@ -489,7 +489,7 @@ export const EnrollmentView: React.FC = () => {
                     <tr>
                       <td colSpan={8} className="py-8 text-center text-slate-400 font-mono">
                         <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                        Synchronizing SIS records...
+                        Loading student records...
                       </td>
                     </tr>
                   ) : filteredStudents.length === 0 ? (
@@ -675,12 +675,12 @@ export const EnrollmentView: React.FC = () => {
                               }}
                               className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1"
                             >
-                              <Sparkles className="w-3 h-3" />
-                              <span>1-Click Admit</span>
+                              <UserCheck className="w-3.5 h-3.5" />
+                              <span>Admit Student</span>
                             </button>
                           ) : (
                             <span className="text-[11px] text-slate-400 font-semibold italic">
-                              Enrolled in SIS
+                              Enrolled
                             </span>
                           )}
                         </td>
@@ -1120,8 +1120,8 @@ export const EnrollmentView: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2 text-slate-900 font-black text-sm">
-                <Sparkles className="w-4 h-4 text-emerald-600" />
-                <span>1-Click Institutional Admission</span>
+                <UserCheck className="w-4 h-4 text-emerald-600" />
+                <span>Admit Inquiring Student</span>
               </div>
               <button
                 onClick={() => setAdmitInquiryModal(null)}

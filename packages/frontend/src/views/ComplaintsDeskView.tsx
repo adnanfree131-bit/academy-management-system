@@ -147,9 +147,9 @@ export const ComplaintsDeskView: React.FC = () => {
             <MessageSquare className="w-5 h-5 text-indigo-400" />
           </span>
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Institutional Complaints & Feedback Portal</h1>
-            <p className="text-xs text-slate-500 font-mono mt-0.5">
-              Service Quality Tracking • Resolution Audit Trail • Multi-Category Routing
+            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Complaints & Feedback</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Submit and track campus facility requests, academic inquiries, and student feedback.
             </p>
           </div>
         </div>

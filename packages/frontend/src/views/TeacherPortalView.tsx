@@ -2,14 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { TeacherPortalOverview, TimetableSlot, Batch, Exam } from '@apex/shared-types';
 import { 
-  GraduationCap, 
   Clock, 
   MapPin, 
   CheckCircle2, 
   BookOpen, 
   FileCheck2, 
   ArrowRight,
-  Sparkles,
   Users,
   ShieldCheck,
   AlertCircle
@@ -67,20 +65,20 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
       <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-              <GraduationCap className="w-6 h-6" />
+            <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+              <BookOpen className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-black text-slate-900 tracking-tight">
-                  Faculty Academic Desk
+                  Faculty Portal
                 </h1>
-                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-extrabold uppercase rounded-md">
-                  {user?.full_name || 'Sir Tariq Physics'}
+                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-extrabold uppercase rounded-md">
+                  {user?.full_name?.includes('Physics') ? 'Sir Tariq' : (user?.full_name || 'Sir Tariq')}
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Gulberg III Campus • Daily Lecture Schedule, Batch Attendance & Assessment Evaluator
+                Gulberg III Campus • Lecture schedule, batch attendance & student evaluations
               </p>
             </div>
           </div>
@@ -90,7 +88,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
             <div className="px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs text-emerald-900">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <div>
-                <span className="font-bold block text-[11px]">Geofence Clocked-In</span>
+                <span className="font-bold block text-[11px]">Campus Checked-In</span>
                 <span className="text-[10px] text-emerald-700">At {geofence?.clocked_in_at || '08:24 AM'} ({geofence?.distance_meters || 18}m from gate)</span>
               </div>
             </div>
@@ -99,7 +97,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
               className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 flex items-center gap-1.5 transition-all"
             >
               <MapPin className="w-3.5 h-3.5" />
-              GPS Desk
+              Campus Check-In
             </button>
           </div>
         </div>
@@ -119,9 +117,9 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
           </div>
 
           <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/80">
-            <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Pending Register</span>
+            <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Pending Attendance</span>
             <span className="text-2xl font-black text-amber-900 mt-0.5 block">{pendingAttendance.length} Batch</span>
-            <span className="text-[10px] text-amber-700">Awaiting Roll Call</span>
+            <span className="text-[10px] text-amber-700">Roll Call Pending</span>
           </div>
 
           <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200/70">
@@ -262,7 +260,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                     onClick={() => onNavigate('exams')}
                     className="w-full py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-[11px] rounded-lg shadow-xs flex items-center justify-center gap-1 transition-all"
                   >
-                    <span>Enter Question Marks & Remarks</span>
+                    <span>Enter Marks & Remarks</span>
                     <ArrowRight className="w-3 h-3" />
                   </button>
                 </div>
@@ -273,18 +271,18 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
           {/* Diary & Physical Notebook Checking Shortcut */}
           <div className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-2xl p-5 text-white space-y-3 shadow-md">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <h3 className="font-bold text-xs uppercase tracking-wider">Physical Notebook Inspection</h3>
+              <BookOpen className="w-4 h-4 text-emerald-400" />
+              <h3 className="font-bold text-xs uppercase tracking-wider">Notebook Inspection</h3>
             </div>
             <p className="text-xs text-indigo-200 leading-relaxed">
-              Rapidly record physical notebook inspection checks (Done, Incomplete, Missing) for today's batches.
+              Record student notebook completion status (Complete, Incomplete, Missing) for today's classes.
             </p>
             <button
               onClick={() => onNavigate('homework')}
               className="w-full py-2 bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all"
             >
               <BookOpen className="w-3.5 h-3.5" />
-              <span>Launch Notebook Checklist</span>
+              <span>Check Notebooks</span>
             </button>
           </div>
 
@@ -292,10 +290,10 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 space-y-1">
             <div className="font-bold text-slate-800 flex items-center gap-1">
               <AlertCircle className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Faculty Tip</span>
+              <span>Attendance Notice</span>
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Attendance marked within the first 15 minutes of class triggers instant absentee follow-up rosters for front-desk staff.
+              Attendance marked during class notifies administration for parent absence follow-up.
             </p>
           </div>
 
