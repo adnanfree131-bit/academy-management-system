@@ -9,7 +9,7 @@
     "dev": "tsc -b -w",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
-  "devDependencies": {
+  "dependencies": {
     "typescript": "^5.7.0"
   }
 }

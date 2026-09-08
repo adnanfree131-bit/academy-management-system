@@ -14,9 +14,11 @@
     "dev:frontend": "pnpm --filter @apex/frontend dev",
     "lint": "pnpm -r run lint"
   },
+  "dependencies": {
+    "typescript": "^5.7.0"
+  },
   "devDependencies": {
     "@types/node": "^20.17.0",
-    "puppeteer-core": "^25.10.0",
-    "typescript": "^5.7.0"
+    "puppeteer-core": "^25.10.0"
   }
 }
