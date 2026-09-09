@@ -18,7 +18,7 @@ export class CloudflareService implements ICloudflareService {
     this.apiToken = process.env.CLOUDFLARE_API_TOKEN || '';
     this.zoneId = process.env.CLOUDFLARE_ZONE_ID || '';
     this.baseDomain = process.env.BASE_DOMAIN || 'kampus.pk';
-    this.pagesTarget = process.env.CLOUDFLARE_PAGES_TARGET || 'academy-management-system.pages.dev';
+    this.pagesTarget = process.env.CLOUDFLARE_PAGES_TARGET || 'kampus-academy.pages.dev';
   }
 
   /**

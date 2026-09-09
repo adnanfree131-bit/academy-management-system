@@ -423,7 +423,7 @@ export function authRoutes(
           slug: tenant.slug,
           campus_name: tenant.settings?.campus_name || 'Main Campus',
           academic_session: tenant.settings?.academic_session || '2026-2027',
-          domain: tenant.domain || `${tenant.slug}.toolnestr.com`,
+          domain: tenant.domain || `${tenant.slug}.kampus.pk`,
           logo_url: tenant.settings?.logo_url || null,
           city: tenant.settings?.city || null,
           phone: tenant.settings?.phone || null,

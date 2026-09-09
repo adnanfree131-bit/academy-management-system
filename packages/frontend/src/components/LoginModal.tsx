@@ -63,9 +63,10 @@ export const LoginModal: React.FC = () => {
   const [regName, setRegName] = useState<string>('');
   const [regSlug, setRegSlug] = useState<string>('');
   const [slugAvailability, setSlugAvailability] = useState<{
-    status: 'idle' | 'checking' | 'available' | 'unavailable';
+    status: 'idle' | 'checking' | 'available' | 'unavailable' | 'too_short';
     domain: string;
     message?: string;
+    isReserved?: boolean;
   }>({ status: 'idle', domain: '' });
   const [regCity, setRegCity] = useState<string>('');
   const [regPhone, setRegPhone] = useState<string>('');
@@ -143,43 +144,64 @@ export const LoginModal: React.FC = () => {
 
   // Real-time Subdomain Availability Checker
   useEffect(() => {
-    if (!regSlug.trim()) {
+    const clean = regSlug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+    const domain = clean ? `${clean}.${baseDomain}` : '';
+
+    if (!clean) {
       setSlugAvailability({ status: 'idle', domain: '' });
       return;
     }
 
-    const clean = regSlug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
-    const domain = `${clean}.${baseDomain}`;
+    if (clean.length < 3) {
+      setSlugAvailability({
+        status: 'too_short',
+        domain,
+        message: 'Must be at least 3 characters',
+      });
+      return;
+    }
 
-    setSlugAvailability({ status: 'checking', domain });
+    setSlugAvailability({
+      status: 'checking',
+      domain,
+      message: 'Checking availability...',
+    });
 
     const checkTimer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/v1/auth/check-domain?slug=${encodeURIComponent(clean)}`);
-        const body = await res.json();
-        if (body.success && body.data) {
+        const body = await res.json().catch(() => null);
+        if (res.ok && body && body.success && body.data) {
+          const isAvail = Boolean(body.data.available);
+          const msg = body.data.message || (isAvail ? 'Available' : 'Unavailable');
+          const isReserved = msg.toLowerCase().includes('reserved');
           setSlugAvailability({
-            status: body.data.available ? 'available' : 'unavailable',
-            domain: body.data.domain,
-            message: body.data.message,
+            status: isAvail ? 'available' : 'unavailable',
+            domain: body.data.domain || domain,
+            message: msg,
+            isReserved,
           });
         } else {
+          const errMsg = body?.data?.message || body?.error?.message || 'This address is unavailable.';
+          const isReserved = errMsg.toLowerCase().includes('reserved');
           setSlugAvailability({
             status: 'unavailable',
             domain,
-            message: body.error?.message || 'Unavailable',
+            message: errMsg,
+            isReserved,
           });
         }
       } catch {
         setSlugAvailability({
-          status: 'available',
+          status: 'unavailable',
           domain,
+          message: 'Unable to connect to verification service. Please try again.',
         });
       }
-    }, 400);
+    }, 300);
 
     return () => clearTimeout(checkTimer);
-  }, [regSlug]);
+  }, [regSlug, baseDomain]);
 
   // Handle Logo Upload (Optional)
   const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -239,8 +261,8 @@ export const LoginModal: React.FC = () => {
       return;
     }
 
-    if (slugAvailability.status === 'unavailable') {
-      setError('Please choose an available academy web address.');
+    if (slugAvailability.status !== 'available') {
+      setError(slugAvailability.message || 'Please choose an available academy web address.');
       return;
     }
 
@@ -358,7 +380,7 @@ export const LoginModal: React.FC = () => {
     }
   };
 
-  const isPlatformSignIn = mode === 'login' && !tenantSlug;
+  const isPlatformSignIn = !tenantSlug;
 
   const activeAcademyName = mode === 'register'
     ? (regName.trim() || 'Academy Name')
@@ -551,30 +573,7 @@ export const LoginModal: React.FC = () => {
           {/* Main Form Content */}
           <div className="max-w-md w-full mx-auto my-auto py-4">
             
-            {/* Mobile Live Identity Bar (Visible only on smaller screens in register mode) */}
-            {mode === 'register' && step === 'form' && (
-              <div className="lg:hidden mb-5 p-3 rounded-xl bg-slate-950 text-white border border-slate-800 flex items-center gap-3 shadow-md">
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-12 h-12 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 overflow-hidden border border-slate-700 cursor-pointer"
-                  title="Click to upload logo"
-                >
-                  {regLogoUrl ? (
-                    <img src={regLogoUrl} alt="Logo preview" className="w-full h-full object-contain" />
-                  ) : (
-                    <GraduationCap className="w-6 h-6 text-indigo-600" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h4 className="text-sm font-bold font-brand text-white truncate leading-tight">
-                    {regName.trim() || 'Academy Name'}
-                  </h4>
-                  <p className="text-[10px] font-mono text-indigo-300 truncate mt-0.5">
-                    {regSlug.trim() ? `${regSlug.trim().toLowerCase()}.${baseDomain}` : `subdomain.${baseDomain}`}
-                  </p>
-                </div>
-              </div>
-            )}
+
 
             {/* Headings */}
             <div className="mb-6">
@@ -732,39 +731,81 @@ export const LoginModal: React.FC = () => {
                       Academy Web Address
                     </label>
                     {slugAvailability.status === 'checking' && (
-                      <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
-                        <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1.5">
+                        <RefreshCw className="w-3 h-3 animate-spin text-slate-400" />
                         Verifying...
                       </span>
                     )}
+                    {slugAvailability.status === 'too_short' && (
+                      <span className="text-[10px] text-amber-600 font-mono flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        Min 3 chars
+                      </span>
+                    )}
                     {slugAvailability.status === 'available' && (
-                      <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 font-mono">
-                        <Check className="w-3 h-3" />
+                      <span className="text-[10px] text-emerald-600 font-semibold font-mono flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" />
                         Available
                       </span>
                     )}
                     {slugAvailability.status === 'unavailable' && (
-                      <span className="text-[10px] text-rose-600 font-semibold flex items-center gap-1 font-mono">
-                        <X className="w-3 h-3" />
-                        Taken
+                      <span className="text-[10px] text-rose-600 font-semibold font-mono flex items-center gap-1">
+                        <X className="w-3.5 h-3.5" />
+                        {slugAvailability.isReserved ? 'Reserved' : 'Taken'}
                       </span>
                     )}
                   </div>
-                  <div className="flex rounded-lg border border-slate-300 overflow-hidden bg-slate-50/50 focus-within:ring-1 focus-within:ring-slate-900 focus-within:border-slate-900 focus-within:bg-white transition-all">
+                  <div className={`flex rounded-lg border overflow-hidden transition-all ${
+                    slugAvailability.status === 'available'
+                      ? 'border-emerald-400 ring-1 ring-emerald-400/20 bg-emerald-50/10'
+                      : slugAvailability.status === 'unavailable'
+                      ? 'border-rose-400 ring-1 ring-rose-400/20 bg-rose-50/10'
+                      : 'border-slate-300 bg-slate-50/50 focus-within:ring-1 focus-within:ring-slate-900 focus-within:border-slate-900 focus-within:bg-white'
+                  }`}>
                     <input
                       type="text"
                       value={regSlug}
                       onChange={(e) => setRegSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                       required
-                      className="w-full pl-3 pr-1 py-2 text-xs text-slate-900 font-mono font-medium focus:outline-none bg-transparent"
+                      placeholder="e.g. falcon"
+                      className="w-full pl-3 pr-1 py-2 text-xs text-slate-900 font-mono font-medium focus:outline-none bg-transparent placeholder:text-slate-400"
                     />
-                    <span className="px-3 py-2 text-xs font-mono text-slate-400 bg-slate-100/80 border-l border-slate-200 select-none shrink-0">
+                    <span className="px-3 py-2 text-xs font-mono text-slate-500 bg-slate-100/80 border-l border-slate-200 select-none shrink-0">
                       .{baseDomain}
                     </span>
                   </div>
-                  <p className="mt-1 text-[11px] text-slate-400">
-                    Choose carefully — this cannot be changed in the future.
-                  </p>
+
+                  {slugAvailability.status === 'available' && (
+                    <p className="mt-1 text-[11px] text-emerald-700 font-medium flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                      <span>
+                        <strong className="font-mono">{slugAvailability.domain}</strong> is available.
+                      </span>
+                    </p>
+                  )}
+                  {slugAvailability.status === 'unavailable' && (
+                    <p className="mt-1 text-[11px] text-rose-600 font-medium flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{slugAvailability.message || 'This web address is unavailable. Please choose another.'}</span>
+                    </p>
+                  )}
+                  {slugAvailability.status === 'too_short' && (
+                    <p className="mt-1 text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                      <span>Must be 3 to 32 lowercase letters, numbers, or hyphens.</span>
+                    </p>
+                  )}
+                  {slugAvailability.status === 'checking' && (
+                    <p className="mt-1 text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
+                      <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
+                      <span>Checking <strong className="font-mono text-slate-600">{slugAvailability.domain}</strong>...</span>
+                    </p>
+                  )}
+                  {slugAvailability.status === 'idle' && (
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      Choose carefully — this institutional address cannot be changed in the future.
+                    </p>
+                  )}
                 </div>
 
                 {/* City & Phone (Two Column) */}
@@ -947,7 +988,7 @@ export const LoginModal: React.FC = () => {
 
                 <button
                   type="submit"
-                  disabled={loading || !regName.trim() || !regSlug.trim() || !regEmail.trim() || !regPassword || slugAvailability.status === 'unavailable'}
+                  disabled={loading || !regName.trim() || !regSlug.trim() || !regEmail.trim() || !regPassword || slugAvailability.status !== 'available'}
                   className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
