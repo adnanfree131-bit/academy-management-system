@@ -1341,3 +1341,12 @@ CREATE POLICY announcement_receipts_isolation_policy ON platform_announcement_re
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 
+
+-- =============================================================================
+-- APEX ACADEMY MANAGEMENT SYSTEM - MIGRATION 00009: INDIVIDUAL ACADEMY CONTROLS
+-- =============================================================================
+ALTER TABLE tenants DROP CONSTRAINT IF EXISTS tenants_status_check;
+ALTER TABLE tenants ADD CONSTRAINT tenants_status_check CHECK (status IN ('active', 'trial', 'grace_period', 'locked', 'suspended', 'archived', 'pending_verification'));
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS custom_monthly_fee NUMERIC(12, 2);
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS individual_grace_period_days INT;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS billing_cycle_anchor_day INT DEFAULT 1;

@@ -356,6 +356,97 @@ export function saasRoutes(store: IDataStore) {
     fastify.post('/tenants/:id/reinstate', reinstateTenantHandler);
     fastify.post('/saas/tenants/:id/reinstate', reinstateTenantHandler);
 
+    // 11b. Individual Academy Billing Controls, Renewals, Archive & Hard Delete
+    const updateTenantBillingHandler = async (req: any, reply: any) => {
+      try {
+        const { id } = req.params;
+        const tenant = await store.updateTenantBillingSettings(id, req.body);
+        return reply.send({
+          success: true,
+          data: tenant,
+          message: `Billing parameters updated for academy '${tenant.name}'.`,
+          timestamp: new Date().toISOString()
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'UPDATE_BILLING_FAILED', message: err.message || 'Failed updating billing parameters' }
+        });
+      }
+    };
+
+    const renewTenantSubscriptionHandler = async (req: any, reply: any) => {
+      try {
+        const { id } = req.params;
+        let reviewerEmail = 'kampuserp@gmail.com';
+        if (req.headers.authorization) {
+          try {
+            const decoded = fastify.jwt.decode(req.headers.authorization.replace(/^Bearer /i, '')) as JWTPayload;
+            if (decoded?.email) reviewerEmail = decoded.email;
+          } catch {}
+        }
+
+        const result = await store.renewTenantSubscription(id, req.body || {}, reviewerEmail);
+        return reply.send({
+          success: true,
+          data: result,
+          message: `Subscription extended up to ${new Date(result.tenant.subscription_renews_at!).toLocaleDateString()}. Approved receipt recorded in ledger.`,
+          timestamp: new Date().toISOString()
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'RENEW_SUBSCRIPTION_FAILED', message: err.message || 'Failed renewing subscription' }
+        });
+      }
+    };
+
+    const archiveTenantHandler = async (req: any, reply: any) => {
+      try {
+        const { id } = req.params;
+        const { reason } = req.body || {};
+        const tenant = await store.archiveTenant(id, reason);
+        return reply.send({
+          success: true,
+          data: tenant,
+          message: `Academy '${tenant.name}' archived successfully. Historical records preserved.`,
+          timestamp: new Date().toISOString()
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'ARCHIVE_TENANT_FAILED', message: err.message || 'Failed archiving academy' }
+        });
+      }
+    };
+
+    const hardDeleteTenantHandler = async (req: any, reply: any) => {
+      try {
+        const { id } = req.params;
+        const result = await store.hardDeleteTenant(id);
+        return reply.send({
+          success: true,
+          data: result,
+          message: `Academy data purged completely. Subdomain '${result.freed_slug}' has been released for registration.`,
+          timestamp: new Date().toISOString()
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'HARD_DELETE_FAILED', message: err.message || 'Failed purging academy' }
+        });
+      }
+    };
+
+    fastify.put('/tenants/:id/billing', updateTenantBillingHandler);
+    fastify.put('/saas/tenants/:id/billing', updateTenantBillingHandler);
+    fastify.post('/tenants/:id/renew', renewTenantSubscriptionHandler);
+    fastify.post('/saas/tenants/:id/renew', renewTenantSubscriptionHandler);
+    fastify.post('/tenants/:id/archive', archiveTenantHandler);
+    fastify.post('/saas/tenants/:id/archive', archiveTenantHandler);
+    fastify.delete('/tenants/:id/purge', hardDeleteTenantHandler);
+    fastify.delete('/saas/tenants/:id/purge', hardDeleteTenantHandler);
+
     // 12. SuperAdmin Broadcast Announcements
     const listAnnouncementsHandler = async (req: any, reply: any) => {
       try {
@@ -406,6 +497,41 @@ export function saasRoutes(store: IDataStore) {
       }
     };
 
+    const updateAnnouncementHandler = async (req: any, reply: any) => {
+      try {
+        const { id } = req.params;
+        const announcement = await store.updateAnnouncement(id, req.body || {});
+        return reply.send({
+          success: true,
+          data: announcement,
+          message: 'Announcement updated successfully.',
+          timestamp: new Date().toISOString()
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'UPDATE_ANNOUNCEMENT_FAILED', message: err.message || 'Failed updating announcement' }
+        });
+      }
+    };
+
+    const deleteAnnouncementHandler = async (req: any, reply: any) => {
+      try {
+        const { id } = req.params;
+        await store.deleteAnnouncement(id);
+        return reply.send({
+          success: true,
+          message: 'Announcement permanently deleted.',
+          timestamp: new Date().toISOString()
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'DELETE_ANNOUNCEMENT_FAILED', message: err.message || 'Failed deleting announcement' }
+        });
+      }
+    };
+
     const toggleAnnouncementHandler = async (req: any, reply: any) => {
       try {
         const { id } = req.params;
@@ -429,6 +555,10 @@ export function saasRoutes(store: IDataStore) {
     fastify.get('/saas/announcements', listAnnouncementsHandler);
     fastify.post('/announcements', createAnnouncementHandler);
     fastify.post('/saas/announcements', createAnnouncementHandler);
+    fastify.put('/announcements/:id', updateAnnouncementHandler);
+    fastify.put('/saas/announcements/:id', updateAnnouncementHandler);
+    fastify.delete('/announcements/:id', deleteAnnouncementHandler);
+    fastify.delete('/saas/announcements/:id', deleteAnnouncementHandler);
     fastify.put('/announcements/:id/toggle', toggleAnnouncementHandler);
     fastify.put('/saas/announcements/:id/toggle', toggleAnnouncementHandler);
 

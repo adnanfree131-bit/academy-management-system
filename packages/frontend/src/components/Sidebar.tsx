@@ -353,18 +353,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <ShieldAlert className={`w-4 h-4 ${currentScreen === 'superadmin' ? 'text-white' : 'text-purple-600'}`} />
                       <span>Academy Directory</span>
                     </button>
-
-                    <button 
-                      onClick={() => handleNavClick('dashboard')}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
-                        currentScreen === 'dashboard'
-                          ? 'bg-slate-900 text-white font-bold shadow-xs'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
-                      }`}
-                    >
-                      <LayoutDashboard className={`w-4 h-4 ${currentScreen === 'dashboard' ? 'text-white' : 'text-slate-500'}`} />
-                      <span>Campus Overview</span>
-                    </button>
                   </div>
                 </div>
               )}
@@ -597,29 +585,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
 
               {/* Mobile Access */}
-              <div>
-                <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
-                  Mobile Access
-                </p>
-                <button 
-                  onClick={() => handleNavClick('mobile')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
-                    currentScreen === 'mobile'
-                      ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                      : 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 font-semibold'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <Smartphone className={`w-4 h-4 ${currentScreen === 'mobile' ? 'text-white' : 'text-emerald-600'}`} />
-                    <span>Mobile App</span>
-                  </div>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold ${
-                    currentScreen === 'mobile' ? 'bg-white/20 text-white' : 'bg-emerald-700 text-white'
-                  }`}>
-                    PWA
-                  </span>
-                </button>
-              </div>
+              {role !== 'super_admin' && (
+                <div>
+                  <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
+                    Mobile Access
+                  </p>
+                  <button 
+                    onClick={() => handleNavClick('mobile')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
+                      currentScreen === 'mobile'
+                        ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                        : 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 font-semibold'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Smartphone className={`w-4 h-4 ${currentScreen === 'mobile' ? 'text-white' : 'text-emerald-600'}`} />
+                      <span>Mobile App</span>
+                    </div>
+                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold ${
+                      currentScreen === 'mobile' ? 'bg-white/20 text-white' : 'bg-emerald-700 text-white'
+                    }`}>
+                      PWA
+                    </span>
+                  </button>
+                </div>
+              )}
 
             </nav>
           </div>

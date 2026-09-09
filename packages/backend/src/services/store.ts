@@ -380,10 +380,16 @@ export interface IDataStore {
   updatePlatformConfig(updates: Partial<PlatformGlobalConfig>): Promise<PlatformGlobalConfig>;
   updateTenantSubdomain(tenantId: string, newSlug: string): Promise<{ tenant: Tenant; previous_slug: string; redirect_url: string }>;
   resolveTenantBySlugOrAlias(slug: string): Promise<{ tenant: Tenant | null; is_alias: boolean; primary_slug: string | null }>;
+  updateTenantBillingSettings(tenantId: string, updates: { custom_monthly_fee?: number; individual_grace_period_days?: number; billing_cycle_anchor_day?: number }): Promise<Tenant>;
+  renewTenantSubscription(tenantId: string, params: { duration_months: number; custom_amount?: number; payment_method?: string; reference_number?: string; notes?: string }, reviewedByEmail?: string): Promise<{ tenant: Tenant; receipt: SubscriptionPaymentReceipt }>;
+  archiveTenant(tenantId: string, reason?: string): Promise<Tenant>;
+  hardDeleteTenant(tenantId: string): Promise<{ success: boolean; deleted_tenant_id: string; freed_slug: string }>;
   suspendTenant(tenantId: string, reason?: string): Promise<Tenant>;
   reinstateTenant(tenantId: string): Promise<Tenant>;
   createAnnouncement(params: Omit<PlatformAnnouncement, 'id' | 'created_at'>): Promise<PlatformAnnouncement>;
   getAnnouncements(onlyActive?: boolean): Promise<PlatformAnnouncement[]>;
+  updateAnnouncement(id: string, updates: Partial<PlatformAnnouncement>): Promise<PlatformAnnouncement>;
+  deleteAnnouncement(id: string): Promise<boolean>;
   toggleAnnouncement(id: string, isActive: boolean): Promise<PlatformAnnouncement>;
   getActivePopupForTenant(tenantId: string, userId: string): Promise<PlatformAnnouncement | null>;
   dismissAnnouncement(announcementId: string, userId: string, tenantId: string): Promise<boolean>;
@@ -3958,23 +3964,44 @@ export class InMemoryDataStore implements IDataStore {
     const trialEnds = new Date(tenant.trial_ends_at);
     const diffMs = trialEnds.getTime() - now.getTime();
     const daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-    const isLocked = tenant.status === 'locked' || (tenant.status === 'trial' && diffMs <= 0);
+    const effectiveGraceDays = tenant.individual_grace_period_days ?? this.platformGlobalConfig?.grace_period_days ?? 5;
+    const gracePeriodMs = effectiveGraceDays * 86400000;
+
+    let effectiveStatus = tenant.status;
+    if (tenant.status === 'trial' && diffMs <= 0) {
+      if (Math.abs(diffMs) <= gracePeriodMs) {
+        effectiveStatus = 'grace_period';
+      } else {
+        effectiveStatus = 'locked';
+      }
+    }
+
+    const isLocked = effectiveStatus === 'locked' || effectiveStatus === 'suspended' || effectiveStatus === 'archived' || (tenant.status === 'trial' && diffMs < -gracePeriodMs);
 
     const pendingReceipt = this.subscriptionReceipts.find(
       r => r.tenant_id === tenantId && r.status === 'PENDING'
     ) || null;
 
+    let lockReason: string | null = null;
+    if (isLocked) {
+      if (tenant.status === 'archived') {
+        lockReason = tenant.suspended_reason || 'This academy has been archived by the platform administrator.';
+      } else if (tenant.status === 'suspended') {
+        lockReason = tenant.suspended_reason || 'Account administratively suspended.';
+      } else {
+        lockReason = 'Your 30-day free trial has expired. To continue using the academy system, please transfer the subscription fee to the bank details below and send your receipt for immediate account activation.';
+      }
+    }
+
     return {
       tenant_id: tenant.id,
       tenant_name: tenant.name,
-      status: tenant.status,
+      status: effectiveStatus,
       trial_ends_at: tenant.trial_ends_at,
       subscription_renews_at: tenant.subscription_renews_at || null,
       days_remaining: daysRemaining,
       is_locked: isLocked,
-      lock_reason: isLocked
-        ? 'Your 30-day free trial has expired. To continue using the academy system, please transfer the subscription fee to the bank details below and send your receipt for immediate account activation.'
-        : null,
+      lock_reason: lockReason,
       banking_config: { ...this.platformBankingConfig },
       pending_receipt: pendingReceipt ? { ...pendingReceipt } : null
     };
@@ -4211,6 +4238,7 @@ export class InMemoryDataStore implements IDataStore {
     const trialTenants = tenantsList.filter(t => t.status === 'trial' && new Date(t.trial_ends_at).getTime() > now).length;
     const lockedTenants = tenantsList.filter(t => t.status === 'locked' || (t.status === 'trial' && new Date(t.trial_ends_at).getTime() <= now)).length;
     const suspendedTenants = tenantsList.filter(t => t.status === 'suspended').length;
+    const archivedTenants = tenantsList.filter(t => t.status === 'archived').length;
 
     const mrr = activeTenants * (this.platformGlobalConfig?.monthly_subscription_fee || 15000);
     const arr = mrr * 12;
@@ -4222,6 +4250,18 @@ export class InMemoryDataStore implements IDataStore {
       const teacherCount = Array.from(this.users.values()).filter(u => u.tenant_id === t.id && u.role === 'teacher').length;
       const pendingReceipt = this.subscriptionReceipts.find(r => r.tenant_id === t.id && r.status === 'PENDING') || null;
       const aliases = this.tenantAliases.filter(a => a.tenant_id === t.id).map(a => a.alias_slug);
+
+      const customFee = t.custom_monthly_fee ?? this.platformGlobalConfig?.monthly_subscription_fee ?? 15000;
+      const individualGrace = t.individual_grace_period_days ?? this.platformGlobalConfig?.grace_period_days ?? 5;
+      const anchorDay = t.billing_cycle_anchor_day || (new Date(t.trial_ends_at || t.created_at || '2026-09-01').getDate());
+
+      const tenantReceipts = this.subscriptionReceipts.filter(r => r.tenant_id === t.id);
+      const totalPaidAmount = tenantReceipts
+        .filter(r => r.status === 'APPROVED')
+        .reduce((sum, r) => sum + (r.amount || 0), 0);
+
+      const isOverdue = t.status === 'locked' || (t.status === 'trial' && new Date(t.trial_ends_at).getTime() <= now);
+      const pendingDues = isOverdue ? customFee : 0;
 
       return {
         id: t.id,
@@ -4235,7 +4275,14 @@ export class InMemoryDataStore implements IDataStore {
         student_count: studentCount || (t.slug === 'apex' ? 1180 : 240),
         teacher_count: teacherCount || (t.slug === 'apex' ? 45 : 18),
         pending_receipt: pendingReceipt,
-        aliases
+        aliases,
+        custom_monthly_fee: customFee,
+        individual_grace_period_days: individualGrace,
+        billing_cycle_anchor_day: anchorDay,
+        total_paid_amount: totalPaidAmount,
+        pending_dues_amount: pendingDues,
+        created_at: t.created_at,
+        payment_history: tenantReceipts
       };
     });
 
@@ -4245,6 +4292,7 @@ export class InMemoryDataStore implements IDataStore {
       trial_tenants: trialTenants,
       locked_tenants: lockedTenants,
       suspended_tenants: suspendedTenants,
+      archived_tenants: archivedTenants,
       platform_mrr: mrr,
       platform_arr: arr,
       pending_receipts_count: pendingReceiptsCount,
@@ -4355,6 +4403,197 @@ export class InMemoryDataStore implements IDataStore {
     return { ...tenant };
   }
 
+  computeRenewalDate(currentDateStr: string | null | undefined, durationMonths: number, anchorDay?: number): string {
+    const now = new Date();
+    const currentExpiry = currentDateStr && new Date(currentDateStr).getTime() > now.getTime()
+      ? new Date(currentDateStr)
+      : now;
+
+    const day = anchorDay || currentExpiry.getDate();
+    let targetYear = currentExpiry.getFullYear();
+    let targetMonth = currentExpiry.getMonth() + durationMonths;
+
+    while (targetMonth >= 12) {
+      targetMonth -= 12;
+      targetYear += 1;
+    }
+    while (targetMonth < 0) {
+      targetMonth += 12;
+      targetYear -= 1;
+    }
+
+    const maxDaysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+    const effectiveDay = Math.min(day, maxDaysInTargetMonth);
+
+    const result = new Date(targetYear, targetMonth, effectiveDay, 23, 59, 59, 999);
+    return result.toISOString();
+  }
+
+  async updateTenantBillingSettings(
+    tenantId: string, 
+    updates: { 
+      custom_monthly_fee?: number; 
+      individual_grace_period_days?: number; 
+      billing_cycle_anchor_day?: number; 
+    }
+  ): Promise<Tenant> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) throw new Error(`Tenant not found: ${tenantId}`);
+
+    if (updates.custom_monthly_fee !== undefined) {
+      tenant.custom_monthly_fee = Number(updates.custom_monthly_fee);
+    }
+    if (updates.individual_grace_period_days !== undefined) {
+      tenant.individual_grace_period_days = Number(updates.individual_grace_period_days);
+    }
+    if (updates.billing_cycle_anchor_day !== undefined) {
+      tenant.billing_cycle_anchor_day = Number(updates.billing_cycle_anchor_day);
+    }
+    tenant.updated_at = new Date().toISOString();
+    this.tenants.set(tenant.id, tenant);
+    return { ...tenant };
+  }
+
+  async renewTenantSubscription(
+    tenantId: string, 
+    params: { 
+      duration_months: number; 
+      custom_amount?: number; 
+      payment_method?: string; 
+      reference_number?: string; 
+      notes?: string; 
+    },
+    reviewedByEmail: string = 'kampuserp@gmail.com'
+  ): Promise<{ tenant: Tenant; receipt: SubscriptionPaymentReceipt }> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) throw new Error(`Tenant not found: ${tenantId}`);
+
+    const durationMonths = Math.max(1, params.duration_months || 1);
+    const anchorDay = tenant.billing_cycle_anchor_day || new Date(tenant.trial_ends_at || tenant.created_at || Date.now()).getDate();
+    const newExpiry = this.computeRenewalDate(tenant.subscription_renews_at || tenant.trial_ends_at, durationMonths, anchorDay);
+
+    tenant.status = 'active';
+    tenant.trial_ends_at = newExpiry;
+    tenant.subscription_renews_at = newExpiry;
+    tenant.suspended_reason = null;
+    tenant.updated_at = new Date().toISOString();
+    this.tenants.set(tenant.id, tenant);
+
+    const monthlyRate = tenant.custom_monthly_fee ?? this.platformGlobalConfig?.monthly_subscription_fee ?? 15000;
+    const amount = params.custom_amount !== undefined ? Number(params.custom_amount) : (monthlyRate * durationMonths);
+
+    const receipt: SubscriptionPaymentReceipt = {
+      id: `sub-rec-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+      tenant_id: tenant.id,
+      tenant_name: tenant.name,
+      uploaded_by_user_id: null,
+      uploaded_by_email: reviewedByEmail,
+      amount,
+      plan_duration_months: durationMonths,
+      payment_method: params.payment_method || 'BANK_TRANSFER',
+      reference_number: params.reference_number || `REC-${Date.now().toString().slice(-6)}`,
+      receipt_image_url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400',
+      notes: params.notes || `Subscription renewed for ${durationMonths} month(s) up to ${new Date(newExpiry).toLocaleDateString()}`,
+      status: 'APPROVED',
+      reviewed_by_email: reviewedByEmail,
+      reviewed_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    this.subscriptionReceipts.unshift(receipt);
+    return { tenant: { ...tenant }, receipt };
+  }
+
+  async archiveTenant(tenantId: string, reason?: string): Promise<Tenant> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) throw new Error(`Tenant not found: ${tenantId}`);
+
+    tenant.status = 'archived';
+    tenant.suspended_reason = reason || 'Archived by platform administrator';
+    tenant.updated_at = new Date().toISOString();
+    this.tenants.set(tenant.id, tenant);
+    return { ...tenant };
+  }
+
+  async hardDeleteTenant(tenantId: string): Promise<{ success: boolean; deleted_tenant_id: string; freed_slug: string }> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) throw new Error(`Tenant not found: ${tenantId}`);
+    const freedSlug = tenant.slug;
+
+    // Purge users & passwords
+    const usersToDelete: string[] = [];
+    for (const [uid, u] of this.users.entries()) {
+      if (u.tenant_id === tenantId) {
+        usersToDelete.push(uid);
+      }
+    }
+    for (const uid of usersToDelete) {
+      this.users.delete(uid);
+    }
+
+    // Purge all academic, attendance, fee, exam, whatsapp entities
+    if (this.students) this.students = this.students.filter(s => s.tenant_id !== tenantId);
+    if (this.batches) this.batches = this.batches.filter(b => b.tenant_id !== tenantId);
+    if (this.programs) this.programs = this.programs.filter(p => p.tenant_id !== tenantId);
+    if (this.inquiries) this.inquiries = this.inquiries.filter(i => i.tenant_id !== tenantId);
+    if (this.subjects) this.subjects = this.subjects.filter(s => s.tenant_id !== tenantId);
+    if (this.subjectGroups) this.subjectGroups = this.subjectGroups.filter(s => s.tenant_id !== tenantId);
+    if (this.customFields) this.customFields = this.customFields.filter(c => c.tenant_id !== tenantId);
+
+    if (this.timetableSlots) this.timetableSlots = this.timetableSlots.filter(s => s.tenant_id !== tenantId);
+    if (this.rooms) this.rooms = this.rooms.filter(r => r.tenant_id !== tenantId);
+    if (this.studentAttendance) this.studentAttendance = this.studentAttendance.filter(a => a.tenant_id !== tenantId);
+    if (this.leaveApplications) this.leaveApplications = this.leaveApplications.filter(l => l.tenant_id !== tenantId);
+    if (this.staffAttendance) this.staffAttendance = this.staffAttendance.filter(a => a.tenant_id !== tenantId);
+    if (this.homeworkAssignments) this.homeworkAssignments = this.homeworkAssignments.filter(h => h.tenant_id !== tenantId);
+    if (this.notebookChecks) this.notebookChecks = this.notebookChecks.filter(n => n.tenant_id !== tenantId);
+    if (this.complaints) this.complaints = this.complaints.filter(c => c.tenant_id !== tenantId);
+
+    if (this.feeHeads) this.feeHeads = this.feeHeads.filter(f => f.tenant_id !== tenantId);
+    if (this.feeStructures) this.feeStructures = this.feeStructures.filter(f => f.tenant_id !== tenantId);
+    if (this.invoices) this.invoices = this.invoices.filter(f => f.tenant_id !== tenantId);
+    if (this.feePayments) this.feePayments = this.feePayments.filter(p => p.tenant_id !== tenantId);
+    if (this.feeDiscounts) this.feeDiscounts = this.feeDiscounts.filter(d => d.tenant_id !== tenantId);
+    if (this.accountHeads) this.accountHeads = this.accountHeads.filter(a => a.tenant_id !== tenantId);
+    if (this.financialTransactions) this.financialTransactions = this.financialTransactions.filter(t => t.tenant_id !== tenantId);
+    if (this.staffSalaryProfiles) this.staffSalaryProfiles = this.staffSalaryProfiles.filter(p => p.tenant_id !== tenantId);
+    if (this.staffPayslips) this.staffPayslips = this.staffPayslips.filter(p => p.tenant_id !== tenantId);
+
+    if (this.questionChapters) this.questionChapters = this.questionChapters.filter(c => c.tenant_id !== tenantId);
+    if (this.bankQuestions) this.bankQuestions = this.bankQuestions.filter(q => q.tenant_id !== tenantId);
+    if (this.exams) this.exams = this.exams.filter(e => e.tenant_id !== tenantId);
+    if (this.examQuestions) this.examQuestions = this.examQuestions.filter(q => q.tenant_id !== tenantId);
+    if (this.studentExamEvaluations) this.studentExamEvaluations = this.studentExamEvaluations.filter(e => e.tenant_id !== tenantId);
+
+    if (this.whatsappTemplates) this.whatsappTemplates = this.whatsappTemplates.filter(t => t.tenant_id !== tenantId);
+    if (this.whatsappAuditLogs) this.whatsappAuditLogs = this.whatsappAuditLogs.filter(l => l.tenant_id !== tenantId);
+    if (this.absenteeFollowups) this.absenteeFollowups = this.absenteeFollowups.filter(f => f.tenant_id !== tenantId);
+    if (this.retentionCases) this.retentionCases = this.retentionCases.filter(r => r.tenant_id !== tenantId);
+
+    // Purge SaaS receipts and announcement read receipts
+    if (this.subscriptionReceipts) this.subscriptionReceipts = this.subscriptionReceipts.filter(r => r.tenant_id !== tenantId);
+    if (this.announcementReceipts) this.announcementReceipts = this.announcementReceipts.filter(r => r.tenant_id !== tenantId);
+
+    // Release Subdomain & Aliases so slug is immediately available again
+    if (this.tenantAliases) {
+      this.tenantAliases = this.tenantAliases.filter(
+        a => a.tenant_id !== tenantId && a.alias_slug !== freedSlug
+      );
+    }
+    if (this.geofenceConfigs) this.geofenceConfigs.delete(tenantId);
+    if (this.feePriorityConfigs) this.feePriorityConfigs.delete(tenantId);
+
+    // Remove tenant record
+    this.tenants.delete(tenantId);
+
+    return {
+      success: true,
+      deleted_tenant_id: tenantId,
+      freed_slug: freedSlug
+    };
+  }
+
   async createAnnouncement(params: Omit<PlatformAnnouncement, 'id' | 'created_at'>): Promise<PlatformAnnouncement> {
     const announcement: PlatformAnnouncement = {
       id: `ann-${crypto.randomUUID()}`,
@@ -4370,6 +4609,33 @@ export class InMemoryDataStore implements IDataStore {
       return this.announcements.filter(a => a.is_active);
     }
     return [...this.announcements];
+  }
+
+  async updateAnnouncement(id: string, updates: Partial<PlatformAnnouncement>): Promise<PlatformAnnouncement> {
+    const ann = this.announcements.find(a => a.id === id);
+    if (!ann) throw new Error(`Announcement not found: ${id}`);
+
+    if (updates.title !== undefined) ann.title = updates.title;
+    if (updates.message !== undefined) ann.message = updates.message;
+    if (updates.type !== undefined) ann.type = updates.type;
+    if (updates.frequency !== undefined) ann.frequency = updates.frequency;
+    if (updates.target_audience !== undefined) ann.target_audience = updates.target_audience;
+    if (updates.target_tenant_id !== undefined) ann.target_tenant_id = updates.target_tenant_id;
+    if (updates.action_label !== undefined) ann.action_label = updates.action_label;
+    if (updates.action_url !== undefined) ann.action_url = updates.action_url;
+    if (updates.is_active !== undefined) ann.is_active = updates.is_active;
+    ann.updated_at = new Date().toISOString();
+
+    return { ...ann };
+  }
+
+  async deleteAnnouncement(id: string): Promise<boolean> {
+    const index = this.announcements.findIndex(a => a.id === id);
+    if (index === -1) throw new Error(`Announcement not found: ${id}`);
+
+    this.announcements.splice(index, 1);
+    this.announcementReceipts = this.announcementReceipts.filter(r => r.announcement_id !== id);
+    return true;
   }
 
   async toggleAnnouncement(id: string, isActive: boolean): Promise<PlatformAnnouncement> {

@@ -2,7 +2,7 @@
  * @apex/shared-types
  * Core domain types and API contract definitions for Apex Academy Management System
  */
-export type TenantStatus = 'active' | 'trial' | 'grace_period' | 'locked' | 'suspended' | 'pending_verification';
+export type TenantStatus = 'active' | 'trial' | 'grace_period' | 'locked' | 'suspended' | 'pending_verification' | 'archived';
 export type SubscriptionTier = 'starter' | 'standard' | 'enterprise';
 export interface Tenant {
     id: string;
@@ -17,6 +17,9 @@ export interface Tenant {
     subscription_renews_at?: string | null;
     suspended_reason?: string | null;
     settings: TenantSettings;
+    custom_monthly_fee?: number;
+    individual_grace_period_days?: number;
+    billing_cycle_anchor_day?: number;
     created_at: string;
     updated_at: string;
 }
@@ -1066,6 +1069,13 @@ export interface SuperAdminTenantSummary {
     teacher_count: number;
     pending_receipt?: SubscriptionPaymentReceipt | null;
     aliases?: string[];
+    custom_monthly_fee?: number;
+    individual_grace_period_days?: number;
+    billing_cycle_anchor_day?: number;
+    total_paid_amount?: number;
+    pending_dues_amount?: number;
+    created_at?: string;
+    payment_history?: SubscriptionPaymentReceipt[];
 }
 export interface SuperAdminOverview {
     total_tenants: number;
@@ -1073,6 +1083,7 @@ export interface SuperAdminOverview {
     trial_tenants: number;
     locked_tenants: number;
     suspended_tenants: number;
+    archived_tenants?: number;
     platform_mrr: number;
     platform_arr: number;
     pending_receipts_count: number;
@@ -1081,5 +1092,17 @@ export interface SuperAdminOverview {
     tenants: SuperAdminTenantSummary[];
     recent_receipts: SubscriptionPaymentReceipt[];
     announcements: PlatformAnnouncement[];
+}
+export interface UpdateTenantBillingRequest {
+    custom_monthly_fee?: number;
+    individual_grace_period_days?: number;
+    billing_cycle_anchor_day?: number;
+}
+export interface RenewTenantSubscriptionRequest {
+    duration_months: number;
+    custom_amount?: number;
+    payment_method?: string;
+    reference_number?: string;
+    notes?: string;
 }
 //# sourceMappingURL=index.d.ts.map

@@ -12,6 +12,7 @@ describe('SuperAdmin Control Plane: Trial Policies, Aliasing, Suspension & Popup
   let studentToken: string;
 
   const TENANT_A_ID = 'a0000000-0000-0000-0000-000000000001'; // Apex Academy
+  const TENANT_B_ID = 'b0000000-0000-0000-0000-000000000002'; // Crescent Academy
 
   beforeAll(async () => {
     store = new InMemoryDataStore();
@@ -412,6 +413,230 @@ describe('SuperAdmin Control Plane: Trial Policies, Aliasing, Suspension & Popup
       });
       expect(popupRes2.statusCode).toBe(200);
       expect(JSON.parse(popupRes2.body).data?.id).toBe(announcement.id);
+    });
+
+    it('allows SuperAdmin to update and delete announcements', async () => {
+      // 1. Create an announcement
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/saas/announcements',
+        headers: { authorization: `Bearer ${superAdminToken}` },
+        payload: {
+          title: 'Draft Notice',
+          message: 'This is a draft notice message.',
+          type: 'warning',
+          frequency: 'once_dismissible',
+          target_audience: 'all'
+        }
+      });
+      expect(createRes.statusCode).toBe(201);
+      const ann = JSON.parse(createRes.body).data;
+
+      // 2. Update the announcement
+      const updateRes = await app.inject({
+        method: 'PUT',
+        url: `/api/v1/saas/announcements/${ann.id}`,
+        headers: { authorization: `Bearer ${superAdminToken}` },
+        payload: {
+          title: 'Updated Official Advisory',
+          message: 'Corrected instructions for all campus administrators.',
+          action_label: 'View Guidelines',
+          action_url: 'https://app.kampus.pk/docs'
+        }
+      });
+      expect(updateRes.statusCode).toBe(200);
+      const updatedData = JSON.parse(updateRes.body).data;
+      expect(updatedData.title).toBe('Updated Official Advisory');
+      expect(updatedData.action_label).toBe('View Guidelines');
+
+      // 3. Delete the announcement
+      const deleteRes = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/saas/announcements/${ann.id}`,
+        headers: { authorization: `Bearer ${superAdminToken}` }
+      });
+      expect(deleteRes.statusCode).toBe(200);
+
+      // 4. Verify it is gone
+      const listRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/saas/announcements',
+        headers: { authorization: `Bearer ${superAdminToken}` }
+      });
+      const list = JSON.parse(listRes.body).data;
+      expect(list.some((a: any) => a.id === ann.id)).toBe(false);
+    });
+  });
+
+  // 6. Individual Academy Billing Controls & Advance Subscriptions
+  describe('Individual Academy Management & Billing Controls', () => {
+    it('updates custom monthly fee, anchor day, and individual grace period', async () => {
+      const billingRes = await app.inject({
+        method: 'PUT',
+        url: `/api/v1/saas/tenants/${TENANT_A_ID}/billing`,
+        headers: { authorization: `Bearer ${superAdminToken}` },
+        payload: {
+          custom_monthly_fee: 12500,
+          individual_grace_period_days: 14,
+          billing_cycle_anchor_day: 15
+        }
+      });
+
+      expect(billingRes.statusCode).toBe(200);
+      const json = JSON.parse(billingRes.body);
+      expect(json.success).toBe(true);
+      expect(json.data.custom_monthly_fee).toBe(12500);
+      expect(json.data.individual_grace_period_days).toBe(14);
+      expect(json.data.billing_cycle_anchor_day).toBe(15);
+
+      // Verify reflected in SuperAdmin Overview
+      const overviewRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/saas/superadmin/overview',
+        headers: { authorization: `Bearer ${superAdminToken}` }
+      });
+      const overviewJson = JSON.parse(overviewRes.body);
+      const tenantA = overviewJson.data.tenants.find((t: any) => t.id === TENANT_A_ID);
+      expect(tenantA.custom_monthly_fee).toBe(12500);
+      expect(tenantA.individual_grace_period_days).toBe(14);
+      expect(tenantA.billing_cycle_anchor_day).toBe(15);
+    });
+
+    it('records 1-month auto-extend payment with anchored date calculation', async () => {
+      const renewRes = await app.inject({
+        method: 'POST',
+        url: `/api/v1/saas/tenants/${TENANT_A_ID}/renew`,
+        headers: { authorization: `Bearer ${superAdminToken}` },
+        payload: {
+          duration_months: 1,
+          payment_method: 'MEEZAN_BANK_IBFT',
+          reference_number: 'MEEZAN-99281',
+          notes: 'Regular 1-month monthly subscription payment received.'
+        }
+      });
+
+      expect(renewRes.statusCode).toBe(200);
+      const renewJson = JSON.parse(renewRes.body);
+      expect(renewJson.success).toBe(true);
+      expect(renewJson.data.tenant.status).toBe('active');
+      expect(renewJson.data.receipt.amount).toBe(12500); // respects custom fee!
+      expect(renewJson.data.receipt.status).toBe('APPROVED');
+      expect(renewJson.data.receipt.reference_number).toBe('MEEZAN-99281');
+
+      // Due date day should match anchor day 15
+      const newExpiry = new Date(renewJson.data.tenant.subscription_renews_at);
+      expect(newExpiry.getDate()).toBe(15);
+    });
+
+    it('records 3-month advance payment with custom negotiated amount', async () => {
+      const advanceRes = await app.inject({
+        method: 'POST',
+        url: `/api/v1/saas/tenants/${TENANT_A_ID}/renew`,
+        headers: { authorization: `Bearer ${superAdminToken}` },
+        payload: {
+          duration_months: 3,
+          custom_amount: 35000, // discounted from 37,500
+          payment_method: 'CASH',
+          reference_number: 'CASH-ADV-Q1',
+          notes: 'Quarterly advance payment in cash at head office.'
+        }
+      });
+
+      expect(advanceRes.statusCode).toBe(200);
+      const advanceJson = JSON.parse(advanceRes.body);
+      expect(advanceJson.success).toBe(true);
+      expect(advanceJson.data.receipt.amount).toBe(35000);
+      expect(advanceJson.data.receipt.plan_duration_months).toBe(3);
+      expect(advanceJson.data.receipt.status).toBe('APPROVED');
+      expect(advanceJson.data.receipt.payment_method).toBe('CASH');
+    });
+
+    it('soft archives academy and keeps records intact', async () => {
+      const archiveRes = await app.inject({
+        method: 'POST',
+        url: `/api/v1/saas/tenants/${TENANT_B_ID}/archive`,
+        headers: { authorization: `Bearer ${superAdminToken}` },
+        payload: {
+          reason: 'Client requested seasonal hiatus for summer break.'
+        }
+      });
+
+      expect(archiveRes.statusCode).toBe(200);
+      const archiveJson = JSON.parse(archiveRes.body);
+      expect(archiveJson.data.status).toBe('archived');
+      expect(archiveJson.data.suspended_reason).toContain('summer break');
+
+      // Status check should report archived lockout
+      const statusRes = await store.getTenantTrialStatus(TENANT_B_ID);
+      expect(statusRes.is_locked).toBe(true);
+      expect(statusRes.lock_reason).toContain('summer break');
+
+      // Overview reports archived_tenants count
+      const overviewRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/saas/superadmin/overview',
+        headers: { authorization: `Bearer ${superAdminToken}` }
+      });
+      const overviewJson = JSON.parse(overviewRes.body);
+      expect(overviewJson.data.archived_tenants).toBeGreaterThanOrEqual(1);
+
+      // Reinstate unarchives cleanly
+      const reinstateRes = await app.inject({
+        method: 'POST',
+        url: `/api/v1/saas/tenants/${TENANT_B_ID}/reinstate`,
+        headers: { authorization: `Bearer ${superAdminToken}` }
+      });
+      expect(reinstateRes.statusCode).toBe(200);
+      expect(JSON.parse(reinstateRes.body).data.status).toBe('active');
+    });
+
+    it('hard deletes academy, wipes all child data, and immediately releases the subdomain slug for new registration', async () => {
+      // 1. Create a dummy academy to wipe
+      const regRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/register',
+        payload: {
+          name: 'Disposable Academy',
+          slug: 'disposable-academy',
+          admin_name: 'Director Disposable',
+          admin_email: 'director@disposable.pk',
+          password: 'Password123!',
+          phone: '+923001112233',
+          city: 'Rawalpindi'
+        }
+      });
+      expect(regRes.statusCode).toBe(201);
+      const dummyTenantId = JSON.parse(regRes.body).data.tenant.id;
+
+      // Check slug is occupied
+      const checkRes1 = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/check-domain?slug=disposable-academy'
+      });
+      expect(JSON.parse(checkRes1.body).data.available).toBe(false);
+
+      // 2. Perform Hard Delete (Data Wipe & Domain Release)
+      const purgeRes = await app.inject({
+        method: 'DELETE',
+        url: `/api/v1/saas/tenants/${dummyTenantId}/purge`,
+        headers: { authorization: `Bearer ${superAdminToken}` }
+      });
+
+      expect(purgeRes.statusCode).toBe(200);
+      const purgeJson = JSON.parse(purgeRes.body);
+      expect(purgeJson.success).toBe(true);
+      expect(purgeJson.data.freed_slug).toBe('disposable-academy');
+
+      // 3. Subdomain is now AVAILABLE again immediately!
+      const checkRes2 = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/check-domain?slug=disposable-academy'
+      });
+      expect(JSON.parse(checkRes2.body).data.available).toBe(true);
+
+      // 4. Verify tenant is completely wiped from store
+      const tenantCheck = await store.getTenantById(dummyTenantId);
+      expect(tenantCheck).toBeNull();
     });
   });
 });
