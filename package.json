@@ -2,7 +2,7 @@
   "name": "academy-management-system",
   "version": "1.0.0",
   "private": true,
-  "description": "Enterprise Academy Management ERP with Multi-Tenancy, PostgreSQL RLS & Fastify",
+  "description": "Enterprise Academy Management System with Multi-Tenancy, PostgreSQL RLS & Fastify",
   "packageManager": "pnpm@9.15.9",
   "scripts": {
     "dev": "pnpm --parallel --filter @apex/backend --filter @apex/frontend dev",

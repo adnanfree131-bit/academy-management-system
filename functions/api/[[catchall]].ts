@@ -48,8 +48,8 @@ export const onRequest = async (context: PagesContext): Promise<Response> => {
     const resHeaders = new Headers(backendResponse.headers);
     resHeaders.set('Access-Control-Allow-Origin', url.origin);
     resHeaders.set('Access-Control-Allow-Credentials', 'true');
-    resHeaders.set('Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    resHeaders.set('Access-Control-Allow-Headers': 'Content-Type, Authorization, x-tenant-id');
+    resHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    resHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-tenant-id');
 
     return new Response(backendResponse.body, {
       status: backendResponse.status,
