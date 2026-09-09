@@ -412,11 +412,6 @@ export const LoginModal: React.FC = () => {
 
           </div>
 
-          {/* Bottom Bar: Clean Session Mention */}
-          <div className="relative z-10 pt-4 border-t border-slate-900/80 flex items-center justify-between text-xs text-slate-500 font-mono">
-            <span>Academic Session</span>
-            <span className="text-slate-400 font-medium">2026–2027</span>
-          </div>
         </div>
 
         {/* ================================================================ */}
@@ -424,17 +419,15 @@ export const LoginModal: React.FC = () => {
         {/* ================================================================ */}
         <div className="lg:col-span-7 bg-white p-6 sm:p-10 lg:p-12 flex flex-col justify-between min-h-[600px] overflow-y-auto">
           
-          {/* Top Bar: Clean Brand Logo & Mode Switcher */}
+          {/* Top Bar: Mode Switcher */}
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-2.5">
-              <img src="/kampus-logo.png" alt="Kampus" className="h-5 w-auto object-contain" />
+            <div>
+              {/* Mobile-only brand logo (since left column is hidden on mobile screens) */}
+              <img src="/kampus-logo.png" alt="Kampus" className="h-5 w-auto object-contain lg:hidden" />
               {tenantSlug && branding?.name && (
-                <>
-                  <span className="text-slate-300">/</span>
-                  <span className="text-xs font-semibold text-slate-700 truncate max-w-[180px]">
-                    {branding.name}
-                  </span>
-                </>
+                <span className="text-xs font-semibold text-slate-700 truncate max-w-[180px]">
+                  {branding.name}
+                </span>
               )}
             </div>
 
