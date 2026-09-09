@@ -76,7 +76,7 @@ const getTitle = (screen: string, role?: string): string => {
     case 'complaints': return 'Complaints & Feedback';
     case 'settings': return 'Academy Settings';
     case 'mobile': return 'Mobile App';
-    default: return 'Apex Academy';
+    default: return 'Academy Portal';
   }
 };
 

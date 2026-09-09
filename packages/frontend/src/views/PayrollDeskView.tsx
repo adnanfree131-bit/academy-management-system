@@ -691,7 +691,7 @@ export const PayrollDeskView: React.FC = () => {
             {/* Printable Payslip Card */}
             <div className="border border-slate-300 p-6 rounded-xl bg-white space-y-4 text-xs font-mono">
               <div className="text-center border-b border-slate-300 pb-3 space-y-1">
-                <h2 className="font-black text-slate-900 text-base uppercase tracking-tight">{tenant?.name || 'APEX ACADEMY LAHORE'}</h2>
+                <h2 className="font-black text-slate-900 text-base uppercase tracking-tight">{tenant?.name || 'ACADEMY PORTAL'}</h2>
                 <p className="text-[10px] text-slate-500">{tenant?.campus_name || 'Main Campus'} • Official Salary Disbursement Slip</p>
                 <span className="inline-block px-3 py-0.5 rounded bg-slate-900 text-white text-[10px] font-bold">
                   PAYSLIP FOR {printPayslip.payroll_month.toUpperCase()}

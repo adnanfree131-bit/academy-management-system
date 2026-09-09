@@ -183,7 +183,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
       batch_name: item.batch_name,
       guardian_name: item.guardian_name,
       current_date: item.date,
-      academy_name: tenant?.name || 'Apex Academy Lahore',
+      academy_name: tenant?.name || 'Academy',
       academy_phone: '+92 42 35870000',
       due_amount: '8,000',
       due_date: '2026-09-20',

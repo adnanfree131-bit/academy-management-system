@@ -98,17 +98,14 @@ Support: info@kampus.pk
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="left" style="vertical-align: middle;">
-                    <table role="presentation" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="width: 36px; height: 36px; background-color: #312e81; border-radius: 8px; text-align: center; vertical-align: middle; color: #ffffff; font-size: 18px; font-weight: 700;">
-                          🎓
-                        </td>
-                        <td style="padding-left: 12px; vertical-align: middle;">
-                          <div style="font-size: 16px; font-weight: 800; letter-spacing: 0.5px; color: #0f172a; line-height: 1.1;">KAMPUS</div>
-                          <div style="font-size: 11px; font-weight: 600; color: #64748b; letter-spacing: 0.3px; text-transform: uppercase;">Academy System</div>
-                        </td>
-                      </tr>
-                    </table>
+                    <a href="https://edu.kampus.pk" target="_blank" style="text-decoration: none; display: inline-block;">
+                      <img 
+                        src="https://kampus-academy.pages.dev/kampus-logo-email.png" 
+                        alt="KAMPUS" 
+                        width="150" 
+                        style="display: block; width: 150px; height: auto; max-height: 24px; border: 0; outline: none; text-decoration: none;" 
+                      />
+                    </a>
                   </td>
                   <td align="right" style="vertical-align: middle;">
                     <span style="display: inline-block; background-color: #eef2ff; border: 1px solid #c7d2fe; color: #4338ca; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; padding: 4px 10px; border-radius: 20px; text-transform: uppercase;">

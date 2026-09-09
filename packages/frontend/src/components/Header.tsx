@@ -26,15 +26,24 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span className="font-semibold text-slate-900">{tenant?.name || 'Apex Academy'}</span>
-            <span>/</span>
-            <span className="font-medium text-slate-600">{currentScreenTitle}</span>
+        <div className="flex items-center gap-3">
+          {tenant?.logo_url && (
+            <img 
+              src={tenant.logo_url} 
+              alt={tenant.name} 
+              className="h-8 w-auto max-w-[120px] object-contain hidden sm:block rounded-md border border-slate-200 p-0.5 bg-white shadow-2xs" 
+            />
+          )}
+          <div>
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <span className="font-semibold text-slate-900">{tenant?.name || 'Academy Portal'}</span>
+              <span>/</span>
+              <span className="font-medium text-slate-600">{currentScreenTitle}</span>
+            </div>
+            <p className="text-[11px] text-slate-400 hidden sm:block">
+              Campus: {tenant?.campus_name || 'Main Campus'} • Academic Session {tenant?.academic_session || '2026-27'}
+            </p>
           </div>
-          <p className="text-[11px] text-slate-400 hidden sm:block">
-            Campus: {tenant?.campus_name || 'Main Campus'} • Academic Session {tenant?.academic_session || '2026-27'}
-          </p>
         </div>
       </div>
 

@@ -25,7 +25,7 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
   student,
   batch,
   program,
-  academyName = 'Apex Academy',
+  academyName = 'Academy',
   campusPhone = '+92 42 35889000',
   campusAddress = 'Main Campus',
   validUntil = '30-JUN-2027',

@@ -1387,7 +1387,7 @@ export const ExamDeskView: React.FC = () => {
             <div className="border border-slate-300 p-8 rounded-xl bg-white space-y-6 text-xs text-slate-900 font-serif">
               {/* Paper Header */}
               <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
-                <h2 className="text-xl font-black uppercase tracking-wide font-sans">{tenant?.name || 'APEX ACADEMY LAHORE'}</h2>
+                <h2 className="text-xl font-black uppercase tracking-wide font-sans">{tenant?.name || 'ACADEMY PORTAL'}</h2>
                 <p className="text-xs font-sans text-slate-600">{tenant?.campus_name || 'Main Campus'} • Academic Session {tenant?.academic_session || '2026-2027'}</p>
                 <h3 className="text-base font-bold uppercase underline mt-2">{selectedExamForPaper.title}</h3>
                 <div className="flex justify-between text-xs font-sans pt-2">
@@ -1737,7 +1737,7 @@ export const ExamDeskView: React.FC = () => {
             <div className="border border-slate-300 p-8 rounded-xl bg-white space-y-6 text-xs font-mono">
               {/* Academy Branding Header */}
               <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
-                <h2 className="text-lg font-black uppercase tracking-tight">{tenant?.name || 'APEX ACADEMY LAHORE'}</h2>
+                <h2 className="text-lg font-black uppercase tracking-tight">{tenant?.name || 'ACADEMY PORTAL'}</h2>
                 <p className="text-[10px] text-slate-500">{tenant?.campus_name || 'Main Campus'} • Official Assessment Report Card</p>
                 <span className="inline-block px-3 py-0.5 rounded bg-indigo-900 text-white text-[10px] font-bold tracking-widest mt-1">
                   ACADEMIC PERFORMANCE STATEMENT

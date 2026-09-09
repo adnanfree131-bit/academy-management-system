@@ -37,7 +37,7 @@ export const LoginModal: React.FC = () => {
   const [step, setStep] = useState<'form' | 'otp' | 'forgot_password_request' | 'forgot_password_reset'>('form');
 
   // Daily Login Form (zero prefilled data, zero placeholders)
-  const [tenantSlug, setTenantSlug] = useState<string>('apex');
+  const [tenantSlug, setTenantSlug] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -92,17 +92,12 @@ export const LoginModal: React.FC = () => {
       const hostname = window.location.hostname.toLowerCase();
       if (hostname.endsWith('.kampus.pk')) {
         const sub = hostname.replace('.kampus.pk', '');
-        if (sub && sub !== 'www') {
-          // 'edu' is the main platform entry domain; default to 'apex'
-          if (sub === 'edu') {
-            setTenantSlug('apex');
-          } else {
-            setTenantSlug(sub);
-          }
+        if (sub && sub !== 'www' && sub !== 'edu' && sub !== 'app') {
+          setTenantSlug(sub);
         }
       } else if (hostname.endsWith('.toolnestr.com') && !hostname.startsWith('www.')) {
         const sub = hostname.replace('.toolnestr.com', '');
-        if (sub && sub !== 'edu' && sub !== 'www') {
+        if (sub && sub !== 'edu' && sub !== 'www' && sub !== 'app') {
           setTenantSlug(sub);
         }
       }
@@ -334,99 +329,157 @@ export const LoginModal: React.FC = () => {
     }
   };
 
-  const currentAcademyName = branding?.name || 'Apex Academy';
+  const activeAcademyName = mode === 'register'
+    ? (regName.trim() || 'Your Academy Name')
+    : (branding?.name || (tenantSlug ? tenantSlug.toUpperCase() : 'Academy Portal'));
+
+  const activeAcademyLogo = mode === 'register'
+    ? regLogoUrl
+    : (branding?.logo_url || null);
+
+  const activeDomain = mode === 'register'
+    ? (regSlug.trim() ? `${regSlug.trim().toLowerCase()}.${baseDomain}` : `subdomain.${baseDomain}`)
+    : (typeof window !== 'undefined' && window.location.hostname.toLowerCase() === 'edu.kampus.pk'
+        ? 'edu.kampus.pk'
+        : (branding?.domain || (tenantSlug ? `${tenantSlug}.${baseDomain}` : baseDomain)));
+
   const currentSession = branding?.academic_session || '2026–2027';
-  const currentDomain = (typeof window !== 'undefined' && window.location.hostname.toLowerCase() === 'edu.kampus.pk')
-    ? 'edu.kampus.pk'
-    : (branding?.domain || `${tenantSlug}.${baseDomain}`);
-  const currentLogo = branding?.logo_url || null;
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 sm:p-6 lg:p-10 font-sans">
       <div className="w-full max-w-6xl bg-white sm:rounded-2xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[680px]">
         
         {/* ================================================================ */}
-        {/* LEFT COLUMN: WHITE-LABELED INSTITUTIONAL SHOWCASE (5/12 cols)     */}
+        {/* LEFT COLUMN: LIVE BRANDED INSTITUTIONAL SHOWCASE (5/12 cols)      */}
         {/* ================================================================ */}
-        <div className="hidden lg:flex lg:col-span-5 bg-slate-950 text-white p-10 flex-col justify-between relative overflow-hidden border-r border-slate-900">
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
+        <div className="hidden lg:flex lg:col-span-5 bg-slate-950 text-white p-8 lg:p-10 flex-col justify-between relative overflow-hidden border-r border-slate-900">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
           
-          <div className="relative z-10">
-            {/* Dynamic Academy Branding / Logo */}
-            <div className="flex items-center gap-3.5">
-              {currentLogo ? (
-                <div className="w-12 h-12 rounded-xl bg-white p-1 border border-slate-700 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+          {/* Top Bar: Platform Identity */}
+          <div className="relative z-10 flex items-center justify-between pb-4 border-b border-slate-900">
+            <div className="flex items-center gap-2">
+              <img src="/kampus-logo-dark.png" alt="Kampus" className="h-5 w-auto object-contain" />
+              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-800">
+                Academic Cloud
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>System Online</span>
+            </div>
+          </div>
+
+          {/* Middle Live Showcase: Upper-Middle Logo & Middle Name */}
+          <div className="relative z-10 my-auto py-6 flex flex-col items-center text-center">
+            
+            {/* UPPER MIDDLE: Academy Logo Box */}
+            <div className="mb-5 relative group">
+              {activeAcademyLogo ? (
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-white p-2 border-2 border-slate-700 shadow-2xl flex items-center justify-center overflow-hidden transition-all duration-300 transform group-hover:scale-105">
                   <img 
-                    src={currentLogo} 
-                    alt={currentAcademyName} 
+                    src={activeAcademyLogo} 
+                    alt={activeAcademyName} 
                     className="w-full h-full object-contain"
                   />
                 </div>
               ) : (
-                <div className="w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-white shadow-inner shrink-0">
-                  <GraduationCap className="w-5 h-5 text-indigo-400" />
+                <div 
+                  onClick={() => {
+                    if (mode === 'register') fileInputRef.current?.click();
+                  }}
+                  className={`w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-dashed border-slate-800 flex flex-col items-center justify-center text-slate-400 shadow-xl transition-all duration-200 ${
+                    mode === 'register' ? 'cursor-pointer hover:border-slate-600 hover:text-white group-hover:scale-105' : ''
+                  }`}
+                  title={mode === 'register' ? 'Click to upload academy logo' : undefined}
+                >
+                  <GraduationCap className="w-10 h-10 text-indigo-400 mb-1" />
+                  <span className="text-[9px] font-mono uppercase tracking-wider text-slate-400">
+                    {mode === 'register' ? 'Upload Logo' : 'Academy Seal'}
+                  </span>
                 </div>
               )}
-              <div>
-                <span className="text-base font-bold tracking-tight text-white block leading-tight">{currentAcademyName}</span>
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mt-0.5 block">Academy Management System</span>
+
+              {/* Status pill under logo */}
+              <div className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full text-[9px] font-mono whitespace-nowrap shadow-sm border bg-slate-900/95 border-slate-800 text-slate-300">
+                {mode === 'register' ? (regLogoUrl ? '✓ Logo Attached' : 'Live Preview') : 'Institutional Portal'}
               </div>
             </div>
 
-            {/* Academic Information: Clean Session Tag (No city/campus clutter) */}
-            <div className="mt-14 space-y-4">
-              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                <span>Academic Session {currentSession}</span>
+            {/* MIDDLE: Academy Name with Logo-Effect Font (font-brand) */}
+            <div className="w-full px-2 max-w-sm">
+              <h1 className={`text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight font-brand uppercase transition-all duration-150 break-words leading-tight ${
+                mode === 'register' && !regName.trim()
+                  ? 'text-slate-500 italic'
+                  : 'text-white'
+              }`}>
+                {activeAcademyName}
+              </h1>
+
+              {/* Subdomain & Location Live Pill */}
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-indigo-300 shadow-xs">
+                  <Lock className="w-3 h-3 text-indigo-400" />
+                  <span className="truncate max-w-[220px]">{activeDomain}</span>
+                </div>
+                {mode === 'register' && regCity.trim() && (
+                  <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300">
+                    <MapPin className="w-3 h-3 text-slate-400" />
+                    <span>{regCity.trim()}</span>
+                  </div>
+                )}
               </div>
-              <h2 className="text-2xl font-bold tracking-tight text-white leading-tight">
-                Academic Administration & Student Records
-              </h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Institutional portal for managing student admissions, academic batches, itemized fee challans, class attendance registers, and official examination results.
+
+              <p className="mt-4 text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
+                {mode === 'register'
+                  ? 'Real-time setup. As you type your academy name and upload your logo, your institutional portal previews live.'
+                  : 'Institutional management portal for admissions, itemized fee challans, class attendance registers, and official results.'}
               </p>
             </div>
 
-            {/* Core Modules List */}
-            <div className="mt-8 space-y-3 text-xs text-slate-300">
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Student Admissions & Student Profiles</span>
+            {/* Institutional Trust Highlights */}
+            <div className="mt-6 grid grid-cols-2 gap-2.5 w-full max-w-xs text-left">
+              <div className="bg-slate-900/70 border border-slate-800 rounded-lg p-2.5">
+                <div className="flex items-center gap-1.5 text-emerald-400 mb-0.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-[11px] font-semibold text-slate-200">White-Labeled</span>
+                </div>
+                <p className="text-[10px] text-slate-400">Custom subdomain & logo</p>
               </div>
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Classes, Batches & Academic Timetables</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Fee Ledger & 3-Part Bank Challans</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Daily Class Attendance & Examination Marksheets</span>
+
+              <div className="bg-slate-900/70 border border-slate-800 rounded-lg p-2.5">
+                <div className="flex items-center gap-1.5 text-emerald-400 mb-0.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  <span className="text-[11px] font-semibold text-slate-200">Fee Ledgers</span>
+                </div>
+                <p className="text-[10px] text-slate-400">3-Part Bank Challans</p>
               </div>
             </div>
+
           </div>
 
-          {/* Clean Portal Domain Identifier */}
-          <div className="relative z-10 pt-6 border-t border-slate-900 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+          {/* Bottom Bar: Portal Security */}
+          <div className="relative z-10 pt-4 border-t border-slate-900 flex items-center justify-between text-[11px] text-slate-500 font-mono">
             <span className="flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-slate-400" />
-              <span>Institutional Portal</span>
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>TLS 1.3 256-Bit Encrypted</span>
             </span>
-            <span className="text-slate-400 font-semibold">{currentDomain}</span>
+            <span className="text-slate-400 font-semibold">{currentSession}</span>
           </div>
         </div>
 
         {/* ================================================================ */}
         {/* RIGHT COLUMN: PORTAL FORMS (7/12 cols)                            */}
         {/* ================================================================ */}
-        <div className="lg:col-span-7 bg-white p-8 sm:p-10 lg:p-12 flex flex-col justify-between min-h-[600px] overflow-y-auto">
+        <div className="lg:col-span-7 bg-white p-6 sm:p-10 lg:p-12 flex flex-col justify-between min-h-[600px] overflow-y-auto">
           
           {/* Top Bar: Academy Identifier & Mode Switcher */}
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div className="text-xs font-semibold text-slate-700">
-              <span>{currentAcademyName}</span>
+            <div className="flex items-center gap-2.5">
+              <img src="/kampus-logo.png" alt="Kampus" className="h-5 w-auto object-contain" />
+              <span className="text-slate-300">/</span>
+              <span className="text-xs font-semibold text-slate-700 truncate max-w-[150px] sm:max-w-[220px]">
+                {mode === 'register' ? (regName.trim() || 'New Academy Registration') : activeAcademyName}
+              </span>
             </div>
 
             {/* Mode Switcher (Visible only in form step) */}
@@ -459,6 +512,31 @@ export const LoginModal: React.FC = () => {
           {/* Main Form Content */}
           <div className="max-w-md w-full mx-auto my-auto py-4">
             
+            {/* Mobile Live Identity Bar (Visible only on smaller screens in register mode) */}
+            {mode === 'register' && step === 'form' && (
+              <div className="lg:hidden mb-5 p-3 rounded-xl bg-slate-950 text-white border border-slate-800 flex items-center gap-3 shadow-md">
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-12 h-12 rounded-lg bg-white p-1 flex items-center justify-center shrink-0 overflow-hidden border border-slate-700 cursor-pointer"
+                  title="Click to upload logo"
+                >
+                  {regLogoUrl ? (
+                    <img src={regLogoUrl} alt="Logo preview" className="w-full h-full object-contain" />
+                  ) : (
+                    <GraduationCap className="w-6 h-6 text-indigo-600" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-sm font-black font-brand uppercase text-white truncate leading-tight">
+                    {regName.trim() || 'Your Academy Name'}
+                  </h4>
+                  <p className="text-[10px] font-mono text-indigo-300 truncate mt-0.5">
+                    {regSlug.trim() ? `${regSlug.trim().toLowerCase()}.${baseDomain}` : `subdomain.${baseDomain}`}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Headings */}
             <div className="mb-6">
               <h2 className="text-2xl font-bold tracking-tight text-slate-900">
@@ -680,30 +758,52 @@ export const LoginModal: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Optional Logo Upload */}
+                {/* Optional Logo Upload with Live Preview */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-semibold text-slate-700">
                       Academy Logo <span className="text-slate-400 font-normal">(Optional)</span>
                     </label>
-                    {regLogoUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setRegLogoUrl(null)}
-                        className="text-[10px] text-rose-600 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <X className="w-3 h-3" />
-                        Remove
-                      </button>
-                    )}
+                    <span className="text-[10px] text-slate-400">Previews live on page</span>
                   </div>
                   
                   {regLogoUrl ? (
-                    <div className="flex items-center gap-3 p-2 border border-slate-200 rounded-lg bg-slate-50/50">
-                      <div className="w-10 h-10 rounded border border-slate-300 bg-white p-1 overflow-hidden flex items-center justify-center shrink-0">
-                        <img src={regLogoUrl} alt="Logo preview" className="w-full h-full object-contain" />
+                    <div className="flex items-center justify-between p-2.5 border border-slate-200 rounded-lg bg-slate-50/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-lg border border-slate-300 bg-white p-1 overflow-hidden flex items-center justify-center shrink-0 shadow-xs">
+                          <img src={regLogoUrl} alt="Logo preview" className="w-full h-full object-contain" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold text-slate-800">Logo Attached</p>
+                          <p className="text-[10px] text-emerald-600 font-medium">Live on left preview & portal</p>
+                        </div>
                       </div>
-                      <span className="text-xs text-slate-600 font-medium truncate">Logo uploaded</span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                          onChange={handleLogoSelect}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-[11px] text-slate-600 hover:text-slate-900 font-medium px-2 py-1 bg-white border border-slate-200 rounded hover:bg-slate-50 cursor-pointer"
+                        >
+                          Change
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRegLogoUrl(null);
+                            if (fileInputRef.current) fileInputRef.current.value = '';
+                          }}
+                          className="text-[11px] text-rose-600 hover:text-rose-700 font-medium px-2 py-1 rounded hover:bg-rose-50 cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div>
@@ -717,10 +817,10 @@ export const LoginModal: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="w-full py-2 px-3 border border-dashed border-slate-300 hover:border-slate-400 rounded-lg text-xs text-slate-500 hover:text-slate-700 flex items-center justify-center gap-2 bg-slate-50/50 transition-all cursor-pointer"
+                        className="w-full py-2.5 px-3 border border-dashed border-slate-300 hover:border-slate-400 rounded-lg text-xs text-slate-600 hover:text-slate-900 flex items-center justify-center gap-2 bg-slate-50/50 hover:bg-slate-50 transition-all cursor-pointer"
                       >
                         <UploadCloud className="w-4 h-4 text-slate-400" />
-                        <span>Upload Logo (PNG, JPG, SVG)</span>
+                        <span>Upload Logo (PNG, JPG, SVG, WebP)</span>
                       </button>
                     </div>
                   )}
@@ -1031,7 +1131,7 @@ export const LoginModal: React.FC = () => {
 
           {/* Clean Institutional Footer */}
           <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400">
-            <span>© 2026 {currentAcademyName}</span>
+            <span>© 2026 {activeAcademyName}</span>
             <div className="flex items-center gap-3">
               <span>Academic Session {currentSession}</span>
               <span>•</span>

@@ -486,7 +486,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
               {/* Sheet 1: 8 Fronts */}
               <div className="p-4 bg-white min-h-[1050px] flex flex-col justify-between page-break">
                 <div className="text-[9px] text-slate-400 font-mono pb-1 border-b border-slate-200 flex justify-between uppercase">
-                  <span>{tenant?.name || 'Apex Academy'} — STUDENT ID CARDS (FRONT SHEET {chunkIndex + 1})</span>
+                  <span>{tenant?.name || 'Academy'} — STUDENT ID CARDS (FRONT SHEET {chunkIndex + 1})</span>
                   <span>GRID: 2×4 CR-80 SPECIFICATION</span>
                 </div>
 
@@ -512,7 +512,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
               {/* Sheet 2: 8 Backs (Horizontally swapped columns so long-edge duplex alignment matches) */}
               <div className="p-4 bg-white min-h-[1050px] flex flex-col justify-between page-break">
                 <div className="text-[9px] text-slate-400 font-mono pb-1 border-b border-slate-200 flex justify-between uppercase">
-                  <span>{tenant?.name || 'Apex Academy'} — STUDENT ID CARDS (BACK SHEET {chunkIndex + 1})</span>
+                  <span>{tenant?.name || 'Academy'} — STUDENT ID CARDS (BACK SHEET {chunkIndex + 1})</span>
                   <span>ALIGNMENT: HORIZONTALLY INVERTED DUPLEX FLIP</span>
                 </div>
 
@@ -553,7 +553,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
               return (
                 <div key={pageIdx} className="min-h-[1050px] p-4 flex flex-col justify-between page-break">
                   <div className="text-[9px] text-slate-400 font-mono pb-1 border-b border-slate-200 flex justify-between uppercase">
-                    <span>{tenant?.name || 'Apex Academy'} — FOLDABLE ID CARDS (PAGE {pageIdx + 1})</span>
+                    <span>{tenant?.name || 'Academy'} — FOLDABLE ID CARDS (PAGE {pageIdx + 1})</span>
                     <span>FOLD ALONG CENTER VERTICAL LINE & LAMINATE</span>
                   </div>
 

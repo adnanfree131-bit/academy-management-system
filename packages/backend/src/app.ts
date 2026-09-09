@@ -2,6 +2,8 @@ import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
 import sensible from '@fastify/sensible';
+import fs from 'fs';
+import path from 'path';
 import { IDataStore, InMemoryDataStore } from './services/store.js';
 import { IMailerService, createMailerService } from './services/mailer.js';
 import { authRoutes } from './routes/auth.js';
@@ -68,6 +70,43 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       system: 'Academy Management System Backend',
       timestamp: new Date().toISOString(),
     };
+  });
+
+  // Brand Logo Assets (for email clients and platform CDN)
+  fastify.get('/kampus-logo-email.png', async (_req, reply) => {
+    try {
+      const candidates = [
+        path.resolve(process.cwd(), 'public/kampus-logo-email.png'),
+        path.resolve(process.cwd(), 'packages/backend/public/kampus-logo-email.png'),
+        path.resolve(process.cwd(), 'packages/frontend/public/kampus-logo-email.png'),
+        path.join(__dirname, '../public/kampus-logo-email.png'),
+      ];
+      for (const filePath of candidates) {
+        if (fs.existsSync(filePath)) {
+          const buffer = fs.readFileSync(filePath);
+          return reply.type('image/png').header('Cache-Control', 'public, max-age=31536000, immutable').send(buffer);
+        }
+      }
+    } catch (_e) {}
+    return reply.status(404).send('Logo not found');
+  });
+
+  fastify.get('/kampus-logo.png', async (_req, reply) => {
+    try {
+      const candidates = [
+        path.resolve(process.cwd(), 'public/kampus-logo.png'),
+        path.resolve(process.cwd(), 'packages/backend/public/kampus-logo.png'),
+        path.resolve(process.cwd(), 'packages/frontend/public/kampus-logo.png'),
+        path.join(__dirname, '../public/kampus-logo.png'),
+      ];
+      for (const filePath of candidates) {
+        if (fs.existsSync(filePath)) {
+          const buffer = fs.readFileSync(filePath);
+          return reply.type('image/png').header('Cache-Control', 'public, max-age=31536000, immutable').send(buffer);
+        }
+      }
+    } catch (_e) {}
+    return reply.status(404).send('Logo not found');
   });
 
   // Auth Routes

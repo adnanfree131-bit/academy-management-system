@@ -1340,7 +1340,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                       {copyTitle}
                     </span>
                     <h4 className="font-extrabold text-xs uppercase text-slate-950 mt-1 line-clamp-1">
-                      {tenant?.name || 'Apex Academy'}
+                      {tenant?.name || 'Academy'}
                     </h4>
                     <div className="text-[8px] text-slate-700 font-mono">
                       Meezan Bank Ltd • A/C: 0102-0103492810 • IBAN: PK52MEZN0001020103492810
@@ -1604,7 +1604,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
           student={currentStudent}
           batch={activeBatch}
           program={activeProgram}
-          academyName={tenant?.name || 'Apex Academy'}
+          academyName={tenant?.name || 'Academy'}
           campusAddress={tenant?.campus_name}
           onClose={() => setShowIdCardModal(false)}
         />

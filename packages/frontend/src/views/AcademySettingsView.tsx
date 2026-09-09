@@ -28,8 +28,8 @@ export const AcademySettingsView: React.FC = () => {
   const [academyName, setAcademyName] = useState<string>('');
   const [campusName, setCampusName] = useState<string>('');
   const [city, setCity] = useState<string>('Lahore');
-  const [subdomain, setSubdomain] = useState<string>('apex');
-  const [domain, setDomain] = useState<string>('apex.kampus.pk');
+  const [subdomain, setSubdomain] = useState<string>('');
+  const [domain, setDomain] = useState<string>('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [academicSession, setAcademicSession] = useState<string>('2026-2027');
@@ -75,7 +75,7 @@ export const AcademySettingsView: React.FC = () => {
       if (data.success && data.data) {
         const t = data.data;
         const s = t.settings || {};
-        setAcademyName(t.name || 'Apex Academy');
+        setAcademyName(t.name || tenant?.name || '');
         setCampusName(s.campus_name || tenant?.campus_name || 'Main Campus');
         setAcademicSession(s.academic_session || tenant?.academic_session || '2026-2027');
         setPhone(s.phone || '+92 300 1234567');
@@ -449,7 +449,7 @@ export const AcademySettingsView: React.FC = () => {
                   type="text"
                   value={accountTitle}
                   onChange={e => setAccountTitle(e.target.value)}
-                  placeholder="e.g. Apex Academy Collection Account"
+                  placeholder="e.g. Academy Main Collection Account"
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
                   required
                 />

@@ -1301,7 +1301,7 @@ export const FeeDeskView: React.FC = () => {
               {['BANK COPY', 'ACADEMY COPY', 'STUDENT COPY'].map((copyTitle, idx) => (
                 <div key={idx} className="bg-white border border-slate-300 p-3 rounded-lg flex flex-col justify-between text-[11px] space-y-2 shadow-2xs print:shadow-none">
                   <div className="space-y-1.5 border-b border-slate-200 pb-2 text-center">
-                    <h4 className="font-black text-slate-900 tracking-tight text-xs uppercase">{tenant?.name || 'APEX ACADEMY LAHORE'}</h4>
+                    <h4 className="font-black text-slate-900 tracking-tight text-xs uppercase">{tenant?.name || 'ACADEMY PORTAL'}</h4>
                     <p className="text-[9px] text-slate-500 font-mono">{tenant?.campus_name || 'Main Campus'} • Official Fee Challan</p>
                     <span className="inline-block px-2 py-0.5 rounded bg-slate-900 text-white font-mono text-[9px] font-bold tracking-wider">
                       {copyTitle}

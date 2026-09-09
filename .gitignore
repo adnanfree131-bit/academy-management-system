@@ -26,6 +26,9 @@ coverage/
 serviceAccountKey.json
 google-services.json
 *.png
+!packages/frontend/public/*.png
+!packages/backend/public/*.png
+!public/*.png
 *.tsbuildinfo
 .agent
 .agent/

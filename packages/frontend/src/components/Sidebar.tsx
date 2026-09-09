@@ -19,7 +19,6 @@ import {
   UserCheck, 
   Award,
   ShieldAlert,
-  ShieldCheck,
   Layers,
   TrendingUp,
   Settings,
@@ -85,14 +84,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   role === 'super_admin' ? 'bg-purple-600' :
                   'bg-indigo-600'
                 }`}>
-                  {role === 'teacher' ? <BookOpen className="w-4 h-4" /> :
-                   role === 'student' ? <GraduationCap className="w-4 h-4" /> :
-                   role === 'super_admin' ? <ShieldCheck className="w-4 h-4" /> :
-                   <GraduationCap className="w-4 h-4" />}
+                  {tenant?.logo_url ? (
+                    <img src={tenant.logo_url} alt={tenant?.name || 'Academy'} className="w-full h-full object-contain rounded-xl" />
+                  ) : role === 'super_admin' ? (
+                    <img src="/favicon.png" alt="Kampus" className="w-5 h-5 object-contain" />
+                  ) : (
+                    <span className="text-sm font-bold tracking-tight uppercase">{(tenant?.name || 'A').charAt(0)}</span>
+                  )}
                 </div>
                 <div className="truncate">
                   <span className="font-extrabold text-sm text-slate-900 tracking-tight block leading-tight truncate">
-                    {role === 'super_admin' ? 'Apex Platform' : (tenant?.name || 'Apex Academy')}
+                    {role === 'super_admin' ? 'Kampus Platform' : (tenant?.name || 'Academy Portal')}
                   </span>
                   <span className="text-[10px] font-mono text-slate-500 font-semibold">{roleSubtitle}</span>
                 </div>
@@ -658,6 +660,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <LogOut className="w-4 h-4" />
             </button>
+          </div>
+
+          {/* Powered by Kampus Brand Footer */}
+          <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between px-1">
+            <a 
+              href="https://app.kampus.pk" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="group inline-flex items-center gap-1.5 text-[10px] text-slate-400 hover:text-slate-800 transition-colors"
+            >
+              <span>powered by</span>
+              <span className="font-semibold text-slate-600 group-hover:text-slate-900 transition-colors">kampus</span>
+              <img src="/favicon-32x32.png" alt="kampus" className="h-3 w-3 object-contain opacity-75 group-hover:opacity-100 transition-opacity" />
+            </a>
+            <span className="text-[9px] font-mono text-slate-300">v2.4</span>
           </div>
 
         </aside>
