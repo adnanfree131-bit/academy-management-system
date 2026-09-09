@@ -354,19 +354,21 @@ export const LoginModal: React.FC = () => {
     }
   };
 
+  const isPlatformSignIn = mode === 'login' && !tenantSlug;
+
   const activeAcademyName = mode === 'register'
     ? (regName.trim() || 'Academy Name')
-    : (branding?.name || (tenantSlug ? tenantSlug.toUpperCase() : 'Academy Portal'));
+    : (branding?.name || (tenantSlug ? tenantSlug.toUpperCase() : 'Academy Management System'));
 
   const activeAcademyLogo = mode === 'register'
     ? regLogoUrl
-    : (branding?.logo_url || null);
+    : (branding?.logo_url || (tenantSlug ? null : '/favicon.png'));
 
   const activeDomain = mode === 'register'
     ? (regSlug.trim() ? `${regSlug.trim().toLowerCase()}.${baseDomain}` : `subdomain.${baseDomain}`)
     : (typeof window !== 'undefined' && window.location.hostname.toLowerCase() === 'edu.kampus.pk'
         ? 'edu.kampus.pk'
-        : (branding?.domain || (tenantSlug ? `${tenantSlug}.${baseDomain}` : baseDomain)));
+        : (branding?.domain || (tenantSlug ? `${tenantSlug}.${baseDomain}` : `app.${baseDomain}`)));
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 sm:p-6 lg:p-10 font-sans">
@@ -383,59 +385,59 @@ export const LoginModal: React.FC = () => {
             <img src="/kampus-logo-dark.png" alt="Kampus" className="h-6 w-auto object-contain" />
           </div>
 
-          {/* Middle Live Showcase: Shown only for registration preview or branded tenant subdomain */}
-          {(mode === 'register' || Boolean(tenantSlug && (branding?.name || branding?.logo_url))) && (
-            <div className="relative z-10 my-auto py-8 flex flex-col items-center text-center">
-              
-              {/* UPPER MIDDLE: Academy Logo Box (Enlarged) */}
-              <div className="mb-5">
-                {activeAcademyLogo ? (
-                  <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-white p-3 border border-slate-700 shadow-2xl flex items-center justify-center overflow-hidden transition-all">
-                    <img 
-                      src={activeAcademyLogo} 
-                      alt={activeAcademyName} 
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                ) : (
-                  <div 
-                    onClick={() => {
-                      if (mode === 'register') fileInputRef.current?.click();
-                    }}
-                    className={`w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 shadow-xl transition-all ${
-                      mode === 'register' ? 'cursor-pointer hover:border-slate-700 hover:text-slate-300' : ''
-                    }`}
-                    title={mode === 'register' ? 'Click to upload academy logo' : undefined}
-                  >
-                    <GraduationCap className="w-14 h-14 text-slate-400" />
-                  </div>
-                )}
-              </div>
-
-              {/* MIDDLE: Academy Name (Clean, refined size) */}
-              <div className="w-full px-4 max-w-sm">
-                <h1 className={`text-lg sm:text-xl font-bold tracking-tight font-brand transition-all duration-150 break-words leading-snug ${
-                  mode === 'register' && !regName.trim()
-                    ? 'text-slate-500 font-normal'
-                    : 'text-white'
-                }`}>
-                  {activeAcademyName}
-                </h1>
-
-                {/* Subdomain Pill */}
-                <div className="mt-2.5 flex items-center justify-center">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
-                    <Lock className="w-3 h-3 text-slate-500" />
-                    <span>{activeDomain}</span>
-                    {mode === 'register' && regCity.trim() && (
-                      <span className="text-slate-500">• {regCity.trim()}</span>
-                    )}
-                  </span>
+          {/* Middle Live Showcase: Upper-Middle Logo & Middle Name */}
+          <div className="relative z-10 my-auto py-8 flex flex-col items-center text-center">
+            
+            {/* UPPER MIDDLE: Academy / Platform Logo Box */}
+            <div className="mb-5">
+              {activeAcademyLogo ? (
+                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-white p-3.5 border border-slate-700 shadow-2xl flex items-center justify-center overflow-hidden transition-all">
+                  <img 
+                    src={activeAcademyLogo} 
+                    alt={activeAcademyName} 
+                    className="w-full h-full object-contain"
+                  />
                 </div>
-              </div>
-
+              ) : (
+                <div 
+                  onClick={() => {
+                    if (mode === 'register') fileInputRef.current?.click();
+                  }}
+                  className={`w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 shadow-xl transition-all ${
+                    mode === 'register' ? 'cursor-pointer hover:border-slate-700 hover:text-slate-300' : ''
+                  }`}
+                  title={mode === 'register' ? 'Click to upload academy logo' : undefined}
+                >
+                  <GraduationCap className="w-14 h-14 text-slate-400" />
+                </div>
+              )}
             </div>
-          )}
+
+            {/* MIDDLE: Name (Clean, small letters for platform mode) */}
+            <div className="w-full px-4 max-w-sm">
+              <h1 className={`font-brand transition-all duration-150 break-words leading-snug ${
+                isPlatformSignIn
+                  ? 'text-sm sm:text-base font-semibold text-slate-300 tracking-normal'
+                  : mode === 'register' && !regName.trim()
+                    ? 'text-lg sm:text-xl font-normal text-slate-500 tracking-tight'
+                    : 'text-lg sm:text-xl font-bold text-white tracking-tight'
+              }`}>
+                {activeAcademyName}
+              </h1>
+
+              {/* Subdomain Pill */}
+              <div className="mt-2.5 flex items-center justify-center">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
+                  <Lock className="w-3 h-3 text-slate-500" />
+                  <span>{activeDomain}</span>
+                  {mode === 'register' && regCity.trim() && (
+                    <span className="text-slate-500">• {regCity.trim()}</span>
+                  )}
+                </span>
+              </div>
+            </div>
+
+          </div>
 
         </div>
 
