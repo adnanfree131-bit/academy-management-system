@@ -158,7 +158,7 @@ export const LoginModal: React.FC = () => {
   // Initialize tenant slug from URL query or subdomain
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const campusParam = params.get('campus');
+    const campusParam = params.get('campus') || params.get('subdomain');
     if (campusParam) {
       setTenantSlug(campusParam.toLowerCase().trim());
     } else {
