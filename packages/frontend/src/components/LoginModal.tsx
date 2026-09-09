@@ -362,7 +362,7 @@ export const LoginModal: React.FC = () => {
 
   const activeAcademyLogo = mode === 'register'
     ? regLogoUrl
-    : (branding?.logo_url || (tenantSlug ? null : '/favicon.png'));
+    : (branding?.logo_url || (tenantSlug ? null : '/kampus-logo.png'));
 
   const activeDomain = mode === 'register'
     ? (regSlug.trim() ? `${regSlug.trim().toLowerCase()}.${baseDomain}` : `subdomain.${baseDomain}`)
@@ -391,7 +391,11 @@ export const LoginModal: React.FC = () => {
             {/* UPPER MIDDLE: Academy / Platform Logo Box */}
             <div className="mb-5">
               {activeAcademyLogo ? (
-                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-white p-3.5 border border-slate-700 shadow-2xl flex items-center justify-center overflow-hidden transition-all">
+                <div className={`${
+                  isPlatformSignIn
+                    ? 'w-52 sm:w-56 h-20 px-5 py-3.5'
+                    : 'w-28 h-28 sm:w-32 sm:h-32 p-3.5'
+                } rounded-2xl bg-white border border-slate-700/80 shadow-2xl flex items-center justify-center overflow-hidden transition-all`}>
                   <img 
                     src={activeAcademyLogo} 
                     alt={activeAcademyName} 
