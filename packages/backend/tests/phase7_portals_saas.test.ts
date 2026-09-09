@@ -52,7 +52,7 @@ describe('Phase 7: Multi-Portal Dashboards, SaaS Billing Lockout & Control Plane
       sub: 'a1000000-0000-0000-0000-000000000006',
       user_id: 'a1000000-0000-0000-0000-000000000006',
       tenant_id: TENANT_A_ID,
-      email: 'superadmin@kampus.pk',
+      email: 'kampuserp@gmail.com',
       role: 'super_admin'
     });
 

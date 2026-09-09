@@ -23,7 +23,7 @@ describe('SuperAdmin Control Plane: Trial Policies, Aliasing, Suspension & Popup
       sub: 'a1000000-0000-0000-0000-000000000006',
       user_id: 'a1000000-0000-0000-0000-000000000006',
       tenant_id: TENANT_A_ID,
-      email: 'superadmin@kampus.pk',
+      email: 'kampuserp@gmail.com',
       role: 'super_admin'
     });
 
@@ -61,30 +61,13 @@ describe('SuperAdmin Control Plane: Trial Policies, Aliasing, Suspension & Popup
 
   // 1. Permanent SuperAdmin Account Credentials Verification
   describe('Permanent SuperAdmin Credentials & Recovery', () => {
-    it('allows permanent superadmin login via seeded superadmin@kampus.pk credentials', async () => {
-      const res = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/login',
-        payload: {
-          email: 'superadmin@kampus.pk',
-          password: 'SuperAdmin@12345'
-        }
-      });
-
-      expect(res.statusCode).toBe(200);
-      const json = JSON.parse(res.body);
-      expect(json.success).toBe(true);
-      expect(json.data.user.role).toBe('super_admin');
-      expect(json.data.token).toBeDefined();
-    });
-
-    it('allows superadmin login via kampuserp@gmail.com credentials', async () => {
+    it('allows permanent superadmin login via seeded kampuserp@gmail.com and Aliadnan786@', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/login',
         payload: {
           email: 'kampuserp@gmail.com',
-          password: 'SuperAdmin@12345'
+          password: 'Aliadnan786@'
         }
       });
 
@@ -92,10 +75,11 @@ describe('SuperAdmin Control Plane: Trial Policies, Aliasing, Suspension & Popup
       const json = JSON.parse(res.body);
       expect(json.success).toBe(true);
       expect(json.data.user.role).toBe('super_admin');
+      expect(json.data.user.email).toBe('kampuserp@gmail.com');
       expect(json.data.token).toBeDefined();
     });
 
-    it('allows password reset request for kampuserp@gmail.com and synchronizes superadmin credentials', async () => {
+    it('allows password reset request for kampuserp@gmail.com and restores original password', async () => {
       // 1. Request reset code
       const reqRes = await app.inject({
         method: 'POST',
@@ -116,46 +100,36 @@ describe('SuperAdmin Control Plane: Trial Policies, Aliasing, Suspension & Popup
         payload: {
           email: 'kampuserp@gmail.com',
           otp,
-          new_password: 'SuperAdmin@NewPass2026'
+          new_password: 'AliadnanNewPass2026@'
         }
       });
       expect(resetRes.statusCode).toBe(200);
 
-      // 3. Verify login works with new password for both superadmin accounts
-      const loginRes1 = await app.inject({
+      // 3. Verify login works with new password
+      const loginRes = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/login',
         payload: {
           email: 'kampuserp@gmail.com',
-          password: 'SuperAdmin@NewPass2026'
+          password: 'AliadnanNewPass2026@'
         }
       });
-      expect(loginRes1.statusCode).toBe(200);
-
-      const loginRes2 = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/login',
-        payload: {
-          email: 'superadmin@kampus.pk',
-          password: 'SuperAdmin@NewPass2026'
-        }
-      });
-      expect(loginRes2.statusCode).toBe(200);
+      expect(loginRes.statusCode).toBe(200);
 
       // 4. Restore original password for downstream tests
       const restoreRes = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/forgot-password',
-        payload: { email: 'superadmin@kampus.pk' }
+        payload: { email: 'kampuserp@gmail.com' }
       });
       const restoreOtp = JSON.parse(restoreRes.body).data.dev_otp_preview || '123456';
       await app.inject({
         method: 'POST',
         url: '/api/v1/auth/reset-password',
         payload: {
-          email: 'superadmin@kampus.pk',
+          email: 'kampuserp@gmail.com',
           otp: restoreOtp,
-          new_password: 'SuperAdmin@12345'
+          new_password: 'Aliadnan786@'
         }
       });
     });

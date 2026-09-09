@@ -81,14 +81,13 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
     const usersRes = await db.query<{ email: string; tenant_id: string }>(
       'SELECT email, tenant_id FROM users ORDER BY email'
     );
-    expect(usersRes.rows.length).toBe(5);
+    expect(usersRes.rows.length).toBe(4);
     
     // Validate only Apex users exist
     const emails = usersRes.rows.map(r => r.email);
     expect(emails).toContain('adnan@apexacademy.edu.pk');
     expect(emails).toContain('tariq@apexacademy.edu.pk');
     expect(emails).toContain('parent.hamza@gmail.com');
-    expect(emails).toContain('superadmin@kampus.pk');
     expect(emails).toContain('kampuserp@gmail.com');
     expect(emails).not.toContain('fatima@crescent.edu.pk');
 
@@ -146,7 +145,7 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
     await db.exec(`SET app.is_super_admin = 'true';`);
 
     const usersRes = await db.query<{ count: string }>('SELECT count(*)::text as count FROM users');
-    expect(usersRes.rows[0].count).toBe('7');
+    expect(usersRes.rows[0].count).toBe('6');
 
     const tenantsRes = await db.query<{ count: string }>('SELECT count(*)::text as count FROM tenants');
     expect(tenantsRes.rows[0].count).toBe('2');

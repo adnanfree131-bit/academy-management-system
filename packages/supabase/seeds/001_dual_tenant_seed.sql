@@ -34,8 +34,7 @@ VALUES
   ('a1000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'adnan@apexacademy.edu.pk', '+923001112233', 'Director Adnan', 'tenant_admin', 'active'),
   ('a1000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'tariq@apexacademy.edu.pk', '+923002223344', 'Sir Tariq Physics', 'teacher', 'active'),
   ('a1000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000001', 'parent.hamza@gmail.com', '+923003334455', 'M. Hamza Guardian', 'parent', 'active'),
-  ('a1000000-0000-0000-0000-000000000006', 'a0000000-0000-0000-0000-000000000001', 'superadmin@kampus.pk', '+923000000000', 'Platform Super Administrator', 'super_admin', 'active'),
-  ('a1000000-0000-0000-0000-000000000007', 'a0000000-0000-0000-0000-000000000001', 'kampuserp@gmail.com', '+923000000001', 'Super Admin Recovery & Support', 'super_admin', 'active')
+  ('a1000000-0000-0000-0000-000000000007', 'a0000000-0000-0000-0000-000000000001', 'kampuserp@gmail.com', '+923000000001', 'Super Administrator', 'super_admin', 'active')
 ON CONFLICT (id) DO NOTHING;
 
 -- Tenant B Users
