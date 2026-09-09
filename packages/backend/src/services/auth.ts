@@ -91,11 +91,11 @@ export class AuthService {
     const staticOtp = isDev ? (process.env.STATIC_OTP || process.env.DEV_STATIC_OTP) : undefined;
     const otp = staticOtp || crypto.randomInt(100000, 1000000).toString();
 
-    const codeHash = this.hashOTP(otp);
+    const codeHash = this.hashOTP(otp, 'verification');
     const expiresInMinutes = 10;
     const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
-    await this.store.createOTP(tenant.id, user.email, codeHash, expiresAt);
+    await this.store.createOTP(tenant.id, user.email, codeHash, expiresAt, 'verification');
 
     const sent = await this.mailer.sendOTP({
       toEmail: user.email,
@@ -133,7 +133,7 @@ export class AuthService {
       throw new Error('Invalid authentication credentials.');
     }
 
-    const activeOTP = await this.store.getActiveOTP(tenant.id, email);
+    const activeOTP = await this.store.getActiveOTP(tenant.id, email, 'verification');
     if (!activeOTP) {
       throw new Error('Verification code has expired or was not requested. Please request a new code.');
     }
@@ -142,7 +142,7 @@ export class AuthService {
       throw new Error('Too many failed attempts. This verification code is locked. Please request a new one.');
     }
 
-    const providedHash = this.hashOTP(otp);
+    const providedHash = this.hashOTP(otp, 'verification');
     if (providedHash !== activeOTP.code_hash) {
       await this.store.incrementOTPAttempts(activeOTP.id);
       const remaining = 4 - activeOTP.attempts;
@@ -197,11 +197,11 @@ export class AuthService {
     const staticOtp = isDev ? (process.env.STATIC_OTP || process.env.DEV_STATIC_OTP) : undefined;
     const otp = staticOtp || crypto.randomInt(100000, 1000000).toString();
 
-    const codeHash = this.hashOTP(otp);
+    const codeHash = this.hashOTP(otp, 'password_reset');
     const expiresInMinutes = 10;
     const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
-    await this.store.createOTP(tenant.id, user.email, codeHash, expiresAt);
+    await this.store.createOTP(tenant.id, user.email, codeHash, expiresAt, 'password_reset');
 
     const sent = await this.mailer.sendOTP({
       toEmail: user.email,
@@ -250,17 +250,29 @@ export class AuthService {
       throw new Error('Account not found.');
     }
 
-    const activeOTP = await this.store.getActiveOTP(tenant.id, cleanEmail);
+    const activeOTP = await this.store.getActiveOTP(tenant.id, cleanEmail, 'password_reset');
     if (!activeOTP) {
       const err: any = new Error('Reset code has expired or was not requested. Please request a new code.');
       err.code = 'INVALID_OR_EXPIRED_CODE';
       throw err;
     }
 
-    const providedHash = this.hashOTP(otp);
+    if (activeOTP.attempts >= 5) {
+      const err: any = new Error('Too many failed attempts. This verification code is locked. Please request a new one.');
+      err.code = 'OTP_LOCKED';
+      throw err;
+    }
+
+    const providedHash = this.hashOTP(otp, 'password_reset');
     if (providedHash !== activeOTP.code_hash) {
       await this.store.incrementOTPAttempts(activeOTP.id);
-      const err: any = new Error('Invalid or expired verification code.');
+      const remaining = 5 - activeOTP.attempts;
+      if (remaining <= 0) {
+        const err: any = new Error('Too many failed attempts. This verification code is locked. Please request a new one.');
+        err.code = 'OTP_LOCKED';
+        throw err;
+      }
+      const err: any = new Error(`Invalid or expired verification code. ${remaining} attempts remaining.`);
       err.code = 'INVALID_OR_EXPIRED_CODE';
       throw err;
     }
@@ -293,7 +305,7 @@ export class AuthService {
     }
 
     // Check 60-second cooldown from last requested OTP
-    const latestOTP = await this.store.getLatestOTP(tenantId, cleanEmail);
+    const latestOTP = await this.store.getLatestOTP(tenantId, cleanEmail, 'password_change');
     if (latestOTP && latestOTP.created_at) {
       const elapsedSeconds = Math.floor((Date.now() - latestOTP.created_at.getTime()) / 1000);
       if (elapsedSeconds < 60) {
@@ -311,7 +323,7 @@ export class AuthService {
     const expiresInMinutes = 10;
     const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
-    await this.store.createOTP(tenantId, cleanEmail, codeHash, expiresAt);
+    await this.store.createOTP(tenantId, cleanEmail, codeHash, expiresAt, 'password_change');
 
     const sent = await this.mailer.sendOTP({
       toEmail: user.email,
@@ -375,7 +387,7 @@ export class AuthService {
     }
 
     // 3. Check getActiveOTP
-    const activeOTP = await this.store.getActiveOTP(tenantId, cleanEmail);
+    const activeOTP = await this.store.getActiveOTP(tenantId, cleanEmail, 'password_change');
     if (!activeOTP) {
       const err: any = new Error('Verification code has expired or was not requested. Please request a new code.');
       err.code = 'INVALID_OR_EXPIRED_CODE';

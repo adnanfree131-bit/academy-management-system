@@ -471,4 +471,146 @@ describe('Production Authentication, Subdomain Lockdown & Director Password Secu
     expect(intruderBody.success).toBe(false);
     expect(intruderBody.error.code).toBe('SLUG_IN_USE');
   });
+
+  // ---------------------------------------------------------------------------
+  // Test 8: Password Reset OTP Brute Force Protection
+  // ---------------------------------------------------------------------------
+  it('Test 8: Reset password OTP brute force locks after 5 failed attempts', async () => {
+    sentOTPs = [];
+    const directorEmail = 'director_fresh@apexacademy.edu.pk';
+
+    // Request forgot password OTP
+    const forgotRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/forgot-password',
+      payload: {
+        email: directorEmail,
+        tenant_slug: 'apex',
+      },
+    });
+    expect(forgotRes.statusCode).toBe(200);
+    const realOTP = sentOTPs[sentOTPs.length - 1].otp;
+
+    // Submit 4 incorrect OTP attempts
+    for (let i = 1; i <= 4; i++) {
+      const failRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/reset-password',
+        payload: {
+          email: directorEmail,
+          tenant_slug: 'apex',
+          otp: `11111${i}`,
+          new_password: 'AttackerNewPassword@123',
+        },
+      });
+      expect(failRes.statusCode).toBe(400);
+      const failBody = JSON.parse(failRes.body);
+      expect(failBody.error.message).toContain('attempts remaining');
+    }
+
+    // 5th incorrect attempt should lock the OTP
+    const fifthRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/reset-password',
+      payload: {
+        email: directorEmail,
+        tenant_slug: 'apex',
+        otp: '111115',
+        new_password: 'AttackerNewPassword@123',
+      },
+    });
+    expect(fifthRes.statusCode).toBe(429);
+    const fifthBody = JSON.parse(fifthRes.body);
+    expect(fifthBody.error.message).toContain('locked');
+
+    // 6th attempt with the REAL code should be rejected as locked
+    const sixthRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/reset-password',
+      payload: {
+        email: directorEmail,
+        tenant_slug: 'apex',
+        otp: realOTP,
+        new_password: 'AttackerNewPassword@123',
+      },
+    });
+    expect(sixthRes.statusCode).toBe(429);
+    const sixthBody = JSON.parse(sixthRes.body);
+    expect(sixthBody.error.message).toContain('locked');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 9: Verification OTP Cannot Reset Password (Cross-Flow Isolation)
+  // ---------------------------------------------------------------------------
+  it('Test 9: Registration verification OTP cannot be used to reset password', async () => {
+    sentOTPs = [];
+    const testSlug = 'cross-flow-academy';
+    const testAdmin = 'crossadmin@example.pk';
+
+    // Register academy (dispatches 'verification' purpose OTP)
+    const regRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      payload: {
+        name: 'Cross Flow Academy',
+        slug: testSlug,
+        admin_name: 'Cross Admin',
+        admin_email: testAdmin,
+        password: 'CrossPassword@123',
+      },
+    });
+    expect(regRes.statusCode).toBe(201);
+    const verificationOTP = sentOTPs[sentOTPs.length - 1].otp;
+
+    // Attempt to reset password using verification OTP
+    const resetRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/reset-password',
+      payload: {
+        email: testAdmin,
+        tenant_slug: testSlug,
+        otp: verificationOTP,
+        new_password: 'HijackedPassword@123',
+      },
+    });
+    expect(resetRes.statusCode).toBe(400);
+    const resetBody = JSON.parse(resetRes.body);
+    expect(resetBody.error.code).toBe('INVALID_OR_EXPIRED_CODE');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 10: Superseded OTP Invalidation on Same Purpose
+  // ---------------------------------------------------------------------------
+  it('Test 10: Requesting a new OTP for the same purpose supersedes the previous unused code', async () => {
+    const tenantId = 'a0000000-0000-0000-0000-000000000001';
+    const email = 'supersede_test@apexacademy.edu.pk';
+
+    // 1. Create first OTP
+    const otp1 = await store.createOTP(
+      tenantId,
+      email,
+      'hash-of-code-1',
+      new Date(Date.now() + 600000),
+      'password_change'
+    );
+    expect(otp1.used_at).toBeNull();
+
+    // 2. Create second OTP for same purpose
+    const otp2 = await store.createOTP(
+      tenantId,
+      email,
+      'hash-of-code-2',
+      new Date(Date.now() + 600000),
+      'password_change'
+    );
+
+    // 3. Assert first OTP is now marked used/invalidated
+    expect(otp1.used_at).not.toBeNull();
+    expect(otp2.used_at).toBeNull();
+
+    // 4. getActiveOTP returns only the new active OTP
+    const active = await store.getActiveOTP(tenantId, email, 'password_change');
+    expect(active).not.toBeNull();
+    expect(active!.id).toBe(otp2.id);
+  });
 });

@@ -435,7 +435,8 @@ export function authRoutes(
           timestamp: new Date().toISOString(),
         });
       } catch (err: any) {
-        return reply.status(400).send({
+        const statusCode = err.code === 'OTP_LOCKED' ? 429 : 400;
+        return reply.status(statusCode).send({
           success: false,
           error: {
             code: err.code || 'RESET_PASSWORD_FAILED',
@@ -483,7 +484,7 @@ export function authRoutes(
       const schema = z.object({
         current_password: z.string().min(1, 'Current password is required'),
         new_password: z.string().min(6, 'New password must be at least 6 characters'),
-        otp: z.string().length(6, 'Verification code must be 6 digits'),
+        otp: z.string().trim().length(6, 'Verification code must be 6 digits'),
       });
 
       const parseResult = schema.safeParse(request.body);

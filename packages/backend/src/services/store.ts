@@ -94,6 +94,7 @@ export interface StoredOTP {
   expires_at: Date;
   used_at?: Date | null;
   created_at?: Date;
+  purpose?: string;
 }
 
 export interface IDataStore {
@@ -117,9 +118,9 @@ export interface IDataStore {
   getUserByEmailGlobal(email: string): Promise<User[]>;
   checkSlugAvailable(slug: string): Promise<boolean>;
   updateUserPassword(tenantId: string, email: string, passwordHash: string): Promise<boolean>;
-  createOTP(tenantId: string, email: string, codeHash: string, expiresAt: Date): Promise<StoredOTP>;
-  getActiveOTP(tenantId: string, email: string): Promise<StoredOTP | null>;
-  getLatestOTP(tenantId: string, email: string): Promise<StoredOTP | null>;
+  createOTP(tenantId: string, email: string, codeHash: string, expiresAt: Date, purpose?: string): Promise<StoredOTP>;
+  getActiveOTP(tenantId: string, email: string, purpose?: string): Promise<StoredOTP | null>;
+  getLatestOTP(tenantId: string, email: string, purpose?: string): Promise<StoredOTP | null>;
   incrementOTPAttempts(id: string): Promise<void>;
   markOTPUsed(id: string): Promise<void>;
 
@@ -1633,12 +1634,23 @@ export class InMemoryDataStore implements IDataStore {
     return true;
   }
 
-  async createOTP(tenantId: string, email: string, codeHash: string, expiresAt: Date): Promise<StoredOTP> {
+  async createOTP(tenantId: string, email: string, codeHash: string, expiresAt: Date, purpose?: string): Promise<StoredOTP> {
+    const clean = email.toLowerCase().trim();
+    // Invalidate any previous unused OTP for this tenant, email, and purpose to prevent OTP pollution
+    if (purpose) {
+      for (const o of this.otps) {
+        if (o.tenant_id === tenantId && o.email === clean && o.purpose === purpose && !o.used_at) {
+          o.used_at = new Date();
+        }
+      }
+    }
+
     const entry: StoredOTP = {
       id: crypto.randomUUID(),
       tenant_id: tenantId,
-      email: email.toLowerCase(),
+      email: clean,
       code_hash: codeHash,
+      purpose,
       attempts: 0,
       expires_at: expiresAt,
       used_at: null,
@@ -1648,18 +1660,29 @@ export class InMemoryDataStore implements IDataStore {
     return entry;
   }
 
-  async getActiveOTP(tenantId: string, email: string): Promise<StoredOTP | null> {
+  async getActiveOTP(tenantId: string, email: string, purpose?: string): Promise<StoredOTP | null> {
     const now = new Date();
+    const clean = email.toLowerCase().trim();
     const valid = this.otps
-      .filter(o => o.tenant_id === tenantId && o.email === email.toLowerCase() && !o.used_at && o.expires_at > now)
+      .filter(o => 
+        o.tenant_id === tenantId && 
+        o.email === clean && 
+        !o.used_at && 
+        o.expires_at > now &&
+        (!purpose || o.purpose === purpose)
+      )
       .sort((a, b) => b.expires_at.getTime() - a.expires_at.getTime());
     return valid[0] || null;
   }
 
-  async getLatestOTP(tenantId: string, email: string): Promise<StoredOTP | null> {
+  async getLatestOTP(tenantId: string, email: string, purpose?: string): Promise<StoredOTP | null> {
     const clean = email.toLowerCase().trim();
     const list = this.otps
-      .filter(o => o.tenant_id === tenantId && o.email === clean)
+      .filter(o => 
+        o.tenant_id === tenantId && 
+        o.email === clean &&
+        (!purpose || o.purpose === purpose)
+      )
       .sort((a, b) => ((b.created_at || b.expires_at).getTime()) - ((a.created_at || a.expires_at).getTime()));
     return list[0] || null;
   }

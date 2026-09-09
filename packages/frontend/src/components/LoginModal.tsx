@@ -600,17 +600,17 @@ export const LoginModal: React.FC = () => {
             <div className="flex items-center justify-between w-full sm:w-auto">
               {/* Mobile brand presentation */}
               <div className="flex items-center gap-2.5 lg:hidden">
-                {isSubdomain && branding?.name ? (
+                {isSubdomain ? (
                   <div className="flex items-center gap-2">
-                    {branding.logo_url ? (
-                      <img src={branding.logo_url} alt={branding.name} className="h-7 w-auto object-contain max-w-[120px]" />
+                    {branding?.logo_url ? (
+                      <img src={branding.logo_url} alt={branding?.name || tenantSlug || 'Academy'} className="h-7 w-auto object-contain max-w-[120px]" />
                     ) : (
                       <div className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
-                        {branding.name.charAt(0)}
+                        {(branding?.name || tenantSlug || 'A').charAt(0).toUpperCase()}
                       </div>
                     )}
                     <span className="text-xs font-bold text-slate-800 truncate max-w-[180px]">
-                      {branding.name}
+                      {branding?.name || (tenantSlug ? tenantSlug.toUpperCase() : 'Academy')}
                     </span>
                   </div>
                 ) : (
