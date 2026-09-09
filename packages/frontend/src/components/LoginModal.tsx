@@ -380,7 +380,7 @@ export const LoginModal: React.FC = () => {
     }
   };
 
-  const isPlatformSignIn = !tenantSlug;
+  const isPlatformSignIn = mode === 'login' && !tenantSlug;
 
   const activeAcademyName = mode === 'register'
     ? (regName.trim() || 'Academy Name')
