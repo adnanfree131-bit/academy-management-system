@@ -103,6 +103,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadUser();
   }, [token]);
 
+async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<any> {
+  const text = await res.text();
+  if (!text || !text.trim()) {
+    if (res.status === 405) {
+      throw new Error('Cloudflare edge proxy is updating. Please refresh the page and try again.');
+    }
+    if (res.status === 502 || res.status === 504 || res.status === 524) {
+      throw new Error('Backend server is waking up. Please retry in a few seconds.');
+    }
+    throw new Error(`${fallbackMsg} (HTTP ${res.status})`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`${fallbackMsg} (Server returned invalid response)`);
+  }
+}
+
   /**
    * Daily Operational Login with Email & Password
    */
@@ -117,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }),
     });
 
-    const body = await res.json();
+    const body = await parseJsonResponse(res, 'Login failed.');
     if (!res.ok) {
       throw new Error(body.error?.message || 'Invalid email or password.');
     }
@@ -141,7 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify(payload),
     });
 
-    const body = await res.json();
+    const body = await parseJsonResponse(res, 'Failed to register academy.');
     if (!res.ok) {
       throw new Error(body.error?.message || 'Failed to register academy.');
     }
@@ -165,7 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ email: email.trim(), otp: otp.trim(), tenant_slug: tenantSlug.trim() }),
     });
 
-    const body = await res.json();
+    const body = await parseJsonResponse(res, 'Verification failed.');
     if (!res.ok) {
       throw new Error(body.error?.message || 'Verification failed.');
     }
@@ -186,7 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ email, tenant_slug: tenantSlug }),
     });
 
-    const body = await res.json();
+    const body = await parseJsonResponse(res, 'Failed to send verification code.');
     if (!res.ok) {
       throw new Error(body.error?.message || 'Failed to send verification code.');
     }
@@ -205,7 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ email, otp, tenant_slug: tenantSlug }),
     });
 
-    const body = await res.json();
+    const body = await parseJsonResponse(res, 'Verification failed.');
     if (!res.ok) {
       throw new Error(body.error?.message || 'Verification failed.');
     }
@@ -226,7 +244,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       body: JSON.stringify({ email: email.trim(), tenant_slug: tenantSlug?.trim() || undefined }),
     });
 
-    const body = await res.json();
+    const body = await parseJsonResponse(res, 'Failed to request password reset code.');
     if (!res.ok) {
       throw new Error(body.error?.message || 'Failed to request password reset code.');
     }
@@ -250,7 +268,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }),
     });
 
-    const body = await res.json();
+    const body = await parseJsonResponse(res, 'Failed to update password.');
     if (!res.ok) {
       throw new Error(body.error?.message || 'Failed to update password.');
     }

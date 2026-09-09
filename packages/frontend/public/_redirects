@@ -1,9 +1,5 @@
 # ==============================================================================
 # CLOUDFLARE PAGES REDIRECTS & EDGE REVERSE PROXY
 # ==============================================================================
-# 1. API Reverse Proxy: forwards /api/* calls directly to Render backend (no CORS overhead)
-# Replace 'https://apex-academy-backend-f0lg.onrender.com' with your actual Render service URL
-/api/*  https://apex-academy-backend-f0lg.onrender.com/api/:splat  200
-
-# 2. SPA Fallback: guarantees client-side React router works on direct page refresh
+# 1. SPA Fallback: guarantees client-side React router works on direct page refresh
 /*      /index.html                                            200
