@@ -11,8 +11,7 @@ const HOST = process.env.HOST || '0.0.0.0';
 async function start() {
   try {
     const app = await buildApp();
-    await app.listen({ port: PORT, host: HOST });
-    console.log(`\n🚀 Apex ERP Fastify Backend running on http://${HOST}:${PORT}`);
+    console.log(`\n🚀 Academy Management System Backend running on http://${HOST}:${PORT}`);
     console.log(`📊 Health Endpoint: http://${HOST}:${PORT}/api/v1/health`);
     console.log(`🔐 Brevo OTP Auth: http://${HOST}:${PORT}/api/v1/auth/request-otp\n`);
   } catch (err) {

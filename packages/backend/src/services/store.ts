@@ -433,7 +433,7 @@ export class InMemoryDataStore implements IDataStore {
     this.platformBankingConfig = {
       id: 'b1000000-0000-0000-0000-000000000001',
       bank_name: 'Bank Alfalah Limited',
-      account_title: 'Apex ERP SaaS Technologies Pvt Ltd',
+      account_title: 'Kampus Technologies Pvt Ltd',
       account_number: '0123-1005678901',
       iban: 'PK36ALFH01231005678901',
       branch_code: '0123 - Gulberg Main Boulevard',
@@ -568,7 +568,7 @@ export class InMemoryDataStore implements IDataStore {
       payment_method: 'BANK_TRANSFER',
       reference_number: 'ALF-TRF-884920',
       receipt_image_url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400',
-      notes: 'Paid via Bank Alfalah Internet Banking to Apex ERP SaaS account. Please activate our account.',
+      notes: 'Paid via Bank Alfalah Internet Banking to Kampus account. Please activate our account.',
       status: 'PENDING',
       created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
       updated_at: new Date(Date.now() - 3600000 * 4).toISOString()
@@ -633,7 +633,7 @@ export class InMemoryDataStore implements IDataStore {
       {
         id: 'a1000000-0000-0000-0000-000000000006',
         tenant_id: tenantAId,
-        email: 'superadmin@apexacademyerp.com',
+        email: 'superadmin@kampus.pk',
         full_name: 'Super Admin Control Plane',
         role: 'super_admin',
         status: 'active',

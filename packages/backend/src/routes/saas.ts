@@ -135,7 +135,7 @@ export function saasRoutes(store: IDataStore) {
           });
         }
 
-        let reviewerEmail = 'superadmin@apexacademyerp.com';
+        let reviewerEmail = 'superadmin@kampus.pk';
         if (req.headers.authorization) {
           try {
             const decoded = fastify.jwt.decode(req.headers.authorization.replace(/^Bearer /i, '')) as JWTPayload;

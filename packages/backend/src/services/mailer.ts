@@ -36,12 +36,12 @@ export class BrevoMailerService implements IMailerService {
         email: this.senderEmail,
       },
       to: [{ email: params.toEmail, name: params.recipientName }],
-      subject: `${params.otp} is your ${params.tenantName} ERP Verification Code`,
+      subject: `${params.otp} is your ${params.tenantName} Verification Code`,
       htmlContent: `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 540px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
           <h2 style="color: #0f172a; margin-top: 0;">${params.tenantName}</h2>
           <p style="color: #475569; font-size: 14px;">Hello ${params.recipientName},</p>
-          <p style="color: #475569; font-size: 14px;">Use the verification code below to log in to your Academy ERP portal:</p>
+          <p style="color: #475569; font-size: 14px;">Use the verification code below to log in to your ${params.tenantName} portal:</p>
           
           <div style="text-align: center; margin: 28px 0;">
             <span style="display: inline-block; font-family: monospace; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #4338ca; background: #e0e7ff; padding: 12px 24px; border-radius: 8px; border: 1px solid #c7d2fe;">
@@ -103,7 +103,7 @@ export class DevConsoleMailerService implements IMailerService {
 export function createMailerService(): IMailerService {
   const apiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.BREVO_SENDER_EMAIL || 'info@kampus.pk';
-  const senderName = process.env.BREVO_SENDER_NAME || 'Kampus ERP';
+  const senderName = process.env.BREVO_SENDER_NAME || 'Kampus';
 
   if (apiKey) {
     return new BrevoMailerService(apiKey, senderEmail, senderName);

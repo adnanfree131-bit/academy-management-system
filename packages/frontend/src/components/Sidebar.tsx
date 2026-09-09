@@ -368,7 +368,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
 
               {/* ============================================================
-                  ROLE: TENANT ADMIN (Principal / Director - Institutional ERP)
+                  ROLE: TENANT ADMIN (Principal / Director - Academy Administration)
                   ============================================================ */}
               {(role === 'tenant_admin' || (!['teacher', 'student', 'super_admin'].includes(role))) && (
                 <>

@@ -28,7 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span className="font-semibold text-slate-900">{tenant?.name || 'Apex Academy ERP'}</span>
+            <span className="font-semibold text-slate-900">{tenant?.name || 'Apex Academy'}</span>
             <span>/</span>
             <span className="font-medium text-slate-600">{currentScreenTitle}</span>
           </div>

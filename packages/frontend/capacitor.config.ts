@@ -16,8 +16,8 @@ export interface CapacitorConfig {
 }
 
 const config: CapacitorConfig = {
-  appId: 'pk.edu.apexacademy.erp',
-  appName: 'Apex Academy ERP',
+  appId: 'pk.kampus.academy',
+  appName: 'Kampus Academy',
   webDir: 'dist',
   server: {
     androidScheme: 'https',

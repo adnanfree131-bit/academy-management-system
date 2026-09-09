@@ -65,7 +65,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     return {
       status: 'healthy',
       version: '1.0.0',
-      system: 'Apex Academy Management ERP Backend',
+      system: 'Academy Management System Backend',
       timestamp: new Date().toISOString(),
     };
   });

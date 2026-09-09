@@ -52,7 +52,7 @@ describe('Phase 7: Multi-Portal Dashboards, SaaS Billing Lockout & Control Plane
       sub: 'a1000000-0000-0000-0000-000000000006',
       user_id: 'a1000000-0000-0000-0000-000000000006',
       tenant_id: TENANT_A_ID,
-      email: 'superadmin@apexacademyerp.com',
+      email: 'superadmin@kampus.pk',
       role: 'super_admin'
     });
 
@@ -134,7 +134,7 @@ describe('Phase 7: Multi-Portal Dashboards, SaaS Billing Lockout & Control Plane
       headers: { authorization: `Bearer ${superAdminToken}` },
       payload: {
         monthly_subscription_fee: 18000,
-        instructions: 'Please use Raast ID: billing@apexacademyerp.com for zero-fee transfer.'
+        instructions: 'Please use Raast ID: billing@kampus.pk for zero-fee transfer.'
       }
     });
     expect(resPut.statusCode).toBe(200);

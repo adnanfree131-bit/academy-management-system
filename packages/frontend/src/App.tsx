@@ -105,7 +105,7 @@ const MainLayout: React.FC = () => {
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center text-white">
           <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-xs font-mono text-slate-400">Loading Apex ERP Session...</p>
+          <p className="text-xs font-mono text-slate-400">Loading Academy Session...</p>
         </div>
       </div>
     );
