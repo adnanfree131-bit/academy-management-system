@@ -24,8 +24,7 @@ import {
   BookOpen,
   Receipt,
   CalendarCheck,
-  Award,
-  Building2
+  Award
 } from 'lucide-react';
 import { AcademyBranding } from '@apex/shared-types';
 
@@ -386,95 +385,66 @@ export const LoginModal: React.FC = () => {
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
           
           {/* Top Bar: Clean Brand Logo */}
-          <div className="relative z-10 flex items-center justify-between pb-4 border-b border-slate-900">
+          <div className="relative z-10 pb-4 border-b border-slate-900">
             <img src="/kampus-logo-dark.png" alt="Kampus" className="h-6 w-auto object-contain" />
-            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-800">
-              Academy ERP
-            </span>
           </div>
 
           {/* Middle Live Showcase: Features on Platform Sign-in, Branding on Tenant/Registration */}
           {isPlatformSignIn ? (
-            <div className="relative z-10 my-auto py-4 flex flex-col justify-center">
-              {/* Category / Intro */}
-              <div className="mb-5">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-900/90 border border-slate-800 text-[11px] font-medium text-slate-300 mb-2.5">
-                  <Building2 className="w-3.5 h-3.5 text-rose-500" />
-                  <span>Integrated Institutional ERP</span>
-                </div>
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-brand leading-snug">
-                  Built for academies and schools.
+            <div className="relative z-10 my-auto py-6">
+              <div className="mb-8">
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-brand">
+                  Academy Management System
                 </h2>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Unified operational flow connecting students, multi-part fee challans, attendance, and exam registers.
+                <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
+                  Comprehensive academic and financial operations built specifically for academies.
                 </p>
               </div>
 
-              {/* Feature Cards Stack */}
-              <div className="space-y-2.5">
-                <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition-all flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-slate-800/90 border border-slate-700/60 flex items-center justify-center shrink-0 text-rose-500 mt-0.5">
-                    <BookOpen className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold text-slate-200">
-                        Academic Structure & Batches
-                      </h3>
-                      <span className="text-[10px] font-mono text-slate-500">SIS</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
-                      Multi-shift sections, compulsory core & elective streams, and full student profiles.
+              <div className="space-y-6">
+                <div className="flex items-start gap-3.5">
+                  <BookOpen className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-semibold text-slate-200">
+                      Academic Structure & Batches
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                      Multi-shift sections, compulsory core and elective curriculum streams, and student dossiers.
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition-all flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-slate-800/90 border border-slate-700/60 flex items-center justify-center shrink-0 text-rose-500 mt-0.5">
-                    <Receipt className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold text-slate-200">
-                        Fee Ledger & 3-Part Challans
-                      </h3>
-                      <span className="text-[10px] font-mono text-slate-500">Financials</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
-                      Itemized heads, allocation priority, scholarship waivers, and printable bank vouchers.
+                <div className="flex items-start gap-3.5">
+                  <Receipt className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-semibold text-slate-200">
+                      Fee Ledger & 3-Part Challans
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                      Itemized fee heads, automated payment allocation priority, and printable bank vouchers.
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition-all flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-slate-800/90 border border-slate-700/60 flex items-center justify-center shrink-0 text-rose-500 mt-0.5">
-                    <CalendarCheck className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold text-slate-200">
-                        Dual-Mode Attendance & Alerts
-                      </h3>
-                      <span className="text-[10px] font-mono text-slate-500">Real-time</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
-                      Campus GPS geofenced check-ins, roll-call registers, and instant WhatsApp parent notices.
+                <div className="flex items-start gap-3.5">
+                  <CalendarCheck className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-semibold text-slate-200">
+                      Dual-Mode Attendance
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                      Campus GPS geofenced check-ins, roll-call registers, and automated WhatsApp parent notices.
                     </p>
                   </div>
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition-all flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-slate-800/90 border border-slate-700/60 flex items-center justify-center shrink-0 text-rose-500 mt-0.5">
-                    <Award className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-xs font-semibold text-slate-200">
-                        Examinations & Marksheets
-                      </h3>
-                      <span className="text-[10px] font-mono text-slate-500">Grades</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                <div className="flex items-start gap-3.5">
+                  <Award className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-semibold text-slate-200">
+                      Examinations & Marksheets
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
                       Term grading, subject marks entry, GPA calculations, and print-ready report cards.
                     </p>
                   </div>
@@ -531,18 +501,6 @@ export const LoginModal: React.FC = () => {
               </div>
             </div>
           )}
-
-          {/* Bottom Bar: Trust / Security Assurance */}
-          <div className="relative z-10 pt-4 border-t border-slate-900 flex items-center justify-between text-[11px] text-slate-500">
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-mono text-slate-400">Multi-Tenant Isolated RLS</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-slate-400">
-              <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-              <span>Role-Based Security</span>
-            </div>
-          </div>
 
         </div>
 
