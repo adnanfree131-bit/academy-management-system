@@ -223,7 +223,7 @@ export const LoginModal: React.FC = () => {
     }
 
     if (slugAvailability.status === 'unavailable') {
-      setError('Please choose an available subdomain identifier.');
+      setError('Please choose an available academy web address.');
       return;
     }
 
@@ -418,10 +418,10 @@ export const LoginModal: React.FC = () => {
         <div className="lg:col-span-7 bg-white p-6 sm:p-10 lg:p-12 flex flex-col justify-between min-h-[600px] overflow-y-auto">
           
           {/* Top Bar: Mode Switcher */}
-          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 border-b border-slate-100 pb-4">
+            <div className="flex items-center justify-between">
               {/* Mobile-only brand logo (since left column is hidden on mobile screens) */}
-              <img src="/kampus-logo.png" alt="Kampus" className="h-5 w-auto object-contain lg:hidden" />
+              <img src="/kampus-logo.png" alt="Kampus" className="h-6 w-auto object-contain lg:hidden" />
               {tenantSlug && branding?.name && (
                 <span className="text-xs font-semibold text-slate-700 truncate max-w-[180px]">
                   {branding.name}
@@ -431,11 +431,11 @@ export const LoginModal: React.FC = () => {
 
             {/* Mode Switcher (Visible only in form step) */}
             {step === 'form' && (
-              <div className="inline-flex p-1 bg-slate-100 rounded-lg text-xs font-semibold">
+              <div className="grid grid-cols-2 sm:flex p-1 bg-slate-100 rounded-lg text-xs font-semibold w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => { setMode('login'); setError(null); setMessage(null); }}
-                  className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     mode === 'login' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
                   }`}
                 >
@@ -445,7 +445,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => { setMode('register'); setError(null); setMessage(null); }}
-                  className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     mode === 'register' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
                   }`}
                 >
@@ -498,7 +498,7 @@ export const LoginModal: React.FC = () => {
                 {step === 'forgot_password_reset' && `Enter the 6-digit code dispatched to ${email} and choose your new password.`}
                 {step === 'form' && (mode === 'login' 
                   ? 'Enter your institutional email and password to access your academy account.' 
-                  : 'Create your academy profile, choose your subdomain, and set up your director account.')}
+                  : 'Create your academy profile, choose your web address, and set up your director account.')}
               </p>
             </div>
 
@@ -631,11 +631,11 @@ export const LoginModal: React.FC = () => {
                   />
                 </div>
 
-                {/* Subdomain Identifier with Real-time Availability Check */}
+                {/* Academy Web Address with Real-time Availability Check */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-xs font-semibold text-slate-700">
-                      Subdomain Identifier
+                      Academy Web Address
                     </label>
                     {slugAvailability.status === 'checking' && (
                       <span className="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
@@ -661,6 +661,7 @@ export const LoginModal: React.FC = () => {
                       type="text"
                       value={regSlug}
                       onChange={(e) => setRegSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                      placeholder="e.g. falcon"
                       required
                       className="w-full pl-3 pr-1 py-2 text-xs text-slate-900 font-mono font-medium focus:outline-none bg-transparent"
                     />
