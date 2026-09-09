@@ -343,8 +343,6 @@ export const LoginModal: React.FC = () => {
         ? 'edu.kampus.pk'
         : (branding?.domain || (tenantSlug ? `${tenantSlug}.${baseDomain}` : baseDomain)));
 
-  const currentSession = branding?.academic_session || '2026–2027';
-
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 sm:p-6 lg:p-10 font-sans">
       <div className="w-full max-w-6xl bg-white sm:rounded-2xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[680px]">
@@ -1080,11 +1078,18 @@ export const LoginModal: React.FC = () => {
 
           {/* Clean Institutional Footer */}
           <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400">
-            <span>© 2026 {activeAcademyName}</span>
+            <span>
+              {tenantSlug && branding?.name && mode === 'login'
+                ? `© ${new Date().getFullYear()} ${branding.name}`
+                : `© ${new Date().getFullYear()} Kampus. All rights reserved.`}
+            </span>
             <div className="flex items-center gap-3">
-              <span>Academic Session {currentSession}</span>
-              <span>•</span>
-              <span>Support: info@kampus.pk</span>
+              <a 
+                href="mailto:info@kampus.pk" 
+                className="hover:text-slate-600 transition-colors"
+              >
+                Support: info@kampus.pk
+              </a>
             </div>
           </div>
 
