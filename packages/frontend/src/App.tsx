@@ -22,7 +22,9 @@ import { SuperAdminControlPlaneView } from './views/SuperAdminControlPlaneView';
 import { IncomeExpenseDeskView } from './views/IncomeExpenseDeskView';
 import { AcademySettingsView } from './views/AcademySettingsView';
 import { TrialExpiredLockoutModal } from './components/TrialExpiredLockoutModal';
+import { AnnouncementPopupModal } from './components/AnnouncementPopupModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { ShieldAlert } from 'lucide-react';
 
 const getTitle = (screen: string, role?: string): string => {
   if (role === 'teacher') {
@@ -81,7 +83,7 @@ const getTitle = (screen: string, role?: string): string => {
 };
 
 const MainLayout: React.FC = () => {
-  const { user, tenant, isLoading, refreshSession } = useAuth();
+  const { user, tenant, isLoading, refreshSession, logout } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<string>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
@@ -116,13 +118,47 @@ const MainLayout: React.FC = () => {
   }
 
   const isTenantLocked = tenant?.status === 'locked';
+  const isTenantSuspended = tenant?.status === 'suspended';
+
+  // If academy is suspended and user is staff or student, show clean institutional advisory
+  if (isTenantSuspended && user.role !== 'super_admin' && user.role !== 'tenant_admin') {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 text-white">
+        <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-2xl p-6 text-center space-y-4 shadow-xl">
+          <div className="w-12 h-12 rounded-xl bg-rose-600/20 text-rose-400 border border-rose-500/30 flex items-center justify-center mx-auto">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-bold">Academy Access Suspended</h2>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            Access to this academy has been temporarily placed on administrative hold by the platform administration.
+          </p>
+          <div className="p-3 bg-slate-900/60 rounded-xl text-left border border-slate-700/60 text-xs">
+            <div className="text-[10px] uppercase font-bold text-slate-500">Notice Details</div>
+            <div className="text-slate-300 font-mono mt-0.5">{tenant?.suspended_reason || 'Administrative hold'}</div>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Please contact your campus administration or director for assistance.
+          </p>
+          <button
+            onClick={logout}
+            className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-slate-50 relative">
-      {/* 30-Day Trial Expired Lockout Modal */}
-      {isTenantLocked && (
+      {/* 30-Day Trial Expired Lockout & Billing Settlement Desk */}
+      {(isTenantLocked || (isTenantSuspended && user.role === 'tenant_admin')) && (
         <TrialExpiredLockoutModal onUnlocked={refreshSession} />
       )}
+
+      {/* Platform Broadcast Announcement Popup Modal */}
+      <AnnouncementPopupModal />
 
       <Sidebar
         currentScreen={currentScreen}

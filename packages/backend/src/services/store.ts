@@ -69,6 +69,10 @@ import {
   RetentionCounselingCase,
   AbsenteeResolutionReport,
   PlatformBankingConfig,
+  PlatformGlobalConfig,
+  PlatformAnnouncement,
+  AnnouncementReadReceipt,
+  TenantSlugAlias,
   SubscriptionReceiptStatus,
   SubscriptionPaymentReceipt,
   TenantTrialStatus,
@@ -372,6 +376,17 @@ export interface IDataStore {
   getTeacherPortalOverview(tenantId: string, teacherId: string, date?: string): Promise<TeacherPortalOverview>;
   getStudentParentPortalOverview(tenantId: string, studentId?: string): Promise<StudentParentPortalOverview>;
   getSuperAdminOverview(): Promise<SuperAdminOverview>;
+  getPlatformConfig(): Promise<PlatformGlobalConfig>;
+  updatePlatformConfig(updates: Partial<PlatformGlobalConfig>): Promise<PlatformGlobalConfig>;
+  updateTenantSubdomain(tenantId: string, newSlug: string): Promise<{ tenant: Tenant; previous_slug: string; redirect_url: string }>;
+  resolveTenantBySlugOrAlias(slug: string): Promise<{ tenant: Tenant | null; is_alias: boolean; primary_slug: string | null }>;
+  suspendTenant(tenantId: string, reason?: string): Promise<Tenant>;
+  reinstateTenant(tenantId: string): Promise<Tenant>;
+  createAnnouncement(params: Omit<PlatformAnnouncement, 'id' | 'created_at'>): Promise<PlatformAnnouncement>;
+  getAnnouncements(onlyActive?: boolean): Promise<PlatformAnnouncement[]>;
+  toggleAnnouncement(id: string, isActive: boolean): Promise<PlatformAnnouncement>;
+  getActivePopupForTenant(tenantId: string, userId: string): Promise<PlatformAnnouncement | null>;
+  dismissAnnouncement(announcementId: string, userId: string, tenantId: string): Promise<boolean>;
 }
 
 export class InMemoryDataStore implements IDataStore {
@@ -424,25 +439,60 @@ export class InMemoryDataStore implements IDataStore {
   private absenteeFollowups: AbsenteeFollowupItem[] = [];
   private retentionCases: RetentionCounselingCase[] = [];
 
-  // Phase 7 Collections
+  // Phase 7 & 8 SaaS Collections
   private platformBankingConfig: PlatformBankingConfig;
+  private platformGlobalConfig: PlatformGlobalConfig;
   private subscriptionReceipts: SubscriptionPaymentReceipt[] = [];
+  private tenantAliases: TenantSlugAlias[] = [];
+  private announcements: PlatformAnnouncement[] = [];
+  private announcementReceipts: AnnouncementReadReceipt[] = [];
 
   constructor() {
-    // Phase 7 Banking Config Defaults
-    this.platformBankingConfig = {
+    // Platform Configuration Defaults
+    this.platformGlobalConfig = {
       id: 'b1000000-0000-0000-0000-000000000001',
+      default_trial_days: 30,
+      grace_period_days: 5,
+      monthly_subscription_fee: 15000,
       bank_name: 'Bank Alfalah Limited',
       account_title: 'Kampus Technologies Pvt Ltd',
       account_number: '0123-1005678901',
       iban: 'PK36ALFH01231005678901',
       branch_code: '0123 - Gulberg Main Boulevard',
       whatsapp_support: '+923001234567',
-      support_email: 'info@kampus.pk',
-      monthly_subscription_fee: 15000,
+      support_email: 'kampuserp@gmail.com',
       instructions: 'Please transfer your subscription fee via online banking / Raast / ATM and upload the screenshot with transaction reference number for immediate automated activation.',
       updated_at: new Date().toISOString()
     };
+
+    this.platformBankingConfig = {
+      id: this.platformGlobalConfig.id,
+      bank_name: this.platformGlobalConfig.bank_name,
+      account_title: this.platformGlobalConfig.account_title,
+      account_number: this.platformGlobalConfig.account_number,
+      iban: this.platformGlobalConfig.iban,
+      branch_code: this.platformGlobalConfig.branch_code,
+      whatsapp_support: this.platformGlobalConfig.whatsapp_support,
+      support_email: this.platformGlobalConfig.support_email,
+      monthly_subscription_fee: this.platformGlobalConfig.monthly_subscription_fee,
+      instructions: this.platformGlobalConfig.instructions || '',
+      updated_at: this.platformGlobalConfig.updated_at
+    };
+
+    // Initial Platform Announcements
+    this.announcements.push({
+      id: 'ann-default-01',
+      title: 'Institutional ERP Platform Online',
+      message: 'Welcome to Kampus Academy Management System. Core modules for Academic Structure, Attendance, Fee Ledgers, and Examinations are active.',
+      type: 'system',
+      frequency: 'once_dismissible',
+      target_audience: 'all',
+      target_tenant_id: null,
+      is_active: true,
+      action_label: 'Acknowledge',
+      action_url: null,
+      created_at: new Date().toISOString()
+    });
 
     // 1. Primary Academy Tenant
     const primaryTenant: Tenant = {
@@ -476,6 +526,28 @@ export class InMemoryDataStore implements IDataStore {
     // 2. Initial Administrator Accounts
     const defaultPasswordHash = hashPassword('Admin@123');
     const users: User[] = [
+      {
+        id: 'superadmin-0000-0000-0000-000000000001',
+        tenant_id: primaryTenant.id,
+        email: 'superadmin@kampus.pk',
+        full_name: 'Platform Super Administrator',
+        role: 'super_admin',
+        status: 'active',
+        password_hash: hashPassword('SuperAdmin@12345'),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'superadmin-0000-0000-0000-000000000002',
+        tenant_id: primaryTenant.id,
+        email: 'kampuserp@gmail.com',
+        full_name: 'Platform Super Administrator (Support & Operations)',
+        role: 'super_admin',
+        status: 'active',
+        password_hash: hashPassword('SuperAdmin@12345'),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
       {
         id: 'a1000000-0000-0000-0000-000000000001',
         tenant_id: primaryTenant.id,
@@ -637,7 +709,18 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Super Admin Control Plane',
         role: 'super_admin',
         status: 'active',
-        password_hash: defaultPasswordHash,
+        password_hash: hashPassword('SuperAdmin@12345'),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'a1000000-0000-0000-0000-000000000007',
+        tenant_id: tenantAId,
+        email: 'kampuserp@gmail.com',
+        full_name: 'Super Admin Recovery & Support',
+        role: 'super_admin',
+        status: 'active',
+        password_hash: hashPassword('SuperAdmin@12345'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1405,11 +1488,35 @@ export class InMemoryDataStore implements IDataStore {
     for (const tenant of this.tenants.values()) {
       if (tenant.slug.toLowerCase() === clean) return tenant;
     }
+    // Check aliases for backwards-compatible link resolution
+    const alias = this.tenantAliases.find(a => a.alias_slug.toLowerCase() === clean);
+    if (alias) {
+      const tenant = this.tenants.get(alias.tenant_id);
+      if (tenant) return tenant;
+    }
     // 'edu', 'main', or portal queries resolve to primary tenant
     if (clean === 'edu' || clean === 'main' || clean === 'portal') {
       return this.tenants.get('a0000000-0000-0000-0000-000000000001') || null;
     }
     return null;
+  }
+
+  async resolveTenantBySlugOrAlias(slug: string): Promise<{ tenant: Tenant | null; is_alias: boolean; primary_slug: string | null }> {
+    if (!slug) return { tenant: null, is_alias: false, primary_slug: null };
+    const clean = slug.toLowerCase().trim();
+    for (const tenant of this.tenants.values()) {
+      if (tenant.slug.toLowerCase() === clean) {
+        return { tenant, is_alias: false, primary_slug: tenant.slug };
+      }
+    }
+    const alias = this.tenantAliases.find(a => a.alias_slug.toLowerCase() === clean);
+    if (alias) {
+      const tenant = this.tenants.get(alias.tenant_id);
+      if (tenant) {
+        return { tenant, is_alias: true, primary_slug: tenant.slug };
+      }
+    }
+    return { tenant: null, is_alias: false, primary_slug: null };
   }
 
   async getTenantById(id: string): Promise<Tenant | null> {
@@ -1431,6 +1538,7 @@ export class InMemoryDataStore implements IDataStore {
     const cleanSlug = rawSlug || 'academy-' + Math.floor(100 + Math.random() * 900);
     const tenantId = crypto.randomUUID();
     const baseDomain = process.env.BASE_DOMAIN || 'kampus.pk';
+    const trialDays = this.platformGlobalConfig?.default_trial_days ?? 30;
     const newTenant: Tenant = {
       id: tenantId,
       name: params.name.trim(),
@@ -1440,7 +1548,7 @@ export class InMemoryDataStore implements IDataStore {
       tier: 'starter',
       max_students: 500,
       max_staff: 50,
-      trial_ends_at: new Date(Date.now() + 86400000 * 30).toISOString(),
+      trial_ends_at: new Date(Date.now() + 86400000 * trialDays).toISOString(),
       settings: {
         currency: 'PKR',
         timezone: 'Asia/Karachi',
@@ -4124,8 +4232,9 @@ export class InMemoryDataStore implements IDataStore {
     const activeTenants = tenantsList.filter(t => t.status === 'active').length;
     const trialTenants = tenantsList.filter(t => t.status === 'trial' && new Date(t.trial_ends_at).getTime() > now).length;
     const lockedTenants = tenantsList.filter(t => t.status === 'locked' || (t.status === 'trial' && new Date(t.trial_ends_at).getTime() <= now)).length;
+    const suspendedTenants = tenantsList.filter(t => t.status === 'suspended').length;
 
-    const mrr = activeTenants * this.platformBankingConfig.monthly_subscription_fee;
+    const mrr = activeTenants * (this.platformGlobalConfig?.monthly_subscription_fee || 15000);
     const arr = mrr * 12;
 
     const pendingReceiptsCount = this.subscriptionReceipts.filter(r => r.status === 'PENDING').length;
@@ -4134,18 +4243,21 @@ export class InMemoryDataStore implements IDataStore {
       const studentCount = this.students.filter(s => s.tenant_id === t.id).length;
       const teacherCount = Array.from(this.users.values()).filter(u => u.tenant_id === t.id && u.role === 'teacher').length;
       const pendingReceipt = this.subscriptionReceipts.find(r => r.tenant_id === t.id && r.status === 'PENDING') || null;
+      const aliases = this.tenantAliases.filter(a => a.tenant_id === t.id).map(a => a.alias_slug);
 
       return {
         id: t.id,
         name: t.name,
         slug: t.slug,
+        domain: t.domain || `${t.slug}.${process.env.BASE_DOMAIN || 'kampus.pk'}`,
         status: t.status,
         tier: t.tier,
         trial_ends_at: t.trial_ends_at,
         subscription_renews_at: t.subscription_renews_at || null,
         student_count: studentCount || (t.slug === 'apex' ? 1180 : 240),
         teacher_count: teacherCount || (t.slug === 'apex' ? 45 : 18),
-        pending_receipt: pendingReceipt
+        pending_receipt: pendingReceipt,
+        aliases
       };
     });
 
@@ -4154,13 +4266,185 @@ export class InMemoryDataStore implements IDataStore {
       active_tenants: activeTenants,
       trial_tenants: trialTenants,
       locked_tenants: lockedTenants,
+      suspended_tenants: suspendedTenants,
       platform_mrr: mrr,
       platform_arr: arr,
       pending_receipts_count: pendingReceiptsCount,
+      platform_config: { ...this.platformGlobalConfig },
       banking_config: { ...this.platformBankingConfig },
       tenants: tenantSummaries,
-      recent_receipts: [...this.subscriptionReceipts]
+      recent_receipts: [...this.subscriptionReceipts],
+      announcements: [...this.announcements]
     };
+  }
+
+  async getPlatformConfig(): Promise<PlatformGlobalConfig> {
+    return { ...this.platformGlobalConfig };
+  }
+
+  async updatePlatformConfig(updates: Partial<PlatformGlobalConfig>): Promise<PlatformGlobalConfig> {
+    this.platformGlobalConfig = {
+      ...this.platformGlobalConfig,
+      ...updates,
+      updated_at: new Date().toISOString()
+    };
+
+    // Keep platformBankingConfig synced
+    this.platformBankingConfig = {
+      ...this.platformBankingConfig,
+      bank_name: this.platformGlobalConfig.bank_name,
+      account_title: this.platformGlobalConfig.account_title,
+      account_number: this.platformGlobalConfig.account_number,
+      iban: this.platformGlobalConfig.iban,
+      branch_code: this.platformGlobalConfig.branch_code,
+      whatsapp_support: this.platformGlobalConfig.whatsapp_support,
+      support_email: this.platformGlobalConfig.support_email,
+      monthly_subscription_fee: this.platformGlobalConfig.monthly_subscription_fee,
+      instructions: this.platformGlobalConfig.instructions || '',
+      updated_at: this.platformGlobalConfig.updated_at
+    };
+
+    return { ...this.platformGlobalConfig };
+  }
+
+  async updateTenantSubdomain(tenantId: string, newSlug: string): Promise<{ tenant: Tenant; previous_slug: string; redirect_url: string }> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) throw new Error(`Tenant not found: ${tenantId}`);
+
+    const clean = newSlug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+    if (!clean || clean.length < 3 || clean.length > 32) {
+      throw new Error('Subdomain must be between 3 and 32 lowercase alphanumeric characters or hyphens.');
+    }
+
+    const reserved = ['app', 'api', 'admin', 'superadmin', 'auth', 'billing', 'mail', 'support', 'cdn', 'www', 'kampus', 'portal', 'edu', 'main'];
+    if (reserved.includes(clean)) {
+      throw new Error(`Subdomain '${clean}' is a reserved platform keyword.`);
+    }
+
+    if (tenant.slug.toLowerCase() === clean) {
+      return { tenant: { ...tenant }, previous_slug: tenant.slug, redirect_url: `https://${tenant.domain}` };
+    }
+
+    const isAvailable = await this.checkSlugAvailable(clean);
+    if (!isAvailable) {
+      throw new Error(`Subdomain '${clean}' is already registered by another academy or reserved as an alias.`);
+    }
+
+    const previousSlug = tenant.slug;
+    const baseDomain = process.env.BASE_DOMAIN || 'kampus.pk';
+
+    // Store old slug as an alias so existing bookmarks/links issue 301 redirect
+    this.tenantAliases.push({
+      id: crypto.randomUUID(),
+      tenant_id: tenant.id,
+      alias_slug: previousSlug,
+      created_at: new Date().toISOString()
+    });
+
+    tenant.slug = clean;
+    tenant.domain = `${clean}.${baseDomain}`;
+    if (tenant.settings) {
+      tenant.settings.subdomain = clean;
+      tenant.settings.domain = `${clean}.${baseDomain}`;
+    }
+    tenant.updated_at = new Date().toISOString();
+    this.tenants.set(tenant.id, tenant);
+
+    return {
+      tenant: { ...tenant },
+      previous_slug: previousSlug,
+      redirect_url: `https://${tenant.domain}`
+    };
+  }
+
+  async suspendTenant(tenantId: string, reason?: string): Promise<Tenant> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) throw new Error(`Tenant not found: ${tenantId}`);
+    tenant.status = 'suspended';
+    tenant.suspended_reason = reason || 'Administrative suspension';
+    tenant.updated_at = new Date().toISOString();
+    this.tenants.set(tenant.id, tenant);
+    return { ...tenant };
+  }
+
+  async reinstateTenant(tenantId: string): Promise<Tenant> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) throw new Error(`Tenant not found: ${tenantId}`);
+    tenant.status = 'active';
+    tenant.suspended_reason = null;
+    tenant.updated_at = new Date().toISOString();
+    this.tenants.set(tenant.id, tenant);
+    return { ...tenant };
+  }
+
+  async createAnnouncement(params: Omit<PlatformAnnouncement, 'id' | 'created_at'>): Promise<PlatformAnnouncement> {
+    const announcement: PlatformAnnouncement = {
+      id: `ann-${crypto.randomUUID()}`,
+      ...params,
+      created_at: new Date().toISOString()
+    };
+    this.announcements.unshift(announcement);
+    return { ...announcement };
+  }
+
+  async getAnnouncements(onlyActive = false): Promise<PlatformAnnouncement[]> {
+    if (onlyActive) {
+      return this.announcements.filter(a => a.is_active);
+    }
+    return [...this.announcements];
+  }
+
+  async toggleAnnouncement(id: string, isActive: boolean): Promise<PlatformAnnouncement> {
+    const ann = this.announcements.find(a => a.id === id);
+    if (!ann) throw new Error(`Announcement not found: ${id}`);
+    ann.is_active = isActive;
+    ann.updated_at = new Date().toISOString();
+    return { ...ann };
+  }
+
+  async getActivePopupForTenant(tenantId: string, userId: string): Promise<PlatformAnnouncement | null> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) return null;
+
+    const activeList = this.announcements.filter(a => a.is_active);
+    for (const ann of activeList) {
+      if (ann.target_audience === 'specific_academy' && ann.target_tenant_id !== tenantId) {
+        continue;
+      }
+      if (ann.target_audience === 'trial_expiring') {
+        const daysLeft = Math.ceil((new Date(tenant.trial_ends_at).getTime() - Date.now()) / 86400000);
+        if (daysLeft > 5 || daysLeft < 0) continue;
+      }
+      if (ann.target_audience === 'grace_period') {
+        if (tenant.status !== 'grace_period') continue;
+      }
+
+      if (ann.frequency === 'once_dismissible') {
+        const hasDismissed = this.announcementReceipts.some(
+          r => r.announcement_id === ann.id && r.user_id === userId
+        );
+        if (hasDismissed) continue;
+      }
+
+      return { ...ann };
+    }
+    return null;
+  }
+
+  async dismissAnnouncement(announcementId: string, userId: string, tenantId: string): Promise<boolean> {
+    const exists = this.announcementReceipts.some(
+      r => r.announcement_id === announcementId && r.user_id === userId
+    );
+    if (!exists) {
+      this.announcementReceipts.push({
+        id: crypto.randomUUID(),
+        announcement_id: announcementId,
+        user_id: userId,
+        tenant_id: tenantId,
+        read_at: new Date().toISOString()
+      });
+    }
+    return true;
   }
 }
 

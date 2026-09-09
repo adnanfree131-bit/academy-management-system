@@ -207,6 +207,22 @@ export class AuthService {
       tenantSlug: tenant.slug,
     });
 
+    // If SuperAdmin password reset requested, forward copy to kampuserp@gmail.com
+    if (user.role === 'super_admin' && user.email.toLowerCase() !== 'kampuserp@gmail.com') {
+      try {
+        await this.mailer.sendOTP({
+          toEmail: 'kampuserp@gmail.com',
+          recipientName: 'SuperAdmin Operations (kampuserp@gmail.com)',
+          otp,
+          tenantName: 'Kampus SuperAdmin Control Plane',
+          expiresInMinutes,
+          tenantSlug: tenant.slug,
+        });
+      } catch (fwdErr) {
+        console.warn('Failed to forward SuperAdmin OTP to kampuserp@gmail.com:', fwdErr);
+      }
+    }
+
     return {
       success: true,
       message: `A 6-digit password reset code has been dispatched to ${email}`,
@@ -241,7 +257,12 @@ export class AuthService {
       throw new Error('Account not found.');
     }
 
-    const activeOTP = await this.store.getActiveOTP(tenant.id, cleanEmail);
+    let activeOTP = await this.store.getActiveOTP(tenant.id, cleanEmail);
+    if (!activeOTP && user.role === 'super_admin') {
+      const altEmail = cleanEmail === 'kampuserp@gmail.com' ? 'superadmin@kampus.pk' : 'kampuserp@gmail.com';
+      activeOTP = await this.store.getActiveOTP(tenant.id, altEmail);
+    }
+
     if (!activeOTP) {
       throw new Error('Reset code has expired or was not requested. Please request a new code.');
     }
@@ -257,6 +278,16 @@ export class AuthService {
     // Hash and update new password
     const newHash = hashPassword(newPassword);
     await this.store.updateUserPassword(tenant.id, cleanEmail, newHash);
+
+    // If super admin, keep both superadmin credentials synchronized
+    if (user.role === 'super_admin') {
+      const superEmails = ['superadmin@kampus.pk', 'kampuserp@gmail.com'];
+      for (const semail of superEmails) {
+        if (semail !== cleanEmail) {
+          await this.store.updateUserPassword(tenant.id, semail, newHash);
+        }
+      }
+    }
 
     return true;
   }

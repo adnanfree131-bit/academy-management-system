@@ -19,6 +19,7 @@ export interface TenantSession {
   logo_url?: string | null;
   city?: string | null;
   domain?: string | null;
+  suspended_reason?: string | null;
 }
 
 export interface RegisterAcademyPayload {

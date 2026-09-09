@@ -54,11 +54,41 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
     try {
       await request.jwtVerify();
     } catch (err) {
-      reply.status(401).send({
+      return reply.status(401).send({
         success: false,
         error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required.' },
         timestamp: new Date().toISOString(),
       });
+    }
+
+    // Role-segregated academy suspension check
+    if (request.user && request.user.tenant_id && request.user.role !== 'super_admin') {
+      const tenant = await store.getTenantById(request.user.tenant_id);
+      if (tenant && tenant.status === 'suspended') {
+        const url = request.url || '';
+        const isAllowedBillingPath =
+          url.includes('/saas/trial-status') ||
+          url.includes('/saas/receipts') ||
+          url.includes('/saas/banking-config') ||
+          url.includes('/saas/my-academy') ||
+          url.includes('/auth/me') ||
+          url.includes('/tenant/active-popup');
+
+        if (request.user.role === 'tenant_admin' && isAllowedBillingPath) {
+          // Allow tenant_admin/director restricted access to billing settlement desk
+        } else {
+          return reply.status(403).send({
+            success: false,
+            error: {
+              code: 'ACADEMY_SUSPENDED',
+              message: 'This academy has been suspended by the platform administrator. Please contact billing support.',
+              tenant_name: tenant.name,
+              suspended_reason: tenant.suspended_reason || 'Administrative hold'
+            },
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
     }
   });
 

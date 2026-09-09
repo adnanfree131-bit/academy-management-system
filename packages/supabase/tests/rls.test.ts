@@ -47,7 +47,12 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
     const mig7Sql = fs.readFileSync(mig7Path, 'utf8');
     await db.exec(mig7Sql);
 
-    // 8. Execute Dual-Tenant Seed Fixture
+    // 8. Execute Migration 00008 (SuperAdmin Platform Controls, Aliases, Announcements)
+    const mig8Path = path.join(__dirname, '../migrations/00008_superadmin_platform_controls.sql');
+    const mig8Sql = fs.readFileSync(mig8Path, 'utf8');
+    await db.exec(mig8Sql);
+
+    // 9. Execute Dual-Tenant Seed Fixture
     const seedPath = path.join(__dirname, '../seeds/001_dual_tenant_seed.sql');
     const seedSql = fs.readFileSync(seedPath, 'utf8');
     await db.exec(seedSql);
@@ -76,13 +81,15 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
     const usersRes = await db.query<{ email: string; tenant_id: string }>(
       'SELECT email, tenant_id FROM users ORDER BY email'
     );
-    expect(usersRes.rows.length).toBe(3);
+    expect(usersRes.rows.length).toBe(5);
     
     // Validate only Apex users exist
     const emails = usersRes.rows.map(r => r.email);
     expect(emails).toContain('adnan@apexacademy.edu.pk');
     expect(emails).toContain('tariq@apexacademy.edu.pk');
     expect(emails).toContain('parent.hamza@gmail.com');
+    expect(emails).toContain('superadmin@kampus.pk');
+    expect(emails).toContain('kampuserp@gmail.com');
     expect(emails).not.toContain('fatima@crescent.edu.pk');
 
     // Validate tenant_id strictly matches Tenant A
@@ -139,7 +146,7 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
     await db.exec(`SET app.is_super_admin = 'true';`);
 
     const usersRes = await db.query<{ count: string }>('SELECT count(*)::text as count FROM users');
-    expect(usersRes.rows[0].count).toBe('5');
+    expect(usersRes.rows[0].count).toBe('7');
 
     const tenantsRes = await db.query<{ count: string }>('SELECT count(*)::text as count FROM tenants');
     expect(tenantsRes.rows[0].count).toBe('2');
@@ -595,6 +602,85 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
     const allReceipts = await db.query<{ reference_number: string }>('SELECT reference_number FROM subscription_payment_receipts');
     expect(allReceipts.rows.length).toBeGreaterThanOrEqual(1);
     expect(allReceipts.rows[0].reference_number).toBe('ALFALAH-REF-99201');
+  });
+
+  it('Gate 21: Tenant Slug Aliases table enforces strict tenant isolation', async () => {
+    // SuperAdmin creates alias for Tenant A
+    await db.exec(`
+      RESET app.current_tenant_id;
+      SET app.is_super_admin = 'true';
+      INSERT INTO tenant_slug_aliases (original_slug, target_tenant_id)
+      VALUES ('apex-old', '${TENANT_A_ID}');
+    `);
+
+    // Tenant A context
+    await db.exec(`
+      RESET app.is_super_admin;
+      SET app.current_tenant_id = '${TENANT_A_ID}';
+      SET ROLE authenticated;
+    `);
+    const aliasesA = await db.query<{ original_slug: string }>('SELECT original_slug FROM tenant_slug_aliases');
+    expect(aliasesA.rows.length).toBe(1);
+    expect(aliasesA.rows[0].original_slug).toBe('apex-old');
+
+    // Tenant B context cannot see Tenant A's alias
+    await db.exec(`SET app.current_tenant_id = '${TENANT_B_ID}';`);
+    const aliasesB = await db.query<{ original_slug: string }>('SELECT original_slug FROM tenant_slug_aliases');
+    expect(aliasesB.rows.length).toBe(0);
+
+    // Cross-tenant alias insertion must be rejected
+    await expect(
+      db.exec(`
+        INSERT INTO tenant_slug_aliases (original_slug, target_tenant_id)
+        VALUES ('illegal-cross', '${TENANT_A_ID}');
+      `)
+    ).rejects.toThrow(/new row violates row-level security policy/i);
+  });
+
+  it('Gate 22: Platform Announcements & Announcement Receipts RLS isolation', async () => {
+    // 1. SuperAdmin inserts a global announcement
+    await db.exec(`
+      RESET app.current_tenant_id;
+      SET app.is_super_admin = 'true';
+      INSERT INTO platform_announcements (id, title, message, type, frequency, target_audience)
+      VALUES ('00000000-0000-0000-0000-000000000099', 'System Notice', 'Maintenance tonight', 'system', 'every_login', 'all');
+    `);
+
+    // 2. Tenant A user reads the announcement (allowed)
+    await db.exec(`
+      RESET app.is_super_admin;
+      SET app.current_tenant_id = '${TENANT_A_ID}';
+      SET ROLE authenticated;
+    `);
+    const notices = await db.query<{ title: string }>('SELECT title FROM platform_announcements WHERE is_active = true');
+    expect(notices.rows.length).toBeGreaterThanOrEqual(1);
+
+    // 3. Tenant A user records a read receipt
+    await db.exec(`
+      INSERT INTO platform_announcement_receipts (announcement_id, user_id, tenant_id)
+      VALUES (
+        '00000000-0000-0000-0000-000000000099',
+        'a1000000-0000-0000-0000-000000000001',
+        '${TENANT_A_ID}'
+      );
+    `);
+
+    // 4. Tenant B context cannot see Tenant A's read receipt
+    await db.exec(`SET app.current_tenant_id = '${TENANT_B_ID}';`);
+    const receiptsB = await db.query<{ id: string }>('SELECT id FROM platform_announcement_receipts');
+    expect(receiptsB.rows.length).toBe(0);
+
+    // 5. Cross-tenant receipt insertion rejected
+    await expect(
+      db.exec(`
+        INSERT INTO platform_announcement_receipts (announcement_id, user_id, tenant_id)
+        VALUES (
+          '00000000-0000-0000-0000-000000000099',
+          'a1000000-0000-0000-0000-000000000001',
+          '${TENANT_A_ID}'
+        );
+      `)
+    ).rejects.toThrow(/new row violates row-level security policy/i);
   });
 });
 

@@ -15,6 +15,7 @@ export interface Tenant {
     max_staff: number;
     trial_ends_at: string;
     subscription_renews_at?: string | null;
+    suspended_reason?: string | null;
     settings: TenantSettings;
     created_at: string;
     updated_at: string;
@@ -1007,10 +1008,56 @@ export interface StudentParentPortalOverview {
         remarks?: string | null;
     }[];
 }
+export interface TenantSlugAlias {
+    id: string;
+    tenant_id: string;
+    alias_slug: string;
+    created_at: string;
+}
+export interface PlatformGlobalConfig {
+    id: string;
+    default_trial_days: number;
+    grace_period_days: number;
+    monthly_subscription_fee: number;
+    bank_name: string;
+    account_title: string;
+    account_number: string;
+    iban?: string;
+    branch_code?: string;
+    whatsapp_support?: string;
+    support_email?: string;
+    instructions?: string;
+    updated_at: string;
+}
+export type PlatformAnnouncementType = 'billing' | 'grace_period' | 'system' | 'custom' | 'urgent' | 'warning' | 'maintenance';
+export type PlatformAnnouncementFrequency = 'every_login' | 'once_dismissible';
+export type PlatformAnnouncementAudience = 'all' | 'admin_only' | 'trial_expiring' | 'grace_period' | 'specific_academy';
+export interface PlatformAnnouncement {
+    id: string;
+    title: string;
+    message: string;
+    type: PlatformAnnouncementType;
+    frequency: PlatformAnnouncementFrequency;
+    target_audience: PlatformAnnouncementAudience;
+    target_tenant_id?: string | null;
+    is_active: boolean;
+    action_label?: string | null;
+    action_url?: string | null;
+    created_at: string;
+    updated_at?: string;
+}
+export interface AnnouncementReadReceipt {
+    id: string;
+    announcement_id: string;
+    user_id: string;
+    tenant_id: string;
+    read_at: string;
+}
 export interface SuperAdminTenantSummary {
     id: string;
     name: string;
     slug: string;
+    domain?: string | null;
     status: string;
     tier: string;
     trial_ends_at: string;
@@ -1018,17 +1065,21 @@ export interface SuperAdminTenantSummary {
     student_count: number;
     teacher_count: number;
     pending_receipt?: SubscriptionPaymentReceipt | null;
+    aliases?: string[];
 }
 export interface SuperAdminOverview {
     total_tenants: number;
     active_tenants: number;
     trial_tenants: number;
     locked_tenants: number;
+    suspended_tenants: number;
     platform_mrr: number;
     platform_arr: number;
     pending_receipts_count: number;
+    platform_config: PlatformGlobalConfig;
     banking_config: PlatformBankingConfig;
     tenants: SuperAdminTenantSummary[];
     recent_receipts: SubscriptionPaymentReceipt[];
+    announcements: PlatformAnnouncement[];
 }
 //# sourceMappingURL=index.d.ts.map
