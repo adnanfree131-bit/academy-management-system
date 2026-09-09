@@ -102,6 +102,7 @@ export class AuthService {
       otp,
       tenantName: tenant.name,
       expiresInMinutes,
+      tenantSlug: tenant.slug,
     });
 
     return {
@@ -203,6 +204,7 @@ export class AuthService {
       otp,
       tenantName: tenant.name,
       expiresInMinutes,
+      tenantSlug: tenant.slug,
     });
 
     return {
