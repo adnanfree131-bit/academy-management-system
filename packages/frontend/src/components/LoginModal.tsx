@@ -20,7 +20,12 @@ import {
   X,
   AlertCircle,
   Check,
-  Copy
+  Copy,
+  BookOpen,
+  Receipt,
+  CalendarCheck,
+  Award,
+  Building2
 } from 'lucide-react';
 import { AcademyBranding } from '@apex/shared-types';
 
@@ -383,64 +388,160 @@ export const LoginModal: React.FC = () => {
           {/* Top Bar: Clean Brand Logo */}
           <div className="relative z-10 flex items-center justify-between pb-4 border-b border-slate-900">
             <img src="/kampus-logo-dark.png" alt="Kampus" className="h-6 w-auto object-contain" />
+            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 bg-slate-900/90 px-2 py-0.5 rounded border border-slate-800">
+              Academy ERP
+            </span>
           </div>
 
-          {/* Middle Live Showcase: Upper-Middle Logo & Middle Name */}
-          <div className="relative z-10 my-auto py-8 flex flex-col items-center text-center">
-            
-            {/* UPPER MIDDLE: Academy / Platform Logo Box */}
-            <div className="mb-5">
-              {activeAcademyLogo ? (
-                <div className={`${
-                  isPlatformSignIn
-                    ? 'w-52 sm:w-56 h-20 px-5 py-3.5'
-                    : 'w-28 h-28 sm:w-32 sm:h-32 p-3.5'
-                } rounded-2xl bg-white border border-slate-700/80 shadow-2xl flex items-center justify-center overflow-hidden transition-all`}>
-                  <img 
-                    src={activeAcademyLogo} 
-                    alt={activeAcademyName} 
-                    className="w-full h-full object-contain"
-                  />
+          {/* Middle Live Showcase: Features on Platform Sign-in, Branding on Tenant/Registration */}
+          {isPlatformSignIn ? (
+            <div className="relative z-10 my-auto py-4 flex flex-col justify-center">
+              {/* Category / Intro */}
+              <div className="mb-5">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-900/90 border border-slate-800 text-[11px] font-medium text-slate-300 mb-2.5">
+                  <Building2 className="w-3.5 h-3.5 text-rose-500" />
+                  <span>Integrated Institutional ERP</span>
                 </div>
-              ) : (
-                <div 
-                  onClick={() => {
-                    if (mode === 'register') fileInputRef.current?.click();
-                  }}
-                  className={`w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 shadow-xl transition-all ${
-                    mode === 'register' ? 'cursor-pointer hover:border-slate-700 hover:text-slate-300' : ''
-                  }`}
-                  title={mode === 'register' ? 'Click to upload academy logo' : undefined}
-                >
-                  <GraduationCap className="w-14 h-14 text-slate-400" />
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-brand leading-snug">
+                  Built for academies and schools.
+                </h2>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Unified operational flow connecting students, multi-part fee challans, attendance, and exam registers.
+                </p>
+              </div>
+
+              {/* Feature Cards Stack */}
+              <div className="space-y-2.5">
+                <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition-all flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800/90 border border-slate-700/60 flex items-center justify-center shrink-0 text-rose-500 mt-0.5">
+                    <BookOpen className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-semibold text-slate-200">
+                        Academic Structure & Batches
+                      </h3>
+                      <span className="text-[10px] font-mono text-slate-500">SIS</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                      Multi-shift sections, compulsory core & elective streams, and full student profiles.
+                    </p>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {/* MIDDLE: Name (Clean, small letters for platform mode) */}
-            <div className="w-full px-4 max-w-sm">
-              <h1 className={`font-brand transition-all duration-150 break-words leading-snug ${
-                isPlatformSignIn
-                  ? 'text-sm sm:text-base font-semibold text-slate-300 tracking-normal'
-                  : mode === 'register' && !regName.trim()
-                    ? 'text-lg sm:text-xl font-normal text-slate-500 tracking-tight'
-                    : 'text-lg sm:text-xl font-bold text-white tracking-tight'
-              }`}>
-                {activeAcademyName}
-              </h1>
+                <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition-all flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800/90 border border-slate-700/60 flex items-center justify-center shrink-0 text-rose-500 mt-0.5">
+                    <Receipt className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-semibold text-slate-200">
+                        Fee Ledger & 3-Part Challans
+                      </h3>
+                      <span className="text-[10px] font-mono text-slate-500">Financials</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                      Itemized heads, allocation priority, scholarship waivers, and printable bank vouchers.
+                    </p>
+                  </div>
+                </div>
 
-              {/* Subdomain Pill */}
-              <div className="mt-2.5 flex items-center justify-center">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
-                  <Lock className="w-3 h-3 text-slate-500" />
-                  <span>{activeDomain}</span>
-                  {mode === 'register' && regCity.trim() && (
-                    <span className="text-slate-500">• {regCity.trim()}</span>
-                  )}
-                </span>
+                <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition-all flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800/90 border border-slate-700/60 flex items-center justify-center shrink-0 text-rose-500 mt-0.5">
+                    <CalendarCheck className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-semibold text-slate-200">
+                        Dual-Mode Attendance & Alerts
+                      </h3>
+                      <span className="text-[10px] font-mono text-slate-500">Real-time</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                      Campus GPS geofenced check-ins, roll-call registers, and instant WhatsApp parent notices.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 transition-all flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-800/90 border border-slate-700/60 flex items-center justify-center shrink-0 text-rose-500 mt-0.5">
+                    <Award className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-xs font-semibold text-slate-200">
+                        Examinations & Marksheets
+                      </h3>
+                      <span className="text-[10px] font-mono text-slate-500">Grades</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                      Term grading, subject marks entry, GPA calculations, and print-ready report cards.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
+          ) : (
+            <div className="relative z-10 my-auto py-8 flex flex-col items-center text-center">
+              {/* UPPER MIDDLE: Academy Logo Box */}
+              <div className="mb-5">
+                {activeAcademyLogo ? (
+                  <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-white p-3.5 border border-slate-700 shadow-2xl flex items-center justify-center overflow-hidden transition-all">
+                    <img 
+                      src={activeAcademyLogo} 
+                      alt={activeAcademyName} 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div 
+                    onClick={() => {
+                      if (mode === 'register') fileInputRef.current?.click();
+                    }}
+                    className={`w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 shadow-xl transition-all ${
+                      mode === 'register' ? 'cursor-pointer hover:border-slate-700 hover:text-slate-300' : ''
+                    }`}
+                    title={mode === 'register' ? 'Click to upload academy logo' : undefined}
+                  >
+                    <GraduationCap className="w-14 h-14 text-slate-400" />
+                  </div>
+                )}
+              </div>
 
+              {/* MIDDLE: Name */}
+              <div className="w-full px-4 max-w-sm">
+                <h1 className={`font-brand transition-all duration-150 break-words leading-snug ${
+                  mode === 'register' && !regName.trim()
+                    ? 'text-lg sm:text-xl font-normal text-slate-500 tracking-tight'
+                    : 'text-lg sm:text-xl font-bold text-white tracking-tight'
+                }`}>
+                  {activeAcademyName}
+                </h1>
+
+                {/* Subdomain Pill */}
+                <div className="mt-2.5 flex items-center justify-center">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
+                    <Lock className="w-3 h-3 text-slate-500" />
+                    <span>{activeDomain}</span>
+                    {mode === 'register' && regCity.trim() && (
+                      <span className="text-slate-500">• {regCity.trim()}</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Bottom Bar: Trust / Security Assurance */}
+          <div className="relative z-10 pt-4 border-t border-slate-900 flex items-center justify-between text-[11px] text-slate-500">
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-mono text-slate-400">Multi-Tenant Isolated RLS</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-slate-400">
+              <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+              <span>Role-Based Security</span>
+            </div>
           </div>
 
         </div>
