@@ -767,8 +767,7 @@ export const LoginModal: React.FC = () => {
                       value={regSlug}
                       onChange={(e) => setRegSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                       required
-                      placeholder="e.g. falcon"
-                      className="w-full pl-3 pr-1 py-2 text-xs text-slate-900 font-mono font-medium focus:outline-none bg-transparent placeholder:text-slate-400"
+                      className="w-full pl-3 pr-1 py-2 text-xs text-slate-900 font-mono font-medium focus:outline-none bg-transparent"
                     />
                     <span className="px-3 py-2 text-xs font-mono text-slate-500 bg-slate-100/80 border-l border-slate-200 select-none shrink-0">
                       .{baseDomain}
