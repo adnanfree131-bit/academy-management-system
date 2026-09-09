@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { AuthService } from '../services/auth.js';
@@ -105,7 +106,7 @@ export function authRoutes(
           role: user.role,
         };
 
-        const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d' });
+        const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
 
         const sessionResponse: AuthSessionResponse = {
           token,
@@ -181,8 +182,53 @@ export function authRoutes(
         const cleanSlug = slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
 
         // Check if slug is taken
-        const isAvailable = await store.checkSlugAvailable(cleanSlug);
-        if (!isAvailable) {
+        const existingTenant = await store.getTenantBySlug(cleanSlug);
+        if (existingTenant) {
+          if (existingTenant.status === 'pending_verification') {
+            const existingAdmin = await store.getUserByEmail(existingTenant.id, admin_email.toLowerCase().trim());
+            if (existingAdmin) {
+              // Idempotent recovery for pending_verification tenant with matching admin email
+              existingTenant.name = name.trim();
+              if (existingTenant.settings) {
+                if (campus_name) existingTenant.settings.campus_name = campus_name.trim();
+                if (city) existingTenant.settings.city = city.trim();
+                if (phone) existingTenant.settings.phone = phone.trim();
+                if (logo_url) existingTenant.settings.logo_url = logo_url;
+              }
+              existingTenant.updated_at = new Date().toISOString();
+
+              existingAdmin.full_name = admin_name.trim();
+              existingAdmin.password_hash = hashPassword(password);
+              existingAdmin.updated_at = new Date().toISOString();
+
+              await cloudflareService.provisionSubdomain(cleanSlug);
+
+              const otpResult = await authService.requestOTP(existingAdmin.email, existingTenant.slug);
+
+              return reply.status(201).send({
+                success: true,
+                data: {
+                  tenant: {
+                    id: existingTenant.id,
+                    name: existingTenant.name,
+                    slug: existingTenant.slug,
+                    domain: existingTenant.domain,
+                    campus_name: existingTenant.settings?.campus_name,
+                    logo_url: existingTenant.settings?.logo_url,
+                    city: existingTenant.settings?.city,
+                  },
+                  admin: {
+                    email: existingAdmin.email,
+                    full_name: existingAdmin.full_name,
+                  },
+                  otp_preview: otpResult.dev_otp_preview,
+                  message: `A 6-digit verification code has been sent to ${existingAdmin.email}. Please enter the code below to complete setup.`,
+                },
+                timestamp: new Date().toISOString(),
+              });
+            }
+          }
+
           return reply.status(409).send({
             success: false,
             error: {
@@ -210,11 +256,8 @@ export function authRoutes(
           admin_name,
           admin_email,
           password_hash: passwordHash,
+          status: 'pending_verification' as any,
         });
-
-        // Set status to pending_verification until email OTP is confirmed
-        tenant.status = 'pending_verification' as any;
-        admin.status = 'pending_verification' as any;
 
         // Dispatch OTP verification code via Brevo
         const otpResult = await authService.requestOTP(admin.email, tenant.slug);
@@ -286,7 +329,7 @@ export function authRoutes(
           role: user.role,
         };
 
-        const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d' });
+        const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
 
         const sessionResponse: AuthSessionResponse = {
           token,
@@ -394,7 +437,145 @@ export function authRoutes(
       } catch (err: any) {
         return reply.status(400).send({
           success: false,
-          error: { code: 'RESET_PASSWORD_FAILED', message: err.message || 'Failed to reset password.' },
+          error: {
+            code: err.code || 'RESET_PASSWORD_FAILED',
+            message: err.message || 'Failed to reset password.',
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    // -------------------------------------------------------------------------
+    // 6.1 Change Password OTP Request: Dispatches 6-digit OTP via Brevo to Director
+    // -------------------------------------------------------------------------
+    fastify.post('/change-password-otp', {
+      onRequest: [(fastify as any).authenticate],
+    }, async (request: any, reply) => {
+      try {
+        const tenantId = request.user.tenant_id;
+        const email = request.user.email;
+        const result = await authService.requestChangePasswordOTP(tenantId, email);
+        return reply.send({
+          success: true,
+          data: result,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        const isCooldown = err.message?.includes('wait') || err.message?.includes('cooldown');
+        return reply.status(isCooldown ? 429 : 400).send({
+          success: false,
+          error: {
+            code: isCooldown ? 'COOLDOWN_ACTIVE' : 'OTP_REQUEST_FAILED',
+            message: err.message || 'Failed to dispatch verification code.',
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    // -------------------------------------------------------------------------
+    // 6.2 Change Password Execution: Verifies Current Password & OTP, Issues Fresh JWT
+    // -------------------------------------------------------------------------
+    fastify.post('/change-password', {
+      onRequest: [(fastify as any).authenticate],
+    }, async (request: any, reply) => {
+      const schema = z.object({
+        current_password: z.string().min(1, 'Current password is required'),
+        new_password: z.string().min(6, 'New password must be at least 6 characters'),
+        otp: z.string().length(6, 'Verification code must be 6 digits'),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Please complete all required fields with valid values.',
+            details: parseResult.error.flatten(),
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const tenantId = request.user.tenant_id;
+        const email = request.user.email;
+        const { current_password, new_password, otp } = parseResult.data;
+
+        const { user, tenant } = await authService.changePassword({
+          tenantId,
+          email,
+          currentPassword: current_password,
+          newPassword: new_password,
+          otp,
+        });
+
+        // Sign fresh 7-day JWT session
+        const jwtPayload: JWTPayload = {
+          sub: user.id,
+          tenant_id: tenant.id,
+          email: user.email,
+          role: user.role,
+        };
+
+        const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
+
+        return reply.send({
+          success: true,
+          data: {
+            token,
+            expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
+            message: 'Password updated successfully.',
+            user: {
+              id: user.id,
+              tenant_id: user.tenant_id,
+              email: user.email,
+              full_name: user.full_name,
+              role: user.role,
+              avatar_url: user.avatar_url,
+            },
+            tenant: {
+              id: tenant.id,
+              name: tenant.name,
+              slug: tenant.slug,
+              status: tenant.status,
+              academic_session: tenant.settings?.academic_session || '2026-2027',
+              campus_name: tenant.settings?.campus_name || 'Main Campus',
+              logo_url: tenant.settings?.logo_url || null,
+              city: tenant.settings?.city || null,
+            },
+          },
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        if (err.code === 'INVALID_CURRENT_PASSWORD') {
+          return reply.status(401).send({
+            success: false,
+            error: {
+              code: 'INVALID_CURRENT_PASSWORD',
+              message: err.message || 'Current password is incorrect.',
+            },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        if (err.code === 'OTP_LOCKED') {
+          return reply.status(429).send({
+            success: false,
+            error: {
+              code: 'OTP_LOCKED',
+              message: err.message,
+            },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: err.code || 'PASSWORD_CHANGE_FAILED',
+            message: err.message || 'Failed to update password.',
+          },
           timestamp: new Date().toISOString(),
         });
       }
@@ -505,7 +686,7 @@ export function authRoutes(
           role: user.role,
         };
 
-        const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d' });
+        const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
 
         const sessionResponse: AuthSessionResponse = {
           token,

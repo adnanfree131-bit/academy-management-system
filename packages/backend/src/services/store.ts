@@ -1,5 +1,6 @@
 import { 
   Tenant, 
+  TenantStatus,
   TenantSettings,
   User, 
   AcademicProgram, 
@@ -92,6 +93,7 @@ export interface StoredOTP {
   attempts: number;
   expires_at: Date;
   used_at?: Date | null;
+  created_at?: Date;
 }
 
 export interface IDataStore {
@@ -108,6 +110,7 @@ export interface IDataStore {
     admin_email: string;
     logo_url?: string;
     password_hash?: string;
+    status?: TenantStatus;
   }): Promise<{ tenant: Tenant; admin: User }>;
   updateTenantSettings(tenantId: string, updates: { name?: string; slug?: string; settings?: Partial<TenantSettings> }): Promise<Tenant | null>;
   getUserByEmail(tenantId: string, email: string): Promise<User | null>;
@@ -116,6 +119,7 @@ export interface IDataStore {
   updateUserPassword(tenantId: string, email: string, passwordHash: string): Promise<boolean>;
   createOTP(tenantId: string, email: string, codeHash: string, expiresAt: Date): Promise<StoredOTP>;
   getActiveOTP(tenantId: string, email: string): Promise<StoredOTP | null>;
+  getLatestOTP(tenantId: string, email: string): Promise<StoredOTP | null>;
   incrementOTPAttempts(id: string): Promise<void>;
   markOTPUsed(id: string): Promise<void>;
 
@@ -1517,18 +1521,20 @@ export class InMemoryDataStore implements IDataStore {
     admin_email: string;
     logo_url?: string;
     password_hash?: string;
+    status?: TenantStatus;
   }): Promise<{ tenant: Tenant; admin: User }> {
     const rawSlug = params.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
     const cleanSlug = rawSlug || 'academy-' + Math.floor(100 + Math.random() * 900);
     const tenantId = crypto.randomUUID();
     const baseDomain = process.env.BASE_DOMAIN || 'kampus.pk';
     const trialDays = this.platformGlobalConfig?.default_trial_days ?? 30;
+    const initialStatus = params.status || 'active';
     const newTenant: Tenant = {
       id: tenantId,
       name: params.name.trim(),
       slug: cleanSlug,
       domain: `${cleanSlug}.${baseDomain}`,
-      status: 'active',
+      status: initialStatus,
       tier: 'starter',
       max_students: 500,
       max_staff: 50,
@@ -1563,7 +1569,7 @@ export class InMemoryDataStore implements IDataStore {
       email: params.admin_email.toLowerCase().trim(),
       full_name: params.admin_name.trim(),
       role: 'tenant_admin',
-      status: 'active',
+      status: initialStatus === 'pending_verification' ? 'pending_verification' : 'active',
       password_hash: params.password_hash || hashPassword('Admin@123'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -1598,23 +1604,7 @@ export class InMemoryDataStore implements IDataStore {
 
   async getUserByEmail(tenantId: string, email: string): Promise<User | null> {
     const key = `${tenantId}:${email.toLowerCase()}`;
-    const existing = this.users.get(key);
-    if (existing) return existing;
-
-    // Auto-provision user as active administrator so any institutional email can log in smoothly
-    const newUser: User = {
-      id: crypto.randomUUID(),
-      tenant_id: tenantId,
-      email: email.toLowerCase(),
-      full_name: email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Administrator',
-      role: 'tenant_admin',
-      status: 'active',
-      password_hash: hashPassword('Admin@123'),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    this.users.set(key, newUser);
-    return newUser;
+    return this.users.get(key) || null;
   }
 
   async getUserByEmailGlobal(email: string): Promise<User[]> {
@@ -1652,6 +1642,7 @@ export class InMemoryDataStore implements IDataStore {
       attempts: 0,
       expires_at: expiresAt,
       used_at: null,
+      created_at: new Date(),
     };
     this.otps.push(entry);
     return entry;
@@ -1663,6 +1654,14 @@ export class InMemoryDataStore implements IDataStore {
       .filter(o => o.tenant_id === tenantId && o.email === email.toLowerCase() && !o.used_at && o.expires_at > now)
       .sort((a, b) => b.expires_at.getTime() - a.expires_at.getTime());
     return valid[0] || null;
+  }
+
+  async getLatestOTP(tenantId: string, email: string): Promise<StoredOTP | null> {
+    const clean = email.toLowerCase().trim();
+    const list = this.otps
+      .filter(o => o.tenant_id === tenantId && o.email === clean)
+      .sort((a, b) => ((b.created_at || b.expires_at).getTime()) - ((a.created_at || a.expires_at).getTime()));
+    return list[0] || null;
   }
 
   async incrementOTPAttempts(id: string): Promise<void> {

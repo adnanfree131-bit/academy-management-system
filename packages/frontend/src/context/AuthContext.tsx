@@ -155,24 +155,32 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
    * Register a new academy with subdomain provisioning & Brevo OTP dispatch
    */
   const registerAcademy = async (payload: RegisterAcademyPayload) => {
-    const res = await fetch('/api/v1/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const res = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(15000),
+      });
 
-    const body = await parseJsonResponse(res, 'Failed to register academy.');
-    if (!res.ok) {
-      throw new Error(body.error?.message || 'Failed to register academy.');
+      const body = await parseJsonResponse(res, 'Failed to register academy.');
+      if (!res.ok) {
+        throw new Error(body.error?.message || 'Failed to register academy.');
+      }
+
+      return {
+        success: true,
+        message: body.data.message,
+        dev_otp: body.data.otp_preview,
+        tenant: body.data.tenant,
+        admin: body.data.admin,
+      };
+    } catch (err: any) {
+      if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+        throw new Error('Registration request timed out. Please check your connection or retry.');
+      }
+      throw err;
     }
-
-    return {
-      success: true,
-      message: body.data.message,
-      dev_otp: body.data.otp_preview,
-      tenant: body.data.tenant,
-      admin: body.data.admin,
-    };
   };
 
   /**

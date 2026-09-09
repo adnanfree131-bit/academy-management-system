@@ -28,6 +28,61 @@ import {
 } from 'lucide-react';
 import { AcademyBranding } from '@apex/shared-types';
 
+export function compressImageFile(file: File, maxWidth = 400, maxHeight = 400, quality = 0.85): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (file.type === 'image/svg+xml') {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const img = new Image();
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = reject;
+
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth || height > maxHeight) {
+        if (width / height > maxWidth / maxHeight) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        } else {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(img.src);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      let compressed = canvas.toDataURL('image/webp', quality);
+      if (!compressed.startsWith('data:image/webp')) {
+        compressed = canvas.toDataURL('image/jpeg', quality);
+      }
+      resolve(compressed);
+    };
+
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export const LoginModal: React.FC = () => {
   const { 
     loginWithPassword, 
@@ -203,8 +258,8 @@ export const LoginModal: React.FC = () => {
     return () => clearTimeout(checkTimer);
   }, [regSlug, baseDomain]);
 
-  // Handle Logo Upload (Optional)
-  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Logo Upload (Optional) with HTML5 Canvas compression (<120KB)
+  const handleLogoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -218,12 +273,13 @@ export const LoginModal: React.FC = () => {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setRegLogoUrl(reader.result as string);
+    try {
+      const compressedDataUrl = await compressImageFile(file, 400, 400, 0.85);
+      setRegLogoUrl(compressedDataUrl);
       setError(null);
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      setError('Failed to process uploaded image.');
+    }
   };
 
   // ---------------------------------------------------------------------------
@@ -380,6 +436,14 @@ export const LoginModal: React.FC = () => {
     }
   };
 
+  const isSubdomain = Boolean(tenantSlug && tenantSlug !== 'app' && tenantSlug !== 'www' && tenantSlug !== 'edu');
+
+  useEffect(() => {
+    if (isSubdomain && mode !== 'login') {
+      setMode('login');
+    }
+  }, [isSubdomain, mode]);
+
   const isPlatformSignIn = mode === 'login' && !tenantSlug;
 
   const activeAcademyName = mode === 'register'
@@ -531,20 +595,37 @@ export const LoginModal: React.FC = () => {
         {/* ================================================================ */}
         <div className="lg:col-span-7 bg-white p-6 sm:p-10 lg:p-12 flex flex-col justify-between min-h-[600px] overflow-y-auto">
           
-          {/* Top Bar: Mode Switcher */}
+          {/* Top Bar: Mode Switcher & Mobile Branding */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 border-b border-slate-100 pb-4">
-            <div className="flex items-center justify-between">
-              {/* Mobile-only brand logo (since left column is hidden on mobile screens) */}
-              <img src="/kampus-logo.png" alt="Kampus" className="h-6 w-auto object-contain lg:hidden" />
-              {tenantSlug && branding?.name && (
+            <div className="flex items-center justify-between w-full sm:w-auto">
+              {/* Mobile brand presentation */}
+              <div className="flex items-center gap-2.5 lg:hidden">
+                {isSubdomain && branding?.name ? (
+                  <div className="flex items-center gap-2">
+                    {branding.logo_url ? (
+                      <img src={branding.logo_url} alt={branding.name} className="h-7 w-auto object-contain max-w-[120px]" />
+                    ) : (
+                      <div className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
+                        {branding.name.charAt(0)}
+                      </div>
+                    )}
+                    <span className="text-xs font-bold text-slate-800 truncate max-w-[180px]">
+                      {branding.name}
+                    </span>
+                  </div>
+                ) : (
+                  <img src="/kampus-logo.png" alt="Kampus" className="h-6 w-auto object-contain" />
+                )}
+              </div>
+              {tenantSlug && branding?.name && !isSubdomain && (
                 <span className="text-xs font-semibold text-slate-700 truncate max-w-[180px]">
                   {branding.name}
                 </span>
               )}
             </div>
 
-            {/* Mode Switcher (Visible only in form step) */}
-            {step === 'form' && (
+            {/* Mode Switcher (Visible ONLY on platform root and in form step; NEVER on academy subdomains) */}
+            {!isSubdomain && step === 'form' && (
               <div className="grid grid-cols-2 sm:flex p-1 bg-slate-100 rounded-lg text-xs font-semibold w-full sm:w-auto">
                 <button
                   type="button"
@@ -683,18 +764,20 @@ export const LoginModal: React.FC = () => {
                   )}
                 </button>
 
-                <div className="pt-2 text-center">
-                  <p className="text-[11px] text-slate-400">
-                    New institution?{' '}
-                    <button
-                      type="button"
-                      onClick={() => setMode('register')}
-                      className="text-slate-900 font-semibold underline hover:text-indigo-600 cursor-pointer"
-                    >
-                      Register your academy
-                    </button>
-                  </p>
-                </div>
+                {!isSubdomain && (
+                  <div className="pt-2 text-center">
+                    <p className="text-[11px] text-slate-400">
+                      New institution?{' '}
+                      <button
+                        type="button"
+                        onClick={() => setMode('register')}
+                        className="text-slate-900 font-semibold underline hover:text-indigo-600 cursor-pointer"
+                      >
+                        Register your academy
+                      </button>
+                    </p>
+                  </div>
+                )}
               </form>
             )}
 
@@ -1308,6 +1391,15 @@ export const LoginModal: React.FC = () => {
             )}
 
           </div>
+
+          {/* Institutional Access Notice on Subdomains */}
+          {isSubdomain && (
+            <div className="mt-3 mb-2 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-center">
+              <p className="text-[11px] text-slate-500 leading-relaxed max-w-md mx-auto">
+                <strong className="font-semibold text-slate-700">Institutional Access:</strong> Authorized access for enrolled students, parents, faculty, and administrative staff. User accounts and login credentials are provisioned exclusively by academy administration.
+              </p>
+            </div>
+          )}
 
           {/* Clean Institutional Footer */}
           <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400">

@@ -35,6 +35,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
 
   const fastify = Fastify({
     logger: process.env.NODE_ENV === 'test' ? false : (process.env.NODE_ENV === 'production' ? true : true),
+    bodyLimit: 2097152, // 2MB cap to prevent OOM on 512MB RAM container
   });
 
   // Plugins

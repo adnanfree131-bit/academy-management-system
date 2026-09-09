@@ -12,17 +12,40 @@ import {
   GraduationCap,
   UploadCloud,
   X,
-  Globe
+  Globe,
+  ShieldCheck,
+  Lock,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Mail
 } from 'lucide-react';
 import { TenantSettings } from '@apex/shared-types';
+import { compressImageFile } from '../components/LoginModal';
 
 export const AcademySettingsView: React.FC = () => {
-  const { token, tenant, refreshSession } = useAuth();
+  const { token, tenant, user, applySession, refreshSession } = useAuth();
+
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'profile' | 'challan' | 'shifts' | 'security'>('profile');
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Director Password Change State
+  const [currentPassword, setCurrentPassword] = useState<string>('');
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
+  const [otpCode, setOtpCode] = useState<string>('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState<boolean>(false);
+  const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
+  const [isRequestingOtp, setIsRequestingOtp] = useState<boolean>(false);
+  const [isChangingPassword, setIsChangingPassword] = useState<boolean>(false);
+  const [securitySuccess, setSecuritySuccess] = useState<string | null>(null);
+  const [securityError, setSecurityError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState<number>(0);
 
   // Form State
   const [academyName, setAcademyName] = useState<string>('');
@@ -123,7 +146,116 @@ export const AcademySettingsView: React.FC = () => {
     fetchSettings();
   }, [token]);
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 60-second cooldown timer effect (starts ONLY on 200 OK from server)
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown(prev => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
+  const maskEmail = (emailStr?: string) => {
+    if (!emailStr || !emailStr.includes('@')) return 'director@academy.edu.pk';
+    const [namePart, domainPart] = emailStr.split('@');
+    if (namePart.length <= 2) return `${namePart}***@${domainPart}`;
+    return `${namePart[0]}***${namePart[namePart.length - 1]}@${domainPart}`;
+  };
+
+  const handleRequestOtp = async () => {
+    if (!token || cooldown > 0) return;
+    setIsRequestingOtp(true);
+    setSecurityError(null);
+    setSecuritySuccess(null);
+
+    try {
+      const res = await fetch('/api/v1/auth/change-password-otp', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const body = await res.json();
+      if (!res.ok) {
+        throw new Error(body.error?.message || 'Failed to dispatch verification code.');
+      }
+
+      // Start cooldown timer ONLY on 200 OK
+      setCooldown(body.data?.cooldown_seconds || 60);
+      setSecuritySuccess(body.data?.message || 'Verification code dispatched to director email.');
+    } catch (err: any) {
+      setSecurityError(err.message || 'Failed to send verification code.');
+    } finally {
+      setIsRequestingOtp(false);
+    }
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    setSecurityError(null);
+    setSecuritySuccess(null);
+
+    if (!currentPassword) {
+      setSecurityError('Current password is required.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setSecurityError('New password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setSecurityError('New password and confirmation do not match.');
+      return;
+    }
+    if (newPassword === currentPassword) {
+      setSecurityError('New password cannot be the same as your current password.');
+      return;
+    }
+    if (!otpCode || otpCode.trim().length !== 6) {
+      setSecurityError('Please enter the 6-digit verification code sent to your email.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const res = await fetch('/api/v1/auth/change-password', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+          otp: otpCode.trim(),
+        }),
+      });
+
+      const body = await res.json();
+      if (!res.ok) {
+        throw new Error(body.error?.message || 'Failed to update password.');
+      }
+
+      setSecuritySuccess('Password updated successfully. Administrative session refreshed.');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setOtpCode('');
+
+      if (applySession && body.data) {
+        applySession(body.data);
+      }
+    } catch (err: any) {
+      setSecurityError(err.message || 'Failed to update password.');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
@@ -134,12 +266,13 @@ export const AcademySettingsView: React.FC = () => {
       setErrorMsg('Logo file size must be less than 2MB.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setLogoUrl(reader.result as string);
+    try {
+      const compressed = await compressImageFile(file, 400, 400, 0.85);
+      setLogoUrl(compressed);
       setErrorMsg(null);
-    };
-    reader.readAsDataURL(file);
+    } catch {
+      setErrorMsg('Failed to process uploaded logo image.');
+    }
   };
 
   // Save Settings
@@ -250,403 +383,650 @@ export const AcademySettingsView: React.FC = () => {
           <p className="text-xs font-mono">Loading academy settings...</p>
         </div>
       ) : (
-        <form onSubmit={handleSave} className="space-y-6">
-          {/* SECTION 1: INSTITUTION PROFILE */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Building2 className="w-4 h-4 text-indigo-600" />
-              <h2 className="text-sm font-extrabold text-slate-900">Institution Identity & Profile</h2>
-            </div>
-
-            {/* Academy Logo Card */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border border-slate-200 rounded-xl bg-slate-50/50">
-              <div className="w-16 h-16 rounded-xl border border-slate-300 bg-white p-1 overflow-hidden flex items-center justify-center shrink-0 shadow-xs">
-                {logoUrl ? (
-                  <img src={logoUrl} alt="Academy Logo" className="w-full h-full object-contain" />
-                ) : (
-                  <GraduationCap className="w-8 h-8 text-slate-400" />
-                )}
-              </div>
-              <div className="space-y-1">
-                <span className="block text-xs font-bold text-slate-800">Academy Brand Logo</span>
-                <span className="block text-[11px] text-slate-500">
-                  Reflected on your white-labeled login screen, student profiles, and official fee challans.
-                </span>
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    ref={logoInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/svg+xml,image/webp"
-                    onChange={handleLogoUpload}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => logoInputRef.current?.click()}
-                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-                  >
-                    <UploadCloud className="w-3.5 h-3.5" />
-                    <span>{logoUrl ? 'Change Logo' : 'Upload Logo'}</span>
-                  </button>
-                  {logoUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setLogoUrl(null)}
-                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                      <span>Remove Logo</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Dedicated Portal Domain Card (Verified & Active) */}
-            <div className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0">
-                  <Globe className="w-4 h-4 text-slate-700" />
-                </div>
-                <div>
-                  <span className="block text-xs font-bold text-slate-800">Dedicated Portal Domain</span>
-                  <span className="block text-[11px] font-mono text-slate-600 mt-0.5">
-                    https://{subdomain}.toolnestr.com
-                  </span>
-                </div>
-              </div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100/80 border border-emerald-300 text-emerald-800 rounded-full text-xs font-semibold">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Domain Verified & Active</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Institution Name</label>
-                <input
-                  type="text"
-                  value={academyName}
-                  onChange={e => setAcademyName(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Campus Title</label>
-                <input
-                  type="text"
-                  value={campusName}
-                  onChange={e => setCampusName(e.target.value)}
-                  placeholder="e.g. Gulberg III Campus"
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">City</label>
-                <input
-                  type="text"
-                  value={city}
-                  onChange={e => setCity(e.target.value)}
-                  placeholder="e.g. Lahore"
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Active Academic Session</label>
-                <input
-                  type="text"
-                  value={academicSession}
-                  onChange={e => setAcademicSession(e.target.value)}
-                  placeholder="e.g. 2026-2027"
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Affiliation / Registration #</label>
-                <input
-                  type="text"
-                  value={affiliationNo}
-                  onChange={e => setAffiliationNo(e.target.value)}
-                  placeholder="e.g. BISE/LHR-2026/9941"
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Official Contact Phone</label>
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  placeholder="+92 300 1234567"
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Official Contact Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Campus Physical Address</label>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={e => setAddress(e.target.value)}
-                  placeholder="e.g. 42-B, Main Boulevard, Gulberg III, Lahore, Punjab, Pakistan"
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* SECTION 2: BANK DETAILS FOR 3-PART CHALLAN */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <Landmark className="w-4 h-4 text-emerald-600" />
-                <div>
-                  <h2 className="text-sm font-extrabold text-slate-900">Fee Challan Bank Accounts</h2>
-                  <p className="text-[11px] text-slate-500">
-                    These banking details are automatically rendered on all 3-Part Fee Challans (Bank, Academy, Student copies).
-                  </p>
-                </div>
-              </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
-                Printed on Challans
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Designated Bank Name</label>
-                <input
-                  type="text"
-                  value={bankName}
-                  onChange={e => setBankName(e.target.value)}
-                  placeholder="e.g. Meezan Bank Limited / HBL / MCB"
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Account Title</label>
-                <input
-                  type="text"
-                  value={accountTitle}
-                  onChange={e => setAccountTitle(e.target.value)}
-                  placeholder="e.g. Academy Main Collection Account"
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Account Number</label>
-                <input
-                  type="text"
-                  value={accountNumber}
-                  onChange={e => setAccountNumber(e.target.value)}
-                  placeholder="0102-0104882910"
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">IBAN (24 Characters)</label>
-                <input
-                  type="text"
-                  value={iban}
-                  onChange={e => setIban(e.target.value)}
-                  placeholder="PK36MEZN0001020104882910"
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800 font-bold"
-                  required
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Branch Name & Code</label>
-                <input
-                  type="text"
-                  value={branchCode}
-                  onChange={e => setBranchCode(e.target.value)}
-                  placeholder="e.g. Main Boulevard Branch (Code: 0102)"
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* SECTION 3: FEE INVOICING & PAYMENT ALLOCATION */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <DollarSign className="w-4 h-4 text-amber-500" />
-              <div>
-                <h2 className="text-sm font-bold text-slate-900">Fee Invoicing & Payment Allocation</h2>
-                <p className="text-[11px] text-slate-500">
-                  Configure default due dates, late fees, and payment allocation order for partial payments.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Default Due Day of Month</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="1"
-                    max="28"
-                    value={dueDay}
-                    onChange={e => setDueDay(parseInt(e.target.value) || 10)}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-900 font-bold"
-                    required
-                  />
-                  <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">th of month</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Grace Period Days</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="0"
-                    max="15"
-                    value={graceDays}
-                    onChange={e => setGraceDays(parseInt(e.target.value) || 0)}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-900 font-bold"
-                    required
-                  />
-                  <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">days</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Late Surcharge Per Day</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="0"
-                    step="10"
-                    value={lateFeePerDay}
-                    onChange={e => setLateFeePerDay(parseInt(e.target.value) || 0)}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-900 font-bold"
-                    required
-                  />
-                  <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">PKR / day</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl">
-              <span className="text-xs font-bold text-slate-800 block mb-1">
-                Payment Allocation Order:
-              </span>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                {liquidationPriority.map((item, idx) => (
-                  <span
-                    key={item}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-mono text-[11px] font-bold shadow-2xs"
-                  >
-                    <span className="w-4 h-4 rounded-full bg-slate-900 text-white text-[9px] flex items-center justify-center">
-                      {idx + 1}
-                    </span>
-                    <span className="capitalize">{item.replace('_', ' ')}</span>
-                  </span>
-                ))}
-              </div>
-              <p className="text-[10px] text-slate-400 mt-2">
-                When a student pays partially, funds are applied strictly according to this priority order.
-              </p>
-            </div>
-          </div>
-
-          {/* SECTION 4: CAMPUS SHIFTS */}
-          <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-              <Clock className="w-4 h-4 text-purple-600" />
-              <h2 className="text-sm font-extrabold text-slate-900">Campus Shift Operating Hours</h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
-                <span className="text-xs font-bold text-slate-800 block">Morning Shift Timings</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] text-slate-500 font-mono uppercase mb-1">Start Time</label>
-                    <input
-                      type="time"
-                      value={morningStart}
-                      onChange={e => setMorningStart(e.target.value)}
-                      className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 font-mono text-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 font-mono uppercase mb-1">End Time</label>
-                    <input
-                      type="time"
-                      value={morningEnd}
-                      onChange={e => setMorningEnd(e.target.value)}
-                      className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 font-mono text-slate-800"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
-                <span className="text-xs font-bold text-slate-800 block">Evening Shift Timings</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] text-slate-500 font-mono uppercase mb-1">Start Time</label>
-                    <input
-                      type="time"
-                      value={eveningStart}
-                      onChange={e => setEveningStart(e.target.value)}
-                      className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 font-mono text-slate-800"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 font-mono uppercase mb-1">End Time</label>
-                    <input
-                      type="time"
-                      value={eveningEnd}
-                      onChange={e => setEveningEnd(e.target.value)}
-                      className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 font-mono text-slate-800"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Submit Action */}
-          <div className="flex items-center justify-end gap-3 pt-2">
+        <div className="space-y-6">
+          {/* Institutional Unnumbered Navigation Tabs */}
+          <div className="flex border-b border-slate-200 bg-white rounded-2xl px-3 pt-2 gap-1 overflow-x-auto shadow-xs">
             <button
-              type="submit"
-              disabled={isSaving}
-              className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold shadow-xs transition-all disabled:opacity-50"
+              type="button"
+              onClick={() => { setActiveTab('profile'); setSuccessMsg(null); setErrorMsg(null); }}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+                activeTab === 'profile'
+                  ? 'border-indigo-600 text-slate-900 bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
             >
-              {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span>{isSaving ? 'Saving Configuration...' : 'Save Academy Settings'}</span>
+              <Building2 className="w-4 h-4 text-indigo-600" />
+              <span>Campus Profile</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('challan'); setSuccessMsg(null); setErrorMsg(null); }}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+                activeTab === 'challan'
+                  ? 'border-indigo-600 text-slate-900 bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <Landmark className="w-4 h-4 text-emerald-600" />
+              <span>Challan & Bank Accounts</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('shifts'); setSuccessMsg(null); setErrorMsg(null); }}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+                activeTab === 'shifts'
+                  ? 'border-indigo-600 text-slate-900 bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <Clock className="w-4 h-4 text-purple-600" />
+              <span>Shift Timings</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('security'); setSecurityError(null); setSecuritySuccess(null); }}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+                activeTab === 'security'
+                  ? 'border-indigo-600 text-slate-900 bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-amber-600" />
+              <span>Account Security</span>
             </button>
           </div>
-        </form>
+
+          {activeTab !== 'security' ? (
+            <form onSubmit={handleSave} className="space-y-6">
+              {/* SECTION 1: INSTITUTION PROFILE */}
+              {activeTab === 'profile' && (
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <Building2 className="w-4 h-4 text-indigo-600" />
+                    <h2 className="text-sm font-extrabold text-slate-900">Institution Identity & Profile</h2>
+                  </div>
+
+                  {/* Academy Logo Card */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border border-slate-200 rounded-xl bg-slate-50/50">
+                    <div className="w-16 h-16 rounded-xl border border-slate-300 bg-white p-1 overflow-hidden flex items-center justify-center shrink-0 shadow-xs">
+                      {logoUrl ? (
+                        <img src={logoUrl} alt="Academy Logo" className="w-full h-full object-contain" />
+                      ) : (
+                        <GraduationCap className="w-8 h-8 text-slate-400" />
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <span className="block text-xs font-bold text-slate-800">Academy Brand Logo</span>
+                      <span className="block text-[11px] text-slate-500">
+                        Reflected on your white-labeled login screen, student profiles, and official fee challans.
+                      </span>
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+                          onChange={handleLogoUpload}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <UploadCloud className="w-3.5 h-3.5" />
+                          <span>{logoUrl ? 'Change Logo' : 'Upload Logo'}</span>
+                        </button>
+                        {logoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setLogoUrl(null)}
+                            className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Remove Logo</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dedicated Portal Domain Card (Verified & Active) */}
+                  <div className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0">
+                        <Globe className="w-4 h-4 text-slate-700" />
+                      </div>
+                      <div>
+                        <span className="block text-xs font-bold text-slate-800">Dedicated Portal Domain</span>
+                        <span className="block text-[11px] font-mono text-slate-600 mt-0.5">
+                          https://{subdomain}.kampus.pk
+                        </span>
+                      </div>
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100/80 border border-emerald-300 text-emerald-800 rounded-full text-xs font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Domain Verified & Active</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Institution Name</label>
+                      <input
+                        type="text"
+                        value={academyName}
+                        onChange={e => setAcademyName(e.target.value)}
+                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Campus Title</label>
+                      <input
+                        type="text"
+                        value={campusName}
+                        onChange={e => setCampusName(e.target.value)}
+                        placeholder="e.g. Gulberg III Campus"
+                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">City</label>
+                      <input
+                        type="text"
+                        value={city}
+                        onChange={e => setCity(e.target.value)}
+                        placeholder="e.g. Lahore"
+                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Active Academic Session</label>
+                      <input
+                        type="text"
+                        value={academicSession}
+                        onChange={e => setAcademicSession(e.target.value)}
+                        placeholder="e.g. 2026-2027"
+                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Affiliation / Registration #</label>
+                      <input
+                        type="text"
+                        value={affiliationNo}
+                        onChange={e => setAffiliationNo(e.target.value)}
+                        placeholder="e.g. BISE/LHR-2026/9941"
+                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Official Contact Phone</label>
+                      <input
+                        type="text"
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                        placeholder="+92 300 1234567"
+                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Official Contact Email</label>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Campus Physical Address</label>
+                      <input
+                        type="text"
+                        value={address}
+                        onChange={e => setAddress(e.target.value)}
+                        placeholder="e.g. 42-B, Main Boulevard, Gulberg III, Lahore, Punjab, Pakistan"
+                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION 2 & 3: BANK DETAILS & PAYMENT ALLOCATION */}
+              {activeTab === 'challan' && (
+                <>
+                  <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Landmark className="w-4 h-4 text-emerald-600" />
+                        <div>
+                          <h2 className="text-sm font-extrabold text-slate-900">Fee Challan Bank Accounts</h2>
+                          <p className="text-[11px] text-slate-500">
+                            These banking details are automatically rendered on all 3-Part Fee Challans (Bank, Academy, Student copies).
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                        Printed on Challans
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Designated Bank Name</label>
+                        <input
+                          type="text"
+                          value={bankName}
+                          onChange={e => setBankName(e.target.value)}
+                          placeholder="e.g. Meezan Bank Limited / HBL / MCB"
+                          className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Account Title</label>
+                        <input
+                          type="text"
+                          value={accountTitle}
+                          onChange={e => setAccountTitle(e.target.value)}
+                          placeholder="e.g. Academy Main Collection Account"
+                          className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Account Number</label>
+                        <input
+                          type="text"
+                          value={accountNumber}
+                          onChange={e => setAccountNumber(e.target.value)}
+                          placeholder="0102-0104882910"
+                          className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">IBAN (24 Characters)</label>
+                        <input
+                          type="text"
+                          value={iban}
+                          onChange={e => setIban(e.target.value)}
+                          placeholder="PK36MEZN0001020104882910"
+                          className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800 font-bold"
+                          required
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Branch Name & Code</label>
+                        <input
+                          type="text"
+                          value={branchCode}
+                          onChange={e => setBranchCode(e.target.value)}
+                          placeholder="e.g. Main Boulevard Branch (Code: 0102)"
+                          className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                      <DollarSign className="w-4 h-4 text-amber-500" />
+                      <div>
+                        <h2 className="text-sm font-bold text-slate-900">Fee Invoicing & Payment Allocation</h2>
+                        <p className="text-[11px] text-slate-500">
+                          Configure default due dates, late fees, and payment allocation order for partial payments.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Default Due Day of Month</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="1"
+                            max="28"
+                            value={dueDay}
+                            onChange={e => setDueDay(parseInt(e.target.value) || 10)}
+                            className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-900 font-bold"
+                            required
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">th of month</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Grace Period Days</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            max="15"
+                            value={graceDays}
+                            onChange={e => setGraceDays(parseInt(e.target.value) || 0)}
+                            className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-900 font-bold"
+                            required
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">days</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Late Surcharge Per Day</label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="0"
+                            step="10"
+                            value={lateFeePerDay}
+                            onChange={e => setLateFeePerDay(parseInt(e.target.value) || 0)}
+                            className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-900 font-bold"
+                            required
+                          />
+                          <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">PKR / day</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl">
+                      <span className="text-xs font-bold text-slate-800 block mb-1">
+                        Payment Allocation Order:
+                      </span>
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        {liquidationPriority.map((item, idx) => (
+                          <span
+                            key={item}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-mono text-[11px] font-bold shadow-2xs"
+                          >
+                            <span className="w-4 h-4 rounded-full bg-slate-900 text-white text-[9px] flex items-center justify-center">
+                              {idx + 1}
+                            </span>
+                            <span className="capitalize">{item.replace('_', ' ')}</span>
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-2">
+                        When a student pays partially, funds are applied strictly according to this priority order.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* SECTION 4: CAMPUS SHIFTS */}
+              {activeTab === 'shifts' && (
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <Clock className="w-4 h-4 text-purple-600" />
+                    <h2 className="text-sm font-extrabold text-slate-900">Campus Shift Operating Hours</h2>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+                      <span className="text-xs font-bold text-slate-800 block">Morning Shift Timings</span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-500 font-mono uppercase mb-1">Start Time</label>
+                          <input
+                            type="time"
+                            value={morningStart}
+                            onChange={e => setMorningStart(e.target.value)}
+                            className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 font-mono text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-500 font-mono uppercase mb-1">End Time</label>
+                          <input
+                            type="time"
+                            value={morningEnd}
+                            onChange={e => setMorningEnd(e.target.value)}
+                            className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 font-mono text-slate-800"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+                      <span className="text-xs font-bold text-slate-800 block">Evening Shift Timings</span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-500 font-mono uppercase mb-1">Start Time</label>
+                          <input
+                            type="time"
+                            value={eveningStart}
+                            onChange={e => setEveningStart(e.target.value)}
+                            className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 font-mono text-slate-800"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-500 font-mono uppercase mb-1">End Time</label>
+                          <input
+                            type="time"
+                            value={eveningEnd}
+                            onChange={e => setEveningEnd(e.target.value)}
+                            className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 font-mono text-slate-800"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Submit Action */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span>{isSaving ? 'Saving Configuration...' : 'Save Academy Settings'}</span>
+                </button>
+              </div>
+            </form>
+          ) : (
+            /* ISOLATED FORM FOR ACCOUNT SECURITY: NO NESTED FORMS */
+            <form onSubmit={handlePasswordChange} className="space-y-6">
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-6">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-extrabold text-slate-900">Director Account Security & Credentials</h2>
+                      <p className="text-[11px] text-slate-500">
+                        Update your administrative master password. Protected by transactional Brevo email verification.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 font-bold">
+                    Role: {user?.role || 'tenant_admin'}
+                  </span>
+                </div>
+
+                {securitySuccess && (
+                  <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="font-bold">{securitySuccess}</span>
+                  </div>
+                )}
+
+                {securityError && (
+                  <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span className="font-bold">{securityError}</span>
+                  </div>
+                )}
+
+                {/* Email Verification Passcode Dispatch Card */}
+                <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0 text-slate-600">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-bold text-slate-800">Director Verification Email</span>
+                      <span className="block text-xs font-mono text-slate-600 mt-0.5">
+                        {maskEmail(user?.email || email)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleRequestOtp}
+                    disabled={isRequestingOtp || cooldown > 0}
+                    className="w-full sm:w-auto px-4 py-2 bg-white border border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-800 rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {isRequestingOtp ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Dispatching Code...</span>
+                      </>
+                    ) : cooldown > 0 ? (
+                      <>
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <span className="font-mono">Resend in {cooldown}s</span>
+                      </>
+                    ) : (
+                      <>
+                        <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Request Verification Code</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Password Change Form Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Current Password */}
+                  <div className="md:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                      Current Administrative Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                      <input
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        value={currentPassword}
+                        onChange={e => setCurrentPassword(e.target.value)}
+                        placeholder="Enter your current password"
+                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 text-slate-900"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* New Password */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                      New Password (min. 6 characters)
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        placeholder="Enter new strong password"
+                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 text-slate-900"
+                        required
+                        minLength={6}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm New Password */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                      Confirm New Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+                      <input
+                        type="password"
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        placeholder="Re-enter new password"
+                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-slate-900"
+                        required
+                        minLength={6}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 6-Digit Email Verification Passcode */}
+                  <div className="md:col-span-2">
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+                      6-Digit Email Verification Code
+                    </label>
+                    <div className="relative max-w-xs">
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={otpCode}
+                        onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                        placeholder="000000"
+                        className="w-full text-center text-sm font-mono tracking-widest font-bold bg-slate-50 border border-slate-200 rounded-xl py-2.5 text-slate-900"
+                        required
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Enter the 6-digit passcode sent to your director email. Single-use and valid for 10 minutes.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Submit Action */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="submit"
+                    disabled={isChangingPassword || !currentPassword || !newPassword || !otpCode}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {isChangingPassword ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                    <span>{isChangingPassword ? 'Updating Password...' : 'Update Password'}</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
+        </div>
       )}
     </div>
   );

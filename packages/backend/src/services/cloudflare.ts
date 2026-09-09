@@ -68,6 +68,7 @@ export class CloudflareService implements ICloudflareService {
               Authorization: `Bearer ${this.apiToken}`,
               'Content-Type': 'application/json',
             },
+            signal: AbortSignal.timeout(5000),
           }
         );
 
@@ -118,6 +119,7 @@ export class CloudflareService implements ICloudflareService {
           ttl: 1, // Auto
           proxied: true, // Cloudflare edge proxy & SSL
         }),
+        signal: AbortSignal.timeout(5000),
       });
 
       const body: any = await res.json();

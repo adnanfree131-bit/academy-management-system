@@ -10,8 +10,9 @@ export class AuthService {
     private mailer: IMailerService
   ) {}
 
-  private hashOTP(otp: string): string {
-    return crypto.createHash('sha256').update(otp.trim()).digest('hex');
+  private hashOTP(otp: string, purpose?: string): string {
+    const data = purpose ? `${purpose}:${otp.trim()}` : otp.trim();
+    return crypto.createHash('sha256').update(data).digest('hex');
   }
 
   /**
@@ -96,7 +97,7 @@ export class AuthService {
 
     await this.store.createOTP(tenant.id, user.email, codeHash, expiresAt);
 
-    await this.mailer.sendOTP({
+    const sent = await this.mailer.sendOTP({
       toEmail: user.email,
       recipientName: user.full_name,
       otp,
@@ -104,6 +105,10 @@ export class AuthService {
       expiresInMinutes,
       tenantSlug: tenant.slug,
     });
+
+    if (!sent && !isDev) {
+      throw new Error('Failed to dispatch verification email via Brevo. Please verify email address or retry.');
+    }
 
     return {
       success: true,
@@ -198,7 +203,7 @@ export class AuthService {
 
     await this.store.createOTP(tenant.id, user.email, codeHash, expiresAt);
 
-    await this.mailer.sendOTP({
+    const sent = await this.mailer.sendOTP({
       toEmail: user.email,
       recipientName: user.full_name,
       otp,
@@ -206,6 +211,10 @@ export class AuthService {
       expiresInMinutes,
       tenantSlug: tenant.slug,
     });
+
+    if (!sent && !isDev) {
+      throw new Error('Failed to dispatch verification email via Brevo. Please verify email address or retry.');
+    }
 
     return {
       success: true,
@@ -243,13 +252,17 @@ export class AuthService {
 
     const activeOTP = await this.store.getActiveOTP(tenant.id, cleanEmail);
     if (!activeOTP) {
-      throw new Error('Reset code has expired or was not requested. Please request a new code.');
+      const err: any = new Error('Reset code has expired or was not requested. Please request a new code.');
+      err.code = 'INVALID_OR_EXPIRED_CODE';
+      throw err;
     }
 
     const providedHash = this.hashOTP(otp);
     if (providedHash !== activeOTP.code_hash) {
       await this.store.incrementOTPAttempts(activeOTP.id);
-      throw new Error('Incorrect verification code.');
+      const err: any = new Error('Invalid or expired verification code.');
+      err.code = 'INVALID_OR_EXPIRED_CODE';
+      throw err;
     }
 
     await this.store.markOTPUsed(activeOTP.id);
@@ -259,5 +272,145 @@ export class AuthService {
     await this.store.updateUserPassword(tenant.id, cleanEmail, newHash);
 
     return true;
+  }
+
+  /**
+   * Request Director Change Password OTP via Brevo
+   */
+  async requestChangePasswordOTP(
+    tenantId: string,
+    email: string
+  ): Promise<{ success: boolean; cooldown_seconds: number; dev_otp_preview?: string; message: string }> {
+    const tenant = await this.store.getTenantById(tenantId);
+    if (!tenant) {
+      throw new Error(`Tenant '${tenantId}' does not exist.`);
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const user = await this.store.getUserByEmail(tenantId, cleanEmail);
+    if (!user) {
+      throw new Error('User does not exist.');
+    }
+
+    // Check 60-second cooldown from last requested OTP
+    const latestOTP = await this.store.getLatestOTP(tenantId, cleanEmail);
+    if (latestOTP && latestOTP.created_at) {
+      const elapsedSeconds = Math.floor((Date.now() - latestOTP.created_at.getTime()) / 1000);
+      if (elapsedSeconds < 60) {
+        const remainingSeconds = 60 - elapsedSeconds;
+        throw new Error(`Please wait ${remainingSeconds} seconds before requesting a new verification code.`);
+      }
+    }
+
+    const isDev = process.env.NODE_ENV !== 'production' && !process.env.BREVO_API_KEY;
+    const staticOtp = isDev ? (process.env.STATIC_OTP || process.env.DEV_STATIC_OTP) : undefined;
+    const otp = staticOtp || crypto.randomInt(100000, 1000000).toString();
+
+    // Salt hash with password_change:${otp}
+    const codeHash = this.hashOTP(otp, 'password_change');
+    const expiresInMinutes = 10;
+    const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
+
+    await this.store.createOTP(tenantId, cleanEmail, codeHash, expiresAt);
+
+    const sent = await this.mailer.sendOTP({
+      toEmail: user.email,
+      recipientName: user.full_name,
+      otp,
+      tenantName: tenant.name,
+      expiresInMinutes,
+      tenantSlug: tenant.slug,
+    });
+
+    if (!sent && !isDev) {
+      throw new Error('Failed to dispatch verification email via Brevo. Please verify email address or retry.');
+    }
+
+    return {
+      success: true,
+      cooldown_seconds: 60,
+      dev_otp_preview: isDev ? otp : undefined,
+      message: `A 6-digit verification code has been dispatched to ${user.email}.`,
+    };
+  }
+
+  /**
+   * Change Password with Current Password & Purpose-Bound OTP Verification
+   */
+  async changePassword(params: {
+    tenantId: string;
+    email: string;
+    currentPassword: string;
+    newPassword: string;
+    otp: string;
+  }): Promise<{ user: User; tenant: Tenant }> {
+    const { tenantId, email, currentPassword, newPassword, otp } = params;
+    const cleanEmail = email.toLowerCase().trim();
+
+    const tenant = await this.store.getTenantById(tenantId);
+    if (!tenant) {
+      throw new Error('Tenant not found.');
+    }
+
+    const user = await this.store.getUserByEmail(tenantId, cleanEmail);
+    if (!user) {
+      throw new Error('User not found.');
+    }
+
+    // 1. Verify currentPassword FIRST with verifyPassword(currentPassword, user.password_hash)
+    // If invalid, throw immediately WITHOUT touching OTP attempts!
+    const isCurrentValid = verifyPassword(currentPassword, user.password_hash);
+    if (!isCurrentValid) {
+      const err: any = new Error('Current password is incorrect.');
+      err.code = 'INVALID_CURRENT_PASSWORD';
+      throw err;
+    }
+
+    // 2. Validate new password
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error('New password must be at least 6 characters long.');
+    }
+    if (newPassword === currentPassword) {
+      throw new Error('New password cannot be the same as your current password.');
+    }
+
+    // 3. Check getActiveOTP
+    const activeOTP = await this.store.getActiveOTP(tenantId, cleanEmail);
+    if (!activeOTP) {
+      const err: any = new Error('Verification code has expired or was not requested. Please request a new code.');
+      err.code = 'INVALID_OR_EXPIRED_CODE';
+      throw err;
+    }
+
+    if (activeOTP.attempts >= 5) {
+      const err: any = new Error('Too many failed attempts. This verification code is locked. Please request a new one.');
+      err.code = 'OTP_LOCKED';
+      throw err;
+    }
+
+    // 4. Verify hash with purpose salt: password_change:${otp}
+    const expectedHash = this.hashOTP(otp, 'password_change');
+    if (expectedHash !== activeOTP.code_hash) {
+      await this.store.incrementOTPAttempts(activeOTP.id);
+      const remaining = 5 - activeOTP.attempts;
+      if (remaining <= 0) {
+        const err: any = new Error('Too many failed attempts. This verification code is locked. Please request a new one.');
+        err.code = 'OTP_LOCKED';
+        throw err;
+      }
+      throw new Error(`Incorrect verification code. ${remaining} attempts remaining.`);
+    }
+
+    // 5. Mark OTP as used
+    await this.store.markOTPUsed(activeOTP.id);
+
+    // 6. Hash new password with scrypt and update in store
+    const newHash = hashPassword(newPassword);
+    const updated = await this.store.updateUserPassword(tenantId, cleanEmail, newHash);
+    if (!updated) {
+      throw new Error('Failed to update password.');
+    }
+
+    return { user, tenant };
   }
 }

@@ -217,6 +217,7 @@ Support: info@kampus.pk
           'content-type': 'application/json',
         },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(8000),
       });
 
       if (!response.ok) {
