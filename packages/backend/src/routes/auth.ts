@@ -236,7 +236,7 @@ export function authRoutes(
               full_name: admin.full_name,
             },
             otp_preview: otpResult.dev_otp_preview,
-            message: `Academy '${tenant.name}' registered! A 6-digit verification code has been dispatched to ${admin.email}.`,
+            message: `A 6-digit verification code has been sent to ${admin.email}. Please enter the code below to complete setup.`,
           },
           timestamp: new Date().toISOString(),
         });

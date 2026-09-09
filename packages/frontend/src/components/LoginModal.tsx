@@ -19,7 +19,8 @@ import {
   UploadCloud,
   X,
   AlertCircle,
-  Check
+  Check,
+  Copy
 } from 'lucide-react';
 import { AcademyBranding } from '@apex/shared-types';
 
@@ -28,13 +29,25 @@ export const LoginModal: React.FC = () => {
     loginWithPassword, 
     registerAcademy, 
     verifyRegistrationOTP, 
+    applySession,
     forgotPassword, 
     resetPassword 
   } = useAuth();
 
   // Mode & Steps
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [step, setStep] = useState<'form' | 'otp' | 'forgot_password_request' | 'forgot_password_reset'>('form');
+  const [step, setStep] = useState<'form' | 'otp' | 'registration_success' | 'forgot_password_request' | 'forgot_password_reset'>('form');
+
+  // Completed Registration Details
+  const [registrationDetails, setRegistrationDetails] = useState<{
+    tenantName: string;
+    tenantSlug: string;
+    portalUrl: string;
+    adminEmail: string;
+    city?: string;
+    sessionData: any;
+  } | null>(null);
+  const [copied, setCopied] = useState<boolean>(false);
 
   // Daily Login Form (zero prefilled data, zero placeholders)
   const [tenantSlug, setTenantSlug] = useState<string>('');
@@ -263,7 +276,19 @@ export const LoginModal: React.FC = () => {
     setLoading(true);
 
     try {
-      await verifyRegistrationOTP(email.trim(), otp.trim(), tenantSlug.trim());
+      const res = await verifyRegistrationOTP(email.trim(), otp.trim(), tenantSlug.trim(), false);
+      const session = res.sessionData;
+      setRegistrationDetails({
+        tenantName: session?.tenant?.name || regName.trim() || 'Academy',
+        tenantSlug: session?.tenant?.slug || tenantSlug.trim(),
+        portalUrl: `https://${session?.tenant?.slug || tenantSlug.trim()}.${baseDomain}`,
+        adminEmail: session?.user?.email || email.trim(),
+        city: regCity.trim() || undefined,
+        sessionData: session,
+      });
+      setStep('registration_success');
+      setMessage(null);
+      setError(null);
     } catch (err: any) {
       setError(err.message || 'Verification failed. Please check your 6-digit code.');
     } finally {
@@ -358,57 +383,59 @@ export const LoginModal: React.FC = () => {
             <img src="/kampus-logo-dark.png" alt="Kampus" className="h-6 w-auto object-contain" />
           </div>
 
-          {/* Middle Live Showcase: Upper-Middle Logo & Middle Name */}
-          <div className="relative z-10 my-auto py-8 flex flex-col items-center text-center">
-            
-            {/* UPPER MIDDLE: Academy Logo Box (Enlarged) */}
-            <div className="mb-5">
-              {activeAcademyLogo ? (
-                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-white p-3 border border-slate-700 shadow-2xl flex items-center justify-center overflow-hidden transition-all">
-                  <img 
-                    src={activeAcademyLogo} 
-                    alt={activeAcademyName} 
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              ) : (
-                <div 
-                  onClick={() => {
-                    if (mode === 'register') fileInputRef.current?.click();
-                  }}
-                  className={`w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 shadow-xl transition-all ${
-                    mode === 'register' ? 'cursor-pointer hover:border-slate-700 hover:text-slate-300' : ''
-                  }`}
-                  title={mode === 'register' ? 'Click to upload academy logo' : undefined}
-                >
-                  <GraduationCap className="w-14 h-14 text-slate-400" />
-                </div>
-              )}
-            </div>
-
-            {/* MIDDLE: Academy Name (Clean, refined size) */}
-            <div className="w-full px-4 max-w-sm">
-              <h1 className={`text-lg sm:text-xl font-bold tracking-tight font-brand transition-all duration-150 break-words leading-snug ${
-                mode === 'register' && !regName.trim()
-                  ? 'text-slate-500 font-normal'
-                  : 'text-white'
-              }`}>
-                {activeAcademyName}
-              </h1>
-
-              {/* Subdomain Pill */}
-              <div className="mt-2.5 flex items-center justify-center">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
-                  <Lock className="w-3 h-3 text-slate-500" />
-                  <span>{activeDomain}</span>
-                  {mode === 'register' && regCity.trim() && (
-                    <span className="text-slate-500">• {regCity.trim()}</span>
-                  )}
-                </span>
+          {/* Middle Live Showcase: Shown only for registration preview or branded tenant subdomain */}
+          {(mode === 'register' || Boolean(tenantSlug && (branding?.name || branding?.logo_url))) && (
+            <div className="relative z-10 my-auto py-8 flex flex-col items-center text-center">
+              
+              {/* UPPER MIDDLE: Academy Logo Box (Enlarged) */}
+              <div className="mb-5">
+                {activeAcademyLogo ? (
+                  <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-white p-3 border border-slate-700 shadow-2xl flex items-center justify-center overflow-hidden transition-all">
+                    <img 
+                      src={activeAcademyLogo} 
+                      alt={activeAcademyName} 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div 
+                    onClick={() => {
+                      if (mode === 'register') fileInputRef.current?.click();
+                    }}
+                    className={`w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 shadow-xl transition-all ${
+                      mode === 'register' ? 'cursor-pointer hover:border-slate-700 hover:text-slate-300' : ''
+                    }`}
+                    title={mode === 'register' ? 'Click to upload academy logo' : undefined}
+                  >
+                    <GraduationCap className="w-14 h-14 text-slate-400" />
+                  </div>
+                )}
               </div>
-            </div>
 
-          </div>
+              {/* MIDDLE: Academy Name (Clean, refined size) */}
+              <div className="w-full px-4 max-w-sm">
+                <h1 className={`text-lg sm:text-xl font-bold tracking-tight font-brand transition-all duration-150 break-words leading-snug ${
+                  mode === 'register' && !regName.trim()
+                    ? 'text-slate-500 font-normal'
+                    : 'text-white'
+                }`}>
+                  {activeAcademyName}
+                </h1>
+
+                {/* Subdomain Pill */}
+                <div className="mt-2.5 flex items-center justify-center">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
+                    <Lock className="w-3 h-3 text-slate-500" />
+                    <span>{activeDomain}</span>
+                    {mode === 'register' && regCity.trim() && (
+                      <span className="text-slate-500">• {regCity.trim()}</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+            </div>
+          )}
 
         </div>
 
@@ -488,14 +515,16 @@ export const LoginModal: React.FC = () => {
             <div className="mb-6">
               <h2 className="text-2xl font-bold tracking-tight text-slate-900">
                 {step === 'otp' && 'Verify Academy Email'}
+                {step === 'registration_success' && 'Registration Complete'}
                 {step === 'forgot_password_request' && 'Reset Password'}
                 {step === 'forgot_password_reset' && 'Set New Password'}
                 {step === 'form' && (mode === 'login' ? 'Sign In' : 'Register Academy')}
               </h2>
               <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-                {step === 'otp' && `Enter the 6-digit verification code dispatched to ${email}`}
+                {step === 'otp' && `Enter the 6-digit verification code sent to ${email}`}
+                {step === 'registration_success' && 'Your academy portal is active and ready to use.'}
                 {step === 'forgot_password_request' && 'Enter your institutional email to receive a password reset code.'}
-                {step === 'forgot_password_reset' && `Enter the 6-digit code dispatched to ${email} and choose your new password.`}
+                {step === 'forgot_password_reset' && `Enter the 6-digit code sent to ${email} and choose your new password.`}
                 {step === 'form' && (mode === 'login' 
                   ? 'Enter your institutional email and password to access your academy account.' 
                   : 'Create your academy profile, choose your web address, and set up your director account.')}
@@ -932,6 +961,102 @@ export const LoginModal: React.FC = () => {
                   </button>
                 </div>
               </form>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* 3.5 REGISTRATION SUCCESS CONFIRMATION SCREEN                  */}
+            {/* ------------------------------------------------------------- */}
+            {step === 'registration_success' && registrationDetails && (
+              <div className="space-y-4">
+                {/* Institutional Details Card */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5 space-y-3.5">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200/80">
+                    <span className="text-xs font-semibold text-slate-500">Academy Profile</span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-[10px] font-semibold text-emerald-700">
+                      <Check className="w-3 h-3" />
+                      Active
+                    </span>
+                  </div>
+
+                  {/* Academy Name */}
+                  <div className="flex justify-between items-baseline gap-4 text-xs">
+                    <span className="text-slate-500 font-medium shrink-0">Academy Name</span>
+                    <span className="font-semibold text-slate-900 text-right truncate">
+                      {registrationDetails.tenantName}
+                    </span>
+                  </div>
+
+                  {/* Academy Web Address */}
+                  <div>
+                    <div className="flex justify-between items-center text-xs mb-1">
+                      <span className="text-slate-500 font-medium">Academy Web Address</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 p-2.5 bg-white border border-slate-200 rounded-lg">
+                      <span className="text-xs font-mono font-medium text-slate-800 truncate">
+                        {registrationDetails.portalUrl}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(registrationDetails.portalUrl);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        className="shrink-0 px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-medium transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Copy link to clipboard"
+                      >
+                        {copied ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            <span className="text-emerald-700">Copied</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3 text-slate-500" />
+                            <span>Copy Link</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Admin Email */}
+                  <div className="flex justify-between items-baseline gap-4 text-xs">
+                    <span className="text-slate-500 font-medium shrink-0">Administrator</span>
+                    <span className="font-mono text-slate-800 text-right truncate">
+                      {registrationDetails.adminEmail}
+                    </span>
+                  </div>
+
+                  {/* Campus Location */}
+                  {registrationDetails.city && (
+                    <div className="flex justify-between items-baseline gap-4 text-xs">
+                      <span className="text-slate-500 font-medium shrink-0">Location</span>
+                      <span className="text-slate-800 text-right">
+                        {registrationDetails.city}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-slate-500 leading-normal">
+                  Staff, teachers, and students can sign in directly using your academy web address.
+                </p>
+
+                {/* Primary Action Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (registrationDetails.sessionData) {
+                      applySession(registrationDetails.sessionData);
+                    }
+                  }}
+                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <span>Go to Academy Portal</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             )}
 
             {/* ------------------------------------------------------------- */}

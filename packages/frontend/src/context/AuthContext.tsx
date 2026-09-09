@@ -39,7 +39,8 @@ interface AuthContextType {
   isLoading: boolean;
   loginWithPassword: (email: string, password: string, tenantSlug?: string) => Promise<{ success: boolean }>;
   registerAcademy: (payload: RegisterAcademyPayload) => Promise<{ success: boolean; message: string; dev_otp?: string; tenant: any; admin: any }>;
-  verifyRegistrationOTP: (email: string, otp: string, tenantSlug: string) => Promise<{ success: boolean }>;
+  verifyRegistrationOTP: (email: string, otp: string, tenantSlug: string, autoStartSession?: boolean) => Promise<{ success: boolean; sessionData?: any }>;
+  applySession: (sessionData: any) => void;
   requestOTP: (email: string, tenantSlug: string) => Promise<{ success: boolean; message: string; dev_otp?: string }>;
   verifyOTP: (email: string, otp: string, tenantSlug: string) => Promise<{ success: boolean; message?: string }>;
   forgotPassword: (email: string, tenantSlug?: string) => Promise<{ success: boolean; message: string; dev_otp?: string }>;
@@ -174,9 +175,20 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
   };
 
   /**
-   * Verify Registration 6-Digit OTP & start session
+   * Apply user session directly from session response
    */
-  const verifyRegistrationOTP = async (email: string, otp: string, tenantSlug: string) => {
+  const applySession = (sessionData: any) => {
+    if (!sessionData) return;
+    localStorage.setItem('apex_jwt_token', sessionData.token);
+    setToken(sessionData.token);
+    setUser(sessionData.user);
+    setTenant(sessionData.tenant);
+  };
+
+  /**
+   * Verify Registration 6-Digit OTP & optionally start session
+   */
+  const verifyRegistrationOTP = async (email: string, otp: string, tenantSlug: string, autoStartSession: boolean = false) => {
     const res = await fetch('/api/v1/auth/verify-registration-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -189,12 +201,11 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
     }
 
     const sessionData = body.data;
-    localStorage.setItem('apex_jwt_token', sessionData.token);
-    setToken(sessionData.token);
-    setUser(sessionData.user);
-    setTenant(sessionData.tenant);
+    if (autoStartSession) {
+      applySession(sessionData);
+    }
 
-    return { success: true };
+    return { success: true, sessionData };
   };
 
   const requestOTP = async (email: string, tenantSlug: string) => {
@@ -343,6 +354,7 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
         loginWithPassword,
         registerAcademy,
         verifyRegistrationOTP,
+        applySession,
         requestOTP,
         verifyOTP,
         forgotPassword,
