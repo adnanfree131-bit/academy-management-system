@@ -363,10 +363,10 @@ export const LoginModal: React.FC = () => {
           {/* Middle Live Showcase: Upper-Middle Logo & Middle Name */}
           <div className="relative z-10 my-auto py-8 flex flex-col items-center text-center">
             
-            {/* UPPER MIDDLE: Academy Logo Box */}
-            <div className="mb-6">
+            {/* UPPER MIDDLE: Academy Logo Box (Enlarged) */}
+            <div className="mb-5">
               {activeAcademyLogo ? (
-                <div className="w-20 h-20 rounded-2xl bg-white p-2 border border-slate-700 shadow-xl flex items-center justify-center overflow-hidden">
+                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-white p-3 border border-slate-700 shadow-2xl flex items-center justify-center overflow-hidden transition-all">
                   <img 
                     src={activeAcademyLogo} 
                     alt={activeAcademyName} 
@@ -378,19 +378,19 @@ export const LoginModal: React.FC = () => {
                   onClick={() => {
                     if (mode === 'register') fileInputRef.current?.click();
                   }}
-                  className={`w-20 h-20 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 shadow-md transition-all ${
+                  className={`w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 shadow-xl transition-all ${
                     mode === 'register' ? 'cursor-pointer hover:border-slate-700 hover:text-slate-300' : ''
                   }`}
                   title={mode === 'register' ? 'Click to upload academy logo' : undefined}
                 >
-                  <GraduationCap className="w-9 h-9 text-slate-400" />
+                  <GraduationCap className="w-14 h-14 text-slate-400" />
                 </div>
               )}
             </div>
 
-            {/* MIDDLE: Academy Name with Clean Professional Font */}
+            {/* MIDDLE: Academy Name (Clean, refined size) */}
             <div className="w-full px-4 max-w-sm">
-              <h1 className={`text-2xl lg:text-3xl font-bold tracking-tight font-brand transition-all duration-150 break-words leading-snug ${
+              <h1 className={`text-lg sm:text-xl font-bold tracking-tight font-brand transition-all duration-150 break-words leading-snug ${
                 mode === 'register' && !regName.trim()
                   ? 'text-slate-500 font-normal'
                   : 'text-white'
@@ -399,8 +399,8 @@ export const LoginModal: React.FC = () => {
               </h1>
 
               {/* Subdomain Pill */}
-              <div className="mt-3 flex items-center justify-center">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 border border-slate-800 text-xs font-mono text-slate-300">
+              <div className="mt-2.5 flex items-center justify-center">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
                   <Lock className="w-3 h-3 text-slate-500" />
                   <span>{activeDomain}</span>
                   {mode === 'register' && regCity.trim() && (
