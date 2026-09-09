@@ -661,7 +661,6 @@ export const LoginModal: React.FC = () => {
                       type="text"
                       value={regSlug}
                       onChange={(e) => setRegSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                      placeholder="e.g. falcon"
                       required
                       className="w-full pl-3 pr-1 py-2 text-xs text-slate-900 font-mono font-medium focus:outline-none bg-transparent"
                     />
@@ -669,6 +668,9 @@ export const LoginModal: React.FC = () => {
                       .{baseDomain}
                     </span>
                   </div>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Choose carefully — this cannot be changed in the future.
+                  </p>
                 </div>
 
                 {/* City & Phone (Two Column) */}
