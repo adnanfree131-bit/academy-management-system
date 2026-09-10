@@ -64,6 +64,7 @@ export interface TenantSettings {
   domain?: string | null;
   subdomain?: string | null;
   domain_verified?: boolean;
+  is_platform?: boolean;
   features: {
     mobile_pwa_enabled: boolean;
     whatsapp_rapid_queue: boolean;

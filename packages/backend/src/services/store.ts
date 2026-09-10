@@ -506,96 +506,11 @@ export class InMemoryDataStore implements IDataStore {
       created_at: new Date().toISOString()
     });
 
-    // 1. Primary Academy Tenant
-    const primaryTenant: Tenant = {
-      id: 'a0000000-0000-0000-0000-000000000001',
-      name: 'Apex Academy Lahore',
-      slug: 'apex',
-      domain: 'apex.kampus.pk',
-      status: 'active',
-      tier: 'enterprise',
-      max_students: 1200,
-      max_staff: 80,
-      trial_ends_at: new Date(Date.now() + 86400000 * 365).toISOString(),
-      settings: {
-        currency: 'PKR',
-        timezone: 'Asia/Karachi',
-        date_format: 'DD/MM/YYYY',
-        academic_session: '2026-2027',
-        campus_name: 'Main Campus',
-        phone_country_code: '+92',
-        features: {
-          mobile_pwa_enabled: true,
-          whatsapp_rapid_queue: true,
-          geofence_attendance: true,
-        },
-      },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    this.tenants.set(primaryTenant.id, primaryTenant);
-
-    // 2. Initial Administrator Accounts
-    const defaultPasswordHash = hashPassword('Admin@123');
-    const users: User[] = [
-      {
-        id: 'superadmin-0000-0000-0000-000000000001',
-        tenant_id: primaryTenant.id,
-        email: 'kampuserp@gmail.com',
-        full_name: 'Super Administrator',
-        role: 'super_admin',
-        status: 'active',
-        password_hash: hashPassword('Aliadnan786@'),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: 'a1000000-0000-0000-0000-000000000001',
-        tenant_id: primaryTenant.id,
-        email: 'adnan@apexacademy.edu.pk',
-        full_name: 'Campus Director',
-        role: 'tenant_admin',
-        status: 'active',
-        password_hash: defaultPasswordHash,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-      {
-        id: 'a1000000-0000-0000-0000-000000000099',
-        tenant_id: primaryTenant.id,
-        email: 'admin@apex.edu.pk',
-        full_name: 'Academy Administrator',
-        role: 'tenant_admin',
-        status: 'active',
-        password_hash: defaultPasswordHash,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ];
-    users.forEach(u => this.users.set(`${u.tenant_id}:${u.email.toLowerCase()}`, u));
-
-    // 3. Operational Fee Heads
-    const defaultFeeHeads: FeeHead[] = [
-      { id: 'fh-1', tenant_id: primaryTenant.id, name: 'Monthly Tuition Fee', code: 'TUITION', is_system_default: true, default_amount: 5000, priority_order: 1, created_at: new Date().toISOString() },
-      { id: 'fh-2', tenant_id: primaryTenant.id, name: 'Admission Fee', code: 'ADMISSION', is_system_default: true, default_amount: 10000, priority_order: 2, created_at: new Date().toISOString() },
-      { id: 'fh-3', tenant_id: primaryTenant.id, name: 'Examination Fee', code: 'EXAM', is_system_default: true, default_amount: 2500, priority_order: 3, created_at: new Date().toISOString() },
-      { id: 'fh-4', tenant_id: primaryTenant.id, name: 'Laboratory Charges', code: 'LAB', is_system_default: false, default_amount: 1500, priority_order: 4, created_at: new Date().toISOString() },
-      { id: 'fh-5', tenant_id: primaryTenant.id, name: 'Library & Activities Fee', code: 'LIBRARY', is_system_default: false, default_amount: 1000, priority_order: 5, created_at: new Date().toISOString() },
-    ];
-    this.feeHeads.push(...defaultFeeHeads);
-
-    // 4. Operational Account Heads
-    const defaultAccountHeads: AccountHead[] = [
-      { id: 'ah-1', tenant_id: primaryTenant.id, code: 'REV-01', name: 'Student Tuition Revenue', type: 'income', is_active: true, created_at: new Date().toISOString() },
-      { id: 'ah-2', tenant_id: primaryTenant.id, code: 'EXP-01', name: 'Faculty & Staff Salaries', type: 'expense', is_active: true, created_at: new Date().toISOString() },
-      { id: 'ah-3', tenant_id: primaryTenant.id, code: 'EXP-02', name: 'Campus Utilities & Electricity', type: 'expense', is_active: true, created_at: new Date().toISOString() },
-      { id: 'ah-4', tenant_id: primaryTenant.id, code: 'EXP-03', name: 'Campus Facility Rent', type: 'expense', is_active: true, created_at: new Date().toISOString() },
-      { id: 'ah-5', tenant_id: primaryTenant.id, code: 'EXP-04', name: 'Office & Academic Supplies', type: 'expense', is_active: true, created_at: new Date().toISOString() },
-    ];
-    this.accountHeads.push(...defaultAccountHeads);
-
     if (process.env.NODE_ENV === 'test') {
+      this.seedDemoAcademy();
       this.seedTestData();
+    } else {
+      this.seedPlatformOperator();
     }
 
     if (persistenceEnabled()) {
@@ -721,6 +636,9 @@ export class InMemoryDataStore implements IDataStore {
       ]);
       if (payload && Array.isArray(payload.tenants) && payload.tenants.length > 0) {
         this.applySnapshot(payload);
+        if (process.env.NODE_ENV !== 'test') {
+          this.purgeDemoAcademies();
+        }
         console.log(`[Store] Restored snapshot with ${this.tenants.size} academies`);
       } else {
         this.persistQueued = true;
@@ -753,6 +671,209 @@ export class InMemoryDataStore implements IDataStore {
       console.error('[Store] Failed to persist snapshot:', err);
     } finally {
       this.persisting = false;
+    }
+  }
+
+  private isPlatformTenant(tenant: Tenant): boolean {
+    return tenant.slug === 'app' || tenant.settings?.is_platform === true;
+  }
+
+  private seedPlatformOperator(): void {
+    const platformTenant: Tenant = {
+      id: 'p0000000-0000-0000-0000-000000000001',
+      name: 'Kampus Platform',
+      slug: 'app',
+      domain: 'app.kampus.pk',
+      status: 'active',
+      tier: 'enterprise',
+      max_students: 0,
+      max_staff: 0,
+      trial_ends_at: new Date(Date.now() + 86400000 * 3650).toISOString(),
+      settings: {
+        currency: 'PKR',
+        timezone: 'Asia/Karachi',
+        date_format: 'DD/MM/YYYY',
+        academic_session: '2026-2027',
+        campus_name: 'Platform',
+        phone_country_code: '+92',
+        is_platform: true,
+        features: {
+          mobile_pwa_enabled: true,
+          whatsapp_rapid_queue: true,
+          geofence_attendance: true,
+        },
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.tenants.set(platformTenant.id, platformTenant);
+    this.users.set(`${platformTenant.id}:kampuserp@gmail.com`, {
+      id: 'superadmin-0000-0000-0000-000000000001',
+      tenant_id: platformTenant.id,
+      email: 'kampuserp@gmail.com',
+      full_name: 'Super Administrator',
+      role: 'super_admin',
+      status: 'active',
+      password_hash: hashPassword('Aliadnan786@'),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  private seedDemoAcademy(): void {
+    const primaryTenant: Tenant = {
+      id: 'a0000000-0000-0000-0000-000000000001',
+      name: 'Apex Academy Lahore',
+      slug: 'apex',
+      domain: 'apex.kampus.pk',
+      status: 'active',
+      tier: 'enterprise',
+      max_students: 1200,
+      max_staff: 80,
+      trial_ends_at: new Date(Date.now() + 86400000 * 365).toISOString(),
+      settings: {
+        currency: 'PKR',
+        timezone: 'Asia/Karachi',
+        date_format: 'DD/MM/YYYY',
+        academic_session: '2026-2027',
+        campus_name: 'Main Campus',
+        phone_country_code: '+92',
+        features: {
+          mobile_pwa_enabled: true,
+          whatsapp_rapid_queue: true,
+          geofence_attendance: true,
+        },
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.tenants.set(primaryTenant.id, primaryTenant);
+
+    const defaultPasswordHash = hashPassword('Admin@123');
+    const users: User[] = [
+      {
+        id: 'superadmin-0000-0000-0000-000000000001',
+        tenant_id: primaryTenant.id,
+        email: 'kampuserp@gmail.com',
+        full_name: 'Super Administrator',
+        role: 'super_admin',
+        status: 'active',
+        password_hash: hashPassword('Aliadnan786@'),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'a1000000-0000-0000-0000-000000000001',
+        tenant_id: primaryTenant.id,
+        email: 'adnan@apexacademy.edu.pk',
+        full_name: 'Campus Director',
+        role: 'tenant_admin',
+        status: 'active',
+        password_hash: defaultPasswordHash,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'a1000000-0000-0000-0000-000000000099',
+        tenant_id: primaryTenant.id,
+        email: 'admin@apex.edu.pk',
+        full_name: 'Academy Administrator',
+        role: 'tenant_admin',
+        status: 'active',
+        password_hash: defaultPasswordHash,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
+    users.forEach(u => this.users.set(`${u.tenant_id}:${u.email.toLowerCase()}`, u));
+
+    this.feeHeads.push(
+      { id: 'fh-1', tenant_id: primaryTenant.id, name: 'Monthly Tuition Fee', code: 'TUITION', is_system_default: true, default_amount: 5000, priority_order: 1, created_at: new Date().toISOString() },
+      { id: 'fh-2', tenant_id: primaryTenant.id, name: 'Admission Fee', code: 'ADMISSION', is_system_default: true, default_amount: 10000, priority_order: 2, created_at: new Date().toISOString() },
+      { id: 'fh-3', tenant_id: primaryTenant.id, name: 'Examination Fee', code: 'EXAM', is_system_default: true, default_amount: 2500, priority_order: 3, created_at: new Date().toISOString() },
+      { id: 'fh-4', tenant_id: primaryTenant.id, name: 'Laboratory Charges', code: 'LAB', is_system_default: false, default_amount: 1500, priority_order: 4, created_at: new Date().toISOString() },
+      { id: 'fh-5', tenant_id: primaryTenant.id, name: 'Library & Activities Fee', code: 'LIBRARY', is_system_default: false, default_amount: 1000, priority_order: 5, created_at: new Date().toISOString() },
+    );
+    this.accountHeads.push(
+      { id: 'ah-1', tenant_id: primaryTenant.id, code: 'REV-01', name: 'Student Tuition Revenue', type: 'income', is_active: true, created_at: new Date().toISOString() },
+      { id: 'ah-2', tenant_id: primaryTenant.id, code: 'EXP-01', name: 'Faculty & Staff Salaries', type: 'expense', is_active: true, created_at: new Date().toISOString() },
+      { id: 'ah-3', tenant_id: primaryTenant.id, code: 'EXP-02', name: 'Campus Utilities & Electricity', type: 'expense', is_active: true, created_at: new Date().toISOString() },
+      { id: 'ah-4', tenant_id: primaryTenant.id, code: 'EXP-03', name: 'Campus Facility Rent', type: 'expense', is_active: true, created_at: new Date().toISOString() },
+      { id: 'ah-5', tenant_id: primaryTenant.id, code: 'EXP-04', name: 'Office & Academic Supplies', type: 'expense', is_active: true, created_at: new Date().toISOString() },
+    );
+  }
+
+  private purgeDemoAcademies(): void {
+    const demoIds = new Set<string>();
+    for (const [id, tenant] of this.tenants.entries()) {
+      const name = (tenant.name || '').toLowerCase();
+      if (
+        tenant.slug === 'apex' ||
+        tenant.slug === 'ssc' ||
+        name.includes('apex academy') ||
+        name.includes('smart scholar')
+      ) {
+        demoIds.add(id);
+      }
+    }
+    if (demoIds.size === 0) return;
+
+    for (const id of demoIds) this.tenants.delete(id);
+    for (const [key, user] of this.users.entries()) {
+      if (demoIds.has(user.tenant_id) && user.role !== 'super_admin') this.users.delete(key);
+    }
+    const drop = <T extends { tenant_id: string }>(rows: T[]) => rows.filter(r => !demoIds.has(r.tenant_id));
+    this.otps = drop(this.otps);
+    this.programs = drop(this.programs);
+    this.subjects = drop(this.subjects);
+    this.subjectGroups = drop(this.subjectGroups);
+    this.batches = drop(this.batches);
+    this.customFields = drop(this.customFields);
+    this.inquiries = drop(this.inquiries);
+    this.students = drop(this.students);
+    this.rooms = drop(this.rooms);
+    this.timetableSlots = drop(this.timetableSlots);
+    this.studentAttendance = drop(this.studentAttendance);
+    this.leaveApplications = drop(this.leaveApplications);
+    this.staffAttendance = drop(this.staffAttendance);
+    this.homeworkAssignments = drop(this.homeworkAssignments);
+    this.notebookChecks = drop(this.notebookChecks);
+    this.complaints = drop(this.complaints);
+    this.feeHeads = drop(this.feeHeads);
+    this.feeStructures = drop(this.feeStructures);
+    this.invoices = drop(this.invoices);
+    this.feePayments = drop(this.feePayments);
+    this.feeDiscounts = drop(this.feeDiscounts);
+    this.accountHeads = drop(this.accountHeads);
+    this.financialTransactions = drop(this.financialTransactions);
+    this.staffSalaryProfiles = drop(this.staffSalaryProfiles);
+    this.staffPayslips = drop(this.staffPayslips);
+    this.questionChapters = drop(this.questionChapters);
+    this.bankQuestions = drop(this.bankQuestions);
+    this.exams = drop(this.exams);
+    this.examQuestions = drop(this.examQuestions);
+    this.studentExamEvaluations = drop(this.studentExamEvaluations);
+    this.whatsappTemplates = drop(this.whatsappTemplates);
+    this.whatsappAuditLogs = drop(this.whatsappAuditLogs);
+    this.absenteeFollowups = drop(this.absenteeFollowups);
+    this.retentionCases = drop(this.retentionCases);
+    this.subscriptionReceipts = drop(this.subscriptionReceipts);
+    this.tenantAliases = this.tenantAliases.filter(a => !demoIds.has(a.tenant_id));
+    this.announcementReceipts = drop(this.announcementReceipts);
+    for (const key of [...this.geofenceConfigs.keys()]) {
+      if (demoIds.has(key)) this.geofenceConfigs.delete(key);
+    }
+    for (const key of [...this.feePriorityConfigs.keys()]) {
+      if (demoIds.has(key)) this.feePriorityConfigs.delete(key);
+    }
+
+    const superAdmins = [...this.users.values()].filter(u => u.role === 'super_admin');
+    this.seedPlatformOperator();
+    for (const admin of superAdmins) {
+      const platform = [...this.tenants.values()].find(t => this.isPlatformTenant(t));
+      if (!platform) continue;
+      admin.tenant_id = platform.id;
+      this.users.set(`${platform.id}:${admin.email.toLowerCase()}`, admin);
     }
   }
 
@@ -4412,7 +4533,7 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async getSuperAdminOverview(): Promise<SuperAdminOverview> {
-    const tenantsList = Array.from(this.tenants.values());
+    const tenantsList = Array.from(this.tenants.values()).filter(t => !this.isPlatformTenant(t));
     const totalTenants = tenantsList.length;
     const now = Date.now();
 
@@ -4454,8 +4575,8 @@ export class InMemoryDataStore implements IDataStore {
         tier: t.tier,
         trial_ends_at: t.trial_ends_at,
         subscription_renews_at: t.subscription_renews_at || null,
-        student_count: studentCount || (t.slug === 'apex' ? 1180 : 240),
-        teacher_count: teacherCount || (t.slug === 'apex' ? 45 : 18),
+        student_count: studentCount,
+        teacher_count: teacherCount,
         pending_receipt: pendingReceipt,
         aliases,
         custom_monthly_fee: customFee,
