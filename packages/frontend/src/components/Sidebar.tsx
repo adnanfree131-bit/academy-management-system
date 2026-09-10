@@ -93,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 {role === 'super_admin' ? (
-                  <AcademyLogo src="/kampus-logo.png" name="Kampus" size={32} />
+                  <img src="/kampus-logo.png?v=official" alt="Kampus" className="h-7 w-auto max-w-[132px] object-contain object-left" />
                 ) : (
                   <AcademyLogo src={tenant?.logo_url} name={tenant?.name || 'Academy'} size={32} />
                 )}
@@ -653,7 +653,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="group inline-flex items-center gap-1.5 text-[10px] text-slate-400 hover:text-slate-800 transition-colors"
             >
               <span>powered by</span>
-              <img src="/kampus-logo.png" alt="Kampus" className="h-3.5 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity" />
+              <img src="/kampus-logo.png?v=official" alt="Kampus" className="h-3.5 w-auto object-contain" />
             </a>
             <span className="text-[9px] font-mono text-slate-300">v2.4</span>
           </div>

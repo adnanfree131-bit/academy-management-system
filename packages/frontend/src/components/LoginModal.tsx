@@ -452,7 +452,7 @@ export const LoginModal: React.FC = () => {
 
   const activeAcademyLogo = mode === 'register'
     ? regLogoUrl
-    : (branding?.logo_url || (tenantSlug ? null : '/kampus-logo.png'));
+    : (branding?.logo_url || (tenantSlug ? null : '/kampus-logo.png?v=official'));
 
   const activeDomain = mode === 'register'
     ? (regSlug.trim() ? `${regSlug.trim().toLowerCase()}.${baseDomain}` : `subdomain.${baseDomain}`)
@@ -472,7 +472,7 @@ export const LoginModal: React.FC = () => {
           
           {/* Top Bar: Clean Brand Logo */}
           <div className="relative z-10 pb-4 border-b border-slate-900">
-            <img src="/kampus-logo.png" alt="Kampus" className="h-7 w-auto object-contain" />
+            <img src="/kampus-logo.png?v=official" alt="Kampus" className="h-8 w-auto object-contain object-left" />
           </div>
 
           {/* Middle Live Showcase: Features on Platform Sign-in, Branding on Tenant/Registration */}
@@ -614,7 +614,7 @@ export const LoginModal: React.FC = () => {
                     </span>
                   </div>
                 ) : (
-                  <img src="/kampus-logo.png" alt="Kampus" className="h-6 w-auto object-contain" />
+                  <img src="/kampus-logo.png?v=official" alt="Kampus" className="h-6 w-auto object-contain" />
                 )}
               </div>
               {tenantSlug && branding?.name && !isSubdomain && (
