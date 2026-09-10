@@ -198,6 +198,54 @@ export const SuperAdminControlPlaneView: React.FC = () => {
     }
   };
 
+  const handleDownloadBackup = async () => {
+    try {
+      const res = await fetch('/api/v1/saas/backups/export', {
+        headers: token ? { authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const file = await res.json();
+      const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `kampus-backup-${(file.exported_at || new Date().toISOString()).slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setActionSuccessMsg('Backup downloaded. Keep this file before you start development.');
+      setTimeout(() => setActionSuccessMsg(''), 4000);
+    } catch (err: any) {
+      setActionErrorMsg(err.message || 'Download failed');
+    }
+  };
+
+  const handleUploadBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const typed = window.prompt('This replaces live academy data from the uploaded file.\nType RESTORE to continue.');
+    if (typed !== 'RESTORE') return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      const res = await fetch('/api/v1/saas/backups/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(parsed),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error?.message || 'Import failed');
+      setActionSuccessMsg(body.message || 'Backup imported.');
+      await fetchOverview();
+      await fetchBackups();
+      setTimeout(() => setActionSuccessMsg(''), 5000);
+    } catch (err: any) {
+      setActionErrorMsg(err.message || 'Import failed');
+    }
+  };
+
   const handleCreateBackup = async () => {
     try {
       const res = await fetch('/api/v1/saas/backups', {
@@ -1605,16 +1653,30 @@ export const SuperAdminControlPlaneView: React.FC = () => {
             <div>
               <h2 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Academy data backups</h2>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Hourly (48h), daily (30 days), and manual copies. Restore requires typing RESTORE.
+                Daily copies in the database (14 days), plus a file on your computer and a nightly GitHub backup.
+                Download a file before you start development. Restore from a file or from the list (type RESTORE).
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleCreateBackup}
-              className="px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg"
-            >
-              Save backup now
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadBackup}
+                className="px-3 py-1.5 bg-white border border-slate-300 text-slate-800 text-xs font-bold rounded-lg"
+              >
+                Download backup
+              </button>
+              <label className="px-3 py-1.5 bg-white border border-slate-300 text-slate-800 text-xs font-bold rounded-lg cursor-pointer">
+                Upload & restore
+                <input type="file" accept="application/json,.json" className="hidden" onChange={handleUploadBackup} />
+              </label>
+              <button
+                type="button"
+                onClick={handleCreateBackup}
+                className="px-3 py-1.5 bg-slate-900 text-white text-xs font-bold rounded-lg"
+              >
+                Save backup now
+              </button>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">

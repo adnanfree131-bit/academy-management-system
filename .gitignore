@@ -21,6 +21,8 @@ coverage/
 # Environment secrets & test screenshots
 .env
 .env.local
+backups/*.json
+!backups/*.json.enc
 .env.*.local
 *.pem
 serviceAccountKey.json

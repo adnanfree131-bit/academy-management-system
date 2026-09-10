@@ -651,10 +651,41 @@ export function saasRoutes(store: IDataStore) {
       return false;
     };
 
+    const allowBackupExportToken = (req: any): boolean => {
+      const header = String(req.headers.authorization || '').replace(/^Bearer /i, '').trim();
+      const token = process.env.BACKUP_EXPORT_TOKEN || '';
+      return Boolean(token && header && header === token);
+    };
+
     fastify.get('/backups', async (req: any, reply: any) => {
       if (!requireSuperAdmin(req, reply)) return;
       const backups = await store.listDataBackups();
       return reply.send({ success: true, data: backups, timestamp: new Date().toISOString() });
+    });
+
+    fastify.get('/backups/export', async (req: any, reply: any) => {
+      if (!allowBackupExportToken(req) && !requireSuperAdmin(req, reply)) return;
+      const file = await store.exportDataBackupFile();
+      reply.header('Content-Disposition', `attachment; filename="kampus-backup-${file.exported_at.slice(0, 10)}.json"`);
+      return reply.send(file);
+    });
+
+    fastify.post('/backups/import', async (req: any, reply: any) => {
+      if (!requireSuperAdmin(req, reply)) return;
+      try {
+        const result = await store.importDataBackupFile(req.body || {});
+        return reply.send({
+          success: true,
+          data: result,
+          message: `Imported backup with ${result.academy_count} academies.`,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'IMPORT_FAILED', message: err.message || 'Failed importing backup' },
+        });
+      }
     });
 
     fastify.post('/backups', async (req: any, reply: any) => {

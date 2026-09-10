@@ -411,6 +411,8 @@ export interface IDataStore {
   listDataBackups(): Promise<DataBackupMeta[]>;
   createManualDataBackup(): Promise<DataBackupMeta>;
   restoreDataBackup(id: number): Promise<{ academy_count: number }>;
+  exportDataBackupFile(): Promise<{ kind: string; version: number; exported_at: string; academy_count: number; payload: Record<string, unknown> }>;
+  importDataBackupFile(file: { kind?: string; payload?: Record<string, unknown> }): Promise<{ academy_count: number }>;
 }
 
 export class InMemoryDataStore implements IDataStore {
@@ -4973,6 +4975,32 @@ export class InMemoryDataStore implements IDataStore {
     const payload = await loadBackupPayload(id);
     if (!payload || !Array.isArray(payload.tenants)) {
       throw new Error('Backup not found or empty');
+    }
+    this.applySnapshot(payload);
+    this.persistAllowed = true;
+    this.persistQueued = true;
+    await this.flushPersist();
+    return { academy_count: countRealAcademies(payload) };
+  }
+
+  async exportDataBackupFile() {
+    const payload = this.snapshotState();
+    return {
+      kind: 'kampus-academy-backup',
+      version: 1,
+      exported_at: new Date().toISOString(),
+      academy_count: countRealAcademies(payload),
+      payload,
+    };
+  }
+
+  async importDataBackupFile(file: { kind?: string; payload?: Record<string, unknown> }) {
+    if (file.kind && file.kind !== 'kampus-academy-backup') {
+      throw new Error('This file is not a Kampus academy backup');
+    }
+    const payload = file.payload;
+    if (!payload || !Array.isArray(payload.tenants)) {
+      throw new Error('Backup file has no academy data');
     }
     this.applySnapshot(payload);
     this.persistAllowed = true;

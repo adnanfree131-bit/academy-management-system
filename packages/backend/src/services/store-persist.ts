@@ -129,25 +129,6 @@ async function archiveNamedBackups(client: pg.Pool, payload: Record<string, unkn
   if (count <= 0) return;
   const json = JSON.stringify(payload);
 
-  const lastHourly = await client.query(
-    `SELECT created_at FROM kampus_store_backups WHERE kind = 'hourly' ORDER BY created_at DESC LIMIT 1`
-  );
-  const hourlyAge = lastHourly.rows[0]
-    ? Date.now() - new Date(lastHourly.rows[0].created_at).getTime()
-    : Number.POSITIVE_INFINITY;
-  if (hourlyAge > 60 * 60 * 1000) {
-    await client.query(
-      `INSERT INTO kampus_store_backups (kind, academy_count, payload) VALUES ('hourly', $1, $2::jsonb)`,
-      [count, json]
-    );
-    await client.query(`
-      DELETE FROM kampus_store_backups
-      WHERE kind = 'hourly' AND id NOT IN (
-        SELECT id FROM kampus_store_backups WHERE kind = 'hourly' ORDER BY created_at DESC LIMIT 48
-      )
-    `);
-  }
-
   const lastDaily = await client.query(
     `SELECT created_at FROM kampus_store_backups WHERE kind = 'daily' ORDER BY created_at DESC LIMIT 1`
   );
@@ -161,7 +142,7 @@ async function archiveNamedBackups(client: pg.Pool, payload: Record<string, unkn
     await client.query(`
       DELETE FROM kampus_store_backups
       WHERE kind = 'daily' AND id NOT IN (
-        SELECT id FROM kampus_store_backups WHERE kind = 'daily' ORDER BY created_at DESC LIMIT 30
+        SELECT id FROM kampus_store_backups WHERE kind = 'daily' ORDER BY created_at DESC LIMIT 14
       )
     `);
   }
