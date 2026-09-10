@@ -625,12 +625,9 @@ export class InMemoryDataStore implements IDataStore {
       });
     }
 
-    if (process.env.NODE_ENV === 'test') {
-      this.seedDemoAcademy();
-      this.seedTestData();
-    } else {
-      this.seedPlatformOperator();
-    }
+    this.seedPlatformOperator();
+    this.seedDemoAcademy();
+    this.seedTestData();
 
     if (persistenceEnabled()) {
       this.persistTimer = setInterval(() => {
