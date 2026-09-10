@@ -65,6 +65,21 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       });
     }
 
+    // Archived account access revocation check
+    if (request.user && request.user.tenant_id && request.user.email) {
+      const dbUser = await store.getUserByEmail(request.user.tenant_id, request.user.email);
+      if (dbUser && dbUser.status === 'archived') {
+        return reply.status(403).send({
+          success: false,
+          error: {
+            code: 'ACCOUNT_ARCHIVED',
+            message: 'Your staff account has been archived. Access has been revoked.',
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
     // Role-segregated academy suspension check
     if (request.user && request.user.tenant_id && request.user.role !== 'super_admin') {
       const tenant = await store.getTenantById(request.user.tenant_id);

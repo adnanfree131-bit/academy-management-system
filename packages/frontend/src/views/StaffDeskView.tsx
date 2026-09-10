@@ -118,6 +118,7 @@ export const StaffDeskView: React.FC = () => {
     employee_code: '',
     father_or_spouse_name: '',
     cnic: '',
+    blood_group: '',
     gender: 'male' as 'male' | 'female' | 'other',
     dob: '',
     whatsapp: '',
@@ -296,6 +297,7 @@ export const StaffDeskView: React.FC = () => {
       employee_code: staff.employee_code || '',
       father_or_spouse_name: staff.father_or_spouse_name || '',
       cnic: staff.cnic || '',
+      blood_group: staff.blood_group || '',
       gender: staff.gender || 'male',
       dob: staff.dob || '',
       whatsapp: staff.whatsapp || staff.phone || '',
@@ -446,6 +448,14 @@ export const StaffDeskView: React.FC = () => {
       return;
     }
 
+    const duplicate = teachingAssignments.some(
+      a => a.program_id === allocForm.program_id && a.batch_id === allocForm.batch_id && a.subject_id === allocForm.subject_id
+    );
+    if (duplicate) {
+      setError(`This teacher is already assigned to ${subj?.name || 'Subject'} for ${batch?.name || 'Batch'}.`);
+      return;
+    }
+
     const newAlloc: StaffTeachingAssignment = {
       program_id: allocForm.program_id,
       program_name: prog?.name || 'Class',
@@ -457,6 +467,7 @@ export const StaffDeskView: React.FC = () => {
     };
 
     setTeachingAssignments(prev => [...prev, newAlloc]);
+    setError(null);
   };
 
   const removeTeachingAllocation = (idx: number) => {
@@ -856,7 +867,7 @@ export const StaffDeskView: React.FC = () => {
                               {assignedCount} {assignedCount === 1 ? 'Subject' : 'Subjects'}
                             </span>
                             <p className="text-[10px] text-slate-500 mt-1 truncate max-w-[150px]">
-                              {row.teaching_assignments?.map(t => t.subject_name).join(', ')}
+                              {Array.from(new Set(row.teaching_assignments?.map(t => t.subject_name) || [])).join(', ')}
                             </p>
                           </div>
                         ) : (
@@ -1108,7 +1119,7 @@ export const StaffDeskView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
                         CNIC / National ID
@@ -1133,6 +1144,26 @@ export const StaffDeskView: React.FC = () => {
                         <option value="male">Male</option>
                         <option value="female">Female</option>
                         <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Blood Group
+                      </label>
+                      <select
+                        value={form.blood_group}
+                        onChange={e => setForm({ ...form, blood_group: e.target.value })}
+                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none bg-white"
+                      >
+                        <option value="">Not Specified</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
                       </select>
                     </div>
                     <div>
@@ -1250,6 +1281,38 @@ export const StaffDeskView: React.FC = () => {
               {/* Tab 2: Employment & Qualifications */}
               {dossierTab === 'employment' && (
                 <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Employee Code
+                      </label>
+                      <input
+                        type="text"
+                        value={form.employee_code}
+                        onChange={e => setForm({ ...form, employee_code: e.target.value })}
+                        placeholder="Auto-generated (e.g. EMP-0001)"
+                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 font-mono focus:ring-1 focus:ring-slate-900 focus:outline-none"
+                      />
+                      <span className="text-[10px] text-slate-400">Leave blank to auto-generate per tenant.</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Employment Status
+                      </label>
+                      <select
+                        value={form.status}
+                        onChange={e => setForm({ ...form, status: e.target.value as StaffStatus })}
+                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none bg-white"
+                      >
+                        <option value="active">Active</option>
+                        <option value="on_leave">On Leave</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="archived">Archived</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -1691,7 +1754,7 @@ export const StaffDeskView: React.FC = () => {
                     </label>
                     <select
                       value={allocForm.program_id}
-                      onChange={e => setAllocForm({ ...allocForm, program_id: e.target.value })}
+                      onChange={e => setAllocForm({ ...allocForm, program_id: e.target.value, batch_id: '' })}
                       className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none"
                     >
                       <option value="">Select Class</option>
@@ -2023,8 +2086,8 @@ export const StaffDeskView: React.FC = () => {
                       Dept: {idCardStaff.department}
                     </p>
                     <div className="pt-1 text-[8.5px] font-mono text-slate-600 space-y-0.5">
-                      <p>Blood Group: B+ Positive</p>
-                      <p>Valid Until: 30-JUN-2027</p>
+                      <p>Blood Group: <strong className="text-rose-700">{idCardStaff.blood_group || '—'}</strong></p>
+                      <p>Valid Until: 30-JUN-{new Date().getFullYear() + 1}</p>
                     </div>
                   </div>
                 </div>
@@ -2032,7 +2095,7 @@ export const StaffDeskView: React.FC = () => {
                 {/* Bottom Bar */}
                 <div className="bg-[#0f172a] text-white px-3 py-1 text-[7.5px] font-medium tracking-wider flex justify-between">
                   <span>CAMPUS PERMIT # {idCardStaff.employee_code}</span>
-                  <span>APEX-AMS</span>
+                  <span>{tenant?.name || 'APEX-AMS'}</span>
                 </div>
               </div>
 
@@ -2051,6 +2114,7 @@ export const StaffDeskView: React.FC = () => {
                         name: idCardStaff.full_name,
                         cnic: idCardStaff.cnic,
                         dept: idCardStaff.department,
+                        blood: idCardStaff.blood_group || 'N/A',
                       })}
                       size={68}
                     />
@@ -2067,9 +2131,9 @@ export const StaffDeskView: React.FC = () => {
                       </span>
                     </p>
                     <p>
-                      <strong className="text-slate-900">Address:</strong>{' '}
+                      <strong className="text-slate-900">Return Address:</strong>{' '}
                       <span className="truncate block">
-                        {idCardStaff.address || 'Campus Staff Quarters, Islamabad'}
+                        {tenant?.campus_name ? `${tenant.campus_name}, ${tenant.city || ''}` : (idCardStaff.address || 'Campus Administration Office')}
                       </span>
                     </p>
                   </div>
@@ -2156,7 +2220,7 @@ export const StaffDeskView: React.FC = () => {
                     Affiliated Higher Secondary Education & Preparatory Institute
                   </p>
                   <p className="text-[11px] text-slate-500">
-                    Campus: Main Boulevard, Islamabad · Tel: 051-1234567 · contact@apexacademy.edu.pk
+                    Campus: {tenant?.campus_name || tenant?.city || 'Main Campus'} · Tel: {tenant?.phone || '051-1234567'} · contact@academy.edu.pk
                   </p>
                 </div>
                 <div className="w-12 h-12 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-lg">
@@ -2207,14 +2271,43 @@ export const StaffDeskView: React.FC = () => {
                   <h4 className="font-bold text-slate-900 uppercase text-[11px]">
                     1. Compensation & Remuneration Structure
                   </h4>
-                  <p>
-                    Your consolidated monthly base compensation will be{' '}
-                    <strong className="font-mono">
-                      PKR {appointmentStaff.base_salary?.toLocaleString() || '0'}
-                    </strong>
-                    , subject to statutory deductions. Remuneration shall be disbursed via automated
-                    bank transfer to your designated bank account (
-                    {appointmentStaff.bank_name || 'Bank Account'}).
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[11px] border border-slate-200 bg-white rounded-lg overflow-hidden">
+                      <thead>
+                        <tr className="bg-slate-100 border-b border-slate-200 text-slate-700">
+                          <th className="px-2.5 py-1 text-left">Compensation Component</th>
+                          <th className="px-2.5 py-1 text-right">Allocation</th>
+                          <th className="px-2.5 py-1 text-right">Monthly Amount (PKR)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-mono">
+                        <tr>
+                          <td className="px-2.5 py-1 font-sans text-slate-800">Basic Pay</td>
+                          <td className="px-2.5 py-1 text-right text-slate-600">70%</td>
+                          <td className="px-2.5 py-1 text-right">{Math.round((appointmentStaff.base_salary || 0) * 0.7).toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-2.5 py-1 font-sans text-slate-800">Academic & Conveyance Allowance</td>
+                          <td className="px-2.5 py-1 text-right text-slate-600">20%</td>
+                          <td className="px-2.5 py-1 text-right">{Math.round((appointmentStaff.base_salary || 0) * 0.2).toLocaleString()}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-2.5 py-1 font-sans text-slate-800">Medical & Utility Allowance</td>
+                          <td className="px-2.5 py-1 text-right text-slate-600">10%</td>
+                          <td className="px-2.5 py-1 text-right">{Math.round((appointmentStaff.base_salary || 0) * 0.1).toLocaleString()}</td>
+                        </tr>
+                        <tr className="bg-slate-50 font-bold text-slate-900 border-t border-slate-200">
+                          <td className="px-2.5 py-1 font-sans">Total Monthly Remuneration</td>
+                          <td className="px-2.5 py-1 text-right">100%</td>
+                          <td className="px-2.5 py-1 text-right">PKR {(appointmentStaff.base_salary || 0).toLocaleString()}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="text-[10px] text-slate-600 mt-1">
+                    Remuneration shall be disbursed via automated bank transfer to your designated bank account (
+                    {appointmentStaff.bank_name || 'Designated Bank Account'}
+                    {appointmentStaff.bank_account_number ? ` · Acc #${appointmentStaff.bank_account_number}` : ''}).
                   </p>
                 </div>
 

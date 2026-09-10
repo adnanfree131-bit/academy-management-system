@@ -123,6 +123,7 @@ export interface CreateStaffInput {
   employee_code?: string | null;
   father_or_spouse_name?: string | null;
   cnic?: string | null;
+  blood_group?: string | null;
   gender?: 'male' | 'female' | 'other' | null;
   dob?: string | null;
   whatsapp?: string | null;
@@ -154,6 +155,7 @@ export interface UpdateStaffInput {
   employee_code?: string | null;
   father_or_spouse_name?: string | null;
   cnic?: string | null;
+  blood_group?: string | null;
   gender?: 'male' | 'female' | 'other' | null;
   dob?: string | null;
   whatsapp?: string | null;
@@ -2918,10 +2920,17 @@ export class InMemoryDataStore implements IDataStore {
       }
       const nextNum = Math.max(tenantUsers.length + 1, maxNum + 1);
       employeeCode = `EMP-${nextNum.toString().padStart(4, '0')}`;
+    } else {
+      const existingWithCode = tenantUsers.find(
+        u => (u.metadata?.employee_code as string)?.trim().toLowerCase() === employeeCode!.toLowerCase()
+      );
+      if (existingWithCode) {
+        throw new Error(`Employee code '${employeeCode}' is already assigned to another staff member.`);
+      }
     }
 
     const passwordToUse = data.password && data.password.trim().length >= 6 ? data.password.trim() : 'ApexStaff2026!';
-    const userRole: UserRole = data.role || (data.department === 'Accounts' ? 'finance_manager' : 'teacher');
+    const userRole: UserRole = data.role || (data.department === 'Accounts' ? 'finance_manager' : (data.department === 'Administration' ? 'academic_head' : 'teacher'));
     const joiningDate = data.joining_date || new Date().toISOString().split('T')[0];
 
     const user: User = {
@@ -2937,6 +2946,7 @@ export class InMemoryDataStore implements IDataStore {
         employee_code: employeeCode,
         father_or_spouse_name: data.father_or_spouse_name || '',
         cnic: data.cnic || '',
+        blood_group: data.blood_group || '',
         gender: data.gender || 'male',
         dob: data.dob || '',
         whatsapp: data.whatsapp || data.phone || '',
@@ -2944,7 +2954,7 @@ export class InMemoryDataStore implements IDataStore {
         emergency_relation: data.emergency_relation || '',
         address: data.address || '',
         department: data.department || (userRole === 'finance_manager' ? 'Accounts' : 'General'),
-        designation: data.designation?.trim() || (userRole === 'finance_manager' ? 'Accountant' : 'Faculty Member'),
+        designation: data.designation?.trim() || (userRole === 'finance_manager' ? 'Accountant' : (userRole === 'academic_head' ? 'Administrator' : 'Faculty Member')),
         employment_type: data.employment_type || 'permanent',
         joining_date: joiningDate,
         probation_end_date: data.probation_end_date || null,
@@ -3005,6 +3015,16 @@ export class InMemoryDataStore implements IDataStore {
       this.users.set(`${tenantId}:${newEmail}`, user);
     }
 
+    if (patch.employee_code) {
+      const cleanCode = patch.employee_code.trim();
+      const duplicate = Array.from(this.users.values()).find(
+        u => u.tenant_id === tenantId && u.id !== userId && (u.metadata?.employee_code as string)?.trim().toLowerCase() === cleanCode.toLowerCase()
+      );
+      if (duplicate) {
+        throw new Error(`Employee code '${cleanCode}' is already assigned to another staff member.`);
+      }
+    }
+
     if (patch.full_name !== undefined) user.full_name = patch.full_name.trim();
     if (patch.phone !== undefined) user.phone = patch.phone;
     if (patch.status) user.status = patch.status;
@@ -3017,6 +3037,7 @@ export class InMemoryDataStore implements IDataStore {
       ...(patch.employee_code ? { employee_code: patch.employee_code.trim() } : {}),
       ...(patch.father_or_spouse_name !== undefined ? { father_or_spouse_name: patch.father_or_spouse_name } : {}),
       ...(patch.cnic !== undefined ? { cnic: patch.cnic } : {}),
+      ...(patch.blood_group !== undefined ? { blood_group: patch.blood_group } : {}),
       ...(patch.gender !== undefined ? { gender: patch.gender } : {}),
       ...(patch.dob !== undefined ? { dob: patch.dob } : {}),
       ...(patch.whatsapp !== undefined ? { whatsapp: patch.whatsapp } : {}),
@@ -3126,6 +3147,30 @@ export class InMemoryDataStore implements IDataStore {
       throw new Error('Cannot delete staff member with linked examination records or evaluations. Please use Archive instead.');
     }
 
+    // Check student attendance marked by staff
+    const hasAttendanceMarked = this.studentAttendance.some(
+      a => a.tenant_id === tenantId && a.marked_by === userId
+    );
+    if (hasAttendanceMarked) {
+      throw new Error('Cannot delete staff member with linked student attendance records. Please use Archive instead.');
+    }
+
+    // Check homework assignments
+    const hasHomework = this.homeworkAssignments.some(
+      h => h.tenant_id === tenantId && h.teacher_id === userId
+    );
+    if (hasHomework) {
+      throw new Error('Cannot delete staff member with assigned homework diary records. Please use Archive instead.');
+    }
+
+    // Check notebook checks
+    const hasNotebookChecks = this.notebookChecks.some(
+      n => n.tenant_id === tenantId && n.checked_by === userId
+    );
+    if (hasNotebookChecks) {
+      throw new Error('Cannot delete staff member with linked notebook checking logs. Please use Archive instead.');
+    }
+
     this.users.delete(`${tenantId}:${user.email.toLowerCase()}`);
     this.staffSalaryProfiles = this.staffSalaryProfiles.filter(p => !(p.tenant_id === tenantId && p.staff_id === userId));
     this.staffAttendance = this.staffAttendance.filter(a => !(a.tenant_id === tenantId && a.staff_id === userId));
@@ -3136,7 +3181,7 @@ export class InMemoryDataStore implements IDataStore {
   async resetStaffPassword(tenantId: string, userId: string, newPassword: string): Promise<User | null> {
     const user = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && u.id === userId);
     if (!user) return null;
-    if (user.role === 'super_admin') return null;
+    if (user.role === 'super_admin' || user.role === 'tenant_admin') return null;
 
     user.password_hash = hashPassword(newPassword);
     user.updated_at = new Date().toISOString();
@@ -3148,9 +3193,20 @@ export class InMemoryDataStore implements IDataStore {
     const user = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && u.id === userId);
     if (!user) return null;
 
+    // Deduplicate assignments by program_id + batch_id + subject_id
+    const deduped: StaffTeachingAssignment[] = [];
+    const seen = new Set<string>();
+    for (const a of assignments) {
+      const key = `${a.program_id}:${a.batch_id}:${a.subject_id}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(a);
+      }
+    }
+
     user.metadata = {
       ...(user.metadata || {}),
-      teaching_assignments: assignments,
+      teaching_assignments: deduped,
     };
     user.updated_at = new Date().toISOString();
     this.schedulePersist();

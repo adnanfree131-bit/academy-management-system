@@ -133,6 +133,7 @@ export interface StaffMemberRecord {
   full_name: string;
   father_or_spouse_name?: string | null;
   cnic?: string | null;
+  blood_group?: string | null;
   gender?: 'male' | 'female' | 'other' | null;
   dob?: string | null;
   email: string;

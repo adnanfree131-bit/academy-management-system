@@ -287,4 +287,187 @@ describe('Staff & Faculty Management Module: End-to-End API Verification', () =>
     const body = JSON.parse(res.body);
     expect(body.data.length).toBe(0);
   });
+
+  it('12. Blood group persistence and retrieval via POST and PUT', async () => {
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/academic/staff',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        full_name: 'Dr. Ayesha Siddiqa',
+        email: 'ayesha.siddiqa@apexacademy.edu.pk',
+        department: 'Science',
+        designation: 'Senior Biology Lecturer',
+        blood_group: 'O+',
+      },
+    });
+
+    expect(createRes.statusCode).toBe(201);
+    const created = JSON.parse(createRes.body).data;
+    expect(created.blood_group).toBe('O+');
+
+    // Update blood group
+    const updateRes = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/academic/staff/${created.id}`,
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        blood_group: 'AB-',
+      },
+    });
+
+    expect(updateRes.statusCode).toBe(200);
+    expect(JSON.parse(updateRes.body).data.blood_group).toBe('AB-');
+  });
+
+  it('13. Enforces unique employee_code per tenant on creation and update', async () => {
+    const res1 = await app.inject({
+      method: 'POST',
+      url: '/api/v1/academic/staff',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        full_name: 'Tariq Mehmood',
+        email: 'tariq.mehmood@apexacademy.edu.pk',
+        employee_code: 'EMP-9999',
+      },
+    });
+    expect(res1.statusCode).toBe(201);
+
+    // Attempt duplicate employee_code on create
+    const duplicateCreateRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/academic/staff',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        full_name: 'Usman Ali',
+        email: 'usman.ali@apexacademy.edu.pk',
+        employee_code: 'EMP-9999',
+      },
+    });
+    expect(duplicateCreateRes.statusCode).toBe(400);
+    const duplicateBody = JSON.parse(duplicateCreateRes.body);
+    expect(duplicateBody.error.code).toBe('STAFF_CREATE_FAILED');
+    expect(duplicateBody.error.message).toContain('already assigned');
+
+    // Attempt duplicate employee_code on update
+    const res2 = await app.inject({
+      method: 'POST',
+      url: '/api/v1/academic/staff',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        full_name: 'Usman Ali',
+        email: 'usman.ali@apexacademy.edu.pk',
+        employee_code: 'EMP-8888',
+      },
+    });
+    expect(res2.statusCode).toBe(201);
+    const staff2Id = JSON.parse(res2.body).data.id;
+
+    const duplicateUpdateRes = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/academic/staff/${staff2Id}`,
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        employee_code: 'EMP-9999',
+      },
+    });
+    expect(duplicateUpdateRes.statusCode).toBe(400);
+    expect(JSON.parse(duplicateUpdateRes.body).error.code).toBe('STAFF_UPDATE_FAILED');
+  });
+
+  it('14. Disallows password reset on tenant_admin account via staff reset endpoint', async () => {
+    const adminRes = await app.inject({
+      method: 'POST',
+      url: `/api/v1/academic/staff/u0000000-0000-0000-0000-000000000001/reset-password`,
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {},
+    });
+
+    expect(adminRes.statusCode).toBe(404);
+    expect(JSON.parse(adminRes.body).error.code).toBe('NOT_FOUND');
+  });
+
+  it('15. Archived staff JWT token is immediately rejected with HTTP 403 ACCOUNT_ARCHIVED', async () => {
+    // Create staff member
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/academic/staff',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        full_name: 'Zahid Hassan',
+        email: 'zahid.hassan@apexacademy.edu.pk',
+      },
+    });
+    const staff = JSON.parse(createRes.body).data;
+
+    // Sign JWT token for this staff
+    const staffToken = app.jwt.sign({
+      sub: staff.id,
+      tenant_id: 'a0000000-0000-0000-0000-000000000001',
+      email: staff.email,
+      role: 'teacher',
+    });
+
+    // Verify token works while active on an accessible endpoint
+    const activeReq = await app.inject({
+      method: 'GET',
+      url: '/api/v1/academic/programs',
+      headers: { authorization: `Bearer ${staffToken}` },
+    });
+    expect(activeReq.statusCode).toBe(200);
+
+    // Archive staff member
+    const archiveRes = await app.inject({
+      method: 'POST',
+      url: `/api/v1/academic/staff/${staff.id}/archive`,
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: { reason: 'Resigned' },
+    });
+    expect(archiveRes.statusCode).toBe(200);
+
+    // Verify subsequent request with unexpired token is rejected with 403 ACCOUNT_ARCHIVED
+    const archivedReq = await app.inject({
+      method: 'GET',
+      url: '/api/v1/academic/programs',
+      headers: { authorization: `Bearer ${staffToken}` },
+    });
+    expect(archivedReq.statusCode).toBe(403);
+    const archivedBody = JSON.parse(archivedReq.body);
+    expect(archivedBody.error.code).toBe('ACCOUNT_ARCHIVED');
+    expect(archivedBody.error.message).toContain('archived');
+  });
+
+  it('16. DELETE /api/v1/academic/staff/:id is blocked if staff marked student attendance records', async () => {
+    // Create staff member
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/academic/staff',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        full_name: 'Naveed Akhtar',
+        email: 'naveed.akhtar@apexacademy.edu.pk',
+      },
+    });
+    const staff = JSON.parse(createRes.body).data;
+
+    // Mark attendance with this staff ID
+    await store.recordBatchAttendance(
+      'a0000000-0000-0000-0000-000000000001',
+      'batch-1',
+      '2026-09-10',
+      [{ student_id: 'std-1', status: 'present' }],
+      staff.id
+    );
+
+    // Attempt to delete staff
+    const deleteRes = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/academic/staff/${staff.id}`,
+      headers: { authorization: `Bearer ${apexToken}` },
+    });
+    expect(deleteRes.statusCode).toBe(400);
+    const body = JSON.parse(deleteRes.body);
+    expect(body.error.code).toBe('STAFF_DELETE_BLOCKED');
+    expect(body.error.message).toContain('student attendance');
+  });
 });
