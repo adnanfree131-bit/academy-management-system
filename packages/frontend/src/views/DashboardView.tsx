@@ -8,10 +8,10 @@ import {
   BookOpen,
   ArrowRight,
   PlusCircle,
-  School,
   GraduationCap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { AcademyLogo } from '../components/AcademyLogo';
 import { Batch, AcademicProgram, Student } from '@apex/shared-types';
 
 interface DashboardViewProps {
@@ -95,9 +95,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       {/* Academy Header Strip */}
       <div className="bg-white border border-slate-200/90 rounded-xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-slate-900 border border-slate-800 text-white flex items-center justify-center shrink-0">
-            <School className="w-5 h-5 text-indigo-400" />
-          </div>
+          <AcademyLogo src={tenant?.logo_url} name={academyName} size={44} />
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold tracking-tight text-slate-900">{academyName}</h1>

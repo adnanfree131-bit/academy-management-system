@@ -23,6 +23,7 @@ import { IncomeExpenseDeskView } from './views/IncomeExpenseDeskView';
 import { AcademySettingsView } from './views/AcademySettingsView';
 import { TrialExpiredLockoutModal } from './components/TrialExpiredLockoutModal';
 import { AnnouncementPopupModal } from './components/AnnouncementPopupModal';
+import { CommandPalette } from './components/CommandPalette';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { ShieldAlert } from 'lucide-react';
 
@@ -86,6 +87,18 @@ const MainLayout: React.FC = () => {
   const { user, tenant, isLoading, refreshSession, logout } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<string>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [searchOpen, setSearchOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Set initial screen based on user role when logging in
   useEffect(() => {
@@ -160,11 +173,18 @@ const MainLayout: React.FC = () => {
       {/* Platform Broadcast Announcement Popup Modal */}
       <AnnouncementPopupModal />
 
+      <CommandPalette
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        onNavigate={setCurrentScreen}
+      />
+
       <Sidebar
         currentScreen={currentScreen}
         onSelectScreen={setCurrentScreen}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        onOpenSearch={() => setSearchOpen(true)}
       />
 
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
@@ -173,6 +193,7 @@ const MainLayout: React.FC = () => {
           onOpenSidebar={() => setSidebarOpen(true)}
           onNewAdmission={() => setCurrentScreen('enrollment')}
           onSwitchScreen={setCurrentScreen}
+          onOpenSearch={() => setSearchOpen(true)}
         />
 
         <main className="flex-1 p-4 sm:p-6 pb-20 md:pb-6 w-full space-y-5 overflow-y-auto">

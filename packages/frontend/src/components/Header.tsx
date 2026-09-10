@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Menu, Search, Bell, Plus, ChevronDown, LogOut, Shield } from 'lucide-react';
+import { Menu, Search, Plus, ChevronDown, LogOut, Shield } from 'lucide-react';
 
 interface HeaderProps {
   currentScreenTitle: string;
   onOpenSidebar: () => void;
   onNewAdmission: () => void;
   onSwitchScreen?: (screen: string) => void;
+  onOpenSearch?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentScreenTitle,
   onOpenSidebar,
   onNewAdmission,
+  onOpenSearch,
 }) => {
   const { user, tenant, logout } = useAuth();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -48,21 +50,24 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center gap-2.5">
-        <div className="relative hidden lg:block w-52 xl:w-64">
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-          <input 
-            type="text" 
-            placeholder="Search student, fee voucher... (⌘K)" 
-            className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:bg-white transition-all"
-          />
-        </div>
+        <button
+          type="button"
+          onClick={onOpenSearch}
+          className="relative hidden lg:flex items-center w-52 xl:w-64 text-left"
+        >
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+          <span className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-400">
+            Search students or modules
+          </span>
+        </button>
 
         <button 
-          className="relative p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors" 
-          title="Notifications"
+          type="button"
+          onClick={onOpenSearch}
+          className="relative p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors lg:hidden" 
+          title="Search"
         >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white" />
+          <Search className="w-4 h-4" />
         </button>
 
         {user?.role === 'tenant_admin' && (

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Student, Batch, AcademicProgram } from '@apex/shared-types';
 import { StudentIDCardItem } from '../components/StudentIDCardItem';
+import { buildStudentIdCardPdf, fetchLogoBytes } from '../lib/idCardPdf';
 
 export interface StudentIDCardDeskProps {
   students?: Student[];
@@ -141,8 +142,38 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
     return chunks;
   }, [activeSelectedStudents]);
 
-  const handlePrint = () => {
-    window.print();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handlePrint = async () => {
+    if (activeSelectedStudents.length === 0) return;
+    setIsExporting(true);
+    try {
+      const logo = await fetchLogoBytes(tenant?.logo_url || null);
+      const bytes = await buildStudentIdCardPdf(
+        activeSelectedStudents.map(student => ({
+          student,
+          batch: getBatch(student.batch_id),
+          program: getProgram(student.program_id),
+          academyName: tenant?.name || 'Academy',
+          campusName: tenant?.campus_name,
+          campusPhone: tenant?.phone || null,
+          logoBytes: logo?.bytes || null,
+          logoMime: logo?.mime || null,
+          validUntil: '30-JUN-2027',
+        }))
+      );
+      const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(tenant?.slug || 'academy')}-student-id-cards.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('ID card PDF failed', err);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -214,11 +245,11 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
             <button
               type="button"
               onClick={handlePrint}
-              disabled={activeSelectedStudents.length === 0}
+              disabled={activeSelectedStudents.length === 0 || isExporting}
               className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print {activeSelectedStudents.length} Selected Cards</span>
+              <span>{isExporting ? 'Preparing official cards…' : `Download ${activeSelectedStudents.length} official ID cards`}</span>
             </button>
           </div>
         </div>
@@ -456,6 +487,8 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
                       batch={getBatch(student.batch_id)}
                       program={getProgram(student.program_id)}
                       academyName={tenant?.name}
+                      academyLogoUrl={tenant?.logo_url}
+                      campusPhone={tenant?.phone ?? null}
                       campusAddress={tenant?.campus_name}
                       side={previewSide}
                     />
@@ -498,6 +531,8 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
                       batch={getBatch(student.batch_id)}
                       program={getProgram(student.program_id)}
                       academyName={tenant?.name}
+                      academyLogoUrl={tenant?.logo_url}
+                      campusPhone={tenant?.phone ?? null}
                       campusAddress={tenant?.campus_name}
                       side="front"
                     />
@@ -531,6 +566,8 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
                       batch={getBatch(student.batch_id)}
                       program={getProgram(student.program_id)}
                       academyName={tenant?.name}
+                      academyLogoUrl={tenant?.logo_url}
+                      campusPhone={tenant?.phone ?? null}
                       campusAddress={tenant?.campus_name}
                       side="back"
                     />

@@ -17,6 +17,7 @@ export interface TenantSession {
   academic_session: string;
   campus_name: string;
   logo_url?: string | null;
+  phone?: string | null;
   city?: string | null;
   domain?: string | null;
   suspended_reason?: string | null;
@@ -85,6 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             academic_session: body.data.tenant.settings?.academic_session || '2026-2027',
             campus_name: body.data.tenant.settings?.campus_name || 'Main Campus',
             logo_url: body.data.tenant.settings?.logo_url || null,
+            phone: body.data.tenant.settings?.phone || null,
             city: body.data.tenant.settings?.city || null,
             domain: body.data.tenant.domain || null,
           });
@@ -324,6 +326,7 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
           academic_session: body.data.tenant.settings?.academic_session || '2026-2027',
           campus_name: body.data.tenant.settings?.campus_name || 'Main Campus',
           logo_url: body.data.tenant.settings?.logo_url || null,
+          phone: body.data.tenant.settings?.phone || null,
           city: body.data.tenant.settings?.city || null,
           domain: body.data.tenant.domain || null,
         });

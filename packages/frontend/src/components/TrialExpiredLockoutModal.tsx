@@ -118,7 +118,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <img src="/kampus-logo-dark.png" alt="Kampus" className="h-4 w-auto object-contain mr-1" />
+                  <img src="/kampus-logo.png" alt="Kampus" className="h-4 w-auto object-contain brightness-0 invert mr-1" />
                   <span className="px-2 py-0.5 bg-rose-500/40 text-rose-200 text-[10px] font-black uppercase tracking-wider rounded-md border border-rose-400/40">
                     Subscription Expired
                   </span>

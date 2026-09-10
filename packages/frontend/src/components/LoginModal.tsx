@@ -472,7 +472,7 @@ export const LoginModal: React.FC = () => {
           
           {/* Top Bar: Clean Brand Logo */}
           <div className="relative z-10 pb-4 border-b border-slate-900">
-            <img src="/kampus-logo-dark.png" alt="Kampus" className="h-6 w-auto object-contain" />
+            <img src="/kampus-logo.png" alt="Kampus" className="h-7 w-auto object-contain brightness-0 invert" />
           </div>
 
           {/* Middle Live Showcase: Features on Platform Sign-in, Branding on Tenant/Registration */}

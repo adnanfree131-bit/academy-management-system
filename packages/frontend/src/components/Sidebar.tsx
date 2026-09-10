@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { AcademyLogo } from './AcademyLogo';
 import { 
   LayoutDashboard, 
   CheckSquare, 
@@ -7,7 +8,6 @@ import {
   UserPlus, 
   Receipt,
   Wallet, 
-  Smartphone, 
   LogOut, 
   Building2, 
   Search,
@@ -22,6 +22,7 @@ import {
   Layers,
   TrendingUp,
   Settings,
+  CreditCard,
   X 
 } from 'lucide-react';
 
@@ -30,6 +31,7 @@ interface SidebarProps {
   onSelectScreen: (screenId: string) => void;
   isOpen: boolean;
   onClose: () => void;
+  onOpenSearch?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -37,6 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectScreen,
   isOpen,
   onClose,
+  onOpenSearch,
 }) => {
   const { user, tenant, logout } = useAuth();
 
@@ -78,20 +81,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="border-b border-slate-100 pb-3 shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className={`w-8 h-8 rounded-xl text-white font-bold flex items-center justify-center text-sm shadow-xs ${
-                  role === 'teacher' ? 'bg-emerald-600' :
-                  role === 'student' ? 'bg-sky-600' :
-                  role === 'super_admin' ? 'bg-purple-600' :
-                  'bg-indigo-600'
-                }`}>
-                  {tenant?.logo_url ? (
-                    <img src={tenant.logo_url} alt={tenant?.name || 'Academy'} className="w-full h-full object-contain rounded-xl" />
-                  ) : role === 'super_admin' ? (
-                    <img src="/favicon.png" alt="Kampus" className="w-5 h-5 object-contain" />
-                  ) : (
-                    <span className="text-sm font-bold tracking-tight uppercase">{(tenant?.name || 'A').charAt(0)}</span>
-                  )}
-                </div>
+                {role === 'super_admin' ? (
+                  <AcademyLogo src="/kampus-logo.png" name="Kampus" size={32} />
+                ) : (
+                  <AcademyLogo src={tenant?.logo_url} name={tenant?.name || 'Academy'} size={32} />
+                )}
                 <div className="truncate">
                   <span className="font-extrabold text-sm text-slate-900 tracking-tight block leading-tight truncate">
                     {role === 'super_admin' ? 'Kampus Platform' : (tenant?.name || 'Academy Portal')}
@@ -120,14 +114,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Scrollable Navigation Body */}
           <div className="flex-1 min-h-0 py-3 space-y-4 overflow-y-auto pr-1 -mr-1">
             {/* Quick Jump Search */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-              <input 
-                type="text" 
-                placeholder="Jump to module... (⌘K)" 
-                className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-              />
-            </div>
+            <button
+              type="button"
+              onClick={onOpenSearch}
+              className="relative w-full text-left"
+            >
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none" />
+              <span className="block w-full pl-8 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-400">
+                Search modules or students…
+              </span>
+            </button>
 
             {/* Real-World Role Scoped Navigation Hierarchy */}
             <nav className="space-y-4 text-xs">
@@ -399,6 +395,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       </button>
 
                       <button 
+                        onClick={() => handleNavClick('id_cards')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
+                          currentScreen === 'id_cards'
+                            ? 'bg-slate-900 text-white font-bold shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                        }`}
+                      >
+                        <CreditCard className={`w-4 h-4 ${currentScreen === 'id_cards' ? 'text-white' : 'text-slate-500'}`} />
+                        <span>Student ID Cards</span>
+                      </button>
+
+                      <button 
                         onClick={() => handleNavClick('classes')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'classes'
@@ -444,23 +452,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                       <button 
                         onClick={() => handleNavClick('absentee')}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'absentee'
                             ? 'bg-slate-900 text-white font-bold shadow-xs'
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <div className="flex items-center gap-2.5">
-                          <PhoneForwarded className={`w-4 h-4 ${currentScreen === 'absentee' ? 'text-white' : 'text-rose-500'}`} />
-                          <span>Absence Follow-Up</span>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono transition-colors ${
-                          currentScreen === 'absentee'
-                            ? 'bg-rose-500 text-white'
-                            : 'bg-rose-50 text-rose-600 border border-rose-200'
-                        }`}>
-                          28
-                        </span>
+                        <PhoneForwarded className={`w-4 h-4 ${currentScreen === 'absentee' ? 'text-white' : 'text-rose-500'}`} />
+                        <span>Absence Follow-Up</span>
                       </button>
 
                       <button 
@@ -584,33 +583,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </>
               )}
 
-              {/* Mobile Access */}
-              {role !== 'super_admin' && (
-                <div>
-                  <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
-                    Mobile Access
-                  </p>
-                  <button 
-                    onClick={() => handleNavClick('mobile')}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
-                      currentScreen === 'mobile'
-                        ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                        : 'text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 font-semibold'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Smartphone className={`w-4 h-4 ${currentScreen === 'mobile' ? 'text-white' : 'text-emerald-600'}`} />
-                      <span>Mobile App</span>
-                    </div>
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-mono font-bold ${
-                      currentScreen === 'mobile' ? 'bg-white/20 text-white' : 'bg-emerald-700 text-white'
-                    }`}>
-                      PWA
-                    </span>
-                  </button>
-                </div>
-              )}
-
             </nav>
           </div>
 
@@ -627,7 +599,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className="truncate">
                 <p className="text-xs font-bold text-slate-900 leading-tight truncate">
-                  {user?.full_name?.includes('Physics') ? 'Sir Tariq' : user?.full_name?.includes('Director') ? 'Adnan Rafiq' : (user?.full_name || 'Adnan Rafiq')}
+                  {user?.full_name || 'Administrator'}
                 </p>
                 <p className="text-[10px] text-slate-400 flex items-center gap-1 capitalize">
                   <span className={`w-1.5 h-1.5 rounded-full ${
@@ -661,8 +633,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="group inline-flex items-center gap-1.5 text-[10px] text-slate-400 hover:text-slate-800 transition-colors"
             >
               <span>powered by</span>
-              <span className="font-semibold text-slate-600 group-hover:text-slate-900 transition-colors">kampus</span>
-              <img src="/favicon-32x32.png" alt="kampus" className="h-3 w-3 object-contain opacity-75 group-hover:opacity-100 transition-opacity" />
+              <img src="/kampus-logo.png" alt="Kampus" className="h-3.5 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity" />
             </a>
             <span className="text-[9px] font-mono text-slate-300">v2.4</span>
           </div>

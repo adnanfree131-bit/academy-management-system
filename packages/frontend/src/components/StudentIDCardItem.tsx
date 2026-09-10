@@ -8,8 +8,9 @@ export interface StudentIDCardItemProps {
   batch?: Batch | null;
   program?: AcademicProgram | null;
   academyName?: string;
-  campusPhone?: string;
-  campusAddress?: string;
+  academyLogoUrl?: string | null;
+  campusPhone?: string | null;
+  campusAddress?: string | null;
   validUntil?: string;
   side?: 'front' | 'back' | 'both';
   className?: string;
@@ -26,8 +27,9 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
   batch,
   program,
   academyName = 'Academy',
-  campusPhone = '+92 42 35889000',
-  campusAddress = 'Main Campus',
+  academyLogoUrl = null,
+  campusPhone = null,
+  campusAddress = null,
   validUntil = '30-JUN-2027',
   side = 'both',
   className = '',
@@ -46,8 +48,12 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
     <div className="cr80-card w-[325px] h-[205px] sm:w-[340px] sm:h-[215px] bg-white text-slate-900 rounded-xl border border-slate-300 shadow-sm flex flex-col justify-between overflow-hidden relative select-none print:shadow-none print:border-slate-400 print:w-[85.6mm] print:h-[54mm] print:rounded-none">
       {/* 1. Official Institutional Navy Header */}
       <div className="bg-[#0f172a] text-white px-3 py-1.5 flex items-center gap-2 border-b border-amber-500/80 shrink-0">
-        <div className="w-6 h-6 rounded-md bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
-          <Building2 className="w-3.5 h-3.5 text-amber-400" />
+        <div className="w-6 h-6 rounded-md bg-white border border-slate-200 flex items-center justify-center shrink-0 overflow-hidden">
+          {academyLogoUrl ? (
+            <img src={academyLogoUrl} alt="" className="w-full h-full object-contain p-px bg-white" />
+          ) : (
+            <Building2 className="w-3.5 h-3.5 text-slate-500" />
+          )}
         </div>
         <div className="min-w-0 flex-1 leading-tight">
           <h4 className="font-extrabold text-[10.5px] uppercase tracking-tight text-white truncate">
@@ -84,7 +90,7 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
             )}
           </div>
           <div className="mt-1 text-[7.5px] font-bold text-slate-600 tracking-tight">
-            BLOOD: <span className="font-mono font-extrabold text-red-700">{student.blood_group || 'O+'}</span>
+            BLOOD: <span className="font-mono font-extrabold text-red-700">{student.blood_group || '—'}</span>
           </div>
         </div>
 
@@ -109,13 +115,13 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
               <tr>
                 <td className="text-slate-500 font-semibold py-0.5">Class:</td>
                 <td className="font-bold text-slate-800 truncate py-0.5 max-w-[140px]">
-                  {program?.name || 'Class 10'}
+                  {program?.name || '—'}
                 </td>
               </tr>
               <tr>
                 <td className="text-slate-500 font-semibold py-0.5">Section:</td>
                 <td className="font-medium text-slate-700 truncate py-0.5 max-w-[140px]">
-                  {batch?.name || 'Section A'} {batch?.shift ? `(${batch.shift})` : ''}
+                  {batch?.name || '—'} {batch?.shift ? `(${batch.shift})` : ''}
                 </td>
               </tr>
               <tr>
@@ -179,7 +185,7 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
             </div>
             <div className="flex justify-between items-center text-[8px]">
               <span className="text-slate-500 font-semibold">Campus Helpline:</span>
-              <strong className="font-mono text-slate-800">{campusPhone}</strong>
+              <strong className="font-mono text-slate-800">{campusPhone || '—'}</strong>
             </div>
           </div>
 
@@ -197,7 +203,7 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
 
       {/* 3. Official Campus Address Footer */}
       <div className="bg-slate-50 border-t border-slate-200 px-3 py-1 text-center text-[7px] text-slate-500 shrink-0">
-        <span className="font-semibold text-slate-700 block truncate">{campusAddress}</span>
+        <span className="font-semibold text-slate-700 block truncate">{campusAddress || academyName}</span>
         <span className="text-[6.5px] text-slate-400">Official Institutional Credential</span>
       </div>
     </div>

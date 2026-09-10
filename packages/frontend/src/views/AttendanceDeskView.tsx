@@ -70,6 +70,9 @@ export const AttendanceDeskView: React.FC = () => {
         if (!selectedBatchId) {
           setSelectedBatchId(bData.data[0].id);
         }
+      } else {
+        setBatches([]);
+        setIsLoading(false);
       }
 
       if (lData.success) {
@@ -77,6 +80,7 @@ export const AttendanceDeskView: React.FC = () => {
       }
     } catch (err) {
       console.error('Error fetching batches/leaves:', err);
+      setIsLoading(false);
     }
   };
 
@@ -435,6 +439,12 @@ export const AttendanceDeskView: React.FC = () => {
               <div className="p-12 text-center text-slate-400">
                 <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
                 <p className="text-xs font-mono">Loading batch student roster...</p>
+              </div>
+            ) : batches.length === 0 ? (
+              <div className="p-12 text-center text-slate-400">
+                <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                <p className="text-sm font-bold text-slate-700">No academic batches yet</p>
+                <p className="text-xs text-slate-400 mt-1">Create a class and batch under Classes & Batches, then return here to mark attendance.</p>
               </div>
             ) : students.length === 0 ? (
               <div className="p-12 text-center text-slate-400">
