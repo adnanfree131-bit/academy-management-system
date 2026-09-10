@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload } from '@apex/shared-types';
+import { CloudflareService } from '../services/cloudflare.js';
 
 export function saasRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -296,6 +297,7 @@ export function saasRoutes(store: IDataStore) {
         }
 
         const result = await store.updateTenantSubdomain(id, new_slug);
+        await new CloudflareService().provisionSubdomain(result.tenant.slug);
         return reply.send({
           success: true,
           data: result,

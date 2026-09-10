@@ -11,14 +11,18 @@ export interface ICloudflareService {
 export class CloudflareService implements ICloudflareService {
   private apiToken: string;
   private zoneId: string;
+  private accountId: string;
   private baseDomain: string;
   private pagesTarget: string;
+  private pagesProject: string;
 
   constructor() {
     this.apiToken = process.env.CLOUDFLARE_API_TOKEN || '';
     this.zoneId = process.env.CLOUDFLARE_ZONE_ID || '';
+    this.accountId = process.env.CLOUDFLARE_ACCOUNT_ID || '';
     this.baseDomain = process.env.BASE_DOMAIN || 'kampus.pk';
     this.pagesTarget = process.env.CLOUDFLARE_PAGES_TARGET || 'kampus-academy.pages.dev';
+    this.pagesProject = process.env.CLOUDFLARE_PAGES_PROJECT || 'kampus-academy';
   }
 
   /**
@@ -87,11 +91,17 @@ export class CloudflareService implements ICloudflareService {
   }
 
   /**
-   * Provision a subdomain on Cloudflare SaaS (CNAME record pointing to Pages gateway)
+   * Provision a tenant subdomain: exact DNS CNAME (so it appears in Cloudflare DNS
+   * and availability checks work) plus a Pages custom hostname (so the host does
+   * not 522). Never writes the zone apex — that record is reserved for another project.
    */
   async provisionSubdomain(slug: string): Promise<{ success: boolean; domain: string; status: 'active' | 'pending'; record_id?: string }> {
     const clean = slug.toLowerCase().trim();
     const domain = `${clean}.${this.baseDomain}`;
+
+    if (!clean || clean === '@' || domain === this.baseDomain) {
+      return { success: false, domain, status: 'pending' };
+    }
 
     if (!this.apiToken || !this.zoneId) {
       // Offline / Local / Dev Simulation
@@ -105,40 +115,40 @@ export class CloudflareService implements ICloudflareService {
     }
 
     try {
-      // Create or update DNS CNAME on Cloudflare
+      const headers = {
+        Authorization: `Bearer ${this.apiToken}`,
+        'Content-Type': 'application/json',
+      };
+
       const res = await fetch(`https://api.cloudflare.com/client/v4/zones/${this.zoneId}/dns_records`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiToken}`,
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           type: 'CNAME',
           name: clean,
           content: this.pagesTarget,
-          ttl: 1, // Auto
-          proxied: true, // Cloudflare edge proxy & SSL
+          ttl: 1,
+          proxied: true,
         }),
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(8000),
       });
 
       const body: any = await res.json();
+      const dnsAlreadyExists = body.errors?.some(
+        (e: any) => e.code === 81057 || String(e.message || '').toLowerCase().includes('already exists')
+      );
       if (!res.ok || !body.success) {
-        // If already exists, consider it active
-        if (body.errors?.some((e: any) => e.code === 81057 || e.message?.includes('already exists'))) {
+        if (!dnsAlreadyExists) {
+          console.error('[Cloudflare SaaS] DNS creation failed:', body.errors);
           return {
-            success: true,
+            success: false,
             domain,
-            status: 'active',
+            status: 'pending',
           };
         }
-        console.error('[Cloudflare SaaS] DNS creation failed:', body.errors);
-        return {
-          success: false,
-          domain,
-          status: 'pending',
-        };
       }
+
+      await this.attachPagesHostname(domain, headers);
 
       return {
         success: true,
@@ -153,6 +163,34 @@ export class CloudflareService implements ICloudflareService {
         domain,
         status: 'active', // Graceful fallback
       };
+    }
+  }
+
+  private async attachPagesHostname(domain: string, headers: Record<string, string>): Promise<void> {
+    if (!this.accountId || !this.pagesProject) {
+      console.warn('[Cloudflare SaaS] CLOUDFLARE_ACCOUNT_ID missing; skipped Pages hostname attach for', domain);
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${this.accountId}/pages/projects/${this.pagesProject}/domains`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ name: domain }),
+          signal: AbortSignal.timeout(8000),
+        }
+      );
+      const body: any = await res.json();
+      if (res.ok && body.success) return;
+      const already = body.errors?.some((e: any) =>
+        String(e.message || '').toLowerCase().match(/already|exist|taken/)
+      );
+      if (already) return;
+      console.error('[Cloudflare SaaS] Pages hostname attach failed:', body.errors);
+    } catch (err) {
+      console.error('[Cloudflare SaaS] Pages hostname attach exception:', err);
     }
   }
 }
