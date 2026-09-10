@@ -84,7 +84,7 @@ export type UserRole =
   | 'parent'          // Guardian
   | 'student';        // Enrolled pupil
 
-export type UserStatus = 'active' | 'inactive' | 'suspended' | 'pending_verification';
+export type UserStatus = 'active' | 'inactive' | 'suspended' | 'pending_verification' | 'on_leave' | 'archived';
 
 export interface User {
   id: string;
@@ -98,6 +98,71 @@ export interface User {
   avatar_url?: string | null;
   metadata?: Record<string, unknown>;
   last_login_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type EmploymentType = 'permanent' | 'probationary' | 'contractual' | 'visiting';
+export type StaffDepartment = 'Science' | 'Mathematics' | 'Humanities' | 'Languages' | 'Commerce' | 'Administration' | 'Accounts' | 'General';
+export type StaffStatus = 'active' | 'on_leave' | 'inactive' | 'archived';
+
+export interface StaffTeachingAssignment {
+  program_id: string;
+  program_name: string;
+  batch_id: string;
+  batch_name: string;
+  subject_id: string;
+  subject_name: string;
+  weekly_periods?: number;
+}
+
+export interface StaffLeaveBalance {
+  casual_allowed: number;
+  casual_used: number;
+  sick_allowed: number;
+  sick_used: number;
+  annual_allowed: number;
+  annual_used: number;
+}
+
+export interface StaffMemberRecord {
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  employee_code: string;
+  full_name: string;
+  father_or_spouse_name?: string | null;
+  cnic?: string | null;
+  gender?: 'male' | 'female' | 'other' | null;
+  dob?: string | null;
+  email: string;
+  phone?: string | null;
+  whatsapp?: string | null;
+  emergency_contact?: string | null;
+  emergency_relation?: string | null;
+  address?: string | null;
+  
+  department: StaffDepartment;
+  designation: string;
+  employment_type: EmploymentType;
+  joining_date: string;
+  probation_end_date?: string | null;
+  relieving_date?: string | null;
+  qualification: string;
+  experience_years: number;
+  
+  base_salary: number;
+  bank_name?: string | null;
+  bank_account_title?: string | null;
+  bank_account_number?: string | null;
+  bank_iban?: string | null;
+  
+  teaching_assignments: StaffTeachingAssignment[];
+  permissions: string[];
+  status: StaffStatus;
+  role?: string;
+  avatar_url?: string | null;
+  leave_balance?: StaffLeaveBalance;
   created_at: string;
   updated_at: string;
 }

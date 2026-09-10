@@ -3,7 +3,13 @@ import {
   TenantStatus,
   TenantSettings,
   User,
+  UserRole,
   UserStatus, 
+  StaffMemberRecord,
+  StaffTeachingAssignment,
+  StaffDepartment,
+  EmploymentType,
+  StaffStatus,
   AcademicProgram, 
   Subject, 
   SubjectGroup, 
@@ -106,6 +112,71 @@ export interface StoredOTP {
   used_at?: Date | null;
   created_at?: Date;
   purpose?: string;
+}
+
+export interface CreateStaffInput {
+  tenant_id: string;
+  full_name: string;
+  email: string;
+  password?: string;
+  phone?: string | null;
+  employee_code?: string | null;
+  father_or_spouse_name?: string | null;
+  cnic?: string | null;
+  gender?: 'male' | 'female' | 'other' | null;
+  dob?: string | null;
+  whatsapp?: string | null;
+  emergency_contact?: string | null;
+  emergency_relation?: string | null;
+  address?: string | null;
+  department?: StaffDepartment | null;
+  designation?: string | null;
+  employment_type?: EmploymentType | null;
+  joining_date?: string | null;
+  probation_end_date?: string | null;
+  qualification?: string | null;
+  experience_years?: number | null;
+  base_salary?: number | null;
+  bank_name?: string | null;
+  bank_account_title?: string | null;
+  bank_account_number?: string | null;
+  bank_iban?: string | null;
+  teaching_assignments?: StaffTeachingAssignment[] | null;
+  permissions?: string[] | null;
+  status?: StaffStatus | null;
+  role?: UserRole;
+}
+
+export interface UpdateStaffInput {
+  full_name?: string;
+  email?: string;
+  phone?: string | null;
+  employee_code?: string | null;
+  father_or_spouse_name?: string | null;
+  cnic?: string | null;
+  gender?: 'male' | 'female' | 'other' | null;
+  dob?: string | null;
+  whatsapp?: string | null;
+  emergency_contact?: string | null;
+  emergency_relation?: string | null;
+  address?: string | null;
+  department?: StaffDepartment | null;
+  designation?: string | null;
+  employment_type?: EmploymentType | null;
+  joining_date?: string | null;
+  probation_end_date?: string | null;
+  relieving_date?: string | null;
+  qualification?: string | null;
+  experience_years?: number | null;
+  base_salary?: number | null;
+  bank_name?: string | null;
+  bank_account_title?: string | null;
+  bank_account_number?: string | null;
+  bank_iban?: string | null;
+  teaching_assignments?: StaffTeachingAssignment[] | null;
+  permissions?: string[] | null;
+  status?: UserStatus | null;
+  role?: UserRole;
 }
 
 export interface IDataStore {
@@ -234,21 +305,13 @@ export interface IDataStore {
   deleteFeeHead(tenantId: string, id: string): Promise<boolean>;
   getTenantUsers(tenantId: string): Promise<User[]>;
   updateUserMetadata(tenantId: string, userId: string, metadata: Record<string, unknown>): Promise<User | null>;
-  createStaff(data: {
-    tenant_id: string;
-    full_name: string;
-    email: string;
-    phone?: string;
-    designation?: string;
-    password: string;
-  }): Promise<User>;
-  updateStaff(tenantId: string, userId: string, patch: {
-    permissions?: string[];
-    status?: UserStatus;
-    designation?: string;
-    full_name?: string;
-    phone?: string;
-  }): Promise<User | null>;
+  createStaff(data: CreateStaffInput): Promise<User>;
+  updateStaff(tenantId: string, userId: string, patch: UpdateStaffInput): Promise<User | null>;
+  archiveStaff(tenantId: string, userId: string, reason?: string): Promise<User | null>;
+  restoreStaff(tenantId: string, userId: string): Promise<User | null>;
+  deleteStaff(tenantId: string, userId: string): Promise<boolean>;
+  resetStaffPassword(tenantId: string, userId: string, newPassword: string): Promise<User | null>;
+  assignStaffTeaching(tenantId: string, userId: string, assignments: StaffTeachingAssignment[]): Promise<User | null>;
   getFeePriorityConfig(tenantId: string): Promise<FeePriorityConfig>;
   updateFeePriorityConfig(tenantId: string, priorityOrder: string[]): Promise<FeePriorityConfig>;
 
@@ -2833,58 +2896,261 @@ export class InMemoryDataStore implements IDataStore {
     return user;
   }
 
-  async createStaff(data: {
-    tenant_id: string;
-    full_name: string;
-    email: string;
-    phone?: string;
-    designation?: string;
-    password: string;
-  }): Promise<User> {
+  async createStaff(data: CreateStaffInput): Promise<User> {
     const email = data.email.toLowerCase().trim();
     if (await this.getUserByEmail(data.tenant_id, email)) {
       throw new Error('A staff member with this email already exists.');
     }
+    const tenantUsers = Array.from(this.users.values()).filter(
+      u => u.tenant_id === data.tenant_id && !['super_admin', 'tenant_admin', 'student', 'parent'].includes(u.role)
+    );
+
+    let employeeCode = data.employee_code?.trim();
+    if (!employeeCode) {
+      let maxNum = 0;
+      for (const u of tenantUsers) {
+        const code = (u.metadata?.employee_code as string) || '';
+        const match = code.match(/EMP-(\d+)/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      }
+      const nextNum = Math.max(tenantUsers.length + 1, maxNum + 1);
+      employeeCode = `EMP-${nextNum.toString().padStart(4, '0')}`;
+    }
+
+    const passwordToUse = data.password && data.password.trim().length >= 6 ? data.password.trim() : 'ApexStaff2026!';
+    const userRole: UserRole = data.role || (data.department === 'Accounts' ? 'finance_manager' : 'teacher');
+    const joiningDate = data.joining_date || new Date().toISOString().split('T')[0];
+
     const user: User = {
       id: crypto.randomUUID(),
       tenant_id: data.tenant_id,
       email,
       phone: data.phone || null,
       full_name: data.full_name.trim(),
-      role: 'teacher',
-      status: 'active',
-      password_hash: hashPassword(data.password),
+      role: userRole,
+      status: (data.status as UserStatus) || 'active',
+      password_hash: hashPassword(passwordToUse),
       metadata: {
-        permissions: [],
-        designation: data.designation?.trim() || '',
+        employee_code: employeeCode,
+        father_or_spouse_name: data.father_or_spouse_name || '',
+        cnic: data.cnic || '',
+        gender: data.gender || 'male',
+        dob: data.dob || '',
+        whatsapp: data.whatsapp || data.phone || '',
+        emergency_contact: data.emergency_contact || '',
+        emergency_relation: data.emergency_relation || '',
+        address: data.address || '',
+        department: data.department || (userRole === 'finance_manager' ? 'Accounts' : 'General'),
+        designation: data.designation?.trim() || (userRole === 'finance_manager' ? 'Accountant' : 'Faculty Member'),
+        employment_type: data.employment_type || 'permanent',
+        joining_date: joiningDate,
+        probation_end_date: data.probation_end_date || null,
+        qualification: data.qualification || '',
+        experience_years: typeof data.experience_years === 'number' ? data.experience_years : 0,
+        base_salary: typeof data.base_salary === 'number' ? data.base_salary : 0,
+        bank_name: data.bank_name || '',
+        bank_account_title: data.bank_account_title || '',
+        bank_account_number: data.bank_account_number || '',
+        bank_iban: data.bank_iban || '',
+        teaching_assignments: Array.isArray(data.teaching_assignments) ? data.teaching_assignments : [],
+        permissions: Array.isArray(data.permissions) ? data.permissions : [],
+        leave_balance: {
+          casual_allowed: 12,
+          casual_used: 0,
+          sick_allowed: 8,
+          sick_used: 0,
+          annual_allowed: 10,
+          annual_used: 0,
+        },
         managed_staff: true,
       },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
     this.users.set(`${data.tenant_id}:${email}`, user);
+
+    if (typeof data.base_salary === 'number' && data.base_salary >= 0) {
+      await this.saveStaffSalaryProfile({
+        tenant_id: data.tenant_id,
+        staff_id: user.id,
+        staff_name: user.full_name,
+        designation: (user.metadata?.designation as string) || 'Faculty Member',
+        contract_type: data.employment_type === 'visiting' ? 'per_lecture' : 'fixed_monthly',
+        base_amount: data.base_salary,
+      });
+    }
+
     this.schedulePersist();
     return user;
   }
 
-  async updateStaff(tenantId: string, userId: string, patch: {
-    permissions?: string[];
-    status?: UserStatus;
-    designation?: string;
-    full_name?: string;
-    phone?: string;
-  }): Promise<User | null> {
+  async updateStaff(tenantId: string, userId: string, patch: UpdateStaffInput): Promise<User | null> {
     const user = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && u.id === userId);
     if (!user) return null;
     if (user.role === 'tenant_admin' || user.role === 'super_admin') return null;
-    if (patch.full_name) user.full_name = patch.full_name.trim();
+
+    const oldEmail = user.email.toLowerCase();
+    if (patch.email && patch.email.toLowerCase().trim() !== oldEmail) {
+      const newEmail = patch.email.toLowerCase().trim();
+      const existing = await this.getUserByEmail(tenantId, newEmail);
+      if (existing && existing.id !== userId) {
+        throw new Error('A user with this email already exists.');
+      }
+      this.users.delete(`${tenantId}:${oldEmail}`);
+      user.email = newEmail;
+      this.users.set(`${tenantId}:${newEmail}`, user);
+    }
+
+    if (patch.full_name !== undefined) user.full_name = patch.full_name.trim();
     if (patch.phone !== undefined) user.phone = patch.phone;
     if (patch.status) user.status = patch.status;
+    if (patch.role) user.role = patch.role;
+
+    const meta = user.metadata || {};
+    user.metadata = {
+      ...meta,
+      managed_staff: true,
+      ...(patch.employee_code ? { employee_code: patch.employee_code.trim() } : {}),
+      ...(patch.father_or_spouse_name !== undefined ? { father_or_spouse_name: patch.father_or_spouse_name } : {}),
+      ...(patch.cnic !== undefined ? { cnic: patch.cnic } : {}),
+      ...(patch.gender !== undefined ? { gender: patch.gender } : {}),
+      ...(patch.dob !== undefined ? { dob: patch.dob } : {}),
+      ...(patch.whatsapp !== undefined ? { whatsapp: patch.whatsapp } : {}),
+      ...(patch.emergency_contact !== undefined ? { emergency_contact: patch.emergency_contact } : {}),
+      ...(patch.emergency_relation !== undefined ? { emergency_relation: patch.emergency_relation } : {}),
+      ...(patch.address !== undefined ? { address: patch.address } : {}),
+      ...(patch.department !== undefined ? { department: patch.department } : {}),
+      ...(patch.designation ? { designation: patch.designation.trim() } : {}),
+      ...(patch.employment_type !== undefined ? { employment_type: patch.employment_type } : {}),
+      ...(patch.joining_date !== undefined ? { joining_date: patch.joining_date } : {}),
+      ...(patch.probation_end_date !== undefined ? { probation_end_date: patch.probation_end_date } : {}),
+      ...(patch.relieving_date !== undefined ? { relieving_date: patch.relieving_date } : {}),
+      ...(patch.qualification !== undefined ? { qualification: patch.qualification } : {}),
+      ...(patch.experience_years !== undefined ? { experience_years: patch.experience_years } : {}),
+      ...(patch.base_salary !== undefined ? { base_salary: patch.base_salary } : {}),
+      ...(patch.bank_name !== undefined ? { bank_name: patch.bank_name } : {}),
+      ...(patch.bank_account_title !== undefined ? { bank_account_title: patch.bank_account_title } : {}),
+      ...(patch.bank_account_number !== undefined ? { bank_account_number: patch.bank_account_number } : {}),
+      ...(patch.bank_iban !== undefined ? { bank_iban: patch.bank_iban } : {}),
+      ...(patch.teaching_assignments !== undefined ? { teaching_assignments: patch.teaching_assignments } : {}),
+      ...(patch.permissions !== undefined ? { permissions: patch.permissions } : {}),
+    };
+
+    user.updated_at = new Date().toISOString();
+
+    if (typeof patch.base_salary === 'number' || patch.designation) {
+      const currentSalary = typeof patch.base_salary === 'number' ? patch.base_salary : (typeof meta.base_salary === 'number' ? meta.base_salary : 0);
+      const designation = patch.designation || (meta.designation as string) || 'Faculty Member';
+      await this.saveStaffSalaryProfile({
+        tenant_id: tenantId,
+        staff_id: user.id,
+        staff_name: user.full_name,
+        designation,
+        contract_type: (patch.employment_type || meta.employment_type) === 'visiting' ? 'per_lecture' : 'fixed_monthly',
+        base_amount: currentSalary,
+      });
+    }
+
+    this.schedulePersist();
+    return user;
+  }
+
+  async archiveStaff(tenantId: string, userId: string, reason?: string): Promise<User | null> {
+    const user = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && u.id === userId);
+    if (!user) return null;
+    if (user.role === 'tenant_admin' || user.role === 'super_admin') return null;
+
+    user.status = 'archived';
     user.metadata = {
       ...(user.metadata || {}),
-      managed_staff: true,
-      ...(patch.permissions ? { permissions: patch.permissions } : {}),
-      ...(patch.designation !== undefined ? { designation: patch.designation } : {}),
+      archived_at: new Date().toISOString(),
+      archived_reason: reason || 'Relieved / Resigned',
+      relieving_date: new Date().toISOString().split('T')[0],
+    };
+    user.updated_at = new Date().toISOString();
+    this.schedulePersist();
+    return user;
+  }
+
+  async restoreStaff(tenantId: string, userId: string): Promise<User | null> {
+    const user = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && u.id === userId);
+    if (!user) return null;
+    if (user.role === 'tenant_admin' || user.role === 'super_admin') return null;
+
+    user.status = 'active';
+    if (user.metadata) {
+      delete (user.metadata as any).archived_at;
+      delete (user.metadata as any).archived_reason;
+      delete (user.metadata as any).relieving_date;
+    }
+    user.updated_at = new Date().toISOString();
+    this.schedulePersist();
+    return user;
+  }
+
+  async deleteStaff(tenantId: string, userId: string): Promise<boolean> {
+    const user = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && u.id === userId);
+    if (!user) return false;
+    if (user.role === 'tenant_admin' || user.role === 'super_admin') {
+      throw new Error('Cannot delete administrative users.');
+    }
+
+    // Check financial transactions
+    const hasFinancialVouchers = this.financialTransactions.some(
+      t => t.tenant_id === tenantId && (t.recorded_by === userId || (t as any).created_by === userId)
+    );
+    if (hasFinancialVouchers) {
+      throw new Error('Cannot delete staff member with linked financial vouchers. Please use Archive instead.');
+    }
+
+    // Check payslips
+    const hasPayslips = this.staffPayslips.some(
+      p => p.tenant_id === tenantId && p.staff_id === userId
+    );
+    if (hasPayslips) {
+      throw new Error('Cannot delete staff member with generated payroll slips. Please use Archive instead.');
+    }
+
+    // Check exam evaluations / created exams
+    const hasExams = this.exams.some(
+      e => e.tenant_id === tenantId && ((e as any).created_by === userId || (e as any).teacher_id === userId)
+    );
+    const hasEvaluations = this.studentExamEvaluations.some(
+      ev => ev.tenant_id === tenantId && ((ev as any).evaluated_by === userId)
+    );
+    if (hasExams || hasEvaluations) {
+      throw new Error('Cannot delete staff member with linked examination records or evaluations. Please use Archive instead.');
+    }
+
+    this.users.delete(`${tenantId}:${user.email.toLowerCase()}`);
+    this.staffSalaryProfiles = this.staffSalaryProfiles.filter(p => !(p.tenant_id === tenantId && p.staff_id === userId));
+    this.staffAttendance = this.staffAttendance.filter(a => !(a.tenant_id === tenantId && a.staff_id === userId));
+    this.schedulePersist();
+    return true;
+  }
+
+  async resetStaffPassword(tenantId: string, userId: string, newPassword: string): Promise<User | null> {
+    const user = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && u.id === userId);
+    if (!user) return null;
+    if (user.role === 'super_admin') return null;
+
+    user.password_hash = hashPassword(newPassword);
+    user.updated_at = new Date().toISOString();
+    this.schedulePersist();
+    return user;
+  }
+
+  async assignStaffTeaching(tenantId: string, userId: string, assignments: StaffTeachingAssignment[]): Promise<User | null> {
+    const user = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && u.id === userId);
+    if (!user) return null;
+
+    user.metadata = {
+      ...(user.metadata || {}),
+      teaching_assignments: assignments,
     };
     user.updated_at = new Date().toISOString();
     this.schedulePersist();

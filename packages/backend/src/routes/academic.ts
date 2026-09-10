@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
-import { JWTPayload } from '@apex/shared-types';
+import { JWTPayload, StaffMemberRecord, StaffTeachingAssignment, StaffDepartment, EmploymentType, StaffStatus } from '@apex/shared-types';
 
 export function academicRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -319,16 +319,55 @@ export function academicRoutes(store: IDataStore) {
     fastify.put('/settings', updateAcademySettingsHandler);
     fastify.put('/academy-settings', updateAcademySettingsHandler);
 
-    const publicStaff = (u: any) => ({
-      id: u.id,
-      full_name: u.full_name,
-      email: u.email,
-      phone: u.phone || null,
-      role: u.role,
-      status: u.status,
-      designation: (u.metadata?.designation as string) || '',
-      permissions: Array.isArray(u.metadata?.permissions) ? u.metadata.permissions : [],
-    });
+    const publicStaff = (u: any): StaffMemberRecord => {
+      const meta = u.metadata || {};
+      const fallbackCode = `EMP-${u.id.substring(0, 4).toUpperCase()}`;
+      return {
+        id: u.id,
+        tenant_id: u.tenant_id,
+        user_id: u.id,
+        employee_code: meta.employee_code || fallbackCode,
+        full_name: u.full_name,
+        father_or_spouse_name: meta.father_or_spouse_name || '',
+        cnic: meta.cnic || '',
+        gender: meta.gender || 'male',
+        dob: meta.dob || '',
+        email: u.email,
+        phone: u.phone || null,
+        whatsapp: meta.whatsapp || u.phone || '',
+        emergency_contact: meta.emergency_contact || '',
+        emergency_relation: meta.emergency_relation || '',
+        address: meta.address || '',
+        department: (meta.department as StaffDepartment) || (u.role === 'finance_manager' ? 'Accounts' : 'General'),
+        designation: (meta.designation as string) || (u.role === 'finance_manager' ? 'Accountant' : 'Faculty Member'),
+        employment_type: (meta.employment_type as EmploymentType) || 'permanent',
+        joining_date: meta.joining_date || u.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+        probation_end_date: meta.probation_end_date || null,
+        relieving_date: meta.relieving_date || null,
+        qualification: meta.qualification || '',
+        experience_years: typeof meta.experience_years === 'number' ? meta.experience_years : 0,
+        base_salary: typeof meta.base_salary === 'number' ? meta.base_salary : 0,
+        bank_name: meta.bank_name || '',
+        bank_account_title: meta.bank_account_title || '',
+        bank_account_number: meta.bank_account_number || '',
+        bank_iban: meta.bank_iban || '',
+        teaching_assignments: Array.isArray(meta.teaching_assignments) ? meta.teaching_assignments : [],
+        permissions: Array.isArray(meta.permissions) ? meta.permissions : [],
+        status: (u.status as StaffStatus) || 'active',
+        role: u.role,
+        avatar_url: u.avatar_url || null,
+        leave_balance: meta.leave_balance || {
+          casual_allowed: 12,
+          casual_used: 0,
+          sick_allowed: 8,
+          sick_used: 0,
+          annual_allowed: 10,
+          annual_used: 0,
+        },
+        created_at: u.created_at,
+        updated_at: u.updated_at,
+      };
+    };
 
     fastify.get('/staff', async (request: any, reply) => {
       const user = request.user as JWTPayload;
@@ -339,12 +378,54 @@ export function academicRoutes(store: IDataStore) {
           timestamp: new Date().toISOString(),
         });
       }
+      const { search, department, status } = (request.query as any) || {};
       const users = await store.getTenantUsers(user.tenant_id);
+      let staffList = users
+        .filter(u => !['super_admin', 'tenant_admin', 'student', 'parent'].includes(u.role))
+        .map(publicStaff);
+
+      if (status && status !== 'all') {
+        staffList = staffList.filter(s => s.status === status);
+      }
+
+      if (department && department !== 'all') {
+        if (department === 'Teaching Faculty') {
+          staffList = staffList.filter(
+            s => ['Science', 'Mathematics', 'Humanities', 'Languages', 'Commerce', 'General'].includes(s.department) ||
+              s.teaching_assignments.length > 0 ||
+              s.role === 'teacher'
+          );
+        } else if (department === 'Administration & Accounts') {
+          staffList = staffList.filter(
+            s => ['Administration', 'Accounts'].includes(s.department) ||
+              s.role === 'finance_manager' ||
+              s.role === 'academic_head'
+          );
+        } else if (department === 'Support Staff') {
+          staffList = staffList.filter(
+            s => !['Science', 'Mathematics', 'Humanities', 'Languages', 'Commerce', 'Administration', 'Accounts'].includes(s.department)
+          );
+        } else {
+          staffList = staffList.filter(s => s.department === department);
+        }
+      }
+
+      if (search && search.trim()) {
+        const q = search.trim().toLowerCase();
+        staffList = staffList.filter(s =>
+          s.full_name.toLowerCase().includes(q) ||
+          s.email.toLowerCase().includes(q) ||
+          (s.phone && s.phone.includes(q)) ||
+          s.employee_code.toLowerCase().includes(q) ||
+          (s.cnic && s.cnic.includes(q)) ||
+          s.designation.toLowerCase().includes(q) ||
+          (s.whatsapp && s.whatsapp.includes(q))
+        );
+      }
+
       return reply.send({
         success: true,
-        data: users
-          .filter(u => !['super_admin', 'tenant_admin', 'student', 'parent'].includes(u.role))
-          .map(publicStaff),
+        data: staffList,
         timestamp: new Date().toISOString(),
       });
     });
@@ -361,32 +442,171 @@ export function academicRoutes(store: IDataStore) {
       const schema = z.object({
         full_name: z.string().min(2),
         email: z.string().email(),
-        phone: z.string().optional(),
-        designation: z.string().optional(),
-        password: z.string().min(6),
+        password: z.string().optional().nullable(),
+        phone: z.string().optional().nullable(),
+        employee_code: z.string().optional().nullable(),
+        father_or_spouse_name: z.string().optional().nullable(),
+        cnic: z.string().optional().nullable(),
+        gender: z.enum(['male', 'female', 'other']).optional().nullable(),
+        dob: z.string().optional().nullable(),
+        whatsapp: z.string().optional().nullable(),
+        emergency_contact: z.string().optional().nullable(),
+        emergency_relation: z.string().optional().nullable(),
+        address: z.string().optional().nullable(),
+        department: z.enum(['Science', 'Mathematics', 'Humanities', 'Languages', 'Commerce', 'Administration', 'Accounts', 'General']).optional().nullable(),
+        designation: z.string().optional().nullable(),
+        employment_type: z.enum(['permanent', 'probationary', 'contractual', 'visiting']).optional().nullable(),
+        joining_date: z.string().optional().nullable(),
+        probation_end_date: z.string().optional().nullable(),
+        qualification: z.string().optional().nullable(),
+        experience_years: z.coerce.number().optional().nullable(),
+        base_salary: z.coerce.number().optional().nullable(),
+        bank_name: z.string().optional().nullable(),
+        bank_account_title: z.string().optional().nullable(),
+        bank_account_number: z.string().optional().nullable(),
+        bank_iban: z.string().optional().nullable(),
+        teaching_assignments: z.array(z.object({
+          program_id: z.string(),
+          program_name: z.string(),
+          batch_id: z.string(),
+          batch_name: z.string(),
+          subject_id: z.string(),
+          subject_name: z.string(),
+          weekly_periods: z.number().optional(),
+        })).optional().nullable(),
+        permissions: z.array(z.string()).optional().nullable(),
+        status: z.enum(['active', 'on_leave', 'inactive', 'archived']).optional().nullable(),
       });
       const parse = schema.safeParse(request.body);
       if (!parse.success) {
         return reply.status(400).send({
           success: false,
-          error: { code: 'VALIDATION_ERROR', message: 'Name, email, and a password of at least 6 characters are required.' },
+          error: { code: 'VALIDATION_ERROR', message: 'Name and a valid email are required.', details: parse.error.flatten() },
           timestamp: new Date().toISOString(),
         });
       }
       try {
+        const rawPassword = parse.data.password && parse.data.password.trim().length >= 6
+          ? parse.data.password.trim()
+          : `Apex-${Math.random().toString(36).slice(-4).toUpperCase()}#${Math.floor(100 + Math.random() * 900)}`;
+
         const created = await store.createStaff({
           tenant_id: user.tenant_id,
           ...parse.data,
+          password: rawPassword,
+          gender: parse.data.gender || 'male',
+          department: parse.data.department || 'General',
+          employment_type: parse.data.employment_type || 'permanent',
+          experience_years: parse.data.experience_years ?? 0,
+          base_salary: parse.data.base_salary ?? 0,
+          teaching_assignments: parse.data.teaching_assignments || [],
+          permissions: parse.data.permissions || [],
+          status: parse.data.status || 'active',
         });
+
         return reply.status(201).send({
           success: true,
           data: publicStaff(created),
+          temporary_password: rawPassword,
           timestamp: new Date().toISOString(),
         });
       } catch (err: any) {
         return reply.status(400).send({
           success: false,
           error: { code: 'STAFF_CREATE_FAILED', message: err.message || 'Could not add staff.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    fastify.put('/staff/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only the academy admin can update staff profiles.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const { id } = request.params as { id: string };
+      const schema = z.object({
+        full_name: z.string().min(2).optional(),
+        email: z.string().email().optional(),
+        phone: z.string().optional().nullable(),
+        employee_code: z.string().optional().nullable(),
+        father_or_spouse_name: z.string().optional().nullable(),
+        cnic: z.string().optional().nullable(),
+        gender: z.enum(['male', 'female', 'other']).optional().nullable(),
+        dob: z.string().optional().nullable(),
+        whatsapp: z.string().optional().nullable(),
+        emergency_contact: z.string().optional().nullable(),
+        emergency_relation: z.string().optional().nullable(),
+        address: z.string().optional().nullable(),
+        department: z.enum(['Science', 'Mathematics', 'Humanities', 'Languages', 'Commerce', 'Administration', 'Accounts', 'General']).optional().nullable(),
+        designation: z.string().optional().nullable(),
+        employment_type: z.enum(['permanent', 'probationary', 'contractual', 'visiting']).optional().nullable(),
+        joining_date: z.string().optional().nullable(),
+        probation_end_date: z.string().optional().nullable(),
+        relieving_date: z.string().optional().nullable(),
+        qualification: z.string().optional().nullable(),
+        experience_years: z.coerce.number().optional().nullable(),
+        base_salary: z.coerce.number().optional().nullable(),
+        bank_name: z.string().optional().nullable(),
+        bank_account_title: z.string().optional().nullable(),
+        bank_account_number: z.string().optional().nullable(),
+        bank_iban: z.string().optional().nullable(),
+        teaching_assignments: z.array(z.object({
+          program_id: z.string(),
+          program_name: z.string(),
+          batch_id: z.string(),
+          batch_name: z.string(),
+          subject_id: z.string(),
+          subject_name: z.string(),
+          weekly_periods: z.number().optional(),
+        })).optional().nullable(),
+        permissions: z.array(z.string()).optional().nullable(),
+        status: z.enum(['active', 'on_leave', 'inactive', 'archived']).optional().nullable(),
+      });
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid staff update data', details: parse.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      try {
+        const patchData: any = { ...parse.data };
+        if (patchData.gender === null) delete patchData.gender;
+        if (patchData.department === null) delete patchData.department;
+        if (patchData.employment_type === null) delete patchData.employment_type;
+        if (patchData.status === null) delete patchData.status;
+        if (patchData.teaching_assignments === null) patchData.teaching_assignments = [];
+        if (patchData.permissions === null) patchData.permissions = [];
+        if (patchData.experience_years !== undefined && patchData.experience_years !== null) {
+          patchData.experience_years = Number(patchData.experience_years);
+        }
+        if (patchData.base_salary !== undefined && patchData.base_salary !== null) {
+          patchData.base_salary = Number(patchData.base_salary);
+        }
+
+        const updated = await store.updateStaff(user.tenant_id, id, patchData);
+        if (!updated) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Staff member not found.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        return reply.send({
+          success: true,
+          data: publicStaff(updated),
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'STAFF_UPDATE_FAILED', message: err.message || 'Could not update staff member.' },
           timestamp: new Date().toISOString(),
         });
       }
@@ -404,7 +624,7 @@ export function academicRoutes(store: IDataStore) {
       const { id } = request.params as { id: string };
       const schema = z.object({
         permissions: z.array(z.string()).optional(),
-        status: z.enum(['active', 'inactive', 'suspended']).optional(),
+        status: z.enum(['active', 'inactive', 'suspended', 'on_leave', 'archived']).optional(),
         designation: z.string().optional(),
         full_name: z.string().optional(),
       });
@@ -421,6 +641,164 @@ export function academicRoutes(store: IDataStore) {
         return reply.status(404).send({
           success: false,
           error: { code: 'NOT_FOUND', message: 'Staff member not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({
+        success: true,
+        data: publicStaff(updated),
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    fastify.post('/staff/:id/reset-password', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only the academy admin can reset passwords.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const { id } = request.params as { id: string };
+      const newPassword = (request.body?.password && request.body.password.trim().length >= 6)
+        ? request.body.password.trim()
+        : `Apex-${Math.random().toString(36).slice(-4).toUpperCase()}#${Math.floor(100 + Math.random() * 900)}`;
+
+      const updated = await store.resetStaffPassword(user.tenant_id, id, newPassword);
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Staff member not found.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({
+        success: true,
+        temporary_password: newPassword,
+        message: 'Password reset successfully.',
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    fastify.post('/staff/:id/archive', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only the academy admin can archive staff.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const { id } = request.params as { id: string };
+      const reason = request.body?.reason || 'Relieved / Resigned';
+      const updated = await store.archiveStaff(user.tenant_id, id, reason);
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Staff member not found.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({
+        success: true,
+        data: publicStaff(updated),
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    fastify.post('/staff/:id/restore', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only the academy admin can restore staff.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const { id } = request.params as { id: string };
+      const updated = await store.restoreStaff(user.tenant_id, id);
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Staff member not found.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({
+        success: true,
+        data: publicStaff(updated),
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    fastify.delete('/staff/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only the academy admin can delete staff.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const { id } = request.params as { id: string };
+      try {
+        const deleted = await store.deleteStaff(user.tenant_id, id);
+        if (!deleted) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Staff member not found.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        return reply.send({
+          success: true,
+          message: 'Staff member deleted successfully.',
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'STAFF_DELETE_BLOCKED', message: err.message || 'Cannot delete staff member.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    fastify.put('/staff/:id/teaching-assignments', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only the academy admin can update teaching assignments.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const { id } = request.params as { id: string };
+      const schema = z.object({
+        assignments: z.array(z.object({
+          program_id: z.string(),
+          program_name: z.string(),
+          batch_id: z.string(),
+          batch_name: z.string(),
+          subject_id: z.string(),
+          subject_name: z.string(),
+          weekly_periods: z.number().optional(),
+        })),
+      });
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid teaching assignments payload', details: parse.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const updated = await store.assignStaffTeaching(user.tenant_id, id, parse.data.assignments);
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Staff member not found.' },
           timestamp: new Date().toISOString(),
         });
       }
