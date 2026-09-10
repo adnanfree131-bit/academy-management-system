@@ -21,12 +21,15 @@ export function academicRoutes(store: IDataStore) {
         name: z.string().min(1),
         code: z.string().optional().nullable(),
         description: z.string().optional().nullable(),
-        sort_order: z.number().int().default(1),
+        sort_order: z.coerce.number().int().default(1),
         fee_schedule: z.array(z.object({
-          fee_head_id: z.string(),
-          head_name: z.string(),
-          amount: z.number().min(0),
-          is_monthly: z.boolean().optional()
+          fee_head_id: z.string().optional(),
+          head_name: z.string().optional(),
+          fee_type: z.string().optional(),
+          name: z.string().optional(),
+          amount: z.coerce.number().min(0),
+          is_monthly: z.boolean().optional(),
+          is_recurring: z.boolean().optional(),
         })).optional(),
       });
 
@@ -179,10 +182,13 @@ export function academicRoutes(store: IDataStore) {
         max_capacity: z.number().int().min(1).default(40),
         room_number: z.string().optional(),
         fee_schedule: z.array(z.object({
-          fee_head_id: z.string(),
-          head_name: z.string(),
-          amount: z.number().min(0),
-          is_monthly: z.boolean().optional()
+          fee_head_id: z.string().optional(),
+          head_name: z.string().optional(),
+          fee_type: z.string().optional(),
+          name: z.string().optional(),
+          amount: z.coerce.number().min(0),
+          is_monthly: z.boolean().optional(),
+          is_recurring: z.boolean().optional(),
         })).optional(),
       });
 

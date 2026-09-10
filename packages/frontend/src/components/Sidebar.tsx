@@ -549,44 +549,45 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   </div>
 
+                  <div>
+                    <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
+                      Administration
+                    </p>
+                    <div className="space-y-1">
+                      {role === 'tenant_admin' && (
+                      <button
+                        onClick={() => handleNavClick('staff')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
+                          currentScreen === 'staff'
+                            ? 'bg-slate-900 text-white font-bold shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                        }`}
+                      >
+                        <Users className={`w-4 h-4 ${currentScreen === 'staff' ? 'text-white' : 'text-violet-500'}`} />
+                        <span>Staff</span>
+                      </button>
+                      )}
+                      {allow('settings') && (
+                      <button
+                        onClick={() => handleNavClick('settings')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
+                          currentScreen === 'settings'
+                            ? 'bg-slate-900 text-white font-bold shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                        }`}
+                      >
+                        <Settings className={`w-4 h-4 ${currentScreen === 'settings' ? 'text-white' : 'text-slate-500'}`} />
+                        <span>Settings</span>
+                      </button>
+                      )}
+                    </div>
+                  </div>
+
                 </>
               )}
 
             </nav>
           </div>
-
-          {(role === 'tenant_admin' || managedStaff || (!['teacher', 'student', 'super_admin'].includes(role))) && (
-          <div className="pt-2 border-t border-slate-100 shrink-0 space-y-1">
-            {role === 'tenant_admin' && (
-            <button
-              type="button"
-              onClick={() => handleNavClick('staff')}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all ${
-                currentScreen === 'staff'
-                  ? 'bg-slate-900 text-white font-bold shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
-              }`}
-            >
-              <Users className={`w-4 h-4 ${currentScreen === 'staff' ? 'text-white' : 'text-violet-500'}`} />
-              <span>Staff</span>
-            </button>
-            )}
-            {allow('settings') && (
-            <button
-              type="button"
-              onClick={() => handleNavClick('settings')}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs transition-all ${
-                currentScreen === 'settings'
-                  ? 'bg-slate-900 text-white font-bold shadow-xs'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
-              }`}
-            >
-              <Settings className={`w-4 h-4 ${currentScreen === 'settings' ? 'text-white' : 'text-slate-500'}`} />
-              <span>Settings</span>
-            </button>
-            )}
-          </div>
-          )}
 
           {/* User Profile Card (Pinned Static Bottom) */}
           <div className="pt-3 border-t border-slate-100 flex items-center justify-between shrink-0">

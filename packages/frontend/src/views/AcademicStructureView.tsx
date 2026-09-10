@@ -210,9 +210,9 @@ export const AcademicStructureView: React.FC = () => {
     setIsSubmitting(true);
     try {
       const fee_schedule = [
-        { fee_type: 'tuition', name: 'Monthly Tuition Fee', amount: Number(programFeeSchedule.tuition) || 0, is_recurring: true },
-        { fee_type: 'admission', name: 'One-time Admission Fee', amount: Number(programFeeSchedule.admission) || 0, is_recurring: false },
-        { fee_type: 'exam_lab', name: 'Exam & Lab Charges', amount: Number(programFeeSchedule.exam_lab) || 0, is_recurring: false },
+        { fee_head_id: 'tuition', head_name: 'Monthly Tuition Fee', fee_type: 'tuition', name: 'Monthly Tuition Fee', amount: Number(programFeeSchedule.tuition) || 0, is_monthly: true, is_recurring: true },
+        { fee_head_id: 'admission', head_name: 'Admission Fee', fee_type: 'admission', name: 'One-time Admission Fee', amount: Number(programFeeSchedule.admission) || 0, is_monthly: false, is_recurring: false },
+        { fee_head_id: 'exam_lab', head_name: 'Exam & Lab Charges', fee_type: 'exam_lab', name: 'Exam & Lab Charges', amount: Number(programFeeSchedule.exam_lab) || 0, is_monthly: false, is_recurring: false },
       ];
 
       const payload = {
@@ -386,9 +386,9 @@ export const AcademicStructureView: React.FC = () => {
     setIsSubmitting(true);
     try {
       const fee_schedule = [
-        { fee_type: 'tuition', name: 'Monthly Tuition Fee', amount: Number(batchFeeSchedule.tuition) || 0, is_recurring: true },
-        { fee_type: 'admission', name: 'One-time Admission Fee', amount: Number(batchFeeSchedule.admission) || 0, is_recurring: false },
-        { fee_type: 'exam_lab', name: 'Exam & Lab Charges', amount: Number(batchFeeSchedule.exam_lab) || 0, is_recurring: false },
+        { fee_head_id: 'tuition', head_name: 'Monthly Tuition Fee', fee_type: 'tuition', name: 'Monthly Tuition Fee', amount: Number(batchFeeSchedule.tuition) || 0, is_monthly: true, is_recurring: true },
+        { fee_head_id: 'admission', head_name: 'Admission Fee', fee_type: 'admission', name: 'One-time Admission Fee', amount: Number(batchFeeSchedule.admission) || 0, is_monthly: false, is_recurring: false },
+        { fee_head_id: 'exam_lab', head_name: 'Exam & Lab Charges', fee_type: 'exam_lab', name: 'Exam & Lab Charges', amount: Number(batchFeeSchedule.exam_lab) || 0, is_monthly: false, is_recurring: false },
       ];
 
       const res = await fetch('/api/v1/academic/batches', {

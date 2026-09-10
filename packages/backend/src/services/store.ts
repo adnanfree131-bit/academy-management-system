@@ -1964,6 +1964,7 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     };
     this.programs.push(program);
+    this.schedulePersist();
     return program;
   }
 
@@ -2030,6 +2031,7 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     };
     this.batches.push(batch);
+    this.schedulePersist();
     return batch;
   }
 

@@ -46,7 +46,10 @@ export const StaffDeskView: React.FC = () => {
       const res = await fetch('/api/v1/academic/staff', {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const body = await res.json();
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 404) {
+        throw new Error('Staff API is not on the live server yet. Wait a minute for Render, then refresh.');
+      }
       if (!res.ok) throw new Error(body.error?.message || 'Could not load staff.');
       setRows(body.data || []);
     } catch (err: any) {
