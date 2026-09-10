@@ -8,13 +8,25 @@ export function persistenceEnabled(): boolean {
   return Boolean(process.env.DATABASE_URL) && process.env.NODE_ENV !== 'test';
 }
 
+function normalizeDatabaseUrl(raw: string): string {
+  // Supabase transaction pooler (6543) hangs on DDL/session features.
+  // Session pooler on 5432 is required for snapshot CREATE TABLE / UPSERT.
+  let url = raw.replace(/:6543([/'"?]|$)/, ':5432$1');
+  if (!/sslmode=/.test(url) && !/localhost|127\.0\.0\.1/.test(url)) {
+    url += url.includes('?') ? '&sslmode=require' : '?sslmode=require';
+  }
+  return url;
+}
+
 function getPool(): pg.Pool {
   if (!pool) {
-    const connectionString = process.env.DATABASE_URL || '';
+    const connectionString = normalizeDatabaseUrl(process.env.DATABASE_URL || '');
     const local = /localhost|127\.0\.0\.1/.test(connectionString);
     pool = new Pool({
       connectionString,
-      max: 2,
+      max: 1,
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 10000,
       ssl: local ? undefined : { rejectUnauthorized: false },
     });
   }

@@ -713,7 +713,12 @@ export class InMemoryDataStore implements IDataStore {
   async hydrateFromDatabase(): Promise<void> {
     if (!persistenceEnabled()) return;
     try {
-      const payload = await loadSnapshot();
+      const payload = await Promise.race([
+        loadSnapshot(),
+        new Promise<null>((_, reject) => {
+          setTimeout(() => reject(new Error('hydrate timed out')), 8000);
+        }),
+      ]);
       if (payload && Array.isArray(payload.tenants) && payload.tenants.length > 0) {
         this.applySnapshot(payload);
         console.log(`[Store] Restored snapshot with ${this.tenants.size} academies`);
@@ -737,7 +742,12 @@ export class InMemoryDataStore implements IDataStore {
     this.persisting = true;
     this.persistQueued = false;
     try {
-      await saveSnapshot(this.snapshotState());
+      await Promise.race([
+        saveSnapshot(this.snapshotState()),
+        new Promise<void>((_, reject) => {
+          setTimeout(() => reject(new Error('persist timed out')), 8000);
+        }),
+      ]);
     } catch (err) {
       this.persistQueued = true;
       console.error('[Store] Failed to persist snapshot:', err);
