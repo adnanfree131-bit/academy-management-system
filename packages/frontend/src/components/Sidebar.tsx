@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AcademyLogo } from './AcademyLogo';
 import { 
@@ -41,7 +41,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClose,
   onOpenSearch,
 }) => {
-  const { user, tenant, logout } = useAuth();
+  const { user, tenant, token, logout } = useAuth();
+  const role = user?.role || 'tenant_admin';
+  const [absenteePending, setAbsenteePending] = useState(0);
+
+  useEffect(() => {
+    if (!token || role === 'super_admin') return;
+    fetch('/api/v1/absentee/kpi', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(body => {
+        const kpi = body.data || {};
+        setAbsenteePending(Number(kpi.pending_count || kpi.pending || 0));
+      })
+      .catch(() => setAbsenteePending(0));
+  }, [token, currentScreen, role]);
 
   const handleNavClick = (screenId: string) => {
     onSelectScreen(screenId);
@@ -49,8 +62,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       onClose();
     }
   };
-
-  const role = user?.role || 'tenant_admin';
 
   // Role subtitle badge
   const roleSubtitle = 
@@ -452,14 +463,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                       <button 
                         onClick={() => handleNavClick('absentee')}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'absentee'
                             ? 'bg-slate-900 text-white font-bold shadow-xs'
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <PhoneForwarded className={`w-4 h-4 ${currentScreen === 'absentee' ? 'text-white' : 'text-rose-500'}`} />
-                        <span>Absence Follow-Up</span>
+                        <div className="flex items-center gap-2.5">
+                          <PhoneForwarded className={`w-4 h-4 ${currentScreen === 'absentee' ? 'text-white' : 'text-rose-500'}`} />
+                          <span>Absence Follow-Up</span>
+                        </div>
+                        {absenteePending > 0 && (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono ${
+                            currentScreen === 'absentee' ? 'bg-rose-500 text-white' : 'bg-rose-50 text-rose-600 border border-rose-200'
+                          }`}>
+                            {absenteePending}
+                          </span>
+                        )}
                       </button>
 
                       <button 

@@ -89,8 +89,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const campusBranch = tenant?.campus_name || 'Main Campus';
   const sessionName = tenant?.academic_session || '2026–2027';
 
+  const setupSteps = [
+    { id: 'settings', label: 'Academy settings & logo', done: Boolean(tenant?.logo_url || tenant?.name) },
+    { id: 'classes', label: 'Create a class / program', done: programs.length > 0 },
+    { id: 'classes', label: 'Create a batch', done: batches.length > 0 },
+    { id: 'enrollment', label: 'Admit first student', done: students.length > 0 },
+  ];
+  const setupIncomplete = setupSteps.some(s => !s.done);
+
   return (
     <div className="space-y-6 font-sans">
+      {setupIncomplete && (
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <h2 className="text-sm font-bold text-slate-900 mb-2">Finish academy setup</h2>
+          <p className="text-xs text-slate-500 mb-3">Complete these in order so admissions, attendance, and fees have something to attach to.</p>
+          <ol className="grid sm:grid-cols-2 gap-2">
+            {setupSteps.map((step, i) => (
+              <li key={step.label}>
+                <button
+                  type="button"
+                  onClick={() => onNavigate(step.id)}
+                  className={`w-full text-left px-3 py-2 rounded-lg border text-xs font-semibold ${
+                    step.done ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-slate-50 border-slate-200 text-slate-800 hover:border-slate-400'
+                  }`}
+                >
+                  {i + 1}. {step.label} {step.done ? '— done' : ''}
+                </button>
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
       
       {/* Academy Header Strip */}
       <div className="bg-white border border-slate-200/90 rounded-xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -207,7 +236,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <span>Academic Classes & Batches</span>
             </h2>
             <button
-              onClick={() => onNavigate('academic')}
+              onClick={() => onNavigate('classes')}
               className="text-xs text-slate-600 hover:text-slate-900 font-semibold flex items-center gap-1 cursor-pointer"
             >
               Manage Academic Structure <ArrowRight className="w-3.5 h-3.5" />
@@ -228,7 +257,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 </p>
               </div>
               <button
-                onClick={() => onNavigate('academic')}
+                onClick={() => onNavigate('classes')}
                 className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg inline-flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
@@ -284,7 +313,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
           <div className="space-y-3 text-xs">
             <div 
-              onClick={() => onNavigate('academic')}
+              onClick={() => onNavigate('classes')}
               className="p-3 rounded-lg border border-slate-200/80 hover:border-slate-400 hover:bg-slate-50/50 transition-all cursor-pointer space-y-1"
             >
               <div className="flex items-center justify-between font-semibold text-slate-900">

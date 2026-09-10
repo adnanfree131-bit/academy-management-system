@@ -124,7 +124,7 @@ export async function buildStudentIdCardPdf(cards: IdCardPdfInput[]): Promise<Ui
       back.drawText(truncate(text, 62), { x: 6, y: by, size: 5, font, color: INK });
       by -= 8;
     }
-    line(back, 0, 0, CARD_W, 10, rgb(0.97, 0.98, 0.99));
+    back.drawRectangle({ x: 0, y: 0, width: CARD_W, height: 10, color: rgb(0.97, 0.98, 0.99) });
     back.drawText(truncate(card.campusName || card.academyName, 50), {
       x: 6, y: 3.5, size: 4.2, font, color: SLATE,
     });

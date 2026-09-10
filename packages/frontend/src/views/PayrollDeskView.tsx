@@ -22,6 +22,7 @@ import {
   PayrollDeductionHead,
   PaymentMethod
 } from '@apex/shared-types';
+import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 
 export const PayrollDeskView: React.FC = () => {
   const { token, tenant } = useAuth();
@@ -34,13 +35,9 @@ export const PayrollDeskView: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
 
   // Active Processing Form State
-  const [earnings, setEarnings] = useState<PayrollEarningHead[]>([
-    { id: '1', name: 'Overtime Evening Coaching', quantity: 5, unit_rate: 1000, total: 5000 }
-  ]);
-  const [deductions, setDeductions] = useState<PayrollDeductionHead[]>([
-    { id: '1', name: 'Late Arrival Penalty', quantity: 1, unit_rate: 1500, total: 1500 }
-  ]);
-  const [adminNotes, setAdminNotes] = useState<string>('Verified against campus GPS geofence clock-in records');
+  const [earnings, setEarnings] = useState<PayrollEarningHead[]>([]);
+  const [deductions, setDeductions] = useState<PayrollDeductionHead[]>([]);
+  const [adminNotes, setAdminNotes] = useState<string>('');
 
   // Disbursement Modal
   const [showDisburseModal, setShowDisburseModal] = useState<boolean>(false);
@@ -676,11 +673,39 @@ export const PayrollDeskView: React.FC = () => {
               </h3>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => window.print()}
+                  onClick={async () => {
+                    const academy = await academyLetterheadFromAuth(tenant);
+                    const slip = printPayslip;
+                    const bytes = await buildSimpleStatementPdf({
+                      title: 'Staff Salary Payslip',
+                      academy,
+                      identity: [
+                        { label: 'Staff', value: slip.staff_name },
+                        { label: 'Designation', value: slip.designation },
+                        { label: 'Month', value: slip.payroll_month },
+                        { label: 'Slip No', value: slip.slip_number },
+                        { label: 'Status', value: slip.status },
+                        { label: 'Net payable', value: `PKR ${slip.net_salary.toLocaleString()}` },
+                      ],
+                      columns: [
+                        { key: 'item', label: 'Item', width: 220 },
+                        { key: 'qty', label: 'Qty', width: 60, align: 'right' },
+                        { key: 'rate', label: 'Rate', width: 90, align: 'right' },
+                        { key: 'total', label: 'Amount', width: 110, align: 'right' },
+                      ],
+                      rows: [
+                        { item: 'Base salary', qty: '1', rate: String(slip.base_salary), total: String(slip.base_salary) },
+                        ...slip.earnings.map(e => ({ item: `Earning: ${e.name}`, qty: String(e.quantity), rate: String(e.unit_rate), total: String(e.total) })),
+                        ...slip.deductions.map(d => ({ item: `Deduction: ${d.name}`, qty: String(d.quantity), rate: String(d.unit_rate), total: `-${d.total}` })),
+                      ],
+                      footerNote: slip.admin_notes || undefined,
+                    });
+                    await downloadPdfBytes(bytes, `payslip-${slip.slip_number}.pdf`);
+                  }}
                   className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  Print / Save PDF
+                  Download official payslip
                 </button>
                 <button onClick={() => setShowPrintModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
                   <X className="w-5 h-5" />

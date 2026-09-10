@@ -2120,21 +2120,24 @@ export class InMemoryDataStore implements IDataStore {
     const batchStudents = this.students.filter(s => s.tenant_id === data.tenant_id && s.batch_id === data.batch_id);
     const count = this.students.filter(s => s.tenant_id === data.tenant_id).length + 1;
 
+    const batch = this.batches.find(b => b.id === data.batch_id);
+    const isFull = Boolean(batch && batch.current_enrollment >= batch.max_capacity);
     const student: Student = {
       ...data,
       id: crypto.randomUUID(),
       admission_number: `ADM-2026-${count.toString().padStart(3, '0')}`,
       roll_number: `R-${(batchStudents.length + 101).toString()}`,
       admission_date: new Date().toISOString().split('T')[0],
+      status: isFull ? 'waitlisted' : (data.status || 'active'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
     this.students.push(student);
 
-    // Increment batch enrollment
-    const batch = this.batches.find(b => b.id === data.batch_id);
-    if (batch) batch.current_enrollment += 1;
+    if (batch && !isFull) batch.current_enrollment += 1;
+    this.persistQueued = true;
+    void this.flushPersist();
 
     // Auto-generate first month invoice if fee_structure is set
     if (student.fee_structure && (student.fee_structure.first_month_total > 0 || (data as any).generate_first_month_invoice)) {

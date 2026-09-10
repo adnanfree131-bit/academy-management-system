@@ -15,6 +15,7 @@ import {
   X,
   RefreshCw
 } from 'lucide-react';
+import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import {
   FeeHead,
   StudentInvoice,
@@ -896,15 +897,51 @@ export const FeeDeskView: React.FC = () => {
                 <p className="text-xs text-slate-500">Bank-style running statement tracking debits, credits, and balance.</p>
               </div>
 
-              <select
-                value={ledgerStudentId}
-                onChange={e => setLedgerStudentId(e.target.value)}
-                className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
-              >
-                {students.map(s => (
-                  <option key={s.id} value={s.id}>{s.full_name} ({s.roll_number})</option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <select
+                  value={ledgerStudentId}
+                  onChange={e => setLedgerStudentId(e.target.value)}
+                  className="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
+                >
+                  {students.map(s => (
+                    <option key={s.id} value={s.id}>{s.full_name} ({s.roll_number})</option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const academy = await academyLetterheadFromAuth(tenant);
+                    const student = students.find(s => s.id === ledgerStudentId);
+                    const bytes = await buildSimpleStatementPdf({
+                      title: 'Student Fee Ledger',
+                      academy,
+                      identity: [
+                        { label: 'Student', value: student?.full_name || '—' },
+                        { label: 'Roll No', value: student?.roll_number || '—' },
+                        { label: 'Entries', value: String(studentLedger.length) },
+                      ],
+                      columns: [
+                        { key: 'date', label: 'Date', width: 80 },
+                        { key: 'description', label: 'Description', width: 200 },
+                        { key: 'debit', label: 'Debit', width: 70, align: 'right' },
+                        { key: 'credit', label: 'Credit', width: 70, align: 'right' },
+                        { key: 'balance', label: 'Balance', width: 80, align: 'right' },
+                      ],
+                      rows: studentLedger.map(l => ({
+                        date: l.date,
+                        description: l.description,
+                        debit: l.debit ? l.debit.toLocaleString() : '—',
+                        credit: l.credit ? l.credit.toLocaleString() : '—',
+                        balance: l.running_balance.toLocaleString(),
+                      })),
+                    });
+                    await downloadPdfBytes(bytes, `ledger-${student?.roll_number || 'student'}.pdf`);
+                  }}
+                  className="px-3 py-1.5 text-xs font-bold bg-slate-900 text-white rounded-lg"
+                >
+                  Download ledger
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -1284,11 +1321,39 @@ export const FeeDeskView: React.FC = () => {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => window.print()}
+                  onClick={async () => {
+                    const academy = await academyLetterheadFromAuth(tenant);
+                    const bytes = await buildSimpleStatementPdf({
+                      title: 'Fee Challan',
+                      academy,
+                      identity: [
+                        { label: 'Invoice', value: activeInvoice.invoice_number },
+                        { label: 'Student', value: activeInvoice.student_name || '—' },
+                        { label: 'Month', value: activeInvoice.billing_month },
+                        { label: 'Due date', value: activeInvoice.due_date },
+                        { label: 'Net payable', value: `PKR ${(activeInvoice.net_amount || activeInvoice.net_total || 0).toLocaleString()}` },
+                        { label: 'Balance', value: `PKR ${(activeInvoice.balance_due ?? activeInvoice.balance_amount ?? 0).toLocaleString()}` },
+                      ],
+                      columns: [
+                        { key: 'head', label: 'Fee head', width: 220 },
+                        { key: 'original', label: 'Original', width: 90, align: 'right' },
+                        { key: 'net', label: 'Net', width: 90, align: 'right' },
+                        { key: 'balance', label: 'Balance', width: 90, align: 'right' },
+                      ],
+                      rows: (activeInvoice.items || []).map((it: any) => ({
+                        head: it.head_name,
+                        original: String(it.original_amount ?? 0),
+                        net: String(it.net_amount ?? 0),
+                        balance: String(it.balance_due ?? 0),
+                      })),
+                      footerNote: 'Bank copy · Academy copy · Student copy — present this challan at the fee counter or bank.',
+                    });
+                    await downloadPdfBytes(bytes, `challan-${activeInvoice.invoice_number}.pdf`);
+                  }}
                   className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  Print / Save PDF
+                  Download official challan
                 </button>
                 <button id="close-print-modal-btn" onClick={() => setShowPrintModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
                   <X className="w-5 h-5" />

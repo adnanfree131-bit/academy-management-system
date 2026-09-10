@@ -360,7 +360,7 @@ export interface StudentInquiry {
   updated_at: string;
 }
 
-export type StudentStatus = 'active' | 'on_leave' | 'suspended' | 'alumni' | 'withdrawn';
+export type StudentStatus = 'active' | 'on_leave' | 'suspended' | 'alumni' | 'withdrawn' | 'waitlisted';
 
 export interface Student {
   id: string;

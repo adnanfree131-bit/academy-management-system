@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import { 
   CheckSquare, 
   Users, 
@@ -20,7 +21,7 @@ import {
 } from '@apex/shared-types';
 
 export const AttendanceDeskView: React.FC = () => {
-  const { token } = useAuth();
+  const { token, tenant } = useAuth();
   const [activeTab, setActiveTab] = useState<'roster' | 'leaves'>('roster');
 
   // Metadata
@@ -387,6 +388,44 @@ export const AttendanceDeskView: React.FC = () => {
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 <span>1-Tap: Mark All Present</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  const academy = await academyLetterheadFromAuth(tenant);
+                  const batch = batches.find(b => b.id === selectedBatchId);
+                  const bytes = await buildSimpleStatementPdf({
+                    title: 'Daily Attendance Register',
+                    academy,
+                    identity: [
+                      { label: 'Batch', value: batch?.name || '—' },
+                      { label: 'Date', value: selectedDate },
+                      { label: 'Present', value: String(stats.present) },
+                      { label: 'Absent', value: String(stats.absent) },
+                      { label: 'Late', value: String(stats.late) },
+                      { label: 'Excused', value: String(stats.excused) },
+                    ],
+                    columns: [
+                      { key: 'roll', label: 'Roll', width: 70 },
+                      { key: 'name', label: 'Student', width: 200 },
+                      { key: 'status', label: 'Status', width: 90 },
+                      { key: 'remarks', label: 'Remarks', width: 150 },
+                    ],
+                    rows: students.map(s => ({
+                      roll: s.roll_number,
+                      name: s.full_name,
+                      status: (attendanceRecords[s.id]?.status || 'present').toUpperCase(),
+                      remarks: attendanceRecords[s.id]?.remarks || '—',
+                    })),
+                  });
+                  await downloadPdfBytes(bytes, `attendance-${selectedDate}.pdf`);
+                }}
+                disabled={students.length === 0}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-800 hover:bg-slate-50 text-xs font-bold transition-all disabled:opacity-50"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Download register</span>
               </button>
 
               <button

@@ -30,6 +30,7 @@ import {
   Subject,
   AcademicProgram
 } from '@apex/shared-types';
+import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 
 export const ExamDeskView: React.FC = () => {
   const { tenant, token } = useAuth();
@@ -1722,10 +1723,54 @@ export const ExamDeskView: React.FC = () => {
               </h3>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => window.print()}
+                  onClick={async () => {
+                    const academy = await academyLetterheadFromAuth(tenant);
+                    const ev = activeReportCard.evaluation;
+                    const exam = activeReportCard.exam;
+                    const bytes = await buildSimpleStatementPdf({
+                      title: 'Official Examination Report Card',
+                      academy,
+                      identity: [
+                        { label: 'Student', value: activeReportCard.student.full_name },
+                        { label: 'Roll No', value: activeReportCard.student.roll_number },
+                        { label: 'Class', value: activeReportCard.student.class_name || '—' },
+                        { label: 'Batch', value: activeReportCard.student.batch_name || '—' },
+                        { label: 'Examination', value: exam.title },
+                        { label: 'Date', value: exam.exam_date },
+                      ],
+                      columns: [
+                        { key: 'section', label: 'Section', width: 150 },
+                        { key: 'max', label: 'Max', width: 70, align: 'right' },
+                        { key: 'got', label: 'Obtained', width: 80, align: 'right' },
+                        { key: 'remarks', label: 'Remarks', width: 210 },
+                      ],
+                      rows: [
+                        {
+                          section: exam.section_labels.mcq,
+                          max: String(exam.mcq_total_marks || exam.mcq_count * exam.mcq_marks_per_q),
+                          got: String(ev.mcq_score),
+                          remarks: 'Automatically evaluated',
+                        },
+                        {
+                          section: exam.section_labels.short,
+                          max: String(exam.short_total_marks),
+                          got: String(ev.short_score),
+                          remarks: ev.short_remarks || '—',
+                        },
+                        {
+                          section: exam.section_labels.long,
+                          max: String(exam.long_total_marks),
+                          got: String(ev.long_score),
+                          remarks: ev.long_remarks || '—',
+                        },
+                      ],
+                      footerNote: `Grade ${ev.grade} · ${ev.percentage}% · Rank ${activeReportCard.rank || '—'} of ${activeReportCard.total_students || '—'} · Total ${ev.total_obtained}/${exam.total_marks}`,
+                    });
+                    await downloadPdfBytes(bytes, `report-card-${activeReportCard.student.roll_number}.pdf`);
+                  }}
                   className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
                 >
-                  <Download className="w-3.5 h-3.5" /> Print / Save PDF
+                  <Download className="w-3.5 h-3.5" /> Download official report card
                 </button>
                 <button onClick={() => setShowReportCardModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
                   <X className="w-5 h-5" />
