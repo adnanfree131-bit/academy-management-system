@@ -313,12 +313,23 @@ export function academicRoutes(store: IDataStore) {
     fastify.put('/settings', updateAcademySettingsHandler);
     fastify.put('/academy-settings', updateAcademySettingsHandler);
 
+    const publicStaff = (u: any) => ({
+      id: u.id,
+      full_name: u.full_name,
+      email: u.email,
+      phone: u.phone || null,
+      role: u.role,
+      status: u.status,
+      designation: (u.metadata?.designation as string) || '',
+      permissions: Array.isArray(u.metadata?.permissions) ? u.metadata.permissions : [],
+    });
+
     fastify.get('/staff', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
         return reply.status(403).send({
           success: false,
-          error: { code: 'FORBIDDEN', message: 'Only the academy admin can view staff access.' },
+          error: { code: 'FORBIDDEN', message: 'Only the academy admin can manage staff.' },
           timestamp: new Date().toISOString(),
         });
       }
@@ -326,18 +337,53 @@ export function academicRoutes(store: IDataStore) {
       return reply.send({
         success: true,
         data: users
-          .filter(u => u.role !== 'super_admin')
-          .map(u => ({
-            id: u.id,
-            full_name: u.full_name,
-            email: u.email,
-            role: u.role,
-            status: u.status,
-            permissions: (u.metadata?.permissions as string[]) || [],
-            portal_blocked: Boolean(u.metadata?.portal_blocked),
-          })),
+          .filter(u => !['super_admin', 'tenant_admin', 'student', 'parent'].includes(u.role))
+          .map(publicStaff),
         timestamp: new Date().toISOString(),
       });
+    });
+
+    fastify.post('/staff', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only the academy admin can add staff.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const schema = z.object({
+        full_name: z.string().min(2),
+        email: z.string().email(),
+        phone: z.string().optional(),
+        designation: z.string().optional(),
+        password: z.string().min(6),
+      });
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Name, email, and a password of at least 6 characters are required.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      try {
+        const created = await store.createStaff({
+          tenant_id: user.tenant_id,
+          ...parse.data,
+        });
+        return reply.status(201).send({
+          success: true,
+          data: publicStaff(created),
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'STAFF_CREATE_FAILED', message: err.message || 'Could not add staff.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
     });
 
     fastify.patch('/staff/:id/access', async (request: any, reply) => {
@@ -352,8 +398,9 @@ export function academicRoutes(store: IDataStore) {
       const { id } = request.params as { id: string };
       const schema = z.object({
         permissions: z.array(z.string()).optional(),
-        portal_blocked: z.boolean().optional(),
         status: z.enum(['active', 'inactive', 'suspended']).optional(),
+        designation: z.string().optional(),
+        full_name: z.string().optional(),
       });
       const parse = schema.safeParse(request.body);
       if (!parse.success) {
@@ -363,10 +410,7 @@ export function academicRoutes(store: IDataStore) {
           timestamp: new Date().toISOString(),
         });
       }
-      const metadata: Record<string, unknown> = {};
-      if (parse.data.permissions) metadata.permissions = parse.data.permissions;
-      if (parse.data.portal_blocked != null) metadata.portal_blocked = parse.data.portal_blocked;
-      const updated = await store.updateUserMetadata(user.tenant_id, id, metadata);
+      const updated = await store.updateStaff(user.tenant_id, id, parse.data);
       if (!updated) {
         return reply.status(404).send({
           success: false,
@@ -376,11 +420,7 @@ export function academicRoutes(store: IDataStore) {
       }
       return reply.send({
         success: true,
-        data: {
-          id: updated.id,
-          permissions: (updated.metadata?.permissions as string[]) || [],
-          portal_blocked: Boolean(updated.metadata?.portal_blocked),
-        },
+        data: publicStaff(updated),
         timestamp: new Date().toISOString(),
       });
     });

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { canOpenScreen } from '../lib/portalAccess';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -23,6 +24,7 @@ const ADMIN_MODULES = [
   { id: 'payroll', label: 'Staff Payroll' },
   { id: 'geofence', label: 'Staff Attendance' },
   { id: 'complaints', label: 'Complaints & Feedback' },
+  { id: 'staff', label: 'Staff' },
   { id: 'settings', label: 'Academy Settings' },
 ];
 
@@ -81,7 +83,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
 
   const modules = user?.role === 'super_admin'
     ? [{ id: 'superadmin', label: 'Academy Directory' }]
-    : ADMIN_MODULES;
+    : ADMIN_MODULES.filter(m => canOpenScreen(user?.role, user?.permissions, m.id));
 
   const q = query.trim().toLowerCase();
   const moduleHits = useMemo(

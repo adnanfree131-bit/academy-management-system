@@ -64,6 +64,7 @@ export interface TenantSettings {
     domain?: string | null;
     subdomain?: string | null;
     domain_verified?: boolean;
+    is_platform?: boolean;
     features: {
         mobile_pwa_enabled: boolean;
         whatsapp_rapid_queue: boolean;
@@ -128,6 +129,8 @@ export interface AuthSessionResponse {
         full_name: string;
         role: UserRole;
         avatar_url?: string | null;
+        permissions?: string[];
+        designation?: string;
     };
     tenant: {
         id: string;
@@ -298,7 +301,7 @@ export interface StudentInquiry {
     created_at: string;
     updated_at: string;
 }
-export type StudentStatus = 'active' | 'on_leave' | 'suspended' | 'alumni' | 'withdrawn';
+export type StudentStatus = 'active' | 'on_leave' | 'suspended' | 'alumni' | 'withdrawn' | 'waitlisted';
 export interface Student {
     id: string;
     tenant_id: string;

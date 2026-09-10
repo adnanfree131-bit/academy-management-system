@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AcademyLogo } from './AcademyLogo';
+import { canOpenScreen, isManagedStaff } from '../lib/portalAccess';
 import { 
   LayoutDashboard, 
   CheckSquare, 
   PhoneForwarded, 
-  UserPlus, 
+  UserPlus,
+  Users, 
   Receipt,
   Wallet, 
   LogOut, 
@@ -39,6 +41,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { user, tenant, token, logout } = useAuth();
   const role = user?.role || 'tenant_admin';
+  const managedStaff = isManagedStaff(role, user?.permissions);
+  const allow = (screen: string) => canOpenScreen(role, user?.permissions, screen);
   const [absenteePending, setAbsenteePending] = useState(0);
 
   useEffect(() => {
@@ -106,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* ============================================================
                   ROLE: FACULTY TEACHER
                   ============================================================ */}
-              {role === 'teacher' && (
+              {role === 'teacher' && !managedStaff && (
                 <>
                   <div>
                     <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-emerald-700 font-bold mb-1.5 flex items-center gap-1.5">
@@ -331,7 +335,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* ============================================================
                   ROLE: TENANT ADMIN (Principal / Director - Academy Administration)
                   ============================================================ */}
-              {(role === 'tenant_admin' || (!['teacher', 'student', 'super_admin'].includes(role))) && (
+              {(role === 'tenant_admin' || managedStaff || (!['teacher', 'student', 'super_admin'].includes(role))) && (
                 <>
                   <div>
                     <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
@@ -357,7 +361,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       Academic Management
                     </p>
                     <div className="space-y-1">
-                      <button 
+                      {allow('enrollment') && <button 
                         onClick={() => handleNavClick('enrollment')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'enrollment'
@@ -367,9 +371,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <UserPlus className={`w-4 h-4 ${currentScreen === 'enrollment' ? 'text-white' : 'text-blue-500'}`} />
                         <span>Student Admissions</span>
-                      </button>
+                      </button>}
 
-                      <button 
+                      {allow('id_cards') && <button 
                         onClick={() => handleNavClick('id_cards')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'id_cards'
@@ -379,9 +383,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <CreditCard className={`w-4 h-4 ${currentScreen === 'id_cards' ? 'text-white' : 'text-slate-500'}`} />
                         <span>Student ID Cards</span>
-                      </button>
+                      </button>}
 
-                      <button 
+                      {allow('classes') && <button 
                         onClick={() => handleNavClick('classes')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'classes'
@@ -391,10 +395,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Layers className={`w-4 h-4 ${currentScreen === 'classes' ? 'text-white' : 'text-indigo-500'}`} />
                         <span>Classes & Batches</span>
-                      </button>
+                      </button>}
 
-
-                      <button 
+                      {allow('timetable') && <button 
                         onClick={() => handleNavClick('timetable')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'timetable'
@@ -404,7 +407,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-emerald-500'}`} />
                         <span>Timetable & Scheduling</span>
-                      </button>
+                      </button>}
                     </div>
                   </div>
 
@@ -413,7 +416,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       Daily Operations
                     </p>
                     <div className="space-y-1">
-                      <button 
+                      {allow('attendance') && <button 
                         onClick={() => handleNavClick('attendance')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'attendance'
@@ -423,9 +426,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-white' : 'text-teal-500'}`} />
                         <span>Student Attendance</span>
-                      </button>
+                      </button>}
 
-                      <button 
+                      {allow('absentee') && <button 
                         onClick={() => handleNavClick('absentee')}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'absentee'
@@ -444,9 +447,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             {absenteePending}
                           </span>
                         )}
-                      </button>
+                      </button>}
 
-                      <button 
+                      {allow('homework') && <button 
                         onClick={() => handleNavClick('homework')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'homework'
@@ -456,9 +459,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-amber-500'}`} />
                         <span>Homework & Notebooks</span>
-                      </button>
+                      </button>}
 
-                      <button 
+                      {allow('geofence') && <button 
                         onClick={() => handleNavClick('geofence')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'geofence'
@@ -468,9 +471,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <MapPin className={`w-4 h-4 ${currentScreen === 'geofence' ? 'text-white' : 'text-indigo-500'}`} />
                         <span>Staff Attendance</span>
-                      </button>
+                      </button>}
 
-                      <button 
+                      {allow('complaints') && <button 
                         onClick={() => handleNavClick('complaints')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'complaints'
@@ -480,7 +483,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-slate-500'}`} />
                         <span>Complaints & Feedback</span>
-                      </button>
+                      </button>}
                     </div>
                   </div>
 
@@ -489,7 +492,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       Examinations
                     </p>
                     <div className="space-y-1">
-                      <button 
+                      {allow('exams') && <button 
                         onClick={() => handleNavClick('exams')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'exams'
@@ -499,7 +502,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <GraduationCap className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-purple-500'}`} />
                         <span>Exams & Results</span>
-                      </button>
+                      </button>}
                     </div>
                   </div>
 
@@ -508,7 +511,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       Finance
                     </p>
                     <div className="space-y-1">
-                      <button 
+                      {allow('voucher') && <button 
                         onClick={() => handleNavClick('voucher')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'voucher'
@@ -518,9 +521,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-white' : 'text-emerald-500'}`} />
                         <span>Fee Invoices & Vouchers</span>
-                      </button>
+                      </button>}
 
-                      <button 
+                      {allow('expenses') && <button 
                         onClick={() => handleNavClick('expenses')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'expenses'
@@ -530,9 +533,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <TrendingUp className={`w-4 h-4 ${currentScreen === 'expenses' ? 'text-white' : 'text-amber-500'}`} />
                         <span>Income & Expenses</span>
-                      </button>
+                      </button>}
 
-                      <button 
+                      {allow('payroll') && <button 
                         onClick={() => handleNavClick('payroll')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'payroll'
@@ -542,7 +545,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Wallet className={`w-4 h-4 ${currentScreen === 'payroll' ? 'text-white' : 'text-amber-500'}`} />
                         <span>Staff Payroll</span>
-                      </button>
+                      </button>}
                     </div>
                   </div>
 
@@ -551,7 +554,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       Administration
                     </p>
                     <div className="space-y-1">
+                      {role === 'tenant_admin' && (
                       <button 
+                        onClick={() => handleNavClick('staff')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
+                          currentScreen === 'staff'
+                            ? 'bg-slate-900 text-white font-bold shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                        }`}
+                      >
+                        <Users className={`w-4 h-4 ${currentScreen === 'staff' ? 'text-white' : 'text-violet-500'}`} />
+                        <span>Staff</span>
+                      </button>
+                      )}
+                      {allow('settings') && <button 
                         onClick={() => handleNavClick('settings')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'settings'
@@ -561,7 +577,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Settings className={`w-4 h-4 ${currentScreen === 'settings' ? 'text-white' : 'text-slate-500'}`} />
                         <span>Academy Settings</span>
-                      </button>
+                      </button>}
                     </div>
                   </div>
                 </>

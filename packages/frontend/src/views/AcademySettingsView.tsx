@@ -25,7 +25,7 @@ export const AcademySettingsView: React.FC = () => {
   const { token, tenant, user, applySession, refreshSession } = useAuth();
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'profile' | 'challan' | 'shifts' | 'security' | 'staff'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'challan' | 'shifts' | 'security'>('profile');
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -74,7 +74,7 @@ export const AcademySettingsView: React.FC = () => {
   const [editingHeadId, setEditingHeadId] = useState<string | null>(null);
   const [editingHeadName, setEditingHeadName] = useState('');
   const [otpModal, setOtpModal] = useState<'change' | 'reset' | null>(null);
-  const [staffRows, setStaffRows] = useState<{ id: string; full_name: string; email: string; role: string; permissions: string[]; portal_blocked: boolean }[]>([]);
+
 
   // Shifts
   const [morningStart, setMorningStart] = useState<string>('08:00');
@@ -167,9 +167,7 @@ export const AcademySettingsView: React.FC = () => {
     fetchSettings();
   }, [token]);
 
-  useEffect(() => {
-    if (activeTab === 'staff') fetchStaff();
-  }, [activeTab, token]);
+
 
   // 60-second cooldown timer effect (starts ONLY on 200 OK from server)
   useEffect(() => {
@@ -354,47 +352,7 @@ export const AcademySettingsView: React.FC = () => {
     await refreshFeeHeads();
   };
 
-  const STAFF_FEATURES = [
-    { id: 'admissions', label: 'Admissions' },
-    { id: 'classes', label: 'Classes & timetable' },
-    { id: 'attendance', label: 'Attendance' },
-    { id: 'fees', label: 'Fees & invoices' },
-    { id: 'expenses', label: 'Income & expenses' },
-    { id: 'exams', label: 'Exams' },
-    { id: 'homework', label: 'Homework' },
-    { id: 'complaints', label: 'Complaints' },
-  ];
 
-  const fetchStaff = async () => {
-    if (!token) return;
-    const res = await fetch('/api/v1/academic/staff', { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) return;
-    const body = await res.json();
-    setStaffRows(body.data || []);
-  };
-
-  const toggleStaffPermission = async (row: typeof staffRows[number], featureId: string) => {
-    if (!token) return;
-    const next = row.permissions.includes(featureId)
-      ? row.permissions.filter(p => p !== featureId)
-      : [...row.permissions, featureId];
-    await fetch(`/api/v1/academic/staff/${row.id}/access`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ permissions: next }),
-    });
-    await fetchStaff();
-  };
-
-  const togglePortalBlock = async (row: typeof staffRows[number]) => {
-    if (!token) return;
-    await fetch(`/api/v1/academic/staff/${row.id}/access`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ portal_blocked: !row.portal_blocked }),
-    });
-    await fetchStaff();
-  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -579,21 +537,9 @@ export const AcademySettingsView: React.FC = () => {
               <span>Account Security</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => { setActiveTab('staff'); setSuccessMsg(null); setErrorMsg(null); }}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
-                activeTab === 'staff'
-                  ? 'border-indigo-600 text-slate-900 bg-slate-50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
-            >
-              <GraduationCap className="w-4 h-4 text-violet-600" />
-              <span>Staff access</span>
-            </button>
           </div>
 
-          {activeTab !== 'security' && activeTab !== 'staff' ? (
+          {activeTab !== 'security' ? (
             <form onSubmit={handleSave} className="space-y-6">
               {/* SECTION 1: INSTITUTION PROFILE */}
               {activeTab === 'profile' && (
@@ -1174,59 +1120,6 @@ export const AcademySettingsView: React.FC = () => {
                 </div>
               </div>
             </form>
-          )}
-
-          {activeTab === 'staff' && (
-            <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
-              <div>
-                <h2 className="text-sm font-extrabold text-slate-900">Staff access</h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Grant or revoke each desk for a staff member. Block student portal logins from here too.
-                </p>
-              </div>
-              {staffRows.length === 0 ? (
-                <p className="text-sm text-slate-500">No staff accounts yet. Add teachers from payroll or admissions.</p>
-              ) : (
-                <div className="space-y-3">
-                  {staffRows.map(row => (
-                    <div key={row.id} className="border border-slate-200 rounded-xl p-3">
-                      <div className="flex items-center justify-between gap-3 mb-2">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{row.full_name}</p>
-                          <p className="text-[11px] text-slate-500">{row.email} · {row.role.replace('_', ' ')}</p>
-                        </div>
-                        {(row.role === 'student' || row.role === 'parent') && (
-                          <button
-                            type="button"
-                            onClick={() => togglePortalBlock(row)}
-                            className={`text-[11px] px-2.5 py-1 rounded-lg border ${row.portal_blocked ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-white text-slate-700 border-slate-200'}`}
-                          >
-                            {row.portal_blocked ? 'Portal blocked' : 'Block portal'}
-                          </button>
-                        )}
-                      </div>
-                      {row.role !== 'tenant_admin' && row.role !== 'student' && row.role !== 'parent' && (
-                        <div className="flex flex-wrap gap-1.5">
-                          {STAFF_FEATURES.map(f => {
-                            const on = row.permissions.includes(f.id);
-                            return (
-                              <button
-                                key={f.id}
-                                type="button"
-                                onClick={() => toggleStaffPermission(row, f.id)}
-                                className={`text-[11px] px-2 py-1 rounded-lg border ${on ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200'}`}
-                              >
-                                {f.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           )}
         </div>
       )}

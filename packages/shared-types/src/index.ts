@@ -152,6 +152,8 @@ export interface AuthSessionResponse {
     full_name: string;
     role: UserRole;
     avatar_url?: string | null;
+    permissions?: string[];
+    designation?: string;
   };
   tenant: {
     id: string;

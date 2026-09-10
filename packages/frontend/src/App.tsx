@@ -21,6 +21,8 @@ import { StudentParentPortalView } from './views/StudentParentPortalView';
 import { SuperAdminControlPlaneView } from './views/SuperAdminControlPlaneView';
 import { IncomeExpenseDeskView } from './views/IncomeExpenseDeskView';
 import { AcademySettingsView } from './views/AcademySettingsView';
+import { StaffDeskView } from './views/StaffDeskView';
+import { canOpenScreen, isManagedStaff } from './lib/portalAccess';
 import { TrialExpiredLockoutModal } from './components/TrialExpiredLockoutModal';
 import { AnnouncementPopupModal } from './components/AnnouncementPopupModal';
 import { CommandPalette } from './components/CommandPalette';
@@ -78,6 +80,7 @@ const getTitle = (screen: string, role?: string): string => {
     case 'geofence': return 'Staff Attendance';
     case 'complaints': return 'Complaints & Feedback';
     case 'settings': return 'Academy Settings';
+    case 'staff': return 'Staff';
     case 'mobile': return 'Mobile App';
     default: return 'Academy Portal';
   }
@@ -103,7 +106,7 @@ const MainLayout: React.FC = () => {
   // Set initial screen based on user role when logging in
   useEffect(() => {
     if (user) {
-      if (user.role === 'teacher') {
+      if (user.role === 'teacher' && !isManagedStaff(user.role, user.permissions)) {
         setCurrentScreen('teacher');
       } else if (user.role === 'student') {
         setCurrentScreen('student_portal');
@@ -114,6 +117,12 @@ const MainLayout: React.FC = () => {
       }
     }
   }, [user?.role, user?.id]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (canOpenScreen(user.role, user.permissions, currentScreen)) return;
+    setCurrentScreen('dashboard');
+  }, [user?.role, user?.permissions, currentScreen]);
 
   if (isLoading) {
     return (
@@ -212,7 +221,7 @@ const MainLayout: React.FC = () => {
               />
             )
           ) : /* ROLE: FACULTY TEACHER VIEW ROUTING */
-          user.role === 'teacher' ? (
+          user.role === 'teacher' && !isManagedStaff(user.role, user.permissions) ? (
             currentScreen === 'teacher' ? (
               <TeacherPortalView onNavigate={setCurrentScreen} />
             ) : currentScreen === 'timetable' ? (
@@ -271,6 +280,8 @@ const MainLayout: React.FC = () => {
               <StaffClockInView />
             ) : currentScreen === 'complaints' ? (
               <ComplaintsDeskView />
+            ) : currentScreen === 'staff' ? (
+              <StaffDeskView />
             ) : currentScreen === 'settings' ? (
               <AcademySettingsView />
             ) : (

@@ -2,7 +2,8 @@ import {
   Tenant, 
   TenantStatus,
   TenantSettings,
-  User, 
+  User,
+  UserStatus, 
   AcademicProgram, 
   Subject, 
   SubjectGroup, 
@@ -233,6 +234,21 @@ export interface IDataStore {
   deleteFeeHead(tenantId: string, id: string): Promise<boolean>;
   getTenantUsers(tenantId: string): Promise<User[]>;
   updateUserMetadata(tenantId: string, userId: string, metadata: Record<string, unknown>): Promise<User | null>;
+  createStaff(data: {
+    tenant_id: string;
+    full_name: string;
+    email: string;
+    phone?: string;
+    designation?: string;
+    password: string;
+  }): Promise<User>;
+  updateStaff(tenantId: string, userId: string, patch: {
+    permissions?: string[];
+    status?: UserStatus;
+    designation?: string;
+    full_name?: string;
+    phone?: string;
+  }): Promise<User | null>;
   getFeePriorityConfig(tenantId: string): Promise<FeePriorityConfig>;
   updateFeePriorityConfig(tenantId: string, priorityOrder: string[]): Promise<FeePriorityConfig>;
 
@@ -2810,6 +2826,64 @@ export class InMemoryDataStore implements IDataStore {
     const user = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && u.id === userId);
     if (!user) return null;
     user.metadata = { ...(user.metadata || {}), ...metadata };
+    user.updated_at = new Date().toISOString();
+    this.schedulePersist();
+    return user;
+  }
+
+  async createStaff(data: {
+    tenant_id: string;
+    full_name: string;
+    email: string;
+    phone?: string;
+    designation?: string;
+    password: string;
+  }): Promise<User> {
+    const email = data.email.toLowerCase().trim();
+    if (await this.getUserByEmail(data.tenant_id, email)) {
+      throw new Error('A staff member with this email already exists.');
+    }
+    const user: User = {
+      id: crypto.randomUUID(),
+      tenant_id: data.tenant_id,
+      email,
+      phone: data.phone || null,
+      full_name: data.full_name.trim(),
+      role: 'teacher',
+      status: 'active',
+      password_hash: hashPassword(data.password),
+      metadata: {
+        permissions: [],
+        designation: data.designation?.trim() || '',
+        managed_staff: true,
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.users.set(`${data.tenant_id}:${email}`, user);
+    this.schedulePersist();
+    return user;
+  }
+
+  async updateStaff(tenantId: string, userId: string, patch: {
+    permissions?: string[];
+    status?: UserStatus;
+    designation?: string;
+    full_name?: string;
+    phone?: string;
+  }): Promise<User | null> {
+    const user = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && u.id === userId);
+    if (!user) return null;
+    if (user.role === 'tenant_admin' || user.role === 'super_admin') return null;
+    if (patch.full_name) user.full_name = patch.full_name.trim();
+    if (patch.phone !== undefined) user.phone = patch.phone;
+    if (patch.status) user.status = patch.status;
+    user.metadata = {
+      ...(user.metadata || {}),
+      managed_staff: true,
+      ...(patch.permissions ? { permissions: patch.permissions } : {}),
+      ...(patch.designation !== undefined ? { designation: patch.designation } : {}),
+    };
     user.updated_at = new Date().toISOString();
     this.schedulePersist();
     return user;

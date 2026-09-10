@@ -119,6 +119,8 @@ export function authRoutes(
             full_name: user.full_name,
             role: user.role,
             avatar_url: user.avatar_url,
+            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
+            designation: (user.metadata?.designation as string) || undefined,
           },
           tenant: {
             id: tenant.id,
@@ -342,6 +344,8 @@ export function authRoutes(
             full_name: user.full_name,
             role: user.role,
             avatar_url: user.avatar_url,
+            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
+            designation: (user.metadata?.designation as string) || undefined,
           },
           tenant: {
             id: tenant.id,
@@ -700,6 +704,8 @@ export function authRoutes(
             full_name: user.full_name,
             role: user.role,
             avatar_url: user.avatar_url,
+            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
+            designation: (user.metadata?.designation as string) || undefined,
           },
           tenant: {
             id: tenant.id,
@@ -751,7 +757,16 @@ export function authRoutes(
       return reply.send({
         success: true,
         data: {
-          user,
+          user: {
+            id: user.id,
+            tenant_id: user.tenant_id,
+            email: user.email,
+            full_name: user.full_name,
+            role: user.role,
+            avatar_url: user.avatar_url,
+            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
+            designation: (user.metadata?.designation as string) || undefined,
+          },
           tenant,
         },
         timestamp: new Date().toISOString(),

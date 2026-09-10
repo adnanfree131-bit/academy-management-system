@@ -7,6 +7,8 @@ export interface UserSession {
   full_name: string;
   role: string;
   avatar_url?: string | null;
+  permissions?: string[];
+  designation?: string;
 }
 
 export interface TenantSession {
@@ -106,6 +108,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     loadUser();
   }, [token]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      const currentToken = localStorage.getItem('apex_jwt_token');
+      if (!currentToken) return;
+      fetch('/api/v1/auth/me', { headers: { Authorization: `Bearer ${currentToken}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(body => {
+          if (body?.data?.user) setUser(body.data.user);
+        })
+        .catch(() => {});
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
 
 async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<any> {
   const text = await res.text();
