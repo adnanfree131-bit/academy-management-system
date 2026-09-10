@@ -33,6 +33,7 @@ import {
   Copy,
   FileText,
   AlertTriangle,
+  MoreVertical,
 } from 'lucide-react';
 
 const DEPARTMENTS: StaffDepartment[] = [
@@ -108,6 +109,7 @@ export const StaffDeskView: React.FC = () => {
   const [archiveReason, setArchiveReason] = useState<string>('Relieved on mutual agreement');
 
   const [deleteTarget, setDeleteTarget] = useState<StaffMemberRecord | null>(null);
+  const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
 
   // Dossier Form State
   const initialFormState = {
@@ -197,6 +199,16 @@ export const StaffDeskView: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [token]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (activeActionMenuId && !(e.target as Element)?.closest?.('.staff-action-menu-container')) {
+        setActiveActionMenuId(null);
+      }
+    };
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, [activeActionMenuId]);
 
   // Flash message helper
   const notifySuccess = (msg: string) => {
@@ -580,39 +592,39 @@ export const StaffDeskView: React.FC = () => {
   const totalDesks = deskCount();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Top Header Strip */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-        <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0">
+      <div className="bg-white border border-slate-200 rounded-xl px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <span className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs shrink-0">
             <Users className="w-5 h-5" />
-          </div>
+          </span>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">Staff & Faculty</h1>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold border border-slate-200">
-                Institutional ERP
+              <h1 className="text-lg font-bold text-slate-900 tracking-tight">Staff & Faculty Register</h1>
+              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                {totalStaffCount} Personnel
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
-              Personnel registry, academic teaching workload, payroll allocations, and portal credentials.
+              Employee dossiers, academic teaching workload, payroll allocations, and portal credentials.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
             onClick={loadData}
             title="Refresh directory"
-            className="p-2 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+            className="p-2 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition-all"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-all"
           >
             <Plus className="w-4 h-4" />
             Add Staff Member
@@ -640,53 +652,38 @@ export const StaffDeskView: React.FC = () => {
         </div>
       )}
 
-      {/* Summary KPI Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">
-            Total Personnel
-          </span>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900 font-mono">{totalStaffCount}</span>
-            <span className="text-xs text-slate-500">({activeStaffCount} active)</span>
+      {/* High-Density Summary Ribbon */}
+      <div className="bg-white border border-slate-200 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shadow-xs">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 divide-x divide-slate-100">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500 font-medium">Total Staff:</span>
+            <span className="font-mono font-bold text-slate-900">{totalStaffCount}</span>
+            <span className="text-slate-400 text-[11px]">({activeStaffCount} active)</span>
           </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">
-            Teaching Faculty
-          </span>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-indigo-700 font-mono">{activeFacultyCount}</span>
-            <span className="text-xs text-slate-500">Subject Teachers</span>
+          <div className="flex items-center gap-2 pl-6">
+            <span className="text-slate-500 font-medium">Teaching Faculty:</span>
+            <span className="font-mono font-bold text-indigo-700">{activeFacultyCount}</span>
+            <span className="text-slate-400 text-[11px]">Subject Teachers</span>
           </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">
-            Clocked-In Today
-          </span>
-          <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-emerald-700 font-mono">{presentTodayCount}</span>
-            <span className="text-xs text-slate-500">/ {activeStaffCount} present</span>
+          <div className="flex items-center gap-2 pl-6">
+            <span className="text-slate-500 font-medium">Clocked-In Today:</span>
+            <span className="font-mono font-bold text-emerald-700">{presentTodayCount}</span>
+            <span className="text-slate-400 text-[11px]">/ {activeStaffCount} present</span>
           </div>
-        </div>
-
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 block">
-            Monthly Payroll Commitment
-          </span>
-          <div className="mt-1 flex items-baseline gap-1">
-            <span className="text-xs font-semibold text-slate-500">PKR</span>
-            <span className="text-2xl font-bold text-slate-900 font-mono">
-              {monthlyPayrollTotal.toLocaleString()}
+          <div className="flex items-center gap-2 pl-6">
+            <span className="text-slate-500 font-medium">Monthly Payroll:</span>
+            <span className="font-mono font-bold text-slate-900">
+              PKR {monthlyPayrollTotal.toLocaleString()}
             </span>
           </div>
+        </div>
+        <div className="text-[11px] text-slate-400 font-mono hidden lg:block">
+          Academic Session: {tenant?.academic_session || '2026-2027'}
         </div>
       </div>
 
       {/* High-Density Filtering Strip */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-xs">
         {/* Unnumbered Navigation Tabs */}
         <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0">
           <button
@@ -694,7 +691,7 @@ export const StaffDeskView: React.FC = () => {
             onClick={() => setSelectedFilterTab('all')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
               selectedFilterTab === 'all'
-                ? 'bg-slate-900 text-white shadow-sm'
+                ? 'bg-slate-900 text-white shadow-xs'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
             }`}
           >
@@ -705,7 +702,7 @@ export const StaffDeskView: React.FC = () => {
             onClick={() => setSelectedFilterTab('faculty')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
               selectedFilterTab === 'faculty'
-                ? 'bg-slate-900 text-white shadow-sm'
+                ? 'bg-slate-900 text-white shadow-xs'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
             }`}
           >
@@ -716,7 +713,7 @@ export const StaffDeskView: React.FC = () => {
             onClick={() => setSelectedFilterTab('admin_accounts')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
               selectedFilterTab === 'admin_accounts'
-                ? 'bg-slate-900 text-white shadow-sm'
+                ? 'bg-slate-900 text-white shadow-xs'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
             }`}
           >
@@ -727,7 +724,7 @@ export const StaffDeskView: React.FC = () => {
             onClick={() => setSelectedFilterTab('support')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
               selectedFilterTab === 'support'
-                ? 'bg-slate-900 text-white shadow-sm'
+                ? 'bg-slate-900 text-white shadow-xs'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
             }`}
           >
@@ -738,7 +735,7 @@ export const StaffDeskView: React.FC = () => {
             onClick={() => setSelectedFilterTab('archived')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
               selectedFilterTab === 'archived'
-                ? 'bg-rose-900 text-white shadow-sm'
+                ? 'bg-rose-900 text-white shadow-xs'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
             }`}
           >
@@ -760,7 +757,7 @@ export const StaffDeskView: React.FC = () => {
       </div>
 
       {/* High-Density Tabular Register */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-xs min-h-[380px] pb-16">
         {loading ? (
           <div className="p-12 text-center text-slate-400 text-sm">
             <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-slate-600" />
@@ -775,238 +772,290 @@ export const StaffDeskView: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
-                  <th className="px-4 py-3">Employee</th>
-                  <th className="px-4 py-3">Department & Role</th>
-                  <th className="px-4 py-3">Contact</th>
-                  <th className="px-4 py-3">Workload / Teaching</th>
-                  <th className="px-4 py-3">Salary & Bank</th>
-                  <th className="px-4 py-3">Portal Desks</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredRows.map(row => {
-                  const assignedCount = row.teaching_assignments?.length || 0;
-                  const grantedCount = row.permissions?.length || 0;
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                <th className="px-3.5 py-2.5">Employee</th>
+                <th className="px-3.5 py-2.5">Department & Role</th>
+                <th className="px-3.5 py-2.5">Contact</th>
+                <th className="px-3.5 py-2.5">Teaching</th>
+                <th className="px-3.5 py-2.5">Salary & Bank</th>
+                <th className="px-3.5 py-2.5">Portal Desks</th>
+                <th className="px-3.5 py-2.5">Status</th>
+                <th className="px-3.5 py-2.5 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filteredRows.map(row => {
+                const assignedCount = row.teaching_assignments?.length || 0;
+                const grantedCount = row.permissions?.length || 0;
 
-                  return (
-                    <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* 1. Employee Info & 3:4 Frame */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          {/* 3:4 Passport portrait ratio frame */}
-                          <div className="w-8 h-10 rounded bg-slate-100 border border-slate-300 overflow-hidden flex items-center justify-center shrink-0 text-slate-600 font-bold text-xs uppercase">
-                            {row.avatar_url ? (
-                              <img
-                                src={row.avatar_url}
-                                alt={row.full_name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              row.full_name.charAt(0)
-                            )}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-mono text-[11px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                                {row.employee_code}
-                              </span>
-                              <p className="font-bold text-slate-900 tracking-tight">{row.full_name}</p>
-                            </div>
-                            {row.father_or_spouse_name && (
-                              <p className="text-[11px] text-slate-500 mt-0.5">
-                                S/O, D/O: {row.father_or_spouse_name}
-                              </p>
-                            )}
-                            {row.cnic && (
-                              <p className="text-[10px] text-slate-400 font-mono">
-                                CNIC: {row.cnic}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* 2. Department & Role */}
-                      <td className="px-4 py-3">
-                        <span className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                          {row.department}
-                        </span>
-                        <p className="text-slate-800 font-medium text-[11px] mt-0.5 truncate max-w-[140px]">
-                          {row.designation}
-                        </p>
-                        <p className="text-slate-400 text-[10px] capitalize">
-                          {row.employment_type} · Exp: {row.experience_years}y
-                        </p>
-                      </td>
-
-                      {/* 3. Contact */}
-                      <td className="px-4 py-3">
-                        <div className="space-y-0.5">
-                          <p className="text-slate-700 font-mono text-[11px]">{row.phone || '—'}</p>
-                          <p className="text-slate-500 text-[11px] truncate max-w-[160px]">{row.email}</p>
-                          {row.whatsapp && (
-                            <span className="text-[10px] text-emerald-700 font-mono">
-                              WA: {row.whatsapp}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* 4. Workload / Teaching */}
-                      <td className="px-4 py-3">
-                        {assignedCount > 0 ? (
-                          <div>
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                              <BookOpen className="w-3 h-3 text-slate-600" />
-                              {assignedCount} {assignedCount === 1 ? 'Subject' : 'Subjects'}
-                            </span>
-                            <p className="text-[10px] text-slate-500 mt-1 truncate max-w-[150px]">
-                              {Array.from(new Set(row.teaching_assignments?.map(t => t.subject_name) || [])).join(', ')}
-                            </p>
-                          </div>
-                        ) : (
-                          <span className="text-[11px] text-slate-400 italic">No classes assigned</span>
-                        )}
-                      </td>
-
-                      {/* 5. Salary & Bank */}
-                      <td className="px-4 py-3">
-                        <p className="font-mono font-bold text-slate-900 text-[11px]">
-                          PKR {row.base_salary ? row.base_salary.toLocaleString() : '0'}
-                        </p>
-                        <p className="text-[10px] text-slate-500 truncate max-w-[130px]">
-                          {row.bank_name || 'Bank Not Configured'}
-                        </p>
-                      </td>
-
-                      {/* 6. Portal Access */}
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded border ${
-                            grantedCount > 0
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                              : 'bg-slate-100 text-slate-500 border-slate-200'
-                          }`}
-                        >
-                          <ShieldCheck className="w-3 h-3" />
-                          {grantedCount} / {totalDesks} Desks
-                        </span>
-                      </td>
-
-                      {/* 7. Status */}
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                            row.status === 'active'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : row.status === 'on_leave'
-                              ? 'bg-amber-50 text-amber-700 border-amber-200'
-                              : 'bg-slate-100 text-slate-600 border-slate-200'
-                          }`}
-                        >
-                          {row.status}
-                        </span>
-                      </td>
-
-                      {/* 8. Actions Menu */}
-                      <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <div className="inline-flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(row)}
-                            title="Edit Staff Dossier"
-                            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => openTeachingModal(row)}
-                            title="Assign Classes & Subjects"
-                            className="p-1.5 rounded-lg border border-slate-200 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 transition-colors"
-                          >
-                            <BookOpen className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setAccessDrawerStaff(row)}
-                            title="Portal Access Permissions"
-                            className="p-1.5 rounded-lg border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                          >
-                            <ShieldCheck className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setIdCardStaff(row)}
-                            title="Print Staff ID Card"
-                            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                          >
-                            <CreditCard className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => setAppointmentStaff(row)}
-                            title="Print Appointment Letter"
-                            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => openResetPasswordModal(row)}
-                            title="Reset Portal Password"
-                            className="p-1.5 rounded-lg border border-slate-200 text-amber-600 hover:text-amber-800 hover:bg-amber-50 transition-colors"
-                          >
-                            <Key className="w-3.5 h-3.5" />
-                          </button>
-
-                          {row.status === 'archived' ? (
-                            <button
-                              type="button"
-                              onClick={() => executeRestore(row)}
-                              title="Restore to Active Status"
-                              className="p-1.5 rounded-lg border border-emerald-200 text-emerald-600 hover:bg-emerald-50 transition-colors"
-                            >
-                              <RotateCcw className="w-3.5 h-3.5" />
-                            </button>
+                return (
+                  <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
+                    {/* 1. Employee Info & 3:4 Frame */}
+                    <td className="px-3.5 py-2.5">
+                      <div className="flex items-center gap-3">
+                        {/* 3:4 Passport portrait ratio frame */}
+                        <div className="w-8 h-10 rounded bg-slate-100 border border-slate-300 overflow-hidden flex items-center justify-center shrink-0 text-slate-600 font-bold text-xs uppercase">
+                          {row.avatar_url ? (
+                            <img
+                              src={row.avatar_url}
+                              alt={row.full_name}
+                              className="w-full h-full object-cover"
+                            />
                           ) : (
-                            <button
-                              type="button"
-                              onClick={() => setArchiveTarget(row)}
-                              title="Soft Archive Staff Member"
-                              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                            >
-                              <Archive className="w-3.5 h-3.5" />
-                            </button>
+                            row.full_name.charAt(0)
                           )}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[11px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                              {row.employee_code}
+                            </span>
+                            <p className="font-bold text-slate-900 tracking-tight">{row.full_name}</p>
+                          </div>
+                          {row.father_or_spouse_name && (
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                              S/O, D/O: {row.father_or_spouse_name}
+                            </p>
+                          )}
+                          {row.cnic && !row.cnic.includes('@') && (
+                            <p className="text-[10px] text-slate-400 font-mono">
+                              CNIC: {row.cnic}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
 
+                    {/* 2. Department & Role */}
+                    <td className="px-3.5 py-2.5">
+                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        {row.department}
+                      </span>
+                      <p className="text-slate-900 font-medium text-xs mt-0.5 truncate max-w-[140px]">
+                        {row.designation}
+                      </p>
+                      <p className="text-slate-400 text-[10px] capitalize">
+                        {row.employment_type} · Exp: {row.experience_years}y
+                      </p>
+                    </td>
+
+                    {/* 3. Contact */}
+                    <td className="px-3.5 py-2.5">
+                      <div className="space-y-0.5">
+                        <p className="text-slate-800 font-mono text-xs">{row.phone || '—'}</p>
+                        <p className="text-slate-500 text-[11px] truncate max-w-[150px]">{row.email}</p>
+                        {row.whatsapp && (
+                          <span className="text-[10px] text-emerald-700 font-mono">
+                            WA: {row.whatsapp}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* 4. Workload / Teaching */}
+                    <td className="px-3.5 py-2.5">
+                      {assignedCount > 0 ? (
+                        <div>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                            <BookOpen className="w-3 h-3 text-slate-600" />
+                            {assignedCount} {assignedCount === 1 ? 'Subject' : 'Subjects'}
+                          </span>
+                          <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[140px]">
+                            {Array.from(new Set(row.teaching_assignments?.map(t => t.subject_name) || [])).join(', ')}
+                          </p>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 italic">No classes</span>
+                      )}
+                    </td>
+
+                    {/* 5. Salary & Bank */}
+                    <td className="px-3.5 py-2.5">
+                      <p className="font-mono font-bold text-slate-900 text-xs">
+                        PKR {row.base_salary ? row.base_salary.toLocaleString() : '0'}
+                      </p>
+                      <p className="text-[10px] text-slate-500 truncate max-w-[130px]">
+                        {row.bank_name || 'Bank Not Configured'}
+                      </p>
+                    </td>
+
+                    {/* 6. Portal Access */}
+                    <td className="px-3.5 py-2.5">
+                      <span
+                        className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded border ${
+                          grantedCount > 0
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-slate-100 text-slate-500 border-slate-200'
+                        }`}
+                      >
+                        <ShieldCheck className="w-3 h-3" />
+                        {grantedCount} / {totalDesks} Desks
+                      </span>
+                    </td>
+
+                    {/* 7. Status */}
+                    <td className="px-3.5 py-2.5">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                          row.status === 'active'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : row.status === 'on_leave'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200'
+                            : 'bg-slate-100 text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        {row.status}
+                      </span>
+                    </td>
+
+                    {/* 8. Actions Menu */}
+                    <td className="px-3.5 py-2.5 text-right whitespace-nowrap">
+                      <div className="inline-flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(row)}
+                          title="Edit Staff Dossier"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100 text-xs font-semibold transition-colors"
+                        >
+                          <Edit2 className="w-3 h-3 text-slate-500" />
+                          <span>Edit</span>
+                        </button>
+
+                        <div className="relative inline-block text-left staff-action-menu-container">
                           <button
                             type="button"
-                            onClick={() => setDeleteTarget(row)}
-                            title="Permanent Hard Delete"
-                            className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-700 hover:bg-rose-50 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveActionMenuId(activeActionMenuId === row.id ? null : row.id);
+                            }}
+                            title="More Options"
+                            className={`p-1.5 rounded-lg border transition-colors ${
+                              activeActionMenuId === row.id
+                                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                                : 'border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                            }`}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <MoreVertical className="w-3.5 h-3.5" />
                           </button>
+
+                          {activeActionMenuId === row.id && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 top-full mt-1 w-52 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-30 divide-y divide-slate-100 text-left"
+                            >
+                              <div className="py-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenuId(null);
+                                    openTeachingModal(row);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors font-medium"
+                                >
+                                  <BookOpen className="w-3.5 h-3.5 text-indigo-600" />
+                                  <span>Teaching Workload</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenuId(null);
+                                    setAccessDrawerStaff(row);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors font-medium"
+                                >
+                                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Portal Permissions</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenuId(null);
+                                    setIdCardStaff(row);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors font-medium"
+                                >
+                                  <CreditCard className="w-3.5 h-3.5 text-slate-600" />
+                                  <span>Print Staff ID Card</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenuId(null);
+                                    setAppointmentStaff(row);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors font-medium"
+                                >
+                                  <FileText className="w-3.5 h-3.5 text-slate-600" />
+                                  <span>Appointment Letter</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenuId(null);
+                                    openResetPasswordModal(row);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors font-medium"
+                                >
+                                  <Key className="w-3.5 h-3.5 text-amber-600" />
+                                  <span>Reset Password</span>
+                                </button>
+                              </div>
+
+                              <div className="py-1">
+                                {row.status === 'archived' ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionMenuId(null);
+                                      executeRestore(row);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition-colors font-medium"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>Restore Active</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionMenuId(null);
+                                      setArchiveTarget(row);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50 flex items-center gap-2.5 transition-colors font-medium"
+                                  >
+                                    <Archive className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>Soft Archive</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionMenuId(null);
+                                    setDeleteTarget(row);
+                                  }}
+                                  className="w-full text-left px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors font-medium"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                  <span>Delete Staff</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
 
@@ -1129,6 +1178,7 @@ export const StaffDeskView: React.FC = () => {
                         value={form.cnic}
                         onChange={e => setForm({ ...form, cnic: e.target.value })}
                         placeholder="37405-XXXXXXX-X"
+                        autoComplete="off"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 font-mono focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
