@@ -118,7 +118,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <img src="/kampus-logo.png?v=official" alt="Kampus" className="h-4 w-auto object-contain mr-1" />
+                  <img src="/kampus-logo.png?v=official2" alt="Kampus" className="h-5 w-auto object-contain mr-1" />
                   <span className="px-2 py-0.5 bg-rose-500/40 text-rose-200 text-[10px] font-black uppercase tracking-wider rounded-md border border-rose-400/40">
                     Subscription Expired
                   </span>
@@ -375,7 +375,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
         {/* Footer */}
         <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
           <div className="flex items-center gap-2">
-            <img src="/kampus-logo.png?v=official" alt="Kampus" className="h-4 w-auto object-contain" />
+            <img src="/kampus-logo.png?v=official2" alt="Kampus" className="h-5 w-auto object-contain" />
             <span className="text-slate-300">|</span>
             <span>Subscription & Licensing Platform</span>
           </div>

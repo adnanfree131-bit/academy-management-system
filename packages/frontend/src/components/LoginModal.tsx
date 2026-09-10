@@ -452,7 +452,7 @@ export const LoginModal: React.FC = () => {
 
   const activeAcademyLogo = mode === 'register'
     ? regLogoUrl
-    : (branding?.logo_url || (tenantSlug ? null : '/kampus-logo.png?v=official'));
+    : (branding?.logo_url || (tenantSlug ? null : '/kampus-logo.png?v=official2'));
 
   const activeDomain = mode === 'register'
     ? (regSlug.trim() ? `${regSlug.trim().toLowerCase()}.${baseDomain}` : `subdomain.${baseDomain}`)
@@ -470,10 +470,7 @@ export const LoginModal: React.FC = () => {
         <div className="hidden lg:flex lg:col-span-5 bg-slate-950 text-white p-8 lg:p-10 flex-col justify-between relative overflow-hidden border-r border-slate-900">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
           
-          {/* Top Bar: Clean Brand Logo */}
-          <div className="relative z-10 pb-4 border-b border-slate-900">
-            <img src="/kampus-logo.png?v=official" alt="Kampus" className="h-8 w-auto object-contain object-left" />
-          </div>
+          <div className="relative z-10 pb-4 border-b border-slate-800/80" />
 
           {/* Middle Live Showcase: Features on Platform Sign-in, Branding on Tenant/Registration */}
           {isPlatformSignIn ? (
@@ -599,11 +596,11 @@ export const LoginModal: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 border-b border-slate-100 pb-4">
             <div className="flex items-center justify-between w-full sm:w-auto">
               {/* Mobile brand presentation */}
-              <div className="flex items-center gap-2.5 lg:hidden">
+              <div className="flex items-center gap-2.5">
                 {isSubdomain ? (
                   <div className="flex items-center gap-2">
                     {branding?.logo_url ? (
-                      <img src={branding.logo_url} alt={branding?.name || tenantSlug || 'Academy'} className="h-7 w-auto object-contain max-w-[120px]" />
+                      <img src={branding.logo_url} alt={branding?.name || tenantSlug || 'Academy'} className="h-7 w-auto object-contain max-w-[140px]" />
                     ) : (
                       <div className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
                         {(branding?.name || tenantSlug || 'A').charAt(0).toUpperCase()}
@@ -614,7 +611,7 @@ export const LoginModal: React.FC = () => {
                     </span>
                   </div>
                 ) : (
-                  <img src="/kampus-logo.png?v=official" alt="Kampus" className="h-6 w-auto object-contain" />
+                  <img src="/kampus-logo.png?v=official2" alt="Kampus" className="h-7 w-auto object-contain object-left" />
                 )}
               </div>
               {tenantSlug && branding?.name && !isSubdomain && (
