@@ -474,12 +474,15 @@ export interface CampusGeofenceConfig {
     longitude: number;
     radius_meters: number;
     shift_start_time: string;
+    shift_end_time?: string;
     grace_period_minutes: number;
-    multi_room_enabled: boolean;
+    half_day_hours?: number;
+    enforcement_mode?: 'strict' | 'flagged';
+    multi_room_enabled?: boolean;
     created_at: string;
     updated_at: string;
 }
-export type StaffAttendanceStatus = 'on_time' | 'late' | 'absent' | 'on_leave';
+export type StaffAttendanceStatus = 'on_time' | 'late' | 'half_day' | 'absent' | 'on_leave';
 export interface StaffAttendanceRecord {
     id: string;
     tenant_id: string;
@@ -490,13 +493,38 @@ export interface StaffAttendanceRecord {
     clock_out_time?: string | null;
     clock_in_lat: number;
     clock_in_lng: number;
+    clock_out_lat?: number | null;
+    clock_out_lng?: number | null;
+    work_duration_minutes?: number | null;
+    early_departure?: boolean;
     distance_meters: number;
     status: StaffAttendanceStatus;
     is_geofence_verified: boolean;
+    verification_mode?: 'geofence' | 'manual_regularization' | 'biometric_sync';
     admin_adjusted?: boolean;
     admin_adjustment_notes?: string | null;
+    adjusted_by?: string | null;
     created_at: string;
     updated_at: string;
+}
+export interface DailyStaffRosterEntry {
+    staff_id: string;
+    staff_name: string;
+    employee_code: string;
+    department: string;
+    designation: string;
+    date: string;
+    status: StaffAttendanceStatus | 'not_marked';
+    clock_in_time?: string | null;
+    clock_out_time?: string | null;
+    work_duration_minutes?: number | null;
+    early_departure?: boolean;
+    distance_meters?: number | null;
+    is_geofence_verified: boolean;
+    verification_mode?: 'geofence' | 'manual_regularization' | 'biometric_sync';
+    admin_adjusted?: boolean;
+    admin_adjustment_notes?: string | null;
+    record_id?: string | null;
 }
 export interface HomeworkAssignment {
     id: string;

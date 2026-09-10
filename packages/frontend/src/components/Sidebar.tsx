@@ -187,7 +187,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <MapPin className={`w-4 h-4 ${currentScreen === 'geofence' ? 'text-white' : 'text-rose-500'}`} />
-                        <span>Campus Check-In</span>
+                        <span>Staff Attendance</span>
                       </button>
                     </div>
                   </div>

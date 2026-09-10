@@ -29,6 +29,7 @@ import {
   CampusGeofenceConfig,
   StaffAttendanceRecord,
   StaffAttendanceStatus,
+  DailyStaffRosterEntry,
   HomeworkAssignment,
   NotebookCheckRecord,
   NotebookStatus,
@@ -274,7 +275,23 @@ export interface IDataStore {
   getGeofenceConfig(tenantId: string): Promise<CampusGeofenceConfig>;
   updateGeofenceConfig(tenantId: string, config: Partial<CampusGeofenceConfig>): Promise<CampusGeofenceConfig>;
   staffClockIn(tenantId: string, staffId: string, staffName: string, lat: number, lng: number): Promise<StaffAttendanceRecord>;
+  staffClockOut(tenantId: string, staffId: string, lat: number, lng: number): Promise<StaffAttendanceRecord>;
   getStaffAttendance(tenantId: string, date?: string): Promise<StaffAttendanceRecord[]>;
+  getStaffRoster(tenantId: string, date?: string): Promise<DailyStaffRosterEntry[]>;
+  manualStaffAttendance(
+    tenantId: string,
+    data: {
+      staff_id: string;
+      staff_name?: string;
+      date: string;
+      status: StaffAttendanceStatus;
+      clock_in_time?: string;
+      clock_out_time?: string;
+      reason: string;
+      verification_mode?: 'manual_regularization' | 'biometric_sync';
+      adjusted_by?: string;
+    }
+  ): Promise<StaffAttendanceRecord>;
   adjustStaffAttendance(tenantId: string, id: string, status: StaffAttendanceStatus, notes: string): Promise<StaffAttendanceRecord>;
 
   // --- Phase 3: Homework Diary & Physical Notebook Checking ---
@@ -2614,7 +2631,10 @@ export class InMemoryDataStore implements IDataStore {
       longitude: 74.3587,
       radius_meters: 150,
       shift_start_time: '08:00:00',
+      shift_end_time: '14:00:00',
       grace_period_minutes: 15,
+      half_day_hours: 4,
+      enforcement_mode: 'strict',
       multi_room_enabled: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -2650,7 +2670,8 @@ export class InMemoryDataStore implements IDataStore {
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distanceMeters = Math.round(R * c);
 
-    if (distanceMeters > config.radius_meters) {
+    const isOutside = distanceMeters > config.radius_meters;
+    if (isOutside && config.enforcement_mode !== 'flagged') {
       throw new Error(`Clock-in rejected: Outside campus boundary (${distanceMeters}m away, maximum allowed radius is ${config.radius_meters}m)`);
     }
 
@@ -2664,7 +2685,21 @@ export class InMemoryDataStore implements IDataStore {
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     const status: StaffAttendanceStatus = currentMinutes > cutoffMinutes ? 'late' : 'on_time';
 
-    const record: StaffAttendanceRecord = {
+    // Check if record already exists for today
+    let record = this.staffAttendance.find(s => s.tenant_id === tenantId && s.staff_id === staffId && s.date === dateStr);
+    if (record) {
+      record.clock_in_time = nowIso;
+      record.clock_in_lat = lat;
+      record.clock_in_lng = lng;
+      record.distance_meters = distanceMeters;
+      record.status = status;
+      record.is_geofence_verified = !isOutside;
+      record.verification_mode = 'geofence';
+      record.updated_at = nowIso;
+      return record;
+    }
+
+    record = {
       id: crypto.randomUUID(),
       tenant_id: tenantId,
       staff_id: staffId,
@@ -2675,7 +2710,8 @@ export class InMemoryDataStore implements IDataStore {
       clock_in_lng: lng,
       distance_meters: distanceMeters,
       status,
-      is_geofence_verified: true,
+      is_geofence_verified: !isOutside,
+      verification_mode: 'geofence',
       created_at: nowIso,
       updated_at: nowIso,
     };
@@ -2684,10 +2720,217 @@ export class InMemoryDataStore implements IDataStore {
     return record;
   }
 
+  async staffClockOut(tenantId: string, staffId: string, lat: number, lng: number): Promise<StaffAttendanceRecord> {
+    const config = await this.getGeofenceConfig(tenantId);
+
+    // Calculate distance using Haversine formula
+    const R = 6371000;
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const dLat = toRad(lat - config.latitude);
+    const dLon = toRad(lng - config.longitude);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(config.latitude)) * Math.cos(toRad(lat)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distanceMeters = Math.round(R * c);
+
+    const isOutside = distanceMeters > config.radius_meters;
+    if (isOutside && config.enforcement_mode !== 'flagged') {
+      throw new Error(`Clock-out rejected: Outside campus boundary (${distanceMeters}m away, maximum allowed radius is ${config.radius_meters}m)`);
+    }
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const dateStr = nowIso.split('T')[0];
+
+    const record = this.staffAttendance.find(s => s.tenant_id === tenantId && s.staff_id === staffId && s.date === dateStr);
+    if (!record) {
+      throw new Error('No active clock-in record found for today. Please clock in first.');
+    }
+
+    record.clock_out_time = nowIso;
+    record.clock_out_lat = lat;
+    record.clock_out_lng = lng;
+
+    const inTime = new Date(record.clock_in_time).getTime();
+    const outTime = now.getTime();
+    const durationMinutes = Math.max(0, Math.round((outTime - inTime) / 60000));
+    record.work_duration_minutes = durationMinutes;
+
+    // Check half-day threshold
+    const halfDayMins = (config.half_day_hours ?? 4) * 60;
+    if (durationMinutes < halfDayMins && record.status === 'on_time') {
+      record.status = 'half_day';
+    }
+
+    // Check early departure
+    if (config.shift_end_time) {
+      const [endH, endM] = config.shift_end_time.split(':').map(Number);
+      const shiftEndMins = (endH || 14) * 60 + (endM || 0);
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      if (currentMinutes < shiftEndMins) {
+        record.early_departure = true;
+      }
+    }
+
+    record.updated_at = nowIso;
+    return record;
+  }
+
   async getStaffAttendance(tenantId: string, date?: string): Promise<StaffAttendanceRecord[]> {
     return this.staffAttendance.filter(s => 
       s.tenant_id === tenantId && (!date || s.date === date)
     );
+  }
+
+  async getStaffRoster(tenantId: string, date?: string): Promise<DailyStaffRosterEntry[]> {
+    const dateStr = date || new Date().toISOString().split('T')[0];
+    const users = Array.from(this.users.values()).filter(u =>
+      u.tenant_id === tenantId &&
+      !['super_admin', 'student', 'parent'].includes(u.role) &&
+      (u as any).status !== 'archived'
+    );
+    const records = this.staffAttendance.filter(s => s.tenant_id === tenantId && s.date === dateStr);
+    const leaves = this.leaveApplications.filter(l =>
+      l.tenant_id === tenantId &&
+      l.status === 'approved' &&
+      l.start_date <= dateStr &&
+      l.end_date >= dateStr
+    );
+
+    return users.map(user => {
+      const uName = user.full_name || (user as any).name || 'Staff Member';
+      const rec = records.find(r => r.staff_id === user.id || r.staff_id === (user as any).employee_code || r.staff_name === uName);
+      const leave = leaves.find(l => l.student_id === user.id);
+      const empCode = (user as any).employee_code || `EMP-${user.id.slice(0, 4).toUpperCase()}`;
+      const dept = (user as any).department || 'General';
+      const designation = (user as any).designation || (user.role === 'teacher' ? 'Faculty Member' : 'Staff');
+
+      if (rec) {
+        return {
+          staff_id: user.id,
+          staff_name: uName,
+          employee_code: empCode,
+          department: dept,
+          designation: designation,
+          date: dateStr,
+          status: rec.status,
+          clock_in_time: rec.clock_in_time,
+          clock_out_time: rec.clock_out_time || null,
+          work_duration_minutes: rec.work_duration_minutes ?? null,
+          early_departure: rec.early_departure,
+          distance_meters: rec.distance_meters,
+          is_geofence_verified: rec.is_geofence_verified,
+          verification_mode: rec.verification_mode || 'geofence',
+          admin_adjusted: rec.admin_adjusted,
+          admin_adjustment_notes: rec.admin_adjustment_notes,
+          record_id: rec.id,
+        };
+      }
+
+      if (leave) {
+        return {
+          staff_id: user.id,
+          staff_name: uName,
+          employee_code: empCode,
+          department: dept,
+          designation: designation,
+          date: dateStr,
+          status: 'on_leave',
+          clock_in_time: null,
+          clock_out_time: null,
+          work_duration_minutes: null,
+          is_geofence_verified: false,
+          verification_mode: undefined,
+          admin_adjusted: false,
+          admin_adjustment_notes: `Approved Leave (${leave.category})`,
+          record_id: null,
+        };
+      }
+
+      return {
+        staff_id: user.id,
+        staff_name: uName,
+        employee_code: empCode,
+        department: dept,
+        designation: designation,
+        date: dateStr,
+        status: 'absent',
+        clock_in_time: null,
+        clock_out_time: null,
+        work_duration_minutes: null,
+        is_geofence_verified: false,
+        verification_mode: undefined,
+        admin_adjusted: false,
+        admin_adjustment_notes: null,
+        record_id: null,
+      };
+    });
+  }
+
+  async manualStaffAttendance(
+    tenantId: string,
+    data: {
+      staff_id: string;
+      staff_name?: string;
+      date: string;
+      status: StaffAttendanceStatus;
+      clock_in_time?: string;
+      clock_out_time?: string;
+      reason: string;
+      verification_mode?: 'manual_regularization' | 'biometric_sync';
+      adjusted_by?: string;
+    }
+  ): Promise<StaffAttendanceRecord> {
+    const nowIso = new Date().toISOString();
+    let record = this.staffAttendance.find(s => s.tenant_id === tenantId && s.staff_id === data.staff_id && s.date === data.date);
+
+    let durationMins: number | null = null;
+    if (data.clock_in_time && data.clock_out_time) {
+      durationMins = Math.max(0, Math.round((new Date(data.clock_out_time).getTime() - new Date(data.clock_in_time).getTime()) / 60000));
+    }
+
+    if (record) {
+      record.status = data.status;
+      if (data.clock_in_time) record.clock_in_time = data.clock_in_time;
+      if (data.clock_out_time) record.clock_out_time = data.clock_out_time;
+      if (durationMins !== null) record.work_duration_minutes = durationMins;
+      record.admin_adjusted = true;
+      record.admin_adjustment_notes = data.reason;
+      record.adjusted_by = data.adjusted_by;
+      record.verification_mode = data.verification_mode || 'manual_regularization';
+      if (data.verification_mode === 'biometric_sync') {
+        record.is_geofence_verified = true;
+      }
+      record.updated_at = nowIso;
+      return record;
+    }
+
+    record = {
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      staff_id: data.staff_id,
+      staff_name: data.staff_name || 'Staff Member',
+      date: data.date,
+      clock_in_time: data.clock_in_time || nowIso,
+      clock_out_time: data.clock_out_time || null,
+      clock_in_lat: 0,
+      clock_in_lng: 0,
+      distance_meters: 0,
+      status: data.status,
+      is_geofence_verified: data.verification_mode === 'biometric_sync',
+      verification_mode: data.verification_mode || 'manual_regularization',
+      work_duration_minutes: durationMins,
+      admin_adjusted: true,
+      admin_adjustment_notes: data.reason,
+      adjusted_by: data.adjusted_by,
+      created_at: nowIso,
+      updated_at: nowIso,
+    };
+
+    this.staffAttendance.push(record);
+    return record;
   }
 
   async adjustStaffAttendance(tenantId: string, id: string, status: StaffAttendanceStatus, notes: string): Promise<StaffAttendanceRecord> {

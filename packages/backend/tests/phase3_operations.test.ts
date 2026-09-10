@@ -318,6 +318,63 @@ describe('Phase 3 Core ERP Operations & Collision Engine', () => {
       expect(updated.admin_adjusted).toBe(true);
       expect(updated.admin_adjustment_notes).toContain('Biometric device');
     });
+
+    it('successfully clocks out when within campus geofence and calculates duration', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/geofence/attendance/staff/clock-out',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          latitude: 31.52045,
+          longitude: 74.35872,
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const record = res.json().data;
+      expect(record.clock_out_time).toBeTruthy();
+      expect(record.work_duration_minutes).toBeDefined();
+    });
+
+    it('allows administrator to record manual attendance regularization', async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/geofence/attendance/staff/manual',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          staff_id: 'manual-staff-001',
+          staff_name: 'Prof. Tariq Mehmood',
+          date: today,
+          status: 'on_time',
+          clock_in_time: `${today}T08:00:00.000Z`,
+          clock_out_time: `${today}T14:15:00.000Z`,
+          reason: 'Biometric thumb scanner device synchronization issue; manual verification by campus admin.',
+          verification_mode: 'biometric_sync',
+        },
+      });
+
+      expect(res.statusCode).toBe(201);
+      const record = res.json().data;
+      expect(record.staff_id).toBe('manual-staff-001');
+      expect(record.status).toBe('on_time');
+      expect(record.verification_mode).toBe('biometric_sync');
+      expect(record.admin_adjusted).toBe(true);
+      expect(record.work_duration_minutes).toBe(375); // 6 hrs 15 mins
+    });
+
+    it('retrieves full staff daily roster including attendance and absent members', async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/v1/geofence/attendance/roster?date=${today}`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const roster = res.json().data;
+      expect(Array.isArray(roster)).toBe(true);
+    });
   });
 
   // =========================================================================
