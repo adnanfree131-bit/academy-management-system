@@ -30,6 +30,9 @@ export interface AppOptions {
 
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
   const store = options.store || new InMemoryDataStore();
+  if (!options.store && store instanceof InMemoryDataStore) {
+    await store.hydrateFromDatabase();
+  }
   const mailer = options.mailer || createMailerService();
   const jwtSecret = options.jwtSecret || process.env.JWT_SECRET || 'super-secret-default-dev-key-minimum-32-chars';
 

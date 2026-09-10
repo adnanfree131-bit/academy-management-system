@@ -78,7 +78,16 @@ export class CloudflareService implements ICloudflareService {
 
         if (res.ok) {
           const body: any = await res.json();
-          if (body.result && body.result.length > 0) {
+          const records = body.result || [];
+          if (records.length > 0) {
+            const ours = records.every(
+              (r: any) =>
+                String(r.type).toUpperCase() === 'CNAME' &&
+                String(r.content || '').replace(/\.$/, '') === this.pagesTarget
+            );
+            if (ours) {
+              return { available: true, domain };
+            }
             return { available: false, domain, reason: `Domain ${domain} is already registered in DNS.` };
           }
         }

@@ -84,6 +84,7 @@ import {
 } from '@apex/shared-types';
 
 import { hashPassword, verifyPassword } from './password.js';
+import { loadSnapshot, persistenceEnabled, saveSnapshot } from './store-persist.js';
 
 export interface StoredOTP {
   id: string;
@@ -595,6 +596,153 @@ export class InMemoryDataStore implements IDataStore {
 
     if (process.env.NODE_ENV === 'test') {
       this.seedTestData();
+    }
+
+    if (persistenceEnabled()) {
+      this.persistTimer = setInterval(() => {
+        this.persistQueued = true;
+        void this.flushPersist();
+      }, 10000);
+      if (typeof this.persistTimer.unref === 'function') this.persistTimer.unref();
+    }
+  }
+
+  private persistTimer: ReturnType<typeof setInterval> | null = null;
+  private persistQueued = false;
+  private persisting = false;
+
+  private snapshotState(): Record<string, unknown> {
+    return {
+      tenants: [...this.tenants.entries()],
+      users: [...this.users.entries()],
+      otps: this.otps,
+      programs: this.programs,
+      subjects: this.subjects,
+      subjectGroups: this.subjectGroups,
+      batches: this.batches,
+      customFields: this.customFields,
+      inquiries: this.inquiries,
+      students: this.students,
+      rooms: this.rooms,
+      timetableSlots: this.timetableSlots,
+      studentAttendance: this.studentAttendance,
+      leaveApplications: this.leaveApplications,
+      geofenceConfigs: [...this.geofenceConfigs.entries()],
+      staffAttendance: this.staffAttendance,
+      homeworkAssignments: this.homeworkAssignments,
+      notebookChecks: this.notebookChecks,
+      complaints: this.complaints,
+      feeHeads: this.feeHeads,
+      feePriorityConfigs: [...this.feePriorityConfigs.entries()],
+      feeStructures: this.feeStructures,
+      invoices: this.invoices,
+      feePayments: this.feePayments,
+      feeDiscounts: this.feeDiscounts,
+      accountHeads: this.accountHeads,
+      financialTransactions: this.financialTransactions,
+      staffSalaryProfiles: this.staffSalaryProfiles,
+      staffPayslips: this.staffPayslips,
+      questionChapters: this.questionChapters,
+      bankQuestions: this.bankQuestions,
+      exams: this.exams,
+      examQuestions: this.examQuestions,
+      studentExamEvaluations: this.studentExamEvaluations,
+      whatsappTemplates: this.whatsappTemplates,
+      whatsappAuditLogs: this.whatsappAuditLogs,
+      absenteeFollowups: this.absenteeFollowups,
+      retentionCases: this.retentionCases,
+      platformBankingConfig: this.platformBankingConfig,
+      platformGlobalConfig: this.platformGlobalConfig,
+      subscriptionReceipts: this.subscriptionReceipts,
+      tenantAliases: this.tenantAliases,
+      announcements: this.announcements,
+      announcementReceipts: this.announcementReceipts,
+    };
+  }
+
+  private applySnapshot(payload: Record<string, unknown>): void {
+    const asEntries = <K, V>(value: unknown): [K, V][] => (Array.isArray(value) ? (value as [K, V][]) : []);
+    const asArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
+
+    if (payload.tenants) this.tenants = new Map(asEntries(payload.tenants));
+    if (payload.users) this.users = new Map(asEntries(payload.users));
+    if (payload.otps) this.otps = asArray(payload.otps);
+    if (payload.programs) this.programs = asArray(payload.programs);
+    if (payload.subjects) this.subjects = asArray(payload.subjects);
+    if (payload.subjectGroups) this.subjectGroups = asArray(payload.subjectGroups);
+    if (payload.batches) this.batches = asArray(payload.batches);
+    if (payload.customFields) this.customFields = asArray(payload.customFields);
+    if (payload.inquiries) this.inquiries = asArray(payload.inquiries);
+    if (payload.students) this.students = asArray(payload.students);
+    if (payload.rooms) this.rooms = asArray(payload.rooms);
+    if (payload.timetableSlots) this.timetableSlots = asArray(payload.timetableSlots);
+    if (payload.studentAttendance) this.studentAttendance = asArray(payload.studentAttendance);
+    if (payload.leaveApplications) this.leaveApplications = asArray(payload.leaveApplications);
+    if (payload.geofenceConfigs) this.geofenceConfigs = new Map(asEntries(payload.geofenceConfigs));
+    if (payload.staffAttendance) this.staffAttendance = asArray(payload.staffAttendance);
+    if (payload.homeworkAssignments) this.homeworkAssignments = asArray(payload.homeworkAssignments);
+    if (payload.notebookChecks) this.notebookChecks = asArray(payload.notebookChecks);
+    if (payload.complaints) this.complaints = asArray(payload.complaints);
+    if (payload.feeHeads) this.feeHeads = asArray(payload.feeHeads);
+    if (payload.feePriorityConfigs) this.feePriorityConfigs = new Map(asEntries(payload.feePriorityConfigs));
+    if (payload.feeStructures) this.feeStructures = asArray(payload.feeStructures);
+    if (payload.invoices) this.invoices = asArray(payload.invoices);
+    if (payload.feePayments) this.feePayments = asArray(payload.feePayments);
+    if (payload.feeDiscounts) this.feeDiscounts = asArray(payload.feeDiscounts);
+    if (payload.accountHeads) this.accountHeads = asArray(payload.accountHeads);
+    if (payload.financialTransactions) this.financialTransactions = asArray(payload.financialTransactions);
+    if (payload.staffSalaryProfiles) this.staffSalaryProfiles = asArray(payload.staffSalaryProfiles);
+    if (payload.staffPayslips) this.staffPayslips = asArray(payload.staffPayslips);
+    if (payload.questionChapters) this.questionChapters = asArray(payload.questionChapters);
+    if (payload.bankQuestions) this.bankQuestions = asArray(payload.bankQuestions);
+    if (payload.exams) this.exams = asArray(payload.exams);
+    if (payload.examQuestions) this.examQuestions = asArray(payload.examQuestions);
+    if (payload.studentExamEvaluations) this.studentExamEvaluations = asArray(payload.studentExamEvaluations);
+    if (payload.whatsappTemplates) this.whatsappTemplates = asArray(payload.whatsappTemplates);
+    if (payload.whatsappAuditLogs) this.whatsappAuditLogs = asArray(payload.whatsappAuditLogs);
+    if (payload.absenteeFollowups) this.absenteeFollowups = asArray(payload.absenteeFollowups);
+    if (payload.retentionCases) this.retentionCases = asArray(payload.retentionCases);
+    if (payload.platformBankingConfig) this.platformBankingConfig = payload.platformBankingConfig as PlatformBankingConfig;
+    if (payload.platformGlobalConfig) this.platformGlobalConfig = payload.platformGlobalConfig as PlatformGlobalConfig;
+    if (payload.subscriptionReceipts) this.subscriptionReceipts = asArray(payload.subscriptionReceipts);
+    if (payload.tenantAliases) this.tenantAliases = asArray(payload.tenantAliases);
+    if (payload.announcements) this.announcements = asArray(payload.announcements);
+    if (payload.announcementReceipts) this.announcementReceipts = asArray(payload.announcementReceipts);
+  }
+
+  async hydrateFromDatabase(): Promise<void> {
+    if (!persistenceEnabled()) return;
+    try {
+      const payload = await loadSnapshot();
+      if (payload && Array.isArray(payload.tenants) && payload.tenants.length > 0) {
+        this.applySnapshot(payload);
+        console.log(`[Store] Restored snapshot with ${this.tenants.size} academies`);
+      } else {
+        this.persistQueued = true;
+        await this.flushPersist();
+        console.log('[Store] No snapshot found; seeded state persisted');
+      }
+    } catch (err) {
+      console.error('[Store] Failed to hydrate from database; continuing with in-memory seed:', err);
+    }
+  }
+
+  schedulePersist(): void {
+    this.persistQueued = true;
+    void this.flushPersist();
+  }
+
+  async flushPersist(): Promise<void> {
+    if (!persistenceEnabled() || this.persisting || !this.persistQueued) return;
+    this.persisting = true;
+    this.persistQueued = false;
+    try {
+      await saveSnapshot(this.snapshotState());
+    } catch (err) {
+      this.persistQueued = true;
+      console.error('[Store] Failed to persist snapshot:', err);
+    } finally {
+      this.persisting = false;
     }
   }
 
@@ -1585,6 +1733,8 @@ export class InMemoryDataStore implements IDataStore {
     ];
     this.feeHeads.push(...defaultFeeHeads);
 
+    this.persistQueued = true;
+    await this.flushPersist();
     return { tenant: newTenant, admin: adminUser };
   }
 
@@ -4397,6 +4547,8 @@ export class InMemoryDataStore implements IDataStore {
     }
     tenant.updated_at = new Date().toISOString();
     this.tenants.set(tenant.id, tenant);
+    this.persistQueued = true;
+    await this.flushPersist();
 
     return {
       tenant: { ...tenant },

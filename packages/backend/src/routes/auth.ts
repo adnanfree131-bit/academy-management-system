@@ -30,7 +30,23 @@ export function authRoutes(
         });
       }
 
-      // Check format and DNS
+      const domain = `${slug}.${process.env.BASE_DOMAIN || 'kampus.pk'}`;
+
+      // Store is the source of truth for registered academies.
+      const isStoreAvailable = await store.checkSlugAvailable(slug);
+      if (!isStoreAvailable) {
+        return reply.send({
+          success: true,
+          data: {
+            slug,
+            available: false,
+            domain,
+            message: 'This subdomain is already registered by another academy.',
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       const cfResult = await cloudflareService.checkSubdomainAvailable(slug);
       if (!cfResult.available) {
         return reply.send({
@@ -40,21 +56,6 @@ export function authRoutes(
             available: false,
             domain: cfResult.domain,
             message: cfResult.reason || 'This subdomain is unavailable.',
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      // Check if already taken in our store
-      const isStoreAvailable = await store.checkSlugAvailable(slug);
-      if (!isStoreAvailable) {
-        return reply.send({
-          success: true,
-          data: {
-            slug,
-            available: false,
-            domain: cfResult.domain,
-            message: 'This subdomain is already registered by another academy.',
           },
           timestamp: new Date().toISOString(),
         });

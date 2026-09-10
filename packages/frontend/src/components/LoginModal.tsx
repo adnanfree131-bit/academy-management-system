@@ -448,7 +448,7 @@ export const LoginModal: React.FC = () => {
 
   const activeAcademyName = mode === 'register'
     ? (regName.trim() || 'Academy Name')
-    : (branding?.name || (tenantSlug ? tenantSlug.toUpperCase() : 'Academy Management System'));
+    : (branding?.name || (isSubdomain ? 'Academy' : 'Academy Management System'));
 
   const activeAcademyLogo = mode === 'register'
     ? regLogoUrl
