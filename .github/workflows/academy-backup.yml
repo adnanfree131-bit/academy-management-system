@@ -6,13 +6,12 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   backup:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - name: Export live snapshot
         env:
           BACKUP_URL: ${{ secrets.BACKUP_EXPORT_URL }}
@@ -28,15 +27,8 @@ jobs:
             -out "backups/${date}.json.enc" \
             -pass pass:"${BACKUP_PASSPHRASE}"
           rm -f /tmp/kampus-backup.json
-          ls -1t backups/*.json.enc | tail -n +31 | xargs -r rm --
-      - name: Commit encrypted backup
-        run: |
-          git config user.name "kampus-backup"
-          git config user.email "backup@kampus.pk"
-          git add backups
-          if git diff --cached --quiet; then
-            echo "No backup changes"
-          else
-            git commit -m "backup: academy snapshot $(date -u +%Y-%m-%d)"
-            git push
-          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kampus-backup-${{ github.run_id }}
+          path: backups/
+          retention-days: 30

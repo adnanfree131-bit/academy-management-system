@@ -20,7 +20,11 @@ import {
   X,
   AlertCircle,
   Check,
-  Copy
+  Copy,
+  BookOpen,
+  Receipt,
+  CalendarCheck,
+  Award
 } from 'lucide-react';
 import { AcademyBranding } from '@apex/shared-types';
 
@@ -457,63 +461,76 @@ export const LoginModal: React.FC = () => {
         : (branding?.domain || (tenantSlug ? `${tenantSlug}.${baseDomain}` : `app.${baseDomain}`)));
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-0 sm:p-6 lg:p-10 font-sans">
-      <div className="w-full max-w-5xl bg-white sm:rounded-2xl sm:border sm:border-slate-200 sm:shadow-sm overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[640px]">
+    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 sm:p-6 lg:p-10 font-sans">
+      <div className="w-full max-w-6xl bg-white sm:rounded-2xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[680px]">
         
-        <div className="hidden lg:flex lg:col-span-5 bg-white p-10 flex-col justify-between border-r border-slate-100">
-          <img src="/kampus-logo.png?v=official2" alt="Kampus" className="h-8 w-auto object-contain object-left" />
+        <div className="hidden lg:flex lg:col-span-5 bg-slate-950 text-white p-8 lg:p-10 flex-col justify-between relative overflow-hidden border-r border-slate-900">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
 
           {isPlatformSignIn ? (
-            <div className="my-auto py-8">
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-                Academy Management System
-              </h2>
-              <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-                Academic and financial operations built for academies.
-              </p>
-              <div className="mt-10 space-y-5">
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Academic structure</h3>
-                  <p className="text-sm text-slate-500 mt-0.5">Classes, batches, and student records.</p>
+            <div className="relative z-10 my-auto py-6">
+              <div className="mb-8">
+                <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-brand">
+                  Academy Management System
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
+                  Academic and financial operations built for academies.
+                </p>
+              </div>
+              <div className="space-y-6">
+                <div className="flex items-start gap-3.5">
+                  <BookOpen className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-semibold text-slate-200">Academic Structure & Batches</h3>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Classes, batches, and student records.</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Fees and challans</h3>
-                  <p className="text-sm text-slate-500 mt-0.5">Ledgers, payments, and official vouchers.</p>
+                <div className="flex items-start gap-3.5">
+                  <Receipt className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-semibold text-slate-200">Fee Ledger & Challans</h3>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Ledgers, payments, and official vouchers.</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Attendance and exams</h3>
-                  <p className="text-sm text-slate-500 mt-0.5">Registers, results, and report cards.</p>
+                <div className="flex items-start gap-3.5">
+                  <CalendarCheck className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-semibold text-slate-200">Attendance</h3>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Daily registers and campus clock-in.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3.5">
+                  <Award className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-semibold text-slate-200">Examinations</h3>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Marks, ranks, and report cards.</p>
+                  </div>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="my-auto py-8 flex flex-col items-start">
-              {activeAcademyLogo ? (
-                <img
-                  src={activeAcademyLogo}
-                  alt={activeAcademyName}
-                  className="h-16 w-auto max-w-[220px] object-contain object-left"
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (mode === 'register') fileInputRef.current?.click();
-                  }}
-                  className={`h-16 w-16 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-400 ${
-                    mode === 'register' ? 'cursor-pointer hover:border-slate-400' : ''
-                  }`}
-                  title={mode === 'register' ? 'Click to upload academy logo' : undefined}
-                >
-                  <GraduationCap className="w-8 h-8" />
-                </button>
-              )}
-              <h1 className={`mt-6 text-xl font-bold tracking-tight break-words ${
-                mode === 'register' && !regName.trim() ? 'text-slate-400' : 'text-slate-900'
-              }`}>
-                {activeAcademyName}
-              </h1>
-              <p className="mt-2 text-xs font-mono text-slate-500">{activeDomain}</p>
+            <div className="relative z-10 my-auto py-8 flex flex-col items-center text-center">
+              <div className="mb-5">
+                {activeAcademyLogo ? (
+                  <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-white p-3.5 border border-slate-700 shadow-2xl flex items-center justify-center overflow-hidden">
+                    <img src={activeAcademyLogo} alt={activeAcademyName} className="w-full h-full object-contain" />
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => { if (mode === 'register') fileInputRef.current?.click(); }}
+                    className={`w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center ${mode === 'register' ? 'cursor-pointer hover:border-slate-700' : ''}`}
+                  >
+                    <GraduationCap className="w-14 h-14 text-slate-400" />
+                  </div>
+                )}
+              </div>
+              <h1 className="font-brand text-lg sm:text-xl font-bold text-white tracking-tight break-words">{activeAcademyName}</h1>
+              <div className="mt-2.5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
+                  <Lock className="w-3 h-3" />
+                  {activeDomain}
+                </span>
+              </div>
             </div>
           )}
         </div>
@@ -542,7 +559,7 @@ export const LoginModal: React.FC = () => {
                     </span>
                   </div>
                 ) : (
-                  <img src="/kampus-logo.png?v=official2" alt="Kampus" className="h-7 w-auto object-contain object-left lg:hidden" />
+                  <img src="/kampus-logo.png?v=official2" alt="Kampus" className="h-8 w-auto object-contain object-left" />
                 )}
               </div>
               {tenantSlug && branding?.name && !isSubdomain && (

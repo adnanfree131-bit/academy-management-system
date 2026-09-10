@@ -84,7 +84,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {role === 'super_admin' ? (
                 <img src="/kampus-logo.png?v=official2" alt="Kampus" className="h-9 w-auto max-w-[180px] object-contain object-left" />
               ) : (
-                <AcademyLogo src={tenant?.logo_url} name={tenant?.name || 'Academy'} size={56} className="!rounded-2xl" />
+                <div className="min-w-0">
+                  <AcademyLogo src={tenant?.logo_url} name={tenant?.name || 'Academy'} size={52} className="!rounded-2xl mb-2.5" />
+                  <p className="font-brand text-[17px] font-extrabold tracking-tight text-slate-900 leading-[1.15] break-words">
+                    {tenant?.name || 'Academy'}
+                  </p>
+                </div>
               )}
               <button onClick={onClose} className="md:hidden text-slate-400 hover:text-slate-700 p-1">
                 <X className="w-4 h-4" />

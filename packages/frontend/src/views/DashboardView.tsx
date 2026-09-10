@@ -28,6 +28,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     totalBilled: 0,
     totalCollected: 0,
     recoveryRate: 0,
+    unpaidCount: 0,
+    unpaidAmount: 0,
+  });
+  const [live, setLive] = useState({
+    presentToday: 0,
+    absentToday: 0,
+    markedToday: 0,
+    pendingAbsentees: 0,
+    openComplaints: 0,
+    homeworkOpen: 0,
+    examsUpcoming: 0,
+    staffIn: 0,
+    inquiries: 0,
   });
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -37,43 +50,81 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     const fetchDashboardData = async () => {
       setLoading(true);
       const headers = { Authorization: `Bearer ${token}` };
+      const today = new Date().toISOString().slice(0, 10);
 
       try {
-        const [studRes, batchRes, progRes, feeRes] = await Promise.all([
+        const [studRes, batchRes, progRes, feeRes, attRes, absRes, examRes, hwRes, staffRes, inqRes, cmpRes] = await Promise.all([
           fetch('/api/v1/sis/students', { headers }).catch(() => null),
           fetch('/api/v1/academic/batches', { headers }).catch(() => null),
           fetch('/api/v1/academic/programs', { headers }).catch(() => null),
           fetch('/api/v1/finance/invoices', { headers }).catch(() => null),
+          fetch(`/api/v1/attendance/students?date=${today}`, { headers }).catch(() => null),
+          fetch('/api/v1/absentee/kpi', { headers }).catch(() => null),
+          fetch('/api/v1/exams', { headers }).catch(() => null),
+          fetch('/api/v1/homework', { headers }).catch(() => null),
+          fetch(`/api/v1/geofence/staff?date=${today}`, { headers }).catch(() => null),
+          fetch('/api/v1/sis/inquiries', { headers }).catch(() => null),
+          fetch('/api/v1/complaints', { headers }).catch(() => null),
         ]);
 
         if (studRes && studRes.ok) {
           const body = await studRes.json();
           if (body.data) setStudents(body.data);
         }
-
         if (batchRes && batchRes.ok) {
           const body = await batchRes.json();
           if (body.data) setBatches(body.data);
         }
-
         if (progRes && progRes.ok) {
           const body = await progRes.json();
           if (body.data) setPrograms(body.data);
         }
-
         if (feeRes && feeRes.ok) {
           const body = await feeRes.json();
           if (body.data && Array.isArray(body.data)) {
             const billed = body.data.reduce((acc: number, inv: any) => acc + (inv.net_total || inv.net_amount || 0), 0);
             const collected = body.data.reduce((acc: number, inv: any) => acc + (inv.paid_amount || 0), 0);
+            const unpaid = body.data.filter((inv: any) => (inv.balance_due ?? inv.balance_amount ?? 0) > 0);
+            const unpaidAmount = unpaid.reduce((acc: number, inv: any) => acc + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
             const rate = billed > 0 ? Math.round((collected / billed) * 100) : 0;
             setFeeStats({
               totalBilled: billed,
               totalCollected: collected,
               recoveryRate: rate,
+              unpaidCount: unpaid.length,
+              unpaidAmount,
             });
           }
         }
+
+        const att = attRes && attRes.ok ? (await attRes.json()).data : [];
+        const attRows = Array.isArray(att) ? att : [];
+        const presentToday = attRows.filter((r: any) => r.status === 'present' || r.status === 'late').length;
+        const absentToday = attRows.filter((r: any) => r.status === 'absent').length;
+
+        const absKpi = absRes && absRes.ok ? (await absRes.json()).data || {} : {};
+        const exams = examRes && examRes.ok ? (await examRes.json()).data || [] : [];
+        const homework = hwRes && hwRes.ok ? (await hwRes.json()).data || [] : [];
+        const staff = staffRes && staffRes.ok ? (await staffRes.json()).data || [] : [];
+        const inquiries = inqRes && inqRes.ok ? (await inqRes.json()).data || [] : [];
+        const complaints = cmpRes && cmpRes.ok ? (await cmpRes.json()).data || [] : [];
+        const examList = Array.isArray(exams) ? exams : [];
+        const hwList = Array.isArray(homework) ? homework : [];
+        const staffList = Array.isArray(staff) ? staff : [];
+        const inqList = Array.isArray(inquiries) ? inquiries : [];
+        const cmpList = Array.isArray(complaints) ? complaints : [];
+
+        setLive({
+          presentToday,
+          absentToday,
+          markedToday: attRows.length,
+          pendingAbsentees: Number(absKpi.pending_count || absKpi.pending || 0),
+          openComplaints: cmpList.filter((c: any) => c.status !== 'resolved' && c.status !== 'closed').length,
+          homeworkOpen: hwList.filter((h: any) => h.status !== 'closed' && h.status !== 'archived').length || hwList.length,
+          examsUpcoming: examList.filter((e: any) => String(e.exam_date || '') >= today).length,
+          staffIn: staffList.filter((s: any) => s.status === 'in' || s.check_in_at || s.clock_in).length,
+          inquiries: inqList.filter((i: any) => i.status === 'open' || i.status === 'new' || !i.status).length || inqList.length,
+        });
       } catch (err) {
         console.error('Error fetching dashboard statistics:', err);
       } finally {
@@ -222,38 +273,46 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </p>
         </div>
 
-        <button type="button" onClick={() => onNavigate('exams')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
-          <p className="text-xs font-semibold text-slate-500">Exams</p>
-          <p className="text-sm font-bold text-slate-900 mt-2">Results and report cards</p>
-        </button>
-        <button type="button" onClick={() => onNavigate('attendance')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
-          <p className="text-xs font-semibold text-slate-500">Attendance</p>
-          <p className="text-sm font-bold text-slate-900 mt-2">Daily register</p>
-        </button>
-        <button type="button" onClick={() => onNavigate('homework')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <p className="text-xs font-semibold text-slate-500">Present today</p>
+          <p className="text-2xl font-bold text-slate-900 font-mono mt-1">{loading ? '—' : live.presentToday}</p>
+          <p className="text-[11px] text-slate-500 mt-1">{live.absentToday} absent · {live.markedToday} marked</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <p className="text-xs font-semibold text-slate-500">Unpaid challans</p>
+          <p className="text-2xl font-bold text-slate-900 font-mono mt-1">{loading ? '—' : feeStats.unpaidCount}</p>
+          <p className="text-[11px] text-slate-500 mt-1">PKR {feeStats.unpaidAmount.toLocaleString()} still due</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <p className="text-xs font-semibold text-slate-500">Absence follow-up</p>
+          <p className="text-2xl font-bold text-slate-900 font-mono mt-1">{loading ? '—' : live.pendingAbsentees}</p>
+          <p className="text-[11px] text-slate-500 mt-1">Open parent follow-ups</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <p className="text-xs font-semibold text-slate-500">Upcoming exams</p>
+          <p className="text-2xl font-bold text-slate-900 font-mono mt-1">{loading ? '—' : live.examsUpcoming}</p>
+          <p className="text-[11px] text-slate-500 mt-1">Dated today or later</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <p className="text-xs font-semibold text-slate-500">Homework</p>
-          <p className="text-sm font-bold text-slate-900 mt-2">Notebook checks</p>
-        </button>
-        <button type="button" onClick={() => onNavigate('id_cards')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
-          <p className="text-xs font-semibold text-slate-500">ID cards</p>
-          <p className="text-sm font-bold text-slate-900 mt-2">Print student cards</p>
-        </button>
-        <button type="button" onClick={() => onNavigate('timetable')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
-          <p className="text-xs font-semibold text-slate-500">Timetable</p>
-          <p className="text-sm font-bold text-slate-900 mt-2">Class schedule</p>
-        </button>
-        <button type="button" onClick={() => onNavigate('payroll')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
-          <p className="text-xs font-semibold text-slate-500">Payroll</p>
-          <p className="text-sm font-bold text-slate-900 mt-2">Staff salaries</p>
-        </button>
-        <button type="button" onClick={() => onNavigate('geofence')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
-          <p className="text-xs font-semibold text-slate-500">Staff attendance</p>
-          <p className="text-sm font-bold text-slate-900 mt-2">Campus clock-in</p>
-        </button>
-        <button type="button" onClick={() => onNavigate('settings')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
-          <p className="text-xs font-semibold text-slate-500">Settings</p>
-          <p className="text-sm font-bold text-slate-900 mt-2">Logo, bank, hours</p>
-        </button>
+          <p className="text-2xl font-bold text-slate-900 font-mono mt-1">{loading ? '—' : live.homeworkOpen}</p>
+          <p className="text-[11px] text-slate-500 mt-1">Open assignments</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <p className="text-xs font-semibold text-slate-500">Staff on campus</p>
+          <p className="text-2xl font-bold text-slate-900 font-mono mt-1">{loading ? '—' : live.staffIn}</p>
+          <p className="text-[11px] text-slate-500 mt-1">Clocked in today</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <p className="text-xs font-semibold text-slate-500">Open complaints</p>
+          <p className="text-2xl font-bold text-slate-900 font-mono mt-1">{loading ? '—' : live.openComplaints}</p>
+          <p className="text-[11px] text-slate-500 mt-1">Not yet closed</p>
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+          <p className="text-xs font-semibold text-slate-500">Admissions inquiries</p>
+          <p className="text-2xl font-bold text-slate-900 font-mono mt-1">{loading ? '—' : live.inquiries}</p>
+          <p className="text-[11px] text-slate-500 mt-1">Waiting in the queue</p>
+        </div>
 
       </div>
 
@@ -340,10 +399,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         {/* Quick-Start Checklist / Operations Guide */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
           <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-3">
-            Academic Operations
+            Today at a glance
           </h2>
 
           <div className="space-y-3 text-xs">
+            <div className="p-3 rounded-lg border border-slate-200/80 bg-slate-50/50">
+              <p className="font-semibold text-slate-900">Attendance</p>
+              <p className="text-slate-600 mt-1">{live.presentToday} present · {live.absentToday} absent · {live.markedToday} marked</p>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-200/80 bg-slate-50/50">
+              <p className="font-semibold text-slate-900">Fees</p>
+              <p className="text-slate-600 mt-1">{feeStats.unpaidCount} unpaid challans · PKR {feeStats.unpaidAmount.toLocaleString()} due</p>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-200/80 bg-slate-50/50">
+              <p className="font-semibold text-slate-900">Follow-up</p>
+              <p className="text-slate-600 mt-1">{live.pendingAbsentees} absence calls · {live.openComplaints} complaints · {live.inquiries} inquiries</p>
+            </div>
+            <div className="p-3 rounded-lg border border-slate-200/80 bg-slate-50/50">
+              <p className="font-semibold text-slate-900">Teaching</p>
+              <p className="text-slate-600 mt-1">{live.examsUpcoming} exams ahead · {live.homeworkOpen} homework · {live.staffIn} staff in</p>
+            </div>
+          </div>
+          <div className="hidden">
             <div 
               onClick={() => onNavigate('classes')}
               className="p-3 rounded-lg border border-slate-200/80 hover:border-slate-400 hover:bg-slate-50/50 transition-all cursor-pointer space-y-1"
