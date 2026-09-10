@@ -84,7 +84,16 @@ import {
 } from '@apex/shared-types';
 
 import { hashPassword, verifyPassword } from './password.js';
-import { countRealAcademies, loadSnapshot, persistenceEnabled, saveSnapshot } from './store-persist.js';
+import {
+  countRealAcademies,
+  createManualBackup,
+  listDataBackups,
+  loadBackupPayload,
+  loadSnapshot,
+  persistenceEnabled,
+  saveSnapshot,
+  type DataBackupMeta,
+} from './store-persist.js';
 
 export interface StoredOTP {
   id: string;
@@ -399,6 +408,9 @@ export interface IDataStore {
   toggleAnnouncement(id: string, isActive: boolean): Promise<PlatformAnnouncement>;
   getActivePopupForTenant(tenantId: string, userId: string, role?: string): Promise<PlatformAnnouncement | null>;
   dismissAnnouncement(announcementId: string, userId: string, tenantId: string): Promise<boolean>;
+  listDataBackups(): Promise<DataBackupMeta[]>;
+  createManualDataBackup(): Promise<DataBackupMeta>;
+  restoreDataBackup(id: number): Promise<{ academy_count: number }>;
 }
 
 export class InMemoryDataStore implements IDataStore {
@@ -4944,6 +4956,29 @@ export class InMemoryDataStore implements IDataStore {
     this.persistQueued = true;
     await this.flushPersist();
     return true;
+  }
+
+  async listDataBackups(): Promise<DataBackupMeta[]> {
+    return listDataBackups();
+  }
+
+  async createManualDataBackup(): Promise<DataBackupMeta> {
+    this.persistAllowed = true;
+    this.persistQueued = true;
+    await this.flushPersist();
+    return createManualBackup(this.snapshotState());
+  }
+
+  async restoreDataBackup(id: number): Promise<{ academy_count: number }> {
+    const payload = await loadBackupPayload(id);
+    if (!payload || !Array.isArray(payload.tenants)) {
+      throw new Error('Backup not found or empty');
+    }
+    this.applySnapshot(payload);
+    this.persistAllowed = true;
+    this.persistQueued = true;
+    await this.flushPersist();
+    return { academy_count: countRealAcademies(payload) };
   }
 }
 

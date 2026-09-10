@@ -638,5 +638,52 @@ export function saasRoutes(store: IDataStore) {
     fastify.get('/saas/tenant/active-popup', getActivePopupHandler);
     fastify.post('/tenant/announcements/:id/dismiss', dismissAnnouncementHandler);
     fastify.post('/saas/tenant/announcements/:id/dismiss', dismissAnnouncementHandler);
+
+    const requireSuperAdmin = (req: any, reply: any): boolean => {
+      try {
+        const decoded = fastify.jwt.decode(String(req.headers.authorization || '').replace(/^Bearer /i, '')) as JWTPayload;
+        if (decoded?.role === 'super_admin') return true;
+      } catch {}
+      reply.status(403).send({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Super Admin access required for backups.' },
+      });
+      return false;
+    };
+
+    fastify.get('/backups', async (req: any, reply: any) => {
+      if (!requireSuperAdmin(req, reply)) return;
+      const backups = await store.listDataBackups();
+      return reply.send({ success: true, data: backups, timestamp: new Date().toISOString() });
+    });
+
+    fastify.post('/backups', async (req: any, reply: any) => {
+      if (!requireSuperAdmin(req, reply)) return;
+      const backup = await store.createManualDataBackup();
+      return reply.status(201).send({
+        success: true,
+        data: backup,
+        message: 'Manual backup saved.',
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    fastify.post('/backups/:id/restore', async (req: any, reply: any) => {
+      if (!requireSuperAdmin(req, reply)) return;
+      try {
+        const result = await store.restoreDataBackup(Number(req.params.id));
+        return reply.send({
+          success: true,
+          data: result,
+          message: `Restored backup with ${result.academy_count} academies.`,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'RESTORE_FAILED', message: err.message || 'Failed restoring backup' },
+        });
+      }
+    });
   };
 }

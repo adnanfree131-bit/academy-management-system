@@ -48,6 +48,23 @@ async function ensureTable(client: pg.Pool): Promise<void> {
       saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS kampus_store_backups (
+      id BIGSERIAL PRIMARY KEY,
+      kind TEXT NOT NULL,
+      academy_count INTEGER NOT NULL DEFAULT 0,
+      payload JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await client.query(`CREATE INDEX IF NOT EXISTS kampus_store_backups_kind_created ON kampus_store_backups (kind, created_at DESC)`);
+}
+
+export interface DataBackupMeta {
+  id: number;
+  kind: 'hourly' | 'daily' | 'manual';
+  academy_count: number;
+  created_at: string;
 }
 
 export function countRealAcademies(payload: Record<string, unknown> | null | undefined): number {
@@ -92,10 +109,12 @@ export async function saveSnapshot(payload: Record<string, unknown>): Promise<vo
     await client.query(`
       DELETE FROM kampus_store_snapshot_history
       WHERE id NOT IN (
-        SELECT id FROM kampus_store_snapshot_history ORDER BY saved_at DESC LIMIT 20
+        SELECT id FROM kampus_store_snapshot_history ORDER BY saved_at DESC LIMIT 50
       )
     `);
+    await archiveNamedBackups(client, previous);
   }
+  await archiveNamedBackups(client, payload);
 
   await client.query(
     `INSERT INTO kampus_store_snapshot (id, payload, updated_at)
@@ -103,4 +122,99 @@ export async function saveSnapshot(payload: Record<string, unknown>): Promise<vo
      ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()`,
     [JSON.stringify(payload)]
   );
+}
+
+async function archiveNamedBackups(client: pg.Pool, payload: Record<string, unknown>): Promise<void> {
+  const count = countRealAcademies(payload);
+  if (count <= 0) return;
+  const json = JSON.stringify(payload);
+
+  const lastHourly = await client.query(
+    `SELECT created_at FROM kampus_store_backups WHERE kind = 'hourly' ORDER BY created_at DESC LIMIT 1`
+  );
+  const hourlyAge = lastHourly.rows[0]
+    ? Date.now() - new Date(lastHourly.rows[0].created_at).getTime()
+    : Number.POSITIVE_INFINITY;
+  if (hourlyAge > 60 * 60 * 1000) {
+    await client.query(
+      `INSERT INTO kampus_store_backups (kind, academy_count, payload) VALUES ('hourly', $1, $2::jsonb)`,
+      [count, json]
+    );
+    await client.query(`
+      DELETE FROM kampus_store_backups
+      WHERE kind = 'hourly' AND id NOT IN (
+        SELECT id FROM kampus_store_backups WHERE kind = 'hourly' ORDER BY created_at DESC LIMIT 48
+      )
+    `);
+  }
+
+  const lastDaily = await client.query(
+    `SELECT created_at FROM kampus_store_backups WHERE kind = 'daily' ORDER BY created_at DESC LIMIT 1`
+  );
+  const sameUtcDay = lastDaily.rows[0]
+    && new Date(lastDaily.rows[0].created_at).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
+  if (!sameUtcDay) {
+    await client.query(
+      `INSERT INTO kampus_store_backups (kind, academy_count, payload) VALUES ('daily', $1, $2::jsonb)`,
+      [count, json]
+    );
+    await client.query(`
+      DELETE FROM kampus_store_backups
+      WHERE kind = 'daily' AND id NOT IN (
+        SELECT id FROM kampus_store_backups WHERE kind = 'daily' ORDER BY created_at DESC LIMIT 30
+      )
+    `);
+  }
+}
+
+export async function listDataBackups(): Promise<DataBackupMeta[]> {
+  if (!persistenceEnabled()) return [];
+  const client = getPool();
+  await ensureTable(client);
+  const result = await client.query(
+    `SELECT id, kind, academy_count, created_at
+     FROM kampus_store_backups
+     ORDER BY created_at DESC
+     LIMIT 80`
+  );
+  return result.rows.map((row) => ({
+    id: Number(row.id),
+    kind: row.kind,
+    academy_count: Number(row.academy_count),
+    created_at: new Date(row.created_at).toISOString(),
+  }));
+}
+
+export async function createManualBackup(payload: Record<string, unknown>): Promise<DataBackupMeta> {
+  if (!persistenceEnabled()) throw new Error('Database persistence is not configured');
+  const client = getPool();
+  await ensureTable(client);
+  const count = countRealAcademies(payload);
+  const result = await client.query(
+    `INSERT INTO kampus_store_backups (kind, academy_count, payload)
+     VALUES ('manual', $1, $2::jsonb)
+     RETURNING id, kind, academy_count, created_at`,
+    [count, JSON.stringify(payload)]
+  );
+  await client.query(`
+    DELETE FROM kampus_store_backups
+    WHERE kind = 'manual' AND id NOT IN (
+      SELECT id FROM kampus_store_backups WHERE kind = 'manual' ORDER BY created_at DESC LIMIT 20
+    )
+  `);
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    kind: 'manual',
+    academy_count: Number(row.academy_count),
+    created_at: new Date(row.created_at).toISOString(),
+  };
+}
+
+export async function loadBackupPayload(id: number): Promise<Record<string, unknown> | null> {
+  if (!persistenceEnabled()) return null;
+  const client = getPool();
+  await ensureTable(client);
+  const result = await client.query(`SELECT payload FROM kampus_store_backups WHERE id = $1`, [id]);
+  return result.rows[0]?.payload || null;
 }
