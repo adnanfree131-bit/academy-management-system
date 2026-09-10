@@ -319,7 +319,7 @@ describe('Phase 5: Examination Bank, Excel Chapter Upload & Hybrid Evaluation', 
       expect(body.data.long_remarks).toContain('unlabelled vector diagram');
       expect(body.data.total_obtained).toBe(23);
       expect(body.data.percentage).toBe(76.67);
-      expect(body.data.grade).toBe('B');
+      expect(body.data.grade).toBe('A');
       expect(body.data.status).toBe('GRADED');
     });
 
@@ -364,7 +364,7 @@ describe('Phase 5: Examination Bank, Excel Chapter Upload & Hybrid Evaluation', 
       expect(report.evaluation.long_score).toBe(9);
       expect(report.evaluation.long_remarks).toContain('unlabelled vector diagram');
       expect(report.evaluation.total_obtained).toBe(23);
-      expect(report.evaluation.grade).toBe('B');
+      expect(report.evaluation.grade).toBe('A');
       expect(report.rank).toBe(1);
     });
 

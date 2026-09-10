@@ -5,7 +5,18 @@ import { JWTPayload, PaymentMethod } from '@apex/shared-types';
 
 export function payrollRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
-    fastify.addHook('onRequest', (fastify as any).authenticate);
+    fastify.addHook('onRequest', async (request: any, reply: any) => {
+      await (fastify as any).authenticate(request, reply);
+      if (reply.sent) return;
+      const user = request.user as JWTPayload;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Administrator privileges required for payroll operations.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
 
     // =========================================================================
     // 1. STAFF SALARY PROFILES (Fixed Monthly vs Per-Lecture)

@@ -70,6 +70,14 @@ export interface TenantSettings {
         whatsapp_rapid_queue: boolean;
         geofence_attendance: boolean;
     };
+    grading_scale?: GradingTier[];
+}
+export interface GradingTier {
+    grade: string;
+    min_percentage: number;
+    max_percentage: number;
+    remarks?: string;
+    gpa_points?: number;
 }
 export type UserRole = 'super_admin' | 'tenant_admin' | 'academic_head' | 'teacher' | 'finance_manager' | 'parent' | 'student';
 export type UserStatus = 'active' | 'inactive' | 'suspended' | 'pending_verification' | 'on_leave' | 'archived';
@@ -384,6 +392,14 @@ export interface Student {
     fee_structure?: any;
     first_invoice_id?: string | null;
     admission_date: string;
+    status_reason?: string | null;
+    status_change_history?: Array<{
+        previous_status: StudentStatus;
+        new_status: StudentStatus;
+        reason: string;
+        changed_by: string;
+        changed_at: string;
+    }>;
     created_at: string;
     updated_at: string;
 }
@@ -605,7 +621,7 @@ export interface StudentFeeStructure {
     created_at: string;
     updated_at: string;
 }
-export type InvoiceStatus = 'unpaid' | 'partially_paid' | 'paid' | 'voided' | 'PAID' | 'UNPAID' | 'PARTIAL' | 'OVERDUE' | 'VOID';
+export type InvoiceStatus = 'unpaid' | 'partially_paid' | 'paid' | 'voided' | 'cancelled' | 'PAID' | 'UNPAID' | 'PARTIAL' | 'OVERDUE' | 'VOID';
 export interface InvoiceItem {
     id: string;
     invoice_id: string;
@@ -695,7 +711,7 @@ export interface AccountHead {
     is_active: boolean;
     created_at: string;
 }
-export type FinancialPaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'online';
+export type FinancialPaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'online' | 'wallet' | 'easypaisa' | 'jazzcash';
 export interface FinancialTransaction {
     id: string;
     tenant_id: string;

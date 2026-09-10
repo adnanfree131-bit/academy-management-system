@@ -15,7 +15,10 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
-  User
+  User,
+  ShieldAlert,
+  AlertCircle,
+  History
 } from 'lucide-react';
 import { 
   Student, 
@@ -23,7 +26,8 @@ import {
   AcademicProgram, 
   Subject, 
   SubjectGroup, 
-  StudentInvoice
+  StudentInvoice,
+  StudentStatus
 } from '@apex/shared-types';
 import { StudentIDCardModal } from './StudentIDCardModal';
 
@@ -50,9 +54,61 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
   const [currentStudent, setCurrentStudent] = useState<Student>(student);
   useEffect(() => {
     setCurrentStudent(student);
+    setStatusTarget(student.status || 'active');
   }, [student]);
 
-  const [activeTab, setActiveTab] = useState<'academic' | 'finance' | 'attendance' | 'exams' | 'notebook'>('academic');
+  const [activeTab, setActiveTab] = useState<'academic' | 'finance' | 'attendance' | 'exams' | 'notebook' | 'status'>('academic');
+
+  // Student Status & Exit Management
+  const [statusTarget, setStatusTarget] = useState<StudentStatus>(student.status || 'active');
+  const [statusReason, setStatusReason] = useState('');
+  const [cancelUnpaidInvoices, setCancelUnpaidInvoices] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusSuccessMsg, setStatusSuccessMsg] = useState<string | null>(null);
+  const [statusErrorMsg, setStatusErrorMsg] = useState<string | null>(null);
+
+  const handleUpdateStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+    if (!statusReason.trim()) {
+      setStatusErrorMsg('Administrative reason is mandatory for status changes.');
+      return;
+    }
+    setIsUpdatingStatus(true);
+    setStatusSuccessMsg(null);
+    setStatusErrorMsg(null);
+
+    try {
+      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: statusTarget,
+          reason: statusReason.trim(),
+          cancel_unpaid_invoices: cancelUnpaidInvoices,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCurrentStudent(data.data);
+        setStatusSuccessMsg(`Student status updated to "${data.data.status}".`);
+        setStatusReason('');
+        if (cancelUnpaidInvoices) {
+          fetchInvoices();
+        }
+        if (onStudentUpdated) onStudentUpdated();
+      } else {
+        setStatusErrorMsg(data.error?.message || 'Failed to update student status');
+      }
+    } catch (err: any) {
+      setStatusErrorMsg(err.message || 'Network error updating student status');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   // Enrolled Subjects Management
   const [showEditSubjectsModal, setShowEditSubjectsModal] = useState(false);
@@ -485,6 +541,26 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
           >
             <BookOpen className="w-4 h-4 text-slate-500" />
             <span>Notebook Checking</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('status');
+              setStatusTarget(currentStudent.status || 'active');
+            }}
+            className={`py-3 px-3.5 border-b-2 flex items-center gap-2 transition-colors shrink-0 ${
+              activeTab === 'status'
+                ? 'border-slate-900 text-slate-900 font-semibold bg-white'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4 text-slate-500" />
+            <span>Status & Exit</span>
+            {currentStudent.status !== 'active' && (
+              <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-200 capitalize">
+                {currentStudent.status}
+              </span>
+            )}
           </button>
         </div>
 
@@ -1232,6 +1308,209 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                           <td className="py-2.5 px-4 text-slate-600">{row.remarks}</td>
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: ADMINISTRATIVE STATUS & EXIT REGULARIZATION */}
+          {activeTab === 'status' && (
+            <div className="space-y-6">
+              {/* Top Banner / Standing */}
+              <div className="bg-white border border-slate-200 rounded p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Current Standing:</span>
+                    <span className={`px-2.5 py-0.5 rounded text-xs font-bold border uppercase tracking-wider ${
+                      currentStudent.status === 'active'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                        : currentStudent.status === 'withdrawn'
+                        ? 'bg-rose-50 text-rose-800 border-rose-300'
+                        : currentStudent.status === 'suspended'
+                        ? 'bg-red-50 text-red-800 border-red-300'
+                        : 'bg-amber-50 text-amber-800 border-amber-300'
+                    }`}>
+                      {currentStudent.status || 'active'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    {currentStudent.status_reason ? (
+                      <span><strong>Reason on File:</strong> {currentStudent.status_reason}</span>
+                    ) : (
+                      <span>Student is enrolled in standard academic standing.</span>
+                    )}
+                  </p>
+                </div>
+                <div className="text-xs text-slate-500 text-left md:text-right">
+                  <div>Admission Date: <strong className="font-mono text-slate-700">{currentStudent.admission_date || '—'}</strong></div>
+                  <div>Last Updated: <strong className="font-mono text-slate-700">{currentStudent.updated_at ? new Date(currentStudent.updated_at).toLocaleDateString() : '—'}</strong></div>
+                </div>
+              </div>
+
+              {/* Status Regularization Action Card */}
+              <div className="bg-white border border-slate-200 rounded overflow-hidden">
+                <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                      Administrative Status Regularization
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Change enrollment standing, issue withdrawal clearance, or manage disciplinary suspension.
+                    </p>
+                  </div>
+                  <ShieldAlert className="w-4 h-4 text-slate-400" />
+                </div>
+
+                <form onSubmit={handleUpdateStatus} className="p-5 space-y-4">
+                  {statusSuccessMsg && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-800 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{statusSuccessMsg}</span>
+                    </div>
+                  )}
+
+                  {statusErrorMsg && (
+                    <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-800 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>{statusErrorMsg}</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        New Standing / Target Status <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={statusTarget}
+                        onChange={(e) => setStatusTarget(e.target.value as StudentStatus)}
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded bg-white text-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 font-medium"
+                      >
+                        <option value="active">Active (Regular Enrollment)</option>
+                        <option value="on_leave">On Leave (Approved Absence)</option>
+                        <option value="suspended">Suspended (Disciplinary / Admin Hold)</option>
+                        <option value="alumni">Alumni (Course Completed / Graduated)</option>
+                        <option value="withdrawn">Withdrawn (Formal Clearance Issued)</option>
+                      </select>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Withdrawn and suspended students are excluded from daily attendance registers.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Administrative Billing Action
+                      </label>
+                      <div className="mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded">
+                        <label className="flex items-start gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={cancelUnpaidInvoices}
+                            onChange={(e) => setCancelUnpaidInvoices(e.target.checked)}
+                            className="mt-0.5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                          />
+                          <span className="text-xs text-slate-700 font-medium leading-relaxed">
+                            Cancel outstanding unpaid & partially paid invoices for this student
+                            <span className="block text-[11px] text-slate-500 font-normal">
+                              Zeroes outstanding ledger balances and writes audit cancellation remarks.
+                            </span>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Reason for Status Change <span className="text-rose-500">*</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={statusReason}
+                      onChange={(e) => setStatusReason(e.target.value)}
+                      placeholder="e.g. Clearance issued after fee settlement, family relocation to another city, medical leave approved until end of term..."
+                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded bg-white text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-1 focus:ring-slate-900 font-sans"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="submit"
+                      disabled={isUpdatingStatus || !statusReason.trim()}
+                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                    >
+                      <ShieldAlert className="w-3.5 h-3.5" />
+                      <span>{isUpdatingStatus ? 'Updating Status...' : 'Apply Status Transition'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Status Audit Log */}
+              <div className="bg-white border border-slate-200 rounded overflow-hidden">
+                <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                      Status Change History & Audit Trail
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Immutable institutional record of transitions and authorized signatories.
+                    </p>
+                  </div>
+                  <History className="w-4 h-4 text-slate-400" />
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                        <th className="py-2.5 px-4">Date & Time</th>
+                        <th className="py-2.5 px-4">Previous Standing</th>
+                        <th className="py-2.5 px-4">New Standing</th>
+                        <th className="py-2.5 px-4">Reason / Remarks</th>
+                        <th className="py-2.5 px-4">Changed By</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(!currentStudent.status_change_history || currentStudent.status_change_history.length === 0) ? (
+                        <tr>
+                          <td colSpan={5} className="py-6 text-center text-slate-500 text-xs">
+                            No status transitions recorded. Student remains in initial admission standing ({currentStudent.status || 'active'}).
+                          </td>
+                        </tr>
+                      ) : (
+                        currentStudent.status_change_history.map((h, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-2.5 px-4 font-mono text-slate-700 whitespace-nowrap">
+                              {new Date(h.changed_at).toLocaleString()}
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 uppercase">
+                                {h.previous_status}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border uppercase ${
+                                h.new_status === 'active'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                  : h.new_status === 'withdrawn'
+                                  ? 'bg-rose-50 text-rose-800 border-rose-300'
+                                  : 'bg-amber-50 text-amber-800 border-amber-300'
+                              }`}>
+                                {h.new_status}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-slate-800 font-medium">
+                              {h.reason}
+                            </td>
+                            <td className="py-2.5 px-4 font-mono text-slate-600 text-[11px]">
+                              {h.changed_by}
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>

@@ -17,6 +17,7 @@ import {
   CustomFieldDefinition, 
   StudentInquiry, 
   Student, 
+  StudentStatus,
   InquiryStage,
   Room,
   TimetableSlot,
@@ -239,6 +240,7 @@ export interface IDataStore {
   getStudents(tenantId: string, batchId?: string): Promise<Student[]>;
   createStudent(data: Omit<Student, 'id' | 'admission_number' | 'roll_number' | 'admission_date' | 'created_at' | 'updated_at'>): Promise<Student>;
   updateStudent(tenantId: string, id: string, data: Partial<Student>): Promise<Student | null>;
+  updateStudentStatus(tenantId: string, studentId: string, status: StudentStatus, reason: string, cancelUnpaidInvoices?: boolean, changedBy?: string): Promise<Student | null>;
   admitInquiry(tenantId: string, inquiryId: string, batchId: string, electiveGroupId?: string, customSubjectIds?: string[]): Promise<Student>;
 
   // --- Phase 3: Timetable & Collision Engine ---
@@ -2053,7 +2055,11 @@ export class InMemoryDataStore implements IDataStore {
   async deleteProgram(tenantId: string, id: string): Promise<boolean> {
     const initLen = this.programs.length;
     this.programs = this.programs.filter(p => !(p.tenant_id === tenantId && p.id === id));
-    return this.programs.length < initLen;
+    if (this.programs.length < initLen) {
+      this.schedulePersist();
+      return true;
+    }
+    return false;
   }
 
   async getSubjects(tenantId: string): Promise<Subject[]> {
@@ -2067,13 +2073,18 @@ export class InMemoryDataStore implements IDataStore {
       created_at: new Date().toISOString(),
     };
     this.subjects.push(subject);
+    this.schedulePersist();
     return subject;
   }
 
   async deleteSubject(tenantId: string, id: string): Promise<boolean> {
     const initLen = this.subjects.length;
     this.subjects = this.subjects.filter(s => !(s.tenant_id === tenantId && s.id === id));
-    return this.subjects.length < initLen;
+    if (this.subjects.length < initLen) {
+      this.schedulePersist();
+      return true;
+    }
+    return false;
   }
 
   async getSubjectGroups(tenantId: string, programId?: string): Promise<SubjectGroup[]> {
@@ -2089,13 +2100,18 @@ export class InMemoryDataStore implements IDataStore {
       created_at: new Date().toISOString(),
     };
     this.subjectGroups.push(group);
+    this.schedulePersist();
     return group;
   }
 
   async deleteSubjectGroup(tenantId: string, id: string): Promise<boolean> {
     const initLen = this.subjectGroups.length;
     this.subjectGroups = this.subjectGroups.filter(g => !(g.tenant_id === tenantId && g.id === id));
-    return this.subjectGroups.length < initLen;
+    if (this.subjectGroups.length < initLen) {
+      this.schedulePersist();
+      return true;
+    }
+    return false;
   }
 
   async getBatches(tenantId: string, programId?: string): Promise<Batch[]> {
@@ -2120,7 +2136,11 @@ export class InMemoryDataStore implements IDataStore {
   async deleteBatch(tenantId: string, id: string): Promise<boolean> {
     const initLen = this.batches.length;
     this.batches = this.batches.filter(b => !(b.tenant_id === tenantId && b.id === id));
-    return this.batches.length < initLen;
+    if (this.batches.length < initLen) {
+      this.schedulePersist();
+      return true;
+    }
+    return false;
   }
 
   // --- Custom Fields Methods ---
@@ -2137,6 +2157,7 @@ export class InMemoryDataStore implements IDataStore {
       created_at: new Date().toISOString(),
     };
     this.customFields.push(field);
+    this.schedulePersist();
     return field;
   }
 
@@ -2155,6 +2176,7 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     };
     this.inquiries.push(inquiry);
+    this.schedulePersist();
     return inquiry;
   }
 
@@ -2163,6 +2185,7 @@ export class InMemoryDataStore implements IDataStore {
     if (!inq) return null;
     inq.stage = stage;
     inq.updated_at = new Date().toISOString();
+    this.schedulePersist();
     return inq;
   }
 
@@ -2177,7 +2200,7 @@ export class InMemoryDataStore implements IDataStore {
     const batchStudents = this.students.filter(s => s.tenant_id === data.tenant_id && s.batch_id === data.batch_id);
     const count = this.students.filter(s => s.tenant_id === data.tenant_id).length + 1;
 
-    const batch = this.batches.find(b => b.id === data.batch_id);
+    const batch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === data.tenant_id);
     const isFull = Boolean(batch && batch.current_enrollment >= batch.max_capacity);
     const student: Student = {
       ...data,
@@ -2193,8 +2216,7 @@ export class InMemoryDataStore implements IDataStore {
     this.students.push(student);
 
     if (batch && !isFull) batch.current_enrollment += 1;
-    this.persistQueued = true;
-    void this.flushPersist();
+    this.schedulePersist();
 
     // Auto-generate first month invoice if fee_structure is set
     if (student.fee_structure && (student.fee_structure.first_month_total > 0 || (data as any).generate_first_month_invoice)) {
@@ -2206,7 +2228,7 @@ export class InMemoryDataStore implements IDataStore {
       const billingMonth = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
 
       const items: InvoiceItem[] = [];
-      const tuitionHead = this.feeHeads.find(h => h.tenant_id === data.tenant_id && h.code === 'TUITION') || this.feeHeads[0];
+      const tuitionHead = this.feeHeads.find(h => h.tenant_id === data.tenant_id && h.code === 'TUITION') || this.feeHeads.find(h => h.tenant_id === data.tenant_id);
       const admHead = this.feeHeads.find(h => h.tenant_id === data.tenant_id && h.code === 'ADMISSION') || tuitionHead;
       const examHead = this.feeHeads.find(h => h.tenant_id === data.tenant_id && h.code === 'EXAM') || tuitionHead;
 
@@ -2285,6 +2307,7 @@ export class InMemoryDataStore implements IDataStore {
           updated_at: new Date().toISOString(),
         });
         student.first_invoice_id = invoiceId;
+        this.schedulePersist();
       }
     }
 
@@ -2305,6 +2328,52 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     });
 
+    this.schedulePersist();
+    return student;
+  }
+
+  async updateStudentStatus(
+    tenantId: string,
+    studentId: string,
+    status: StudentStatus,
+    reason: string,
+    cancelUnpaidInvoices: boolean = false,
+    changedBy: string = 'Administration'
+  ): Promise<Student | null> {
+    const student = this.students.find(s => s.id === studentId && s.tenant_id === tenantId);
+    if (!student) return null;
+
+    const previousStatus = student.status;
+    student.status = status;
+    student.status_reason = reason;
+    if (!student.status_change_history) {
+      student.status_change_history = [];
+    }
+    student.status_change_history.push({
+      previous_status: previousStatus,
+      new_status: status,
+      reason,
+      changed_by: changedBy,
+      changed_at: new Date().toISOString(),
+    });
+    student.updated_at = new Date().toISOString();
+
+    if (cancelUnpaidInvoices) {
+      const studentInvoices = this.invoices.filter(
+        i => i.tenant_id === tenantId && i.student_id === studentId
+      );
+      for (const inv of studentInvoices) {
+        if (inv.status === 'unpaid' || inv.status === 'UNPAID' || inv.status === 'partially_paid' || inv.status === 'PARTIAL') {
+          inv.status = 'cancelled';
+          inv.balance_amount = 0;
+          inv.balance_due = 0;
+          inv.notes = (inv.notes ? inv.notes + ' | ' : '') + `[Administrative Status Change] Cancelled due to student status change to ${status}. Reason: ${reason}`;
+          inv.updated_at = new Date().toISOString();
+        }
+      }
+    }
+
+    this.schedulePersist();
     return student;
   }
 
@@ -2446,10 +2515,10 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     // Hydrate names if available
-    const batch = this.batches.find(b => b.id === data.batch_id);
-    const subject = this.subjects.find(s => s.id === data.subject_id);
-    const teacher = Array.from(this.users.values()).find(u => u.id === data.teacher_id);
-    const room = data.room_id ? this.rooms.find(r => r.id === data.room_id) : undefined;
+    const batch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === data.tenant_id);
+    const subject = this.subjects.find(s => s.id === data.subject_id && s.tenant_id === data.tenant_id);
+    const teacher = Array.from(this.users.values()).find(u => u.id === data.teacher_id && u.tenant_id === data.tenant_id);
+    const room = data.room_id ? this.rooms.find(r => r.id === data.room_id && r.tenant_id === data.tenant_id) : undefined;
 
     const slot: TimetableSlot = {
       ...data,
@@ -2463,6 +2532,7 @@ export class InMemoryDataStore implements IDataStore {
     };
 
     this.timetableSlots.push(slot);
+    this.schedulePersist();
     return slot;
   }
 
@@ -2490,6 +2560,7 @@ export class InMemoryDataStore implements IDataStore {
     slot.substitute_teacher_id = substituteTeacherId;
     slot.substitute_teacher_name = substitute.full_name;
     slot.updated_at = new Date().toISOString();
+    this.schedulePersist();
     return slot;
   }
 
@@ -2537,6 +2608,10 @@ export class InMemoryDataStore implements IDataStore {
 
     for (const item of records) {
       const student = this.students.find(s => s.id === item.student_id && s.tenant_id === tenantId);
+      if (student && student.status !== 'active') {
+        // Inactive, withdrawn, or suspended students are excluded from active batch attendance
+        continue;
+      }
       const effectiveStatus: AttendanceStatus = excusedStudentIds.has(item.student_id) ? 'excused' : item.status;
 
       // Upsert record
@@ -2568,6 +2643,7 @@ export class InMemoryDataStore implements IDataStore {
       results.push(record);
     }
 
+    this.schedulePersist();
     return results;
   }
 
@@ -2579,7 +2655,7 @@ export class InMemoryDataStore implements IDataStore {
 
   async submitLeaveApplication(data: Omit<LeaveApplication, 'id' | 'status' | 'created_at' | 'updated_at'>): Promise<LeaveApplication> {
     const student = this.students.find(s => s.id === data.student_id && s.tenant_id === data.tenant_id);
-    const batch = student?.batch_id ? this.batches.find(b => b.id === student.batch_id) : undefined;
+    const batch = student?.batch_id ? this.batches.find(b => b.id === student.batch_id && b.tenant_id === data.tenant_id) : undefined;
 
     const leave: LeaveApplication = {
       ...data,
@@ -2592,6 +2668,7 @@ export class InMemoryDataStore implements IDataStore {
     };
 
     this.leaveApplications.push(leave);
+    this.schedulePersist();
     return leave;
   }
 
@@ -2615,6 +2692,7 @@ export class InMemoryDataStore implements IDataStore {
       });
     }
 
+    this.schedulePersist();
     return leave;
   }
 
@@ -2952,8 +3030,8 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async createHomework(data: Omit<HomeworkAssignment, 'id' | 'created_at'>): Promise<HomeworkAssignment> {
-    const batch = this.batches.find(b => b.id === data.batch_id);
-    const subject = this.subjects.find(s => s.id === data.subject_id);
+    const batch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === data.tenant_id);
+    const subject = this.subjects.find(s => s.id === data.subject_id && s.tenant_id === data.tenant_id);
 
     const hw: HomeworkAssignment = {
       ...data,
@@ -2964,6 +3042,7 @@ export class InMemoryDataStore implements IDataStore {
     };
 
     this.homeworkAssignments.push(hw);
+    this.schedulePersist();
     return hw;
   }
 
@@ -3003,6 +3082,7 @@ export class InMemoryDataStore implements IDataStore {
       results.push(checkRecord);
     }
 
+    this.schedulePersist();
     return results;
   }
 
@@ -3509,6 +3589,7 @@ export class InMemoryDataStore implements IDataStore {
     } else {
       this.feeStructures.push(record);
     }
+    this.schedulePersist();
     return record;
   }
 
@@ -3538,7 +3619,7 @@ export class InMemoryDataStore implements IDataStore {
     const student = this.students.find(s => s.id === data.student_id && s.tenant_id === tenantId);
     if (!student) throw new Error('Student not found for invoice generation');
 
-    const batch = this.batches.find(b => b.id === student.batch_id);
+    const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
     const invoiceId = crypto.randomUUID();
     const count = this.invoices.filter(i => i.tenant_id === tenantId).length + 1;
     const invoiceNumber = `INV-2026-${count.toString().padStart(4, '0')}`;
@@ -3548,7 +3629,7 @@ export class InMemoryDataStore implements IDataStore {
 
     if (data.custom_items && data.custom_items.length > 0) {
       for (const ci of data.custom_items) {
-        const head = this.feeHeads.find(h => h.id === ci.fee_head_id);
+        const head = this.feeHeads.find(h => h.id === ci.fee_head_id && h.tenant_id === tenantId);
         const amount = Number(ci.amount) || 0;
         items.push({
           id: crypto.randomUUID(),
@@ -3571,7 +3652,7 @@ export class InMemoryDataStore implements IDataStore {
 
       if (studentStructure && studentStructure.items.length > 0) {
         for (const it of studentStructure.items) {
-          const head = this.feeHeads.find(h => h.id === it.fee_head_id);
+          const head = this.feeHeads.find(h => h.id === it.fee_head_id && h.tenant_id === tenantId);
           const amount = Number(it.amount) || 0;
           items.push({
             id: crypto.randomUUID(),
@@ -3589,7 +3670,7 @@ export class InMemoryDataStore implements IDataStore {
         }
       } else {
         // Fallback to default tuition
-        const tuitionHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'TUITION') || this.feeHeads[0];
+        const tuitionHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'TUITION') || this.feeHeads.find(h => h.tenant_id === tenantId);
         const defaultAmount = tuitionHead?.default_amount || 8000;
         if (tuitionHead) {
           items.push({
@@ -3634,6 +3715,7 @@ export class InMemoryDataStore implements IDataStore {
     };
 
     this.invoices.push(invoice);
+    this.schedulePersist();
     return invoice;
   }
 
@@ -3765,6 +3847,31 @@ export class InMemoryDataStore implements IDataStore {
     };
 
     this.feePayments.push(payment);
+
+    // Auto-post to Cashbook (FinancialTransactions)
+    const txCount = this.financialTransactions.filter(t => t.tenant_id === tenantId && t.type === 'income').length + 1;
+    const year = new Date().getFullYear();
+    const voucherNumber = `VCH-INC-${year}-${txCount.toString().padStart(4, '0')}`;
+    const headId = (allocations && allocations[0]?.fee_head_id) || invoice.items[0]?.fee_head_id || 'fee-tuition';
+    const tx: FinancialTransaction = {
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      voucher_number: voucherNumber,
+      type: 'income',
+      account_head_id: headId,
+      head_name: 'Student Fee Collection',
+      amount: amountPaid,
+      payment_method: data.payment_method,
+      reference_number: data.reference_number || receiptNumber,
+      transaction_date: payment.payment_date,
+      paid_to_or_received_from: invoice.student_name,
+      description: `Tuition & Fee Collection: ${invoice.student_name} (${invoice.roll_number}) - Receipt #${receiptNumber} [Inv #${invoice.invoice_number}]`,
+      recorded_by: data.collected_by || 'Cashier',
+      created_at: new Date().toISOString(),
+    };
+    this.financialTransactions.push(tx);
+    this.schedulePersist();
+
     return { payment, invoice };
   }
 
@@ -3845,6 +3952,7 @@ export class InMemoryDataStore implements IDataStore {
     };
 
     this.feeDiscounts.push(discount);
+    this.schedulePersist();
     return discount;
   }
 
@@ -3945,6 +4053,7 @@ export class InMemoryDataStore implements IDataStore {
       is_active: data.is_active ?? true
     };
     this.accountHeads.push(head);
+    this.schedulePersist();
     return head;
   }
 
@@ -3952,6 +4061,7 @@ export class InMemoryDataStore implements IDataStore {
     const head = this.accountHeads.find(h => h.tenant_id === tenantId && h.id === id);
     if (!head) return false;
     head.is_active = false;
+    this.schedulePersist();
     return true;
   }
 
@@ -3979,6 +4089,7 @@ export class InMemoryDataStore implements IDataStore {
       ...data
     };
     this.financialTransactions.push(tx);
+    this.schedulePersist();
     return tx;
   }
 
@@ -4019,6 +4130,10 @@ export class InMemoryDataStore implements IDataStore {
     for (const tx of relevantTx) {
       const amt = Number(tx.amount);
       if (tx.type === 'income') {
+        // Exclude automatic fee collection cashbook postings so we don't double count against totalFeeIncome
+        if (tx.head_name === 'Student Fee Collection' || tx.description?.startsWith('Tuition & Fee Collection')) {
+          continue;
+        }
         otherIncome += amt;
         incomeByHead[tx.head_name] = (incomeByHead[tx.head_name] || 0) + amt;
       } else {
@@ -4065,6 +4180,7 @@ export class InMemoryDataStore implements IDataStore {
     } else {
       this.staffSalaryProfiles.push(profile);
     }
+    this.schedulePersist();
     return profile;
   }
 
@@ -4142,6 +4258,7 @@ export class InMemoryDataStore implements IDataStore {
     };
 
     this.staffPayslips.push(payslip);
+    this.schedulePersist();
     return payslip;
   }
 
@@ -4155,6 +4272,22 @@ export class InMemoryDataStore implements IDataStore {
     slip.transaction_reference = reference || null;
     slip.updated_at = new Date().toISOString();
 
+    // Auto-post salary expense to Cashbook
+    await this.createFinancialTransaction({
+      tenant_id: tenantId,
+      type: 'expense',
+      account_head_id: 'head-salaries',
+      head_name: 'Staff Salaries & Payroll',
+      amount: slip.net_salary,
+      payment_method: paymentMethod,
+      reference_number: reference || slip.slip_number,
+      paid_to_or_received_from: slip.staff_name,
+      transaction_date: slip.payment_date,
+      description: `Payroll Disbursal: ${slip.staff_name} (${slip.designation}) - Payslip #${slip.slip_number} [${slip.payroll_month}]`,
+      recorded_by: 'Administration',
+    });
+
+    this.schedulePersist();
     return slip;
   }
 
@@ -4168,8 +4301,8 @@ export class InMemoryDataStore implements IDataStore {
         return true;
       })
       .map(c => {
-        const sub = this.subjects.find(s => s.id === c.subject_id);
-        const prog = this.programs.find(p => p.id === c.program_id);
+        const sub = this.subjects.find(s => s.id === c.subject_id && s.tenant_id === tenantId);
+        const prog = this.programs.find(p => p.id === c.program_id && p.tenant_id === tenantId);
         const qCount = this.bankQuestions.filter(q => q.chapter_id === c.id && q.tenant_id === tenantId).length;
         return {
           ...c,
@@ -4189,6 +4322,7 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString()
     };
     this.questionChapters.push(chapter);
+    this.schedulePersist();
     return chapter;
   }
 
@@ -4203,8 +4337,8 @@ export class InMemoryDataStore implements IDataStore {
         return true;
       })
       .map(q => {
-        const sub = this.subjects.find(s => s.id === q.subject_id);
-        const chap = this.questionChapters.find(c => c.id === q.chapter_id);
+        const sub = this.subjects.find(s => s.id === q.subject_id && s.tenant_id === tenantId);
+        const chap = this.questionChapters.find(c => c.id === q.chapter_id && c.tenant_id === tenantId);
         return {
           ...q,
           subject_name: sub ? sub.name : q.subject_name,
@@ -4222,6 +4356,7 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString()
     };
     this.bankQuestions.push(question);
+    this.schedulePersist();
     return question;
   }
 
@@ -4287,6 +4422,7 @@ export class InMemoryDataStore implements IDataStore {
       importedQuestions.push(newQ);
     }
 
+    this.schedulePersist();
     return {
       imported_count: importedQuestions.length,
       chapters_created: chaptersCreated,
@@ -4298,6 +4434,7 @@ export class InMemoryDataStore implements IDataStore {
     const idx = this.bankQuestions.findIndex(q => q.id === questionId && q.tenant_id === tenantId);
     if (idx === -1) return false;
     this.bankQuestions.splice(idx, 1);
+    this.schedulePersist();
     return true;
   }
 
@@ -4310,8 +4447,8 @@ export class InMemoryDataStore implements IDataStore {
         return true;
       })
       .map(e => {
-        const batch = this.batches.find(b => b.id === e.batch_id);
-        const sub = this.subjects.find(s => s.id === e.subject_id);
+        const batch = this.batches.find(b => b.id === e.batch_id && b.tenant_id === tenantId);
+        const sub = this.subjects.find(s => s.id === e.subject_id && s.tenant_id === tenantId);
         const questions = this.examQuestions
           .filter(q => q.exam_id === e.id && q.tenant_id === tenantId)
           .sort((a, b) => a.display_order - b.display_order);
@@ -4328,8 +4465,8 @@ export class InMemoryDataStore implements IDataStore {
     const exam = this.exams.find(e => e.id === examId && e.tenant_id === tenantId);
     if (!exam) return null;
 
-    const batch = this.batches.find(b => b.id === exam.batch_id);
-    const sub = this.subjects.find(s => s.id === exam.subject_id);
+    const batch = this.batches.find(b => b.id === exam.batch_id && b.tenant_id === tenantId);
+    const sub = this.subjects.find(s => s.id === exam.subject_id && s.tenant_id === tenantId);
     const questions = this.examQuestions
       .filter(q => q.exam_id === exam.id && q.tenant_id === tenantId)
       .sort((a, b) => a.display_order - b.display_order);
@@ -4343,7 +4480,8 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async createExam(tenantId: string, data: Omit<Exam, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>): Promise<Exam> {
-    const totalMarks = (data.mcq_total_marks || (data.mcq_count * data.mcq_marks_per_q) || 0) + (data.short_total_marks || 0) + (data.long_total_marks || 0);
+    const computedMarks = (data.mcq_total_marks || ((data.mcq_count || 0) * (data.mcq_marks_per_q || 0)) || 0) + (data.short_total_marks || 0) + (data.long_total_marks || 0);
+    const totalMarks = computedMarks > 0 ? computedMarks : (data.total_marks || 100);
     const defaultLabels = {
       mcq: 'Q.1 (Objective MCQs)',
       short: 'Q.2 (Short Questions)',
@@ -4362,6 +4500,7 @@ export class InMemoryDataStore implements IDataStore {
     };
 
     this.exams.push(exam);
+    this.schedulePersist();
     return exam;
   }
 
@@ -4374,6 +4513,7 @@ export class InMemoryDataStore implements IDataStore {
       exam.total_marks = (exam.mcq_total_marks || 0) + (exam.short_total_marks || 0) + (exam.long_total_marks || 0);
     }
     exam.updated_at = new Date().toISOString();
+    this.schedulePersist();
     return exam;
   }
 
@@ -4393,6 +4533,7 @@ export class InMemoryDataStore implements IDataStore {
       this.examQuestions.push(examQ);
       added.push(examQ);
     }
+    this.schedulePersist();
     return added;
   }
 
@@ -4437,13 +4578,29 @@ export class InMemoryDataStore implements IDataStore {
     const totalPossible = exam.total_marks > 0 ? exam.total_marks : 100;
     const percentage = Number(((totalObtained / totalPossible) * 100).toFixed(2));
 
+    // Phase 5: Tenant-configurable grading scale or standard Pakistani Matric/F.Sc scale
+    const tenant = this.tenants.get(tenantId);
+    const customScale = tenant?.settings?.grading_scale;
+
     let grade = 'F';
-    if (percentage >= 90) grade = 'A*';
-    else if (percentage >= 80) grade = 'A';
-    else if (percentage >= 70) grade = 'B';
-    else if (percentage >= 60) grade = 'C';
-    else if (percentage >= 50) grade = 'D';
-    else if (percentage >= 40) grade = 'E';
+    if (customScale && Array.isArray(customScale) && customScale.length > 0) {
+      const sortedTiers = [...customScale].sort((a, b) => b.min_percentage - a.min_percentage);
+      for (const tier of sortedTiers) {
+        if (percentage >= tier.min_percentage) {
+          grade = tier.grade;
+          break;
+        }
+      }
+    } else {
+      // Standard Pakistani Matric/F.Sc Board Grading Scale
+      if (percentage >= 80) grade = 'A+';
+      else if (percentage >= 70) grade = 'A';
+      else if (percentage >= 60) grade = 'B';
+      else if (percentage >= 50) grade = 'C';
+      else if (percentage >= 40) grade = 'D';
+      else if (percentage >= 33) grade = 'E';
+      else grade = 'F';
+    }
 
     let evaluation = this.studentExamEvaluations.find(ev => 
       ev.tenant_id === tenantId && 
@@ -4472,7 +4629,7 @@ export class InMemoryDataStore implements IDataStore {
         student_id: data.student_id,
         student_name: student.full_name,
         roll_number: student.roll_number,
-        batch_name: this.batches.find(b => b.id === student.batch_id)?.name,
+        batch_name: this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId)?.name,
         mcq_answers: userAnswers,
         mcq_score: autoMcqScore,
         short_score: shortScore,
@@ -4491,6 +4648,7 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     exam.status = 'GRADED';
+    this.schedulePersist();
     return evaluation;
   }
 
@@ -4498,7 +4656,7 @@ export class InMemoryDataStore implements IDataStore {
     return this.studentExamEvaluations
       .filter(ev => ev.exam_id === examId && ev.tenant_id === tenantId)
       .map(ev => {
-        const student = this.students.find(s => s.id === ev.student_id);
+        const student = this.students.find(s => s.id === ev.student_id && s.tenant_id === tenantId);
         return {
           ...ev,
           student_name: student ? student.full_name : ev.student_name,
@@ -4551,8 +4709,8 @@ export class InMemoryDataStore implements IDataStore {
         full_name: student.full_name,
         roll_number: student.roll_number,
         guardian_name: student.guardian_name,
-        class_name: this.programs.find(p => p.id === student.program_id)?.name,
-        batch_name: this.batches.find(b => b.id === student.batch_id)?.name
+        class_name: this.programs.find(p => p.id === student.program_id && p.tenant_id === tenantId)?.name,
+        batch_name: this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId)?.name
       },
       rank: rank > 0 ? rank : 1,
       total_students: Math.max(allEvals.length, 1)
@@ -4727,8 +4885,8 @@ export class InMemoryDataStore implements IDataStore {
     for (const att of absentees) {
       const existing = this.absenteeFollowups.find(f => f.tenant_id === tenantId && f.student_id === att.student_id && f.date === date);
       if (!existing) {
-        const student = this.students.find(s => s.id === att.student_id);
-        const batch = student?.batch_id ? this.batches.find(b => b.id === student.batch_id) : undefined;
+        const student = this.students.find(s => s.id === att.student_id && s.tenant_id === tenantId);
+        const batch = student?.batch_id ? this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId) : undefined;
 
         const prevFollowup = this.absenteeFollowups
           .filter(f => f.tenant_id === tenantId && f.student_id === att.student_id && f.date < date)
@@ -4755,15 +4913,14 @@ export class InMemoryDataStore implements IDataStore {
           is_snoozed: false,
           snooze_until: null,
           status: 'PENDING',
-          staff_counselor_id: null,
-          staff_counselor_name: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
       }
     }
 
-    return this.getAbsenteeFollowups(tenantId, { date });
+    this.schedulePersist();
+    return this.absenteeFollowups.filter(f => f.tenant_id === tenantId && f.date === date);
   }
 
   async getAbsenteeFollowups(tenantId: string, filters?: { date?: string; batchId?: string; status?: string }): Promise<AbsenteeFollowupItem[]> {
@@ -5113,7 +5270,7 @@ export class InMemoryDataStore implements IDataStore {
   async getStudentParentPortalOverview(tenantId: string, studentId?: string): Promise<StudentParentPortalOverview> {
     const student = studentId
       ? this.students.find(s => s.id === studentId && s.tenant_id === tenantId)
-      : this.students.find(s => s.tenant_id === tenantId) || this.students[0];
+      : this.students.find(s => s.tenant_id === tenantId);
 
     if (!student) {
       throw new Error(`Student not found in tenant: ${tenantId}`);
@@ -5123,7 +5280,7 @@ export class InMemoryDataStore implements IDataStore {
       throw new Error('Student portal access has been blocked by the academy.');
     }
 
-    const batch = this.batches.find(b => b.id === student.batch_id);
+    const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
     const todaySchedule = this.timetableSlots.filter(
       s => s.tenant_id === tenantId && s.batch_id === student.batch_id
     );

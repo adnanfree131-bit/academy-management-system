@@ -100,7 +100,9 @@ export const AttendanceDeskView: React.FC = () => {
 
       const [studData, attData] = await Promise.all([studRes.json(), attRes.json()]);
 
-      const studentList: Student[] = studData.success ? studData.data : [];
+      const allStudents: Student[] = studData.success ? studData.data : [];
+      // Only active students appear on the daily attendance roster
+      const studentList: Student[] = allStudents.filter(s => s.status === 'active');
       setStudents(studentList);
 
       const existingRecords: StudentAttendanceRecord[] = attData.success ? attData.data : [];

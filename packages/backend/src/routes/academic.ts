@@ -8,6 +8,18 @@ export function academicRoutes(store: IDataStore) {
     // All routes require authentication
     fastify.addHook('onRequest', (fastify as any).authenticate);
 
+    const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
+      if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. You do not have permission to perform this academic operation.' },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
+
     // --- Programs ---
     fastify.get('/programs', async (request: any, reply) => {
       const user = request.user as JWTPayload;
@@ -17,6 +29,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.post('/programs', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const schema = z.object({
         name: z.string().min(1),
         code: z.string().optional().nullable(),
@@ -58,6 +71,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.delete('/programs/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const { id } = request.params as { id: string };
       const deleted = await store.deleteProgram(user.tenant_id, id);
       if (!deleted) {
@@ -79,6 +93,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.post('/subjects', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const schema = z.object({
         name: z.string().min(1),
         code: z.string().min(1),
@@ -104,6 +119,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.delete('/subjects/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const { id } = request.params as { id: string };
       const deleted = await store.deleteSubject(user.tenant_id, id);
       if (!deleted) {
@@ -126,6 +142,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.post('/groups', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const schema = z.object({
         program_id: z.string().min(1),
         name: z.string().min(1),
@@ -152,6 +169,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.delete('/groups/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const { id } = request.params as { id: string };
       const deleted = await store.deleteSubjectGroup(user.tenant_id, id);
       if (!deleted) {
@@ -174,6 +192,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.post('/batches', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const schema = z.object({
         program_id: z.string().min(1),
         name: z.string().min(1),
@@ -211,6 +230,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.delete('/batches/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const { id } = request.params as { id: string };
       const deleted = await store.deleteBatch(user.tenant_id, id);
       if (!deleted) {
@@ -233,6 +253,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.post('/custom-fields', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin'], reply)) return;
       const schema = z.object({
         entity_type: z.enum(['student', 'inquiry']),
         field_key: z.string().min(1),
@@ -288,6 +309,7 @@ export function academicRoutes(store: IDataStore) {
 
     const updateAcademySettingsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin'], reply)) return;
       const { name, slug, settings } = request.body || {};
       const updated = await store.updateTenantSettings(user.tenant_id, {
         name,

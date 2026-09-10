@@ -65,15 +65,16 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       });
     }
 
-    // Archived account access revocation check
-    if (request.user && request.user.tenant_id && request.user.email) {
+    // Account active status revocation check (rejects archived, suspended, or inactive accounts)
+    if (request.user && request.user.tenant_id && request.user.email && request.user.role !== 'super_admin') {
       const dbUser = await store.getUserByEmail(request.user.tenant_id, request.user.email);
-      if (dbUser && dbUser.status === 'archived') {
+      if (dbUser && dbUser.status !== 'active') {
+        const errorCode = dbUser.status === 'archived' ? 'ACCOUNT_ARCHIVED' : 'ACCOUNT_NOT_ACTIVE';
         return reply.status(403).send({
           success: false,
           error: {
-            code: 'ACCOUNT_ARCHIVED',
-            message: 'Your staff account has been archived. Access has been revoked.',
+            code: errorCode,
+            message: `Your account access has been revoked (status: ${dbUser.status}). Please contact academy administration.`,
           },
           timestamp: new Date().toISOString(),
         });
@@ -109,6 +110,23 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
         }
       }
     }
+  });
+
+  // Decorate fastify with role-based access control preHandler
+  fastify.decorate('requireRole', function (allowedRoles: string[]) {
+    return async function (request: any, reply: any) {
+      const user = request.user;
+      if (!user || (!allowedRoles.includes(user.role) && user.role !== 'super_admin')) {
+        return reply.status(403).send({
+          success: false,
+          error: {
+            code: 'FORBIDDEN_ROLE',
+            message: `Access denied. Role '${user?.role || 'unknown'}' is not authorized for this operation.`,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
   });
 
   // Health Route

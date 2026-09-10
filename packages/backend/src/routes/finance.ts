@@ -7,6 +7,18 @@ export function financeRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
     fastify.addHook('onRequest', (fastify as any).authenticate);
 
+    const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
+      if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. You do not have permission to perform this financial operation.' },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
+
     // =========================================================================
     // 1. FEE HEADS (Itemized Categories)
     // =========================================================================
@@ -20,6 +32,7 @@ export function financeRoutes(store: IDataStore) {
 
     const createHeadHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin'], reply)) return;
       const schema = z.object({
         name: z.string().min(1),
         code: z.string().min(1).toUpperCase(),
@@ -48,6 +61,7 @@ export function financeRoutes(store: IDataStore) {
 
     const updateHeadHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin'], reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         name: z.string().min(1).optional(),
@@ -78,6 +92,7 @@ export function financeRoutes(store: IDataStore) {
 
     const deleteHeadHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin'], reply)) return;
       const { id } = request.params as { id: string };
       const ok = await store.deleteFeeHead(user.tenant_id, id);
       if (!ok) {
@@ -105,6 +120,7 @@ export function financeRoutes(store: IDataStore) {
 
     const updatePriorityHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin'], reply)) return;
       const schema = z.object({
         priority_order: z.array(z.string()).min(1)
       });
@@ -138,6 +154,7 @@ export function financeRoutes(store: IDataStore) {
 
     const saveStructureHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin'], reply)) return;
       const schema = z.object({
         batch_id: z.string().optional().nullable(),
         student_id: z.string().optional().nullable(),
@@ -208,6 +225,7 @@ export function financeRoutes(store: IDataStore) {
 
     const generateInvoiceHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const schema = z.object({
         student_id: z.string().min(1),
         billing_month: z.string().min(1),
@@ -244,6 +262,7 @@ export function financeRoutes(store: IDataStore) {
 
     const generateBatchInvoicesHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const schema = z.object({
         batch_id: z.string().min(1),
         billing_month: z.string().min(1),
@@ -308,6 +327,7 @@ export function financeRoutes(store: IDataStore) {
     // =========================================================================
     const recordPaymentHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const schema = z.object({
         invoice_id: z.string().min(1),
         amount_paid: z.number().positive(),
@@ -362,6 +382,7 @@ export function financeRoutes(store: IDataStore) {
 
     const applyDiscountHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin'], reply)) return;
       const schema = z.object({
         student_id: z.string().min(1),
         invoice_id: z.string().optional(),
@@ -514,6 +535,7 @@ export function financeRoutes(store: IDataStore) {
 
     const createTransactionHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const schema = z.object({
         type: z.enum(['income', 'expense']),
         account_head_id: z.string().min(1),

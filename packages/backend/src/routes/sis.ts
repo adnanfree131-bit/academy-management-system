@@ -8,6 +8,18 @@ export function sisRoutes(store: IDataStore) {
     // All routes require authentication
     fastify.addHook('onRequest', (fastify as any).authenticate);
 
+    const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
+      if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. You do not have permission to perform this SIS operation.' },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
+
     // --- Inquiries Desk ---
     fastify.get('/inquiries', async (request: any, reply) => {
       const user = request.user as JWTPayload;
@@ -80,6 +92,7 @@ export function sisRoutes(store: IDataStore) {
     // 1-Click Admit from Inquiry into Batch
     fastify.post('/inquiries/:id/admit', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'admissions_counselor'], reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         batch_id: z.string().min(1),
@@ -124,6 +137,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.post('/students', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'admissions_counselor'], reply)) return;
       const rawBody = request.body || {};
       const derivedFullName = rawBody.full_name || `${rawBody.first_name || ''} ${rawBody.last_name || ''}`.trim() || 'Enrolled Student';
       const derivedPhone = rawBody.phone || rawBody.guardian_phone || '+92 300 0000000';
@@ -192,6 +206,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.patch('/students/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'admissions_counselor'], reply)) return;
       const { id } = request.params as { id: string };
 
       const schema = z.object({
@@ -216,6 +231,47 @@ export function sisRoutes(store: IDataStore) {
       }
 
       const updated = await store.updateStudent(user.tenant_id, id, parseResult.data);
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Student not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+    });
+
+    // Administrative Student Status Transition & Exit Regularization
+    fastify.post('/students/:id/status', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      const { id } = request.params as { id: string };
+
+      const schema = z.object({
+        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn']),
+        reason: z.string().min(1, 'Reason for status change is required'),
+        cancel_unpaid_invoices: z.boolean().default(false),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid status update payload', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const updated = await store.updateStudentStatus(
+        user.tenant_id,
+        id,
+        parseResult.data.status,
+        parseResult.data.reason,
+        parseResult.data.cancel_unpaid_invoices,
+        user.email || user.sub
+      );
+
       if (!updated) {
         return reply.status(404).send({
           success: false,
