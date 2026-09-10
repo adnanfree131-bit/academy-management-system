@@ -1,0 +1,42 @@
+name: Nightly academy backup
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Export live snapshot
+        env:
+          BACKUP_URL: ${{ secrets.BACKUP_EXPORT_URL }}
+          BACKUP_TOKEN: ${{ secrets.BACKUP_EXPORT_TOKEN }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          mkdir -p backups
+          curl -fsSL -H "Authorization: Bearer ${BACKUP_TOKEN}" "${BACKUP_URL}" -o /tmp/kampus-backup.json
+          date=$(date -u +%Y-%m-%d)
+          openssl enc -aes-256-cbc -pbkdf2 -salt \
+            -in /tmp/kampus-backup.json \
+            -out "backups/${date}.json.enc" \
+            -pass pass:"${BACKUP_PASSPHRASE}"
+          rm -f /tmp/kampus-backup.json
+          ls -1t backups/*.json.enc | tail -n +31 | xargs -r rm --
+      - name: Commit encrypted backup
+        run: |
+          git config user.name "kampus-backup"
+          git config user.email "backup@kampus.pk"
+          git add backups
+          if git diff --cached --quiet; then
+            echo "No backup changes"
+          else
+            git commit -m "backup: academy snapshot $(date -u +%Y-%m-%d)"
+            git push
+          fi
