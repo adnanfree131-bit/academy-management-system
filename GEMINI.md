@@ -48,3 +48,23 @@ Features must **NEVER** be built as standalone, disconnected islands. All module
    * Support daily cashbook vouchers, payment methods (Cash, Meezan IBFT, EasyPaisa, JazzCash, Cheque), and monthly profit & loss reporting.
 3. **Dual-Mode Attendance & Geofencing**:
    * Campus geofencing must always support **both** HTML5 GPS auto-detection and manual latitude/longitude input.
+
+---
+
+## 🛠️ STRICT RULE: REAL-WORLD GROUND TRUTH & ZERO HALF-BAKED FEATURES
+
+Every module and feature in this ERP must be engineered to production school/academy standards (benchmarked against Fedena, Teachmint, Smart School ERP). Never deliver partial prototypes, placeholder simulators, or developer toys.
+
+### 1. Ground-Truth & Deep Research Standard (Real-World Academy Operations)
+* **Never Guess or Build from Imagination**: Before designing or implementing any module, research and ground it in how actual schools and academies operate daily (principals, accountants, teachers, receptionists).
+* **Common Sense Over Technical Gimmicks**: Ask: *"Does a real school administrator or teacher actually need this button or option on this screen?"* If an option is irrelevant, confusing, or a developer prototype gimmick, eliminate it immediately.
+* **Account for Real-World Operational Friction**: Real-world operations face friction daily (hardware failure, forgotten phones, dead batteries, biometric sync errors, official off-campus duty, director exemptions). Every module must handle these exceptions gracefully through authorized administrative regularization workflows with mandatory reasons and user-stamped audit logging.
+
+### 2. Complete Operational Lifecycles (End-to-End Completeness)
+Never leave a feature partially implemented with static mocks, dummy toggles, or incomplete loops. Every operational module must include the full five-stage lifecycle:
+1. **Data Entry & Capture**: Clean, validated input forms with sensible institutional defaults and validation.
+2. **Active Operational View**: High-density daily registers and rosters displaying the **complete institutional roster** (including unmarked or absent records), never just the subset that already performed an action.
+3. **Exceptions & Administrative Regularization**: Administrative overrides with categorized reason dropdowns and user audit tracking.
+4. **Temporal & Historical Navigation**: Historical day-by-day navigation (`< Previous Day`, native calendar date pickers, `Next Day >`, `Today`), text search, and category/status filtering.
+5. **Institutional Policy Settings**: Configurable institutional rules (working hours, grace periods, thresholds, and strict blocking vs. flagged audit enforcement modes).
+
