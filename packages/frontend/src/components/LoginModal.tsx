@@ -524,7 +524,7 @@ export const LoginModal: React.FC = () => {
                   </div>
                 )}
               </div>
-              <h1 className="font-brand text-lg sm:text-xl font-bold text-white tracking-tight break-words">{activeAcademyName}</h1>
+              <h1 className="font-academy text-xl sm:text-2xl text-white tracking-tight break-words">{activeAcademyName}</h1>
               <div className="mt-2.5">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
                   <Lock className="w-3 h-3" />
@@ -1337,30 +1337,10 @@ export const LoginModal: React.FC = () => {
 
           </div>
 
-          {/* Institutional Access Notice on Subdomains */}
-          {isSubdomain && (
-            <div className="mt-3 mb-2 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-center">
-              <p className="text-[11px] text-slate-500 leading-relaxed max-w-md mx-auto">
-                <strong className="font-semibold text-slate-700">Institutional Access:</strong> Authorized access for enrolled students, parents, faculty, and administrative staff. User accounts and login credentials are provisioned exclusively by academy administration.
-              </p>
-            </div>
-          )}
-
-          {/* Clean Institutional Footer */}
-          <div className="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400">
-            <span>
-              {tenantSlug && branding?.name && mode === 'login'
-                ? `© ${new Date().getFullYear()} ${branding.name}`
-                : `© ${new Date().getFullYear()} Kampus. All rights reserved.`}
-            </span>
-            <div className="flex items-center gap-3">
-              <a 
-                href="mailto:info@kampus.pk" 
-                className="hover:text-slate-600 transition-colors"
-              >
-                Support: info@kampus.pk
-              </a>
-            </div>
+          <div className="pt-6 border-t border-slate-100 text-center text-[11px] text-slate-400">
+            {tenantSlug && branding?.name && mode === 'login'
+              ? `© ${new Date().getFullYear()} ${branding.name}`
+              : `© ${new Date().getFullYear()} Kampus`}
           </div>
 
         </div>

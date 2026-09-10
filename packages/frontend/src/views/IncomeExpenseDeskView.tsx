@@ -18,9 +18,10 @@ import {
   PieChart
 } from 'lucide-react';
 import { AccountHead, FinancialTransaction } from '@apex/shared-types';
+import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 
 export const IncomeExpenseDeskView: React.FC = () => {
-  const { token } = useAuth();
+  const { token, tenant } = useAuth();
   const [activeTab, setActiveTab] = useState<'cashbook' | 'heads' | 'pl_report'>('cashbook');
 
   // Data State
@@ -59,6 +60,72 @@ export const IncomeExpenseDeskView: React.FC = () => {
   const [newHeadType, setNewHeadType] = useState<'income' | 'expense'>('expense');
   const [newHeadDesc, setNewHeadDesc] = useState<string>('');
   const [isSubmittingHead, setIsSubmittingHead] = useState<boolean>(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  const printCashbookPdf = async () => {
+    setIsPrinting(true);
+    try {
+      const academy = await academyLetterheadFromAuth(tenant);
+      const bytes = await buildSimpleStatementPdf({
+        title: 'Daily Cashbook Ledger',
+        academy,
+        identity: [
+          { label: 'Academy', value: tenant?.name || 'Academy' },
+          { label: 'Month', value: selectedMonth },
+          { label: 'Entries', value: String(filteredTransactions.length) },
+        ],
+        columns: [
+          { key: 'date', label: 'Date', width: 70 },
+          { key: 'voucher', label: 'Voucher', width: 90 },
+          { key: 'head', label: 'Head', width: 120 },
+          { key: 'type', label: 'Type', width: 70 },
+          { key: 'amount', label: 'Amount', width: 80, align: 'right' },
+        ],
+        rows: filteredTransactions.map(t => ({
+          date: t.transaction_date,
+          voucher: t.voucher_number,
+          head: t.head_name,
+          type: t.type,
+          amount: `PKR ${Number(t.amount).toLocaleString()}`,
+        })),
+      });
+      await downloadPdfBytes(bytes, `cashbook-${selectedMonth}.pdf`);
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  const printPlPdf = async () => {
+    setIsPrinting(true);
+    try {
+      const academy = await academyLetterheadFromAuth(tenant);
+      const incomeRows = (plReport?.income_heads || plReport?.income || []).map((r: any) => ({
+        head: r.head_name || r.name || 'Income',
+        amount: `PKR ${Number(r.amount || r.total || 0).toLocaleString()}`,
+      }));
+      const expenseRows = (plReport?.expense_heads || plReport?.expenses || []).map((r: any) => ({
+        head: r.head_name || r.name || 'Expense',
+        amount: `PKR ${Number(r.amount || r.total || 0).toLocaleString()}`,
+      }));
+      const bytes = await buildSimpleStatementPdf({
+        title: 'Profit & Loss Statement',
+        academy,
+        identity: [
+          { label: 'Academy', value: tenant?.name || 'Academy' },
+          { label: 'Month', value: selectedMonth },
+          { label: 'Net', value: `PKR ${Number(plReport?.net_profit || plReport?.net || 0).toLocaleString()}` },
+        ],
+        columns: [
+          { key: 'head', label: 'Head', width: 280 },
+          { key: 'amount', label: 'Amount', width: 150, align: 'right' },
+        ],
+        rows: [...incomeRows, ...expenseRows],
+      });
+      await downloadPdfBytes(bytes, `profit-loss-${selectedMonth}.pdf`);
+    } finally {
+      setIsPrinting(false);
+    }
+  };
 
   // Fetch Data
   const fetchData = async () => {
@@ -344,7 +411,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
           }`}
         >
           <Tag className="w-3.5 h-3.5" />
-          <span>Dynamic Account Heads ({accountHeads.length})</span>
+          <span>Account Heads ({accountHeads.length})</span>
         </button>
 
         <button
@@ -394,7 +461,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 onChange={e => setSelectedHeadFilter(e.target.value)}
                 className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-semibold max-w-[180px]"
               >
-                <option value="all">All Dynamic Heads</option>
+                <option value="all">All heads</option>
                 {accountHeads.map(h => (
                   <option key={h.id} value={h.id}>
                     [{h.type.toUpperCase()}] {h.name}
@@ -403,12 +470,13 @@ export const IncomeExpenseDeskView: React.FC = () => {
               </select>
 
               <button
-                onClick={() => window.print()}
+                onClick={printCashbookPdf}
+                disabled={isPrinting}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold"
-                title="Print Cashbook Ledger"
+                title="Download cashbook PDF"
               >
                 <Printer className="w-3.5 h-3.5" />
-                <span>Print</span>
+                <span>{isPrinting ? 'Preparing…' : 'PDF'}</span>
               </button>
             </div>
           </div>
@@ -490,9 +558,9 @@ export const IncomeExpenseDeskView: React.FC = () => {
         <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
-              <h2 className="text-sm font-extrabold text-slate-900">Custom Dynamic Account Heads</h2>
+              <h2 className="text-sm font-extrabold text-slate-900">Account Heads</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Zero hardcoded categories. Create dynamic tags for your campus expenses (Rent, Lab Supplies, Generator Fuel) and income.
+                Add income and expense heads for this academy. Fee heads you create in Settings also appear as income.
               </p>
             </div>
             <button
@@ -571,11 +639,12 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 font-mono text-slate-800 font-bold"
               />
               <button
-                onClick={() => window.print()}
+                onClick={printPlPdf}
+                disabled={isPrinting}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold"
               >
                 <Printer className="w-3.5 h-3.5" />
-                <span>Print Statement</span>
+                <span>{isPrinting ? 'Preparing…' : 'PDF'}</span>
               </button>
             </div>
           </div>

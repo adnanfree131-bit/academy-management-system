@@ -312,5 +312,77 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.put('/settings', updateAcademySettingsHandler);
     fastify.put('/academy-settings', updateAcademySettingsHandler);
+
+    fastify.get('/staff', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only the academy admin can view staff access.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const users = await store.getTenantUsers(user.tenant_id);
+      return reply.send({
+        success: true,
+        data: users
+          .filter(u => u.role !== 'super_admin')
+          .map(u => ({
+            id: u.id,
+            full_name: u.full_name,
+            email: u.email,
+            role: u.role,
+            status: u.status,
+            permissions: (u.metadata?.permissions as string[]) || [],
+            portal_blocked: Boolean(u.metadata?.portal_blocked),
+          })),
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    fastify.patch('/staff/:id/access', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only the academy admin can change staff access.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const { id } = request.params as { id: string };
+      const schema = z.object({
+        permissions: z.array(z.string()).optional(),
+        portal_blocked: z.boolean().optional(),
+        status: z.enum(['active', 'inactive', 'suspended']).optional(),
+      });
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid access payload' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const metadata: Record<string, unknown> = {};
+      if (parse.data.permissions) metadata.permissions = parse.data.permissions;
+      if (parse.data.portal_blocked != null) metadata.portal_blocked = parse.data.portal_blocked;
+      const updated = await store.updateUserMetadata(user.tenant_id, id, metadata);
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Staff member not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({
+        success: true,
+        data: {
+          id: updated.id,
+          permissions: (updated.metadata?.permissions as string[]) || [],
+          portal_blocked: Boolean(updated.metadata?.portal_blocked),
+        },
+        timestamp: new Date().toISOString(),
+      });
+    });
   };
 }

@@ -46,6 +46,52 @@ export function financeRoutes(store: IDataStore) {
     fastify.post('/heads', createHeadHandler);
     fastify.post('/finance/heads', createHeadHandler);
 
+    const updateHeadHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const { id } = request.params as { id: string };
+      const schema = z.object({
+        name: z.string().min(1).optional(),
+        code: z.string().min(1).toUpperCase().optional(),
+        default_amount: z.number().min(0).optional(),
+        priority_order: z.number().int().min(1).optional(),
+      });
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid fee head data', details: parse.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const head = await store.updateFeeHead(user.tenant_id, id, parse.data);
+      if (!head) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Fee head not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({ success: true, data: head, timestamp: new Date().toISOString() });
+    };
+    fastify.patch('/heads/:id', updateHeadHandler);
+    fastify.patch('/finance/heads/:id', updateHeadHandler);
+
+    const deleteHeadHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const { id } = request.params as { id: string };
+      const ok = await store.deleteFeeHead(user.tenant_id, id);
+      if (!ok) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'HEAD_LOCKED', message: 'Monthly tuition cannot be deleted, or the head was not found.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({ success: true, data: { id }, timestamp: new Date().toISOString() });
+    };
+    fastify.delete('/heads/:id', deleteHeadHandler);
+    fastify.delete('/finance/heads/:id', deleteHeadHandler);
+
     // =========================================================================
     // 2. PRIORITY CONFIGURATION (Drag-and-Drop Liquidation Order)
     // =========================================================================

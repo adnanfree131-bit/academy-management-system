@@ -17,8 +17,6 @@ import {
   Lock,
   Eye,
   EyeOff,
-  KeyRound,
-  Mail
 } from 'lucide-react';
 import { TenantSettings } from '@apex/shared-types';
 import { compressImageFile } from '../components/LoginModal';
@@ -27,7 +25,7 @@ export const AcademySettingsView: React.FC = () => {
   const { token, tenant, user, applySession, refreshSession } = useAuth();
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'profile' | 'challan' | 'shifts' | 'security'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'challan' | 'shifts' | 'security' | 'staff'>('profile');
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -39,7 +37,6 @@ export const AcademySettingsView: React.FC = () => {
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [otpCode, setOtpCode] = useState<string>('');
-  const [otpSent, setOtpSent] = useState<boolean>(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState<boolean>(false);
   const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
   const [isRequestingOtp, setIsRequestingOtp] = useState<boolean>(false);
@@ -72,6 +69,12 @@ export const AcademySettingsView: React.FC = () => {
   const [dueDay, setDueDay] = useState<number>(10);
   const [graceDays, setGraceDays] = useState<number>(5);
   const [liquidationPriority, setLiquidationPriority] = useState<string[]>([]);
+  const [feeHeads, setFeeHeads] = useState<{ id: string; name: string; code: string; is_system_default?: boolean }[]>([]);
+  const [newHeadName, setNewHeadName] = useState('');
+  const [editingHeadId, setEditingHeadId] = useState<string | null>(null);
+  const [editingHeadName, setEditingHeadName] = useState('');
+  const [otpModal, setOtpModal] = useState<'change' | 'reset' | null>(null);
+  const [staffRows, setStaffRows] = useState<{ id: string; full_name: string; email: string; role: string; permissions: string[]; portal_blocked: boolean }[]>([]);
 
   // Shifts
   const [morningStart, setMorningStart] = useState<string>('08:00');
@@ -136,7 +139,13 @@ export const AcademySettingsView: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       const headsBody = await headsRes.json().catch(() => ({}));
-      const heads = (headsBody.data || []).map((h: any) => ({ id: String(h.id || ''), name: String(h.name || '') }));
+      const heads = (headsBody.data || []).map((h: any) => ({
+        id: String(h.id || ''),
+        name: String(h.name || ''),
+        code: String(h.code || ''),
+        is_system_default: Boolean(h.is_system_default || h.code === 'TUITION'),
+      }));
+      setFeeHeads(heads);
       const savedOrder: string[] = data?.data?.settings?.liquidation_rules?.priority_order || [];
       const dummyKeys = ['admission_fee', 'exam_fee', 'lab_fee', 'tuition_fee', 'fine'];
       const looksDummy = savedOrder.length === 0 || savedOrder.every((k: string) => dummyKeys.includes(k));
@@ -158,6 +167,10 @@ export const AcademySettingsView: React.FC = () => {
     fetchSettings();
   }, [token]);
 
+  useEffect(() => {
+    if (activeTab === 'staff') fetchStaff();
+  }, [activeTab, token]);
+
   // 60-second cooldown timer effect (starts ONLY on 200 OK from server)
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -166,44 +179,6 @@ export const AcademySettingsView: React.FC = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, [cooldown]);
-
-  const maskEmail = (emailStr?: string) => {
-    if (!emailStr || !emailStr.includes('@')) return '—';
-    const [namePart, domainPart] = emailStr.split('@');
-    if (namePart.length <= 2) return `${namePart}***@${domainPart}`;
-    return `${namePart[0]}***${namePart[namePart.length - 1]}@${domainPart}`;
-  };
-
-  const handleRequestOtp = async () => {
-    if (!token || cooldown > 0) return;
-    setIsRequestingOtp(true);
-    setSecurityError(null);
-    setSecuritySuccess(null);
-
-    try {
-      const res = await fetch('/api/v1/auth/change-password-otp', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const body = await res.json();
-      if (!res.ok) {
-        throw new Error(body.error?.message || 'Failed to dispatch verification code.');
-      }
-
-      // Start cooldown timer ONLY on 200 OK
-      setCooldown(body.data?.cooldown_seconds || 60);
-      setOtpSent(true);
-      setSecuritySuccess('A 6-digit code was sent to your email. Enter it below to confirm the password change.');
-    } catch (err: any) {
-      setSecurityError(err.message || 'Failed to send verification code.');
-    } finally {
-      setIsRequestingOtp(false);
-    }
-  };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -227,45 +202,198 @@ export const AcademySettingsView: React.FC = () => {
       setSecurityError('New password cannot be the same as your current password.');
       return;
     }
-    if (!otpCode || otpCode.trim().length !== 6) {
-      setSecurityError('Please enter the 6-digit verification code sent to your email.');
-      return;
-    }
 
     setIsChangingPassword(true);
     try {
-      const res = await fetch('/api/v1/auth/change-password', {
+      const res = await fetch('/api/v1/auth/change-password-otp', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          current_password: currentPassword,
-          new_password: newPassword,
-          otp: otpCode.trim(),
-        }),
       });
-
       const body = await res.json();
       if (!res.ok) {
-        throw new Error(body.error?.message || 'Failed to update password.');
+        throw new Error(body.error?.message || 'Failed to send verification code.');
       }
+      setCooldown(body.data?.cooldown_seconds || 60);
+      setOtpCode('');
+      setOtpModal('change');
+    } catch (err: any) {
+      setSecurityError(err.message || 'Failed to send verification code.');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
-      setSecuritySuccess('Password updated successfully. Administrative session refreshed.');
+  const handleConfirmOtp = async () => {
+    if (!token || otpCode.trim().length !== 6) {
+      setSecurityError('Enter the 6-digit code from your email.');
+      return;
+    }
+    setIsChangingPassword(true);
+    setSecurityError(null);
+    try {
+      if (otpModal === 'reset') {
+        const res = await fetch('/api/v1/auth/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: user?.email,
+            otp: otpCode.trim(),
+            new_password: newPassword,
+            tenant_slug: tenant?.slug,
+          }),
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error?.message || 'Failed to reset password.');
+      } else {
+        const res = await fetch('/api/v1/auth/change-password', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            current_password: currentPassword,
+            new_password: newPassword,
+            otp: otpCode.trim(),
+          }),
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error?.message || 'Failed to update password.');
+        if (applySession && body.data) applySession(body.data);
+      }
+      setSecuritySuccess('Password updated.');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setOtpCode('');
-
-      if (applySession && body.data) {
-        applySession(body.data);
-      }
+      setOtpModal(null);
     } catch (err: any) {
       setSecurityError(err.message || 'Failed to update password.');
     } finally {
       setIsChangingPassword(false);
     }
+  };
+
+  const handleForgotOldPassword = async () => {
+    if (!user?.email) return;
+    setSecurityError(null);
+    setIsRequestingOtp(true);
+    try {
+      const res = await fetch('/api/v1/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email, tenant_slug: tenant?.slug }),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error?.message || 'Failed to send code.');
+      setOtpCode('');
+      setOtpModal('reset');
+    } catch (err: any) {
+      setSecurityError(err.message || 'Failed to send code.');
+    } finally {
+      setIsRequestingOtp(false);
+    }
+  };
+
+  const headLocked = (h: { code: string; name: string; is_system_default?: boolean }) =>
+    h.code === 'TUITION' || h.name.toLowerCase().includes('monthly tuition');
+
+  const refreshFeeHeads = async () => {
+    if (!token) return;
+    const headsRes = await fetch('/api/v1/finance/heads', { headers: { Authorization: `Bearer ${token}` } });
+    const headsBody = await headsRes.json().catch(() => ({}));
+    const heads = (headsBody.data || []).map((h: any) => ({
+      id: String(h.id || ''),
+      name: String(h.name || ''),
+      code: String(h.code || ''),
+      is_system_default: Boolean(h.is_system_default || h.code === 'TUITION'),
+    }));
+    setFeeHeads(heads);
+    setLiquidationPriority(prev => {
+      const names = heads.map((h: { name: string }) => h.name);
+      const kept = prev.filter(n => names.includes(n));
+      const missing = names.filter((n: string) => !kept.includes(n));
+      return [...kept, ...missing];
+    });
+  };
+
+  const handleAddFeeHead = async () => {
+    if (!token || !newHeadName.trim()) return;
+    const code = newHeadName.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').slice(0, 16);
+    const res = await fetch('/api/v1/finance/heads', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newHeadName.trim(), code, default_amount: 0, priority_order: feeHeads.length + 1 }),
+    });
+    if (res.ok) {
+      setNewHeadName('');
+      await refreshFeeHeads();
+    }
+  };
+
+  const handleSaveHeadName = async (id: string) => {
+    if (!token || !editingHeadName.trim()) return;
+    await fetch(`/api/v1/finance/heads/${id}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: editingHeadName.trim() }),
+    });
+    setEditingHeadId(null);
+    await refreshFeeHeads();
+  };
+
+  const handleDeleteFeeHead = async (id: string) => {
+    if (!token) return;
+    await fetch(`/api/v1/finance/heads/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    await refreshFeeHeads();
+  };
+
+  const STAFF_FEATURES = [
+    { id: 'admissions', label: 'Admissions' },
+    { id: 'classes', label: 'Classes & timetable' },
+    { id: 'attendance', label: 'Attendance' },
+    { id: 'fees', label: 'Fees & invoices' },
+    { id: 'expenses', label: 'Income & expenses' },
+    { id: 'exams', label: 'Exams' },
+    { id: 'homework', label: 'Homework' },
+    { id: 'complaints', label: 'Complaints' },
+  ];
+
+  const fetchStaff = async () => {
+    if (!token) return;
+    const res = await fetch('/api/v1/academic/staff', { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return;
+    const body = await res.json();
+    setStaffRows(body.data || []);
+  };
+
+  const toggleStaffPermission = async (row: typeof staffRows[number], featureId: string) => {
+    if (!token) return;
+    const next = row.permissions.includes(featureId)
+      ? row.permissions.filter(p => p !== featureId)
+      : [...row.permissions, featureId];
+    await fetch(`/api/v1/academic/staff/${row.id}/access`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permissions: next }),
+    });
+    await fetchStaff();
+  };
+
+  const togglePortalBlock = async (row: typeof staffRows[number]) => {
+    if (!token) return;
+    await fetch(`/api/v1/academic/staff/${row.id}/access`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ portal_blocked: !row.portal_blocked }),
+    });
+    await fetchStaff();
   };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -450,9 +578,22 @@ export const AcademySettingsView: React.FC = () => {
               <ShieldCheck className="w-4 h-4 text-amber-600" />
               <span>Account Security</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('staff'); setSuccessMsg(null); setErrorMsg(null); }}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+                activeTab === 'staff'
+                  ? 'border-indigo-600 text-slate-900 bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <GraduationCap className="w-4 h-4 text-violet-600" />
+              <span>Staff access</span>
+            </button>
           </div>
 
-          {activeTab !== 'security' ? (
+          {activeTab !== 'security' && activeTab !== 'staff' ? (
             <form onSubmit={handleSave} className="space-y-6">
               {/* SECTION 1: INSTITUTION PROFILE */}
               {activeTab === 'profile' && (
@@ -741,52 +882,95 @@ export const AcademySettingsView: React.FC = () => {
 
                     </div>
 
-                    <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl">
-                      <span className="text-xs font-bold text-slate-800 block mb-1">
-                        Payment order for partial fees
-                      </span>
-                      <p className="text-[11px] text-slate-500 mb-2">
-                        If a parent pays less than the full bill, money is applied in this order. Move a head up or down. There is no late fine.
-                      </p>
-                      {liquidationPriority.length === 0 ? (
-                        <p className="text-xs text-slate-500">Add fee heads under Fee Invoices first, then set their order here.</p>
-                      ) : (
+                    <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl space-y-3">
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block mb-1">Fee heads</span>
+                        <p className="text-[11px] text-slate-500 mb-2">
+                          Monthly tuition stays. Add, rename, or remove every other head. Partial payments follow the order below.
+                        </p>
+                        <div className="flex gap-2 mb-2">
+                          <input
+                            value={newHeadName}
+                            onChange={e => setNewHeadName(e.target.value)}
+                            placeholder="e.g. Annual charges"
+                            className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5"
+                          />
+                          <button type="button" onClick={handleAddFeeHead} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white">
+                            Add head
+                          </button>
+                        </div>
                         <div className="space-y-1.5">
-                          {liquidationPriority.map((item, idx) => (
-                            <div key={item} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200">
-                              <span className="text-xs font-semibold text-slate-800">
-                                {idx + 1}. {item}
-                              </span>
-                              <span className="flex gap-1">
-                                <button
-                                  type="button"
-                                  disabled={idx === 0}
-                                  onClick={() => {
-                                    const next = [...liquidationPriority];
-                                    [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-                                    setLiquidationPriority(next);
-                                  }}
-                                  className="px-2 py-0.5 text-[10px] border border-slate-200 rounded disabled:opacity-30"
-                                >
-                                  Up
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={idx === liquidationPriority.length - 1}
-                                  onClick={() => {
-                                    const next = [...liquidationPriority];
-                                    [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
-                                    setLiquidationPriority(next);
-                                  }}
-                                  className="px-2 py-0.5 text-[10px] border border-slate-200 rounded disabled:opacity-30"
-                                >
-                                  Down
-                                </button>
-                              </span>
+                          {feeHeads.map(head => (
+                            <div key={head.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200">
+                              {editingHeadId === head.id ? (
+                                <input
+                                  value={editingHeadName}
+                                  onChange={e => setEditingHeadName(e.target.value)}
+                                  className="flex-1 text-xs border border-slate-200 rounded px-2 py-1"
+                                />
+                              ) : (
+                                <span className="flex-1 text-xs font-semibold text-slate-800">
+                                  {head.name}
+                                  {headLocked(head) ? <span className="ml-2 text-[10px] text-slate-400 font-medium">kept</span> : null}
+                                </span>
+                              )}
+                              {headLocked(head) ? null : editingHeadId === head.id ? (
+                                <button type="button" onClick={() => handleSaveHeadName(head.id)} className="text-[10px] px-2 py-0.5 border rounded">Save</button>
+                              ) : (
+                                <>
+                                  <button type="button" onClick={() => { setEditingHeadId(head.id); setEditingHeadName(head.name); }} className="text-[10px] px-2 py-0.5 border rounded">Edit</button>
+                                  <button type="button" onClick={() => handleDeleteFeeHead(head.id)} className="text-[10px] px-2 py-0.5 border rounded text-rose-600">Delete</button>
+                                </>
+                              )}
                             </div>
                           ))}
                         </div>
-                      )}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block mb-1">Payment order for partial fees</span>
+                        <p className="text-[11px] text-slate-500 mb-2">
+                          If a parent pays less than the full bill, money is applied in this order.
+                        </p>
+                        {liquidationPriority.length === 0 ? (
+                          <p className="text-xs text-slate-500">Add a fee head first.</p>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {liquidationPriority.map((item, idx) => (
+                              <div key={item} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200">
+                                <span className="text-xs font-semibold text-slate-800">
+                                  {idx + 1}. {item}
+                                </span>
+                                <span className="flex gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={idx === 0}
+                                    onClick={() => {
+                                      const next = [...liquidationPriority];
+                                      [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                                      setLiquidationPriority(next);
+                                    }}
+                                    className="px-2 py-0.5 text-[10px] border border-slate-200 rounded disabled:opacity-30"
+                                  >
+                                    Up
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={idx === liquidationPriority.length - 1}
+                                    onClick={() => {
+                                      const next = [...liquidationPriority];
+                                      [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
+                                      setLiquidationPriority(next);
+                                    }}
+                                    className="px-2 py-0.5 text-[10px] border border-slate-200 rounded disabled:opacity-30"
+                                  >
+                                    Down
+                                  </button>
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </>
@@ -876,13 +1060,10 @@ export const AcademySettingsView: React.FC = () => {
                     <div>
                       <h2 className="text-sm font-extrabold text-slate-900">Change your password</h2>
                       <p className="text-[11px] text-slate-500">
-                        We email a one-time code to your login address so only you can change the password.
+                        Enter the current password and a new one. A code will be emailed to confirm.
                       </p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 font-bold">
-                    Role: {user?.role || 'tenant_admin'}
-                  </span>
                 </div>
 
                 {securitySuccess && (
@@ -898,45 +1079,6 @@ export const AcademySettingsView: React.FC = () => {
                     <span className="font-bold">{securityError}</span>
                   </div>
                 )}
-
-                {/* Email Verification Passcode Dispatch Card */}
-                <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0 text-slate-600">
-                      <Mail className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <span className="block text-xs font-bold text-slate-800">Your login email</span>
-                      <span className="block text-xs font-mono text-slate-600 mt-0.5">
-                        {maskEmail(user?.email || email)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleRequestOtp}
-                    disabled={isRequestingOtp || cooldown > 0}
-                    className="w-full sm:w-auto px-4 py-2 bg-white border border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-800 rounded-lg text-xs font-bold transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    {isRequestingOtp ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Dispatching Code...</span>
-                      </>
-                    ) : cooldown > 0 ? (
-                      <>
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="font-mono">Resend in {cooldown}s</span>
-                      </>
-                    ) : (
-                      <>
-                        <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Send email code</span>
-                      </>
-                    )}
-                  </button>
-                </div>
 
                 {/* Password Change Form Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -1010,43 +1152,132 @@ export const AcademySettingsView: React.FC = () => {
                     </div>
                   </div>
 
-                  {otpSent && (
-                  <div className="md:col-span-2">
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
-                      Email code
-                    </label>
-                    <div className="relative max-w-xs">
-                      <input
-                        type="text"
-                        maxLength={6}
-                        value={otpCode}
-                        onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
-                        placeholder="Enter the 6-digit code"
-                        className="w-full text-center text-sm font-mono tracking-widest font-bold bg-slate-50 border border-slate-200 rounded-xl py-2.5 text-slate-900"
-                        required
-                      />
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      Check your email. The code works once and expires in 10 minutes.
-                    </p>
-                  </div>
-                  )}
                 </div>
 
-                {/* Submit Action */}
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={handleForgotOldPassword}
+                    disabled={isRequestingOtp}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                  >
+                    {isRequestingOtp ? 'Sending code…' : 'Forgot old password?'}
+                  </button>
                   <button
                     type="submit"
-                    disabled={isChangingPassword || !currentPassword || !newPassword || !otpCode}
+                    disabled={isChangingPassword || !currentPassword || !newPassword}
                     className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
                   >
                     {isChangingPassword ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                    <span>{isChangingPassword ? 'Updating Password...' : 'Update Password'}</span>
+                    <span>{isChangingPassword ? 'Sending code…' : 'Update password'}</span>
                   </button>
                 </div>
               </div>
             </form>
           )}
+
+          {activeTab === 'staff' && (
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+              <div>
+                <h2 className="text-sm font-extrabold text-slate-900">Staff access</h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Grant or revoke each desk for a staff member. Block student portal logins from here too.
+                </p>
+              </div>
+              {staffRows.length === 0 ? (
+                <p className="text-sm text-slate-500">No staff accounts yet. Add teachers from payroll or admissions.</p>
+              ) : (
+                <div className="space-y-3">
+                  {staffRows.map(row => (
+                    <div key={row.id} className="border border-slate-200 rounded-xl p-3">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{row.full_name}</p>
+                          <p className="text-[11px] text-slate-500">{row.email} · {row.role.replace('_', ' ')}</p>
+                        </div>
+                        {(row.role === 'student' || row.role === 'parent') && (
+                          <button
+                            type="button"
+                            onClick={() => togglePortalBlock(row)}
+                            className={`text-[11px] px-2.5 py-1 rounded-lg border ${row.portal_blocked ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-white text-slate-700 border-slate-200'}`}
+                          >
+                            {row.portal_blocked ? 'Portal blocked' : 'Block portal'}
+                          </button>
+                        )}
+                      </div>
+                      {row.role !== 'tenant_admin' && row.role !== 'student' && row.role !== 'parent' && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {STAFF_FEATURES.map(f => {
+                            const on = row.permissions.includes(f.id);
+                            return (
+                              <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => toggleStaffPermission(row, f.id)}
+                                className={`text-[11px] px-2 py-1 rounded-lg border ${on ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200'}`}
+                              >
+                                {f.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {otpModal && (
+        <div className="fixed inset-0 z-[90] bg-slate-900/50 flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-5 shadow-xl">
+            <h3 className="text-base font-semibold text-slate-900">Enter email code</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              A 6-digit code was sent to your email. It expires in 10 minutes.
+            </p>
+            {otpModal === 'reset' && (
+              <div className="mt-3 space-y-2">
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="New password"
+                  className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2"
+                />
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2"
+                />
+              </div>
+            )}
+            <input
+              autoFocus
+              value={otpCode}
+              onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+              placeholder="••••••"
+              className="mt-4 w-full text-center text-lg font-mono tracking-[0.4em] border border-slate-200 rounded-xl py-2.5"
+            />
+            {securityError && <p className="text-xs text-rose-600 mt-2">{securityError}</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => setOtpModal(null)} className="px-3 py-2 text-xs rounded-lg border border-slate-200">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmOtp}
+                disabled={isChangingPassword || otpCode.length !== 6}
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-900 text-white disabled:opacity-50"
+              >
+                {isChangingPassword ? 'Checking…' : 'Confirm'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

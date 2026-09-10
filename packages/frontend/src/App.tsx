@@ -190,7 +190,7 @@ const MainLayout: React.FC = () => {
         <Header
           currentScreenTitle={getTitle(currentScreen, user.role)}
           onOpenSidebar={() => setSidebarOpen(true)}
-          onNewAdmission={() => setCurrentScreen('enrollment')}
+          onNewAdmission={() => setCurrentScreen('new_admission')}
           onSwitchScreen={setCurrentScreen}
           onOpenSearch={() => setSearchOpen(true)}
         />
@@ -249,6 +249,8 @@ const MainLayout: React.FC = () => {
               <EnrollmentView defaultTab="id_cards" />
             ) : currentScreen === 'enrollment' ? (
               <EnrollmentView />
+            ) : currentScreen === 'new_admission' ? (
+              <EnrollmentView defaultTab="new_admission" />
             ) : currentScreen === 'timetable' ? (
               <TimetableDesk />
             ) : currentScreen === 'attendance' ? (

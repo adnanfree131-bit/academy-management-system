@@ -48,6 +48,15 @@ export function portalRoutes(store: IDataStore) {
         }
 
         const studentId = req.query.student_id;
+        const users = await store.getTenantUsers(tenantId);
+        const me = users.find(u => u.id === user.sub || u.email === user.email);
+        if (me?.metadata?.portal_blocked) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'PORTAL_BLOCKED', message: 'Student portal access has been blocked by the academy.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
         const overview = await store.getStudentParentPortalOverview(tenantId, studentId);
         return reply.send({ success: true, data: overview, timestamp: new Date().toISOString() });
       } catch (err: any) {

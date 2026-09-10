@@ -122,6 +122,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     homeworkOpen: 0,
     staffIn: 0,
     inquiries: 0,
+    pendingLeaves: 0,
   });
   const [loading, setLoading] = useState(true);
 
@@ -146,6 +147,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           inqRes,
           cmpRes,
           payRes,
+          leaveRes,
         ] = await Promise.all([
           fetch('/api/v1/sis/students', { headers }).catch(() => null),
           fetch('/api/v1/academic/batches', { headers }).catch(() => null),
@@ -159,6 +161,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           fetch('/api/v1/sis/inquiries', { headers }).catch(() => null),
           fetch('/api/v1/complaints', { headers }).catch(() => null),
           fetch('/api/v1/payroll/profiles', { headers }).catch(() => null),
+          fetch('/api/v1/attendance/leaves', { headers }).catch(() => null),
         ]);
 
         const json = async (res: Response | null) => (res && res.ok ? (await res.json()).data : null);
@@ -175,6 +178,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         const inquiries = await json(inqRes);
         const complaints = await json(cmpRes);
         const payroll = await json(payRes);
+        const leaves = await json(leaveRes);
 
         if (Array.isArray(stud)) setStudents(stud);
         if (Array.isArray(batch)) setBatches(batch);
@@ -220,6 +224,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             s.status === 'in' || s.status === 'on_time' || s.status === 'late' || s.check_in_at || s.clock_in || s.clock_in_time,
           ).length,
           inquiries: inqList.length,
+          pendingLeaves: (Array.isArray(leaves) ? leaves : []).filter((l: { status?: string }) => l.status === 'pending' || l.status === 'submitted').length,
         });
       } catch (err) {
         console.error('Dashboard load failed', err);
@@ -285,7 +290,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       label: `${live.homeworkOpen} homework set`,
       go: 'homework',
     },
+    live.pendingLeaves > 0 && {
+      label: `${live.pendingLeaves} leave request${live.pendingLeaves === 1 ? '' : 's'}`,
+      go: 'attendance',
+    },
   ].filter(Boolean) as { label: string; go: string }[];
+
+  const recentAdmissions = [...students]
+    .sort((a, b) => String(b.admission_date || b.created_at).localeCompare(String(a.admission_date || a.created_at)))
+    .slice(0, 5);
 
   return (
     <div className="space-y-5">
@@ -338,6 +351,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           tone="bg-amber-500"
           onClick={() => onNavigate('voucher')}
         />
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Inquiries', value: n(live.inquiries), go: 'enrollment' },
+          { label: 'Batches', value: n(batches.length), go: 'classes' },
+          { label: 'Homework', value: n(live.homeworkOpen), go: 'homework' },
+          { label: 'Complaints', value: n(live.openComplaints), go: 'complaints' },
+        ].map(item => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => onNavigate(item.go)}
+            className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-left hover:border-slate-300"
+          >
+            <p className="text-xs text-slate-500">{item.label}</p>
+            <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">{item.value}</p>
+          </button>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -551,7 +583,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 </div>
               )}
 
-              {upcomingExams.length === 0 && followUps.length === 0 && (
+              {recentAdmissions.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-2">Recent admissions</p>
+                  <ul className="space-y-2">
+                    {recentAdmissions.map(s => (
+                      <li key={s.id}>
+                        <button
+                          type="button"
+                          onClick={() => onNavigate('enrollment')}
+                          className="w-full flex items-center justify-between gap-3 text-left text-sm"
+                        >
+                          <span className="truncate font-medium text-slate-900">{s.full_name}</span>
+                          <span className="text-xs text-slate-500 shrink-0">{s.admission_number}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {upcomingExams.length === 0 && followUps.length === 0 && recentAdmissions.length === 0 && (
                 <p className="text-sm text-slate-500 mt-2">
                   Nothing waiting. Attendance, fees, and exams are clear.
                 </p>

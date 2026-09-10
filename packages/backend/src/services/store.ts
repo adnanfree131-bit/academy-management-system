@@ -229,6 +229,10 @@ export interface IDataStore {
   // --- Phase 4: Fee Heads & Priority Configuration ---
   getFeeHeads(tenantId: string): Promise<FeeHead[]>;
   createFeeHead(data: Omit<FeeHead, 'id' | 'created_at'>): Promise<FeeHead>;
+  updateFeeHead(tenantId: string, id: string, data: Partial<Pick<FeeHead, 'name' | 'code' | 'default_amount' | 'priority_order'>>): Promise<FeeHead | null>;
+  deleteFeeHead(tenantId: string, id: string): Promise<boolean>;
+  getTenantUsers(tenantId: string): Promise<User[]>;
+  updateUserMetadata(tenantId: string, userId: string, metadata: Record<string, unknown>): Promise<User | null>;
   getFeePriorityConfig(tenantId: string): Promise<FeePriorityConfig>;
   updateFeePriorityConfig(tenantId: string, priorityOrder: string[]): Promise<FeePriorityConfig>;
 
@@ -1804,13 +1808,17 @@ export class InMemoryDataStore implements IDataStore {
     };
     this.users.set(`${newTenant.id}:${adminUser.email}`, adminUser);
 
-    // Seed initial operational fee heads for the newly registered academy
-    const defaultFeeHeads: FeeHead[] = [
-      { id: crypto.randomUUID(), tenant_id: newTenant.id, name: 'Monthly Tuition Fee', code: 'TUITION', is_system_default: true, default_amount: 5000, priority_order: 1, created_at: new Date().toISOString() },
-      { id: crypto.randomUUID(), tenant_id: newTenant.id, name: 'Admission Fee', code: 'ADMISSION', is_system_default: true, default_amount: 10000, priority_order: 2, created_at: new Date().toISOString() },
-      { id: crypto.randomUUID(), tenant_id: newTenant.id, name: 'Examination Fee', code: 'EXAM', is_system_default: true, default_amount: 2500, priority_order: 3, created_at: new Date().toISOString() },
-    ];
-    this.feeHeads.push(...defaultFeeHeads);
+    const monthly: FeeHead = {
+      id: crypto.randomUUID(),
+      tenant_id: newTenant.id,
+      name: 'Monthly Tuition Fee',
+      code: 'TUITION',
+      is_system_default: true,
+      default_amount: 0,
+      priority_order: 1,
+      created_at: new Date().toISOString(),
+    };
+    this.feeHeads.push(monthly);
 
     this.persistAllowed = true;
     this.persistQueued = true;
@@ -2730,17 +2738,81 @@ export class InMemoryDataStore implements IDataStore {
     const head: FeeHead = {
       ...data,
       id: crypto.randomUUID(),
+      is_system_default: data.code === 'TUITION' ? true : false,
       created_at: new Date().toISOString()
     };
     this.feeHeads.push(head);
 
-    // Append to tenant priority config if existing
     const prio = this.feePriorityConfigs.get(data.tenant_id);
     if (prio) {
       prio.priority_order.push(head.id);
       prio.updated_at = new Date().toISOString();
     }
+
+    const already = this.accountHeads.some(h => h.tenant_id === data.tenant_id && h.name === head.name && h.type === 'income');
+    if (!already) {
+      this.accountHeads.push({
+        id: crypto.randomUUID(),
+        tenant_id: data.tenant_id,
+        name: head.name,
+        code: `INC-${head.code}`,
+        type: 'income',
+        is_active: true,
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    this.schedulePersist();
     return head;
+  }
+
+  async updateFeeHead(
+    tenantId: string,
+    id: string,
+    data: Partial<Pick<FeeHead, 'name' | 'code' | 'default_amount' | 'priority_order'>>,
+  ): Promise<FeeHead | null> {
+    const head = this.feeHeads.find(h => h.tenant_id === tenantId && h.id === id);
+    if (!head) return null;
+    const locked = head.code === 'TUITION' || head.name.toLowerCase().includes('monthly tuition');
+    if (locked) {
+      if (data.default_amount != null) head.default_amount = data.default_amount;
+      if (data.priority_order != null) head.priority_order = data.priority_order;
+    } else {
+      if (data.name) head.name = data.name.trim();
+      if (data.code) head.code = data.code.toUpperCase();
+      if (data.default_amount != null) head.default_amount = data.default_amount;
+      if (data.priority_order != null) head.priority_order = data.priority_order;
+    }
+    this.schedulePersist();
+    return head;
+  }
+
+  async deleteFeeHead(tenantId: string, id: string): Promise<boolean> {
+    const idx = this.feeHeads.findIndex(h => h.tenant_id === tenantId && h.id === id);
+    if (idx < 0) return false;
+    const head = this.feeHeads[idx];
+    if (head.code === 'TUITION' || head.name.toLowerCase().includes('monthly tuition')) return false;
+    this.feeHeads.splice(idx, 1);
+    const prio = this.feePriorityConfigs.get(tenantId);
+    if (prio) {
+      prio.priority_order = prio.priority_order.filter(hid => hid !== id);
+      prio.updated_at = new Date().toISOString();
+    }
+    this.schedulePersist();
+    return true;
+  }
+
+  async getTenantUsers(tenantId: string): Promise<User[]> {
+    return Array.from(this.users.values()).filter(u => u.tenant_id === tenantId);
+  }
+
+  async updateUserMetadata(tenantId: string, userId: string, metadata: Record<string, unknown>): Promise<User | null> {
+    const user = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && u.id === userId);
+    if (!user) return null;
+    user.metadata = { ...(user.metadata || {}), ...metadata };
+    user.updated_at = new Date().toISOString();
+    this.schedulePersist();
+    return user;
   }
 
   async getFeePriorityConfig(tenantId: string): Promise<FeePriorityConfig> {
@@ -4404,6 +4476,10 @@ export class InMemoryDataStore implements IDataStore {
 
     if (!student) {
       throw new Error(`Student not found in tenant: ${tenantId}`);
+    }
+    const linked = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && (u.id === student.user_id || u.email === student.email));
+    if (linked?.metadata?.portal_blocked) {
+      throw new Error('Student portal access has been blocked by the academy.');
     }
 
     const batch = this.batches.find(b => b.id === student.batch_id);

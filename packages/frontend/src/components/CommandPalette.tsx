@@ -85,7 +85,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
 
   const q = query.trim().toLowerCase();
   const moduleHits = useMemo(
-    () => modules.filter(m => !q || m.label.toLowerCase().includes(q)),
+    () => {
+      if (!q) return [];
+      return modules.filter(m => m.label.toLowerCase().includes(q));
+    },
     [modules, q]
   );
   const studentHits = useMemo(
@@ -173,8 +176,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
           </button>
         </div>
         <div className="max-h-80 overflow-y-auto py-1">
-          {items.length === 0 ? (
-            <p className="px-4 py-6 text-xs text-slate-500 text-center">No matching modules or students.</p>
+          {!q ? (
+            <p className="px-4 py-8 text-sm text-slate-500 text-center">
+              Type to search students, challans, or pages.
+            </p>
+          ) : items.length === 0 ? (
+            <p className="px-4 py-6 text-xs text-slate-500 text-center">No matching students, fees, or pages.</p>
           ) : items.map((item, idx) => (
             <button
               key={`${item.kind}-${item.id}`}

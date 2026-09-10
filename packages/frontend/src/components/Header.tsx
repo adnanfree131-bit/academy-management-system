@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { AcademyLogo } from './AcademyLogo';
 import { Menu, Search, Plus, ChevronDown, LogOut, Shield } from 'lucide-react';
 
 interface HeaderProps {
@@ -27,9 +28,16 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Menu className="w-5 h-5" />
         </button>
-        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 truncate">
-          {tenant?.name || (user?.role === 'super_admin' ? 'Kampus Platform' : 'Academy')}
-        </h1>
+        {user?.role === 'super_admin' ? (
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 truncate">Kampus Platform</h1>
+        ) : (
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AcademyLogo src={tenant?.logo_url} name={tenant?.name || 'Academy'} size={36} className="!rounded-lg hidden sm:flex" />
+            <h1 className="font-academy text-[22px] sm:text-[26px] leading-none text-slate-900 truncate">
+              {tenant?.name || 'Academy'}
+            </h1>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2.5">
