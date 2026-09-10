@@ -9,12 +9,11 @@ export function persistenceEnabled(): boolean {
 }
 
 function normalizeDatabaseUrl(raw: string): string {
-  // Supabase transaction pooler (6543) hangs on DDL/session features.
-  // Session pooler on 5432 is required for snapshot CREATE TABLE / UPSERT.
+  // Session pooler on 5432. Do not put sslmode=require in the URL:
+  // node-pg treats that as verify-full and the snapshot never saves.
   let url = raw.replace(/:6543([/'"?]|$)/, ':5432$1');
-  if (!/sslmode=/.test(url) && !/localhost|127\.0\.0\.1/.test(url)) {
-    url += url.includes('?') ? '&sslmode=require' : '?sslmode=require';
-  }
+  url = url.replace(/[?&]sslmode=[^&]*/g, '');
+  url = url.replace(/\?$/, '');
   return url;
 }
 
@@ -25,8 +24,8 @@ function getPool(): pg.Pool {
     pool = new Pool({
       connectionString,
       max: 1,
-      connectionTimeoutMillis: 5000,
-      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 15000,
+      idleTimeoutMillis: 30000,
       ssl: local ? undefined : { rejectUnauthorized: false },
     });
   }

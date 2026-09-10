@@ -647,7 +647,7 @@ export class InMemoryDataStore implements IDataStore {
       const payload = await Promise.race([
         loadSnapshot(),
         new Promise<null>((_, reject) => {
-          setTimeout(() => reject(new Error('hydrate timed out')), 8000);
+          setTimeout(() => reject(new Error('hydrate timed out')), 20000);
         }),
       ]);
       if (payload && Array.isArray(payload.tenants) && payload.tenants.length > 0) {
@@ -685,7 +685,7 @@ export class InMemoryDataStore implements IDataStore {
       await Promise.race([
         saveSnapshot(this.snapshotState()),
         new Promise<void>((_, reject) => {
-          setTimeout(() => reject(new Error('persist timed out')), 8000);
+          setTimeout(() => reject(new Error('persist timed out')), 20000);
         }),
       ]);
     } catch (err) {
@@ -1812,6 +1812,7 @@ export class InMemoryDataStore implements IDataStore {
     ];
     this.feeHeads.push(...defaultFeeHeads);
 
+    this.persistAllowed = true;
     this.persistQueued = true;
     await this.flushPersist();
     return { tenant: newTenant, admin: adminUser };
