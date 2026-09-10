@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AcademyLogo } from './AcademyLogo';
-import { Menu, Search, Plus, ChevronDown, LogOut, Shield } from 'lucide-react';
+import { Menu, Search, Plus, ChevronDown, LogOut, Shield, Settings, Users } from 'lucide-react';
 
 interface HeaderProps {
   currentScreenTitle?: string;
@@ -15,6 +15,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSidebar,
   onNewAdmission,
   onOpenSearch,
+  onSwitchScreen,
 }) => {
   const { user, tenant, logout } = useAuth();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -62,13 +63,31 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         {user?.role === 'tenant_admin' && (
-          <button 
-            onClick={onNewAdmission}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center gap-1.5 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">New Admission</span>
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => onSwitchScreen?.('staff')}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+            >
+              <Users className="w-3.5 h-3.5" />
+              Staff
+            </button>
+            <button
+              type="button"
+              onClick={() => onSwitchScreen?.('settings')}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              Settings
+            </button>
+            <button 
+              onClick={onNewAdmission}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center gap-1.5 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">New Admission</span>
+            </button>
+          </>
         )}
 
         {/* User Profile & Sign Out Menu */}
@@ -98,6 +117,26 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
               <div className="py-1">
+                {user?.role === 'tenant_admin' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { setProfileMenuOpen(false); onSwitchScreen?.('staff'); }}
+                      className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-xs text-slate-700 hover:bg-slate-50 font-semibold"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      Staff
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setProfileMenuOpen(false); onSwitchScreen?.('settings'); }}
+                      className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-xs text-slate-700 hover:bg-slate-50 font-semibold"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                      Settings
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => {
                     setProfileMenuOpen(false);
