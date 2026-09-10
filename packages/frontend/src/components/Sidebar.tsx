@@ -626,21 +626,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <LogOut className="w-4 h-4" />
             </button>
           </div>
-
-          {/* Powered by Kampus Brand Footer */}
-          <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between px-1">
-            <a 
-              href="https://app.kampus.pk" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="group inline-flex items-center gap-1.5 text-[10px] text-slate-400 hover:text-slate-800 transition-colors"
-            >
-              <span>powered by</span>
-              <img src="/kampus-logo.png?v=official2" alt="Kampus" className="h-3.5 w-auto object-contain" />
-            </a>
-            <span className="text-[9px] font-mono text-slate-300">v2.4</span>
-          </div>
-
         </aside>
       </div>
     </>
