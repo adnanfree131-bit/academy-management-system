@@ -397,7 +397,7 @@ export interface IDataStore {
   updateAnnouncement(id: string, updates: Partial<PlatformAnnouncement>): Promise<PlatformAnnouncement>;
   deleteAnnouncement(id: string): Promise<boolean>;
   toggleAnnouncement(id: string, isActive: boolean): Promise<PlatformAnnouncement>;
-  getActivePopupForTenant(tenantId: string, userId: string): Promise<PlatformAnnouncement | null>;
+  getActivePopupForTenant(tenantId: string, userId: string, role?: string): Promise<PlatformAnnouncement | null>;
   dismissAnnouncement(announcementId: string, userId: string, tenantId: string): Promise<boolean>;
 }
 
@@ -491,20 +491,21 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: this.platformGlobalConfig.updated_at
     };
 
-    // Initial Platform Announcements
-    this.announcements.push({
-      id: 'ann-default-01',
-      title: 'Institutional ERP Platform Online',
-      message: 'Welcome to Kampus Academy Management System. Core modules for Academic Structure, Attendance, Fee Ledgers, and Examinations are active.',
-      type: 'system',
-      frequency: 'once_dismissible',
-      target_audience: 'all',
-      target_tenant_id: null,
-      is_active: true,
-      action_label: 'Acknowledge',
-      action_url: null,
-      created_at: new Date().toISOString()
-    });
+    if (process.env.NODE_ENV === 'test') {
+      this.announcements.push({
+        id: 'ann-default-01',
+        title: 'Institutional ERP Platform Online',
+        message: 'Welcome to Kampus Academy Management System. Core modules for Academic Structure, Attendance, Fee Ledgers, and Examinations are active.',
+        type: 'system',
+        frequency: 'once_dismissible',
+        target_audience: 'all',
+        target_tenant_id: null,
+        is_active: true,
+        action_label: 'Acknowledge',
+        action_url: null,
+        created_at: new Date().toISOString()
+      });
+    }
 
     if (process.env.NODE_ENV === 'test') {
       this.seedDemoAcademy();
@@ -4909,6 +4910,8 @@ export class InMemoryDataStore implements IDataStore {
       created_at: new Date().toISOString()
     };
     this.announcements.unshift(announcement);
+    this.persistQueued = true;
+    void this.flushPersist();
     return { ...announcement };
   }
 
@@ -4933,7 +4936,8 @@ export class InMemoryDataStore implements IDataStore {
     if (updates.action_url !== undefined) ann.action_url = updates.action_url;
     if (updates.is_active !== undefined) ann.is_active = updates.is_active;
     ann.updated_at = new Date().toISOString();
-
+    this.persistQueued = true;
+    void this.flushPersist();
     return { ...ann };
   }
 
@@ -4943,6 +4947,8 @@ export class InMemoryDataStore implements IDataStore {
 
     this.announcements.splice(index, 1);
     this.announcementReceipts = this.announcementReceipts.filter(r => r.announcement_id !== id);
+    this.persistQueued = true;
+    await this.flushPersist();
     return true;
   }
 
@@ -4951,16 +4957,22 @@ export class InMemoryDataStore implements IDataStore {
     if (!ann) throw new Error(`Announcement not found: ${id}`);
     ann.is_active = isActive;
     ann.updated_at = new Date().toISOString();
+    this.persistQueued = true;
+    void this.flushPersist();
     return { ...ann };
   }
 
-  async getActivePopupForTenant(tenantId: string, userId: string): Promise<PlatformAnnouncement | null> {
+  async getActivePopupForTenant(tenantId: string, userId: string, role?: string): Promise<PlatformAnnouncement | null> {
+    if (role === 'super_admin') return null;
     const tenant = this.tenants.get(tenantId);
     if (!tenant) return null;
 
     const activeList = this.announcements.filter(a => a.is_active);
     for (const ann of activeList) {
       if (ann.target_audience === 'specific_academy' && ann.target_tenant_id !== tenantId) {
+        continue;
+      }
+      if (ann.target_audience === 'admin_only' && role && role !== 'tenant_admin') {
         continue;
       }
       if (ann.target_audience === 'trial_expiring') {
@@ -4973,7 +4985,7 @@ export class InMemoryDataStore implements IDataStore {
 
       if (ann.frequency === 'once_dismissible') {
         const hasDismissed = this.announcementReceipts.some(
-          r => r.announcement_id === ann.id && r.user_id === userId
+          r => r.announcement_id === ann.id && (r.user_id === userId || r.tenant_id === tenantId)
         );
         if (hasDismissed) continue;
       }
@@ -4985,7 +4997,7 @@ export class InMemoryDataStore implements IDataStore {
 
   async dismissAnnouncement(announcementId: string, userId: string, tenantId: string): Promise<boolean> {
     const exists = this.announcementReceipts.some(
-      r => r.announcement_id === announcementId && r.user_id === userId
+      r => r.announcement_id === announcementId && (r.user_id === userId || r.tenant_id === tenantId)
     );
     if (!exists) {
       this.announcementReceipts.push({
@@ -4996,6 +5008,8 @@ export class InMemoryDataStore implements IDataStore {
         read_at: new Date().toISOString()
       });
     }
+    this.persistQueued = true;
+    await this.flushPersist();
     return true;
   }
 }

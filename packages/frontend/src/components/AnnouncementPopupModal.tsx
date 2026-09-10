@@ -9,7 +9,7 @@ export const AnnouncementPopupModal: React.FC = () => {
   const [dismissing, setDismissing] = useState<boolean>(false);
 
   useEffect(() => {
-    if (!token || !user?.tenant_id) return;
+    if (!token || !user?.tenant_id || user.role === 'super_admin') return;
 
     let isMounted = true;
     const checkActivePopup = async () => {
@@ -41,7 +41,7 @@ export const AnnouncementPopupModal: React.FC = () => {
     if (!announcement || !user?.tenant_id) return;
     setDismissing(true);
     try {
-      await fetch(`/api/v1/saas/tenant/announcements/${announcement.id}/dismiss`, {
+      const res = await fetch(`/api/v1/saas/tenant/announcements/${announcement.id}/dismiss`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -52,6 +52,10 @@ export const AnnouncementPopupModal: React.FC = () => {
           user_id: user.id
         })
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error?.message || 'Could not save dismissal');
+      }
       setAnnouncement(null);
     } catch (err) {
       console.error('Failed dismissing platform announcement:', err);
@@ -61,7 +65,7 @@ export const AnnouncementPopupModal: React.FC = () => {
     }
   };
 
-  if (!announcement) return null;
+  if (user?.role === 'super_admin' || !announcement) return null;
 
   const getTypeStyle = (type: PlatformAnnouncement['type']) => {
     switch (type) {

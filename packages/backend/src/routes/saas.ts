@@ -452,7 +452,7 @@ export function saasRoutes(store: IDataStore) {
     // 12. SuperAdmin Broadcast Announcements
     const listAnnouncementsHandler = async (req: any, reply: any) => {
       try {
-        const onlyActive = req.query?.only_active === 'true';
+        const onlyActive = req.query?.only_active === 'true' || req.query?.include_inactive === 'false';
         const announcements = await store.getAnnouncements(onlyActive);
         return reply.send({ success: true, data: announcements, timestamp: new Date().toISOString() });
       } catch (err: any) {
@@ -561,6 +561,8 @@ export function saasRoutes(store: IDataStore) {
     fastify.put('/saas/announcements/:id', updateAnnouncementHandler);
     fastify.delete('/announcements/:id', deleteAnnouncementHandler);
     fastify.delete('/saas/announcements/:id', deleteAnnouncementHandler);
+    fastify.post('/announcements/:id/delete', deleteAnnouncementHandler);
+    fastify.post('/saas/announcements/:id/delete', deleteAnnouncementHandler);
     fastify.put('/announcements/:id/toggle', toggleAnnouncementHandler);
     fastify.put('/saas/announcements/:id/toggle', toggleAnnouncementHandler);
 
@@ -569,12 +571,14 @@ export function saasRoutes(store: IDataStore) {
       try {
         let tenantId = req.query.tenant_id;
         let userId = req.query.user_id || 'anonymous';
+        let role: string | undefined;
 
         if (req.headers.authorization) {
           try {
             const decoded = fastify.jwt.decode(req.headers.authorization.replace(/^Bearer /i, '')) as JWTPayload;
             if (decoded?.tenant_id) tenantId = decoded.tenant_id;
             if (decoded?.sub) userId = decoded.sub;
+            if (decoded?.role) role = decoded.role;
           } catch {}
         }
 
@@ -585,7 +589,7 @@ export function saasRoutes(store: IDataStore) {
           });
         }
 
-        const popup = await store.getActivePopupForTenant(tenantId, userId);
+        const popup = await store.getActivePopupForTenant(tenantId, userId, role);
         return reply.send({ success: true, data: popup, timestamp: new Date().toISOString() });
       } catch (err: any) {
         return reply.status(500).send({

@@ -669,20 +669,29 @@ export const SuperAdminControlPlaneView: React.FC = () => {
     if (!window.confirm(`Permanently delete broadcast notice '${title}'?`)) return;
 
     try {
-      const res = await fetch(`/api/v1/saas/announcements/${noticeId}`, {
+      const headers: Record<string, string> = token ? { authorization: `Bearer ${token}` } : {};
+      let res = await fetch(`/api/v1/saas/announcements/${noticeId}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { authorization: `Bearer ${token}` } : {})
-        }
+        headers,
       });
+      if (!res.ok) {
+        res = await fetch(`/api/v1/saas/announcements/${noticeId}/delete`, {
+          method: 'POST',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+          },
+          body: '{}',
+        });
+      }
 
       if (res.ok) {
+        setAnnouncements(prev => prev.filter(a => a.id !== noticeId));
         setActionSuccessMsg('Notice permanently deleted.');
         await fetchAnnouncements();
         setTimeout(() => setActionSuccessMsg(''), 4000);
       } else {
-        const body = await res.json();
+        const body = await res.json().catch(() => ({}));
         throw new Error(body.error?.message || 'Failed deleting notice');
       }
     } catch (err: any) {
