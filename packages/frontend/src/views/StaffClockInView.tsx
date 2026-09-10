@@ -286,7 +286,7 @@ export const StaffClockInView: React.FC = () => {
       <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs">
-            <MapPin className="w-5 h-5 text-indigo-400" />
+            <MapPin className="w-5 h-5 text-white" />
           </span>
           <div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">Staff Attendance</h1>

@@ -476,7 +476,7 @@ export const AcademicStructureView: React.FC = () => {
       <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs">
-            <Layers className="w-5 h-5 text-indigo-400" />
+            <Layers className="w-5 h-5 text-white" />
           </span>
           <div>
             <div className="flex items-center gap-2">
@@ -533,7 +533,7 @@ export const AcademicStructureView: React.FC = () => {
             onClick={() => setShowProgramModal(true)}
             className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs"
           >
-            <Plus className="w-4 h-4 text-indigo-400" />
+            <Plus className="w-4 h-4 text-white" />
             <span>New Class</span>
           </button>
         </div>
@@ -1081,7 +1081,7 @@ export const AcademicStructureView: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 rounded-xl bg-slate-900 text-white">
-                  <GraduationCap className="w-4 h-4 text-indigo-400" />
+                  <GraduationCap className="w-4 h-4 text-white" />
                 </span>
                 <div>
                   <h2 className="text-sm font-bold text-slate-900">Add New Class / Grade</h2>

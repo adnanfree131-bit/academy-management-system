@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { Menu, Search, Plus, ChevronDown, LogOut, Shield } from 'lucide-react';
 
 interface HeaderProps {
-  currentScreenTitle: string;
+  currentScreenTitle?: string;
   onOpenSidebar: () => void;
   onNewAdmission: () => void;
   onSwitchScreen?: (screen: string) => void;
@@ -11,7 +11,6 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  currentScreenTitle,
   onOpenSidebar,
   onNewAdmission,
   onOpenSearch,
@@ -28,25 +27,9 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-3">
-          {tenant?.logo_url && (
-            <img 
-              src={tenant.logo_url} 
-              alt={tenant.name} 
-              className="h-8 w-auto max-w-[120px] object-contain hidden sm:block rounded-md border border-slate-200 p-0.5 bg-white shadow-2xs" 
-            />
-          )}
-          <div>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <span className="font-semibold text-slate-900">{tenant?.name || 'Academy Portal'}</span>
-              <span>/</span>
-              <span className="font-medium text-slate-600">{currentScreenTitle}</span>
-            </div>
-            <p className="text-[11px] text-slate-400 hidden sm:block">
-              Campus: {tenant?.campus_name || 'Main Campus'} • Academic Session {tenant?.academic_session || '2026-27'}
-            </p>
-          </div>
-        </div>
+        <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 truncate">
+          {tenant?.name || (user?.role === 'super_admin' ? 'Kampus Platform' : 'Academy')}
+        </h1>
       </div>
 
       <div className="flex items-center gap-2.5">
@@ -57,7 +40,7 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
           <span className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-400">
-            Search students or modules
+            Search students, fees, classes…
           </span>
         </button>
 

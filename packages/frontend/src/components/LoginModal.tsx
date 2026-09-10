@@ -20,11 +20,7 @@ import {
   X,
   AlertCircle,
   Check,
-  Copy,
-  BookOpen,
-  Receipt,
-  CalendarCheck,
-  Award
+  Copy
 } from 'lucide-react';
 import { AcademyBranding } from '@apex/shared-types';
 

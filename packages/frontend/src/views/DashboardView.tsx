@@ -209,7 +209,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </p>
         </div>
 
-        {/* Fee Collection Rate */}
         <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
             <span className="text-xs font-semibold">Fee Recovery</span>
@@ -222,6 +221,39 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             PKR {feeStats.totalCollected.toLocaleString()} collected
           </p>
         </div>
+
+        <button type="button" onClick={() => onNavigate('exams')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
+          <p className="text-xs font-semibold text-slate-500">Exams</p>
+          <p className="text-sm font-bold text-slate-900 mt-2">Results and report cards</p>
+        </button>
+        <button type="button" onClick={() => onNavigate('attendance')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
+          <p className="text-xs font-semibold text-slate-500">Attendance</p>
+          <p className="text-sm font-bold text-slate-900 mt-2">Daily register</p>
+        </button>
+        <button type="button" onClick={() => onNavigate('homework')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
+          <p className="text-xs font-semibold text-slate-500">Homework</p>
+          <p className="text-sm font-bold text-slate-900 mt-2">Notebook checks</p>
+        </button>
+        <button type="button" onClick={() => onNavigate('id_cards')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
+          <p className="text-xs font-semibold text-slate-500">ID cards</p>
+          <p className="text-sm font-bold text-slate-900 mt-2">Print student cards</p>
+        </button>
+        <button type="button" onClick={() => onNavigate('timetable')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
+          <p className="text-xs font-semibold text-slate-500">Timetable</p>
+          <p className="text-sm font-bold text-slate-900 mt-2">Class schedule</p>
+        </button>
+        <button type="button" onClick={() => onNavigate('payroll')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
+          <p className="text-xs font-semibold text-slate-500">Payroll</p>
+          <p className="text-sm font-bold text-slate-900 mt-2">Staff salaries</p>
+        </button>
+        <button type="button" onClick={() => onNavigate('geofence')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
+          <p className="text-xs font-semibold text-slate-500">Staff attendance</p>
+          <p className="text-sm font-bold text-slate-900 mt-2">Campus clock-in</p>
+        </button>
+        <button type="button" onClick={() => onNavigate('settings')} className="text-left bg-white border border-slate-200 rounded-xl p-4 shadow-xs hover:border-slate-400">
+          <p className="text-xs font-semibold text-slate-500">Settings</p>
+          <p className="text-sm font-bold text-slate-900 mt-2">Logo, bank, hours</p>
+        </button>
 
       </div>
 
@@ -356,11 +388,35 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               className="p-3 rounded-lg border border-slate-200/80 hover:border-slate-400 hover:bg-slate-50/50 transition-all cursor-pointer space-y-1"
             >
               <div className="flex items-center justify-between font-semibold text-slate-900">
-                <span>4. Class Attendance Register</span>
+                <span>4. Attendance</span>
                 <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
               </div>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                Mark daily batch attendance and manage student leave applications.
+                Mark the daily register and handle leave requests.
+              </p>
+            </div>
+            <div 
+              onClick={() => onNavigate('exams')}
+              className="p-3 rounded-lg border border-slate-200/80 hover:border-slate-400 hover:bg-slate-50/50 transition-all cursor-pointer space-y-1"
+            >
+              <div className="flex items-center justify-between font-semibold text-slate-900">
+                <span>5. Exams</span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Enter marks and download report cards.
+              </p>
+            </div>
+            <div 
+              onClick={() => onNavigate('id_cards')}
+              className="p-3 rounded-lg border border-slate-200/80 hover:border-slate-400 hover:bg-slate-50/50 transition-all cursor-pointer space-y-1"
+            >
+              <div className="flex items-center justify-between font-semibold text-slate-900">
+                <span>6. ID cards</span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Print student identity cards.
               </p>
             </div>
           </div>

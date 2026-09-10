@@ -29,7 +29,8 @@ const ADMIN_MODULES = [
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, onNavigate }) => {
   const { token, user } = useAuth();
   const [query, setQuery] = useState('');
-  const [students, setStudents] = useState<{ id: string; full_name: string; roll_number: string; admission_number: string }[]>([]);
+  const [students, setStudents] = useState<{ id: string; full_name: string; roll_number: string; admission_number: string; guardian_name?: string; phone?: string }[]>([]);
+  const [invoices, setInvoices] = useState<{ id: string; invoice_number: string; student_name?: string }[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -57,6 +58,20 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
             full_name: s.full_name,
             roll_number: s.roll_number,
             admission_number: s.admission_number,
+            guardian_name: s.guardian_name,
+            phone: s.phone || s.guardian_phone,
+          })));
+        }
+      })
+      .catch(() => {});
+    fetch('/api/v1/finance/invoices', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(body => {
+        if (!cancelled && Array.isArray(body.data)) {
+          setInvoices(body.data.map((inv: any) => ({
+            id: inv.id,
+            invoice_number: inv.invoice_number,
+            student_name: inv.student_name,
           })));
         }
       })
@@ -79,19 +94,37 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
       return students.filter(s =>
         s.full_name.toLowerCase().includes(q) ||
         (s.roll_number || '').toLowerCase().includes(q) ||
-        (s.admission_number || '').toLowerCase().includes(q)
+        (s.admission_number || '').toLowerCase().includes(q) ||
+        (s.guardian_name || '').toLowerCase().includes(q) ||
+        (s.phone || '').toLowerCase().includes(q)
       ).slice(0, 8);
     },
     [students, q]
   );
+  const invoiceHits = useMemo(
+    () => {
+      if (!q) return [];
+      return invoices.filter(inv =>
+        (inv.invoice_number || '').toLowerCase().includes(q) ||
+        (inv.student_name || '').toLowerCase().includes(q)
+      ).slice(0, 5);
+    },
+    [invoices, q]
+  );
 
   const items = [
-    ...moduleHits.map(m => ({ kind: 'module' as const, id: m.id, label: m.label, hint: 'Module' })),
+    ...moduleHits.map(m => ({ kind: 'module' as const, id: m.id, label: m.label, hint: 'Page' })),
     ...studentHits.map(s => ({
       kind: 'student' as const,
       id: s.id,
       label: s.full_name,
       hint: [s.roll_number, s.admission_number].filter(Boolean).join(' · ') || 'Student',
+    })),
+    ...invoiceHits.map(inv => ({
+      kind: 'invoice' as const,
+      id: inv.id,
+      label: inv.invoice_number,
+      hint: inv.student_name || 'Fee challan',
     })),
   ];
 
@@ -101,6 +134,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
 
   const choose = (item: typeof items[number]) => {
     if (item.kind === 'module') onNavigate(item.id);
+    else if (item.kind === 'invoice') onNavigate('voucher');
     else onNavigate('enrollment');
     onClose();
   };
@@ -131,7 +165,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
                 choose(items[activeIndex]);
               }
             }}
-            placeholder="Search modules or students…"
+            placeholder="Search students, fees, pages…"
             className="flex-1 text-sm text-slate-900 placeholder:text-slate-400 outline-none bg-transparent py-1"
           />
           <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700">

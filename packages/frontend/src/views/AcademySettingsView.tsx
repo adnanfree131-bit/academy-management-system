@@ -39,6 +39,7 @@ export const AcademySettingsView: React.FC = () => {
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [otpCode, setOtpCode] = useState<string>('');
+  const [otpSent, setOtpSent] = useState<boolean>(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState<boolean>(false);
   const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
   const [isRequestingOtp, setIsRequestingOtp] = useState<boolean>(false);
@@ -50,7 +51,7 @@ export const AcademySettingsView: React.FC = () => {
   // Form State
   const [academyName, setAcademyName] = useState<string>('');
   const [campusName, setCampusName] = useState<string>('');
-  const [city, setCity] = useState<string>('Lahore');
+  const [city, setCity] = useState<string>('');
   const [subdomain, setSubdomain] = useState<string>('');
   const [domain, setDomain] = useState<string>('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -62,23 +63,15 @@ export const AcademySettingsView: React.FC = () => {
   const [affiliationNo, setAffiliationNo] = useState<string>('');
 
   // Bank Details for Challan
-  const [bankName, setBankName] = useState<string>('Meezan Bank Limited');
-  const [accountTitle, setAccountTitle] = useState<string>('Academy Collection Account');
-  const [accountNumber, setAccountNumber] = useState<string>('0102-0104882910');
-  const [iban, setIban] = useState<string>('PK36MEZN0001020104882910');
-  const [branchCode, setBranchCode] = useState<string>('Main Branch (0101)');
+  const [bankName, setBankName] = useState<string>('');
+  const [accountTitle, setAccountTitle] = useState<string>('');
+  const [accountNumber, setAccountNumber] = useState<string>('');
+  const [iban, setIban] = useState<string>('');
+  const [branchCode, setBranchCode] = useState<string>('');
 
-  // Policies & Payment Allocation
   const [dueDay, setDueDay] = useState<number>(10);
   const [graceDays, setGraceDays] = useState<number>(5);
-  const [lateFeePerDay, setLateFeePerDay] = useState<number>(50);
-  const [liquidationPriority, setLiquidationPriority] = useState<string[]>([
-    'admission_fee',
-    'exam_fee',
-    'lab_fee',
-    'tuition_fee',
-    'fine'
-  ]);
+  const [liquidationPriority, setLiquidationPriority] = useState<string[]>([]);
 
   // Shifts
   const [morningStart, setMorningStart] = useState<string>('08:00');
@@ -99,29 +92,32 @@ export const AcademySettingsView: React.FC = () => {
         const t = data.data;
         const s = t.settings || {};
         setAcademyName(t.name || tenant?.name || '');
-        setCampusName(s.campus_name || tenant?.campus_name || 'Main Campus');
-        setAcademicSession(s.academic_session || tenant?.academic_session || '2026-2027');
-        setPhone(s.phone || '+92 300 1234567');
-        setEmail(s.email || 'info@kampus.pk');
-        setAddress(s.address || 'Campus Avenue, Main Boulevard, Lahore');
-        setAffiliationNo(s.affiliation_number || 'BISE/LHR-2026/9941');
+        setCampusName(s.campus_name || tenant?.campus_name || '');
+        setAcademicSession(s.academic_session || tenant?.academic_session || '');
+        const dummyEmail = !s.email || s.email === 'info@kampus.pk';
+        const dummyAff = !s.affiliation_number || String(s.affiliation_number).includes('BISE/LHR-2026');
+        const dummyAddr = !s.address || String(s.address).includes('Campus Avenue');
+        const dummyPhone = !s.phone || s.phone.includes('300 1234567');
+        setPhone(dummyPhone ? '' : s.phone);
+        setEmail(dummyEmail ? '' : s.email);
+        setAddress(dummyAddr ? '' : s.address);
+        setAffiliationNo(dummyAff ? '' : s.affiliation_number);
 
         if (s.logo_url) setLogoUrl(s.logo_url);
         if (s.city) setCity(s.city);
         if (s.subdomain || t.slug) setSubdomain(s.subdomain || t.slug);
         if (s.domain || t.domain) setDomain(s.domain || t.domain);
 
-        if (s.bank_name) setBankName(s.bank_name);
-        if (s.account_title) setAccountTitle(s.account_title);
-        if (s.account_number) setAccountNumber(s.account_number);
-        if (s.iban) setIban(s.iban);
-        if (s.branch_code) setBranchCode(s.branch_code);
+        const dummyBank = !s.bank_name || s.bank_name === 'Meezan Bank Limited';
+        setBankName(dummyBank ? '' : s.bank_name);
+        setAccountTitle(!s.account_title || s.account_title === 'Academy Collection Account' ? '' : s.account_title);
+        setAccountNumber(!s.account_number || s.account_number === '0102-0104882910' ? '' : s.account_number);
+        setIban(!s.iban || s.iban === 'PK36MEZN0001020104882910' ? '' : s.iban);
+        setBranchCode(!s.branch_code || s.branch_code.includes('Main Branch (0101)') ? '' : s.branch_code);
 
         if (s.liquidation_rules) {
           if (s.liquidation_rules.due_day) setDueDay(s.liquidation_rules.due_day);
           if (s.liquidation_rules.grace_days) setGraceDays(s.liquidation_rules.grace_days);
-          if (s.liquidation_rules.late_fee_per_day) setLateFeePerDay(s.liquidation_rules.late_fee_per_day);
-          if (s.liquidation_rules.priority_order) setLiquidationPriority(s.liquidation_rules.priority_order);
         }
 
         if (s.shifts) {
@@ -134,6 +130,22 @@ export const AcademySettingsView: React.FC = () => {
             setEveningEnd(s.shifts.evening.end || '19:30');
           }
         }
+      }
+
+      const headsRes = await fetch('/api/v1/finance/heads', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const headsBody = await headsRes.json().catch(() => ({}));
+      const heads = (headsBody.data || []).map((h: any) => ({ id: String(h.id || ''), name: String(h.name || '') }));
+      const savedOrder: string[] = data?.data?.settings?.liquidation_rules?.priority_order || [];
+      const dummyKeys = ['admission_fee', 'exam_fee', 'lab_fee', 'tuition_fee', 'fine'];
+      const looksDummy = savedOrder.length === 0 || savedOrder.every((k: string) => dummyKeys.includes(k));
+      if (looksDummy) {
+        setLiquidationPriority(heads.map((h: { name: string }) => h.name));
+      } else {
+        const known = savedOrder.filter((name: string) => heads.some((h: { name: string; id: string }) => h.name === name || h.id === name));
+        const missing = heads.map((h: { name: string }) => h.name).filter((n: string) => !known.includes(n));
+        setLiquidationPriority([...known, ...missing]);
       }
     } catch (err) {
       console.error('Failed to load academy settings:', err);
@@ -156,7 +168,7 @@ export const AcademySettingsView: React.FC = () => {
   }, [cooldown]);
 
   const maskEmail = (emailStr?: string) => {
-    if (!emailStr || !emailStr.includes('@')) return 'director@academy.edu.pk';
+    if (!emailStr || !emailStr.includes('@')) return '—';
     const [namePart, domainPart] = emailStr.split('@');
     if (namePart.length <= 2) return `${namePart}***@${domainPart}`;
     return `${namePart[0]}***${namePart[namePart.length - 1]}@${domainPart}`;
@@ -184,7 +196,8 @@ export const AcademySettingsView: React.FC = () => {
 
       // Start cooldown timer ONLY on 200 OK
       setCooldown(body.data?.cooldown_seconds || 60);
-      setSecuritySuccess(body.data?.message || 'Verification code dispatched to director email.');
+      setOtpSent(true);
+      setSecuritySuccess('A 6-digit code was sent to your email. Enter it below to confirm the password change.');
     } catch (err: any) {
       setSecurityError(err.message || 'Failed to send verification code.');
     } finally {
@@ -304,7 +317,7 @@ export const AcademySettingsView: React.FC = () => {
       liquidation_rules: {
         due_day: dueDay,
         grace_days: graceDays,
-        late_fee_per_day: lateFeePerDay,
+        late_fee_per_day: 0,
         priority_order: liquidationPriority,
       },
       shifts: {
@@ -344,7 +357,7 @@ export const AcademySettingsView: React.FC = () => {
       <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs">
-            <Building2 className="w-5 h-5 text-indigo-400" />
+            <Building2 className="w-5 h-5 text-white" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">Academy Settings</h1>
@@ -631,9 +644,8 @@ export const AcademySettingsView: React.FC = () => {
                           type="text"
                           value={bankName}
                           onChange={e => setBankName(e.target.value)}
-                          placeholder="e.g. Meezan Bank Limited / HBL / MCB"
+                          placeholder="Bank name"
                           className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold"
-                          required
                         />
                       </div>
 
@@ -643,9 +655,8 @@ export const AcademySettingsView: React.FC = () => {
                           type="text"
                           value={accountTitle}
                           onChange={e => setAccountTitle(e.target.value)}
-                          placeholder="e.g. Academy Main Collection Account"
+                          placeholder="Account title as printed on the challan"
                           className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
-                          required
                         />
                       </div>
 
@@ -655,9 +666,8 @@ export const AcademySettingsView: React.FC = () => {
                           type="text"
                           value={accountNumber}
                           onChange={e => setAccountNumber(e.target.value)}
-                          placeholder="0102-0104882910"
+                          placeholder="Bank account number"
                           className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
-                          required
                         />
                       </div>
 
@@ -667,9 +677,8 @@ export const AcademySettingsView: React.FC = () => {
                           type="text"
                           value={iban}
                           onChange={e => setIban(e.target.value)}
-                          placeholder="PK36MEZN0001020104882910"
+                          placeholder="PK followed by 22 characters"
                           className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800 font-bold"
-                          required
                         />
                       </div>
 
@@ -692,7 +701,7 @@ export const AcademySettingsView: React.FC = () => {
                       <div>
                         <h2 className="text-sm font-bold text-slate-900">Fee Invoicing & Payment Allocation</h2>
                         <p className="text-[11px] text-slate-500">
-                          Configure default due dates, late fees, and payment allocation order for partial payments.
+                          Set the due day and the order used when a parent pays part of a bill.
                         </p>
                       </div>
                     </div>
@@ -730,43 +739,54 @@ export const AcademySettingsView: React.FC = () => {
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Late Surcharge Per Day</label>
-                        <div className="relative">
-                          <input
-                            type="number"
-                            min="0"
-                            step="10"
-                            value={lateFeePerDay}
-                            onChange={e => setLateFeePerDay(parseInt(e.target.value) || 0)}
-                            className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-900 font-bold"
-                            required
-                          />
-                          <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-medium">PKR / day</span>
-                        </div>
-                      </div>
                     </div>
 
                     <div className="p-3 bg-slate-50 border border-slate-200/70 rounded-xl">
                       <span className="text-xs font-bold text-slate-800 block mb-1">
-                        Payment Allocation Order:
+                        Payment order for partial fees
                       </span>
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        {liquidationPriority.map((item, idx) => (
-                          <span
-                            key={item}
-                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 font-mono text-[11px] font-bold shadow-2xs"
-                          >
-                            <span className="w-4 h-4 rounded-full bg-slate-900 text-white text-[9px] flex items-center justify-center">
-                              {idx + 1}
-                            </span>
-                            <span className="capitalize">{item.replace('_', ' ')}</span>
-                          </span>
-                        ))}
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-2">
-                        When a student pays partially, funds are applied strictly according to this priority order.
+                      <p className="text-[11px] text-slate-500 mb-2">
+                        If a parent pays less than the full bill, money is applied in this order. Move a head up or down. There is no late fine.
                       </p>
+                      {liquidationPriority.length === 0 ? (
+                        <p className="text-xs text-slate-500">Add fee heads under Fee Invoices first, then set their order here.</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {liquidationPriority.map((item, idx) => (
+                            <div key={item} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200">
+                              <span className="text-xs font-semibold text-slate-800">
+                                {idx + 1}. {item}
+                              </span>
+                              <span className="flex gap-1">
+                                <button
+                                  type="button"
+                                  disabled={idx === 0}
+                                  onClick={() => {
+                                    const next = [...liquidationPriority];
+                                    [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                                    setLiquidationPriority(next);
+                                  }}
+                                  className="px-2 py-0.5 text-[10px] border border-slate-200 rounded disabled:opacity-30"
+                                >
+                                  Up
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={idx === liquidationPriority.length - 1}
+                                  onClick={() => {
+                                    const next = [...liquidationPriority];
+                                    [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
+                                    setLiquidationPriority(next);
+                                  }}
+                                  className="px-2 py-0.5 text-[10px] border border-slate-200 rounded disabled:opacity-30"
+                                >
+                                  Down
+                                </button>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </>
@@ -854,9 +874,9 @@ export const AcademySettingsView: React.FC = () => {
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                     <div>
-                      <h2 className="text-sm font-extrabold text-slate-900">Director Account Security & Credentials</h2>
+                      <h2 className="text-sm font-extrabold text-slate-900">Change your password</h2>
                       <p className="text-[11px] text-slate-500">
-                        Update your administrative master password. Protected by transactional Brevo email verification.
+                        We email a one-time code to your login address so only you can change the password.
                       </p>
                     </div>
                   </div>
@@ -886,7 +906,7 @@ export const AcademySettingsView: React.FC = () => {
                       <Mail className="w-4 h-4" />
                     </div>
                     <div>
-                      <span className="block text-xs font-bold text-slate-800">Director Verification Email</span>
+                      <span className="block text-xs font-bold text-slate-800">Your login email</span>
                       <span className="block text-xs font-mono text-slate-600 mt-0.5">
                         {maskEmail(user?.email || email)}
                       </span>
@@ -912,7 +932,7 @@ export const AcademySettingsView: React.FC = () => {
                     ) : (
                       <>
                         <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Request Verification Code</span>
+                        <span>Send email code</span>
                       </>
                     )}
                   </button>
@@ -990,10 +1010,10 @@ export const AcademySettingsView: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* 6-Digit Email Verification Passcode */}
+                  {otpSent && (
                   <div className="md:col-span-2">
                     <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
-                      6-Digit Email Verification Code
+                      Email code
                     </label>
                     <div className="relative max-w-xs">
                       <input
@@ -1001,15 +1021,16 @@ export const AcademySettingsView: React.FC = () => {
                         maxLength={6}
                         value={otpCode}
                         onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
-                        placeholder="000000"
+                        placeholder="Enter the 6-digit code"
                         className="w-full text-center text-sm font-mono tracking-widest font-bold bg-slate-50 border border-slate-200 rounded-xl py-2.5 text-slate-900"
                         required
                       />
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Enter the 6-digit passcode sent to your director email. Single-use and valid for 10 minutes.
+                    <p className="text-[10px] text-slate-500 mt-1">
+                      Check your email. The code works once and expires in 10 minutes.
                     </p>
                   </div>
+                  )}
                 </div>
 
                 {/* Submit Action */}
