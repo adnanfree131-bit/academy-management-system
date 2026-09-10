@@ -84,7 +84,7 @@ import {
 } from '@apex/shared-types';
 
 import { hashPassword, verifyPassword } from './password.js';
-import { loadSnapshot, persistenceEnabled, saveSnapshot } from './store-persist.js';
+import { countRealAcademies, loadSnapshot, persistenceEnabled, saveSnapshot } from './store-persist.js';
 
 export interface StoredOTP {
   id: string;
@@ -526,6 +526,7 @@ export class InMemoryDataStore implements IDataStore {
   private persistTimer: ReturnType<typeof setInterval> | null = null;
   private persistQueued = false;
   private persisting = false;
+  private persistAllowed = false;
 
   private snapshotState(): Record<string, unknown> {
     return {
@@ -637,14 +638,23 @@ export class InMemoryDataStore implements IDataStore {
       ]);
       if (payload && Array.isArray(payload.tenants) && payload.tenants.length > 0) {
         this.applySnapshot(payload);
+        this.persistAllowed = true;
         console.log(`[Store] Restored snapshot with ${this.tenants.size} academies`);
-      } else {
-        this.persistQueued = true;
-        await this.flushPersist();
-        console.log('[Store] No snapshot found; seeded state persisted');
+        return;
       }
+      const existingCount = countRealAcademies(payload);
+      if (existingCount > 0) {
+        this.persistAllowed = false;
+        console.error('[Store] Snapshot present with academies but failed to apply; refusing to persist seed');
+        return;
+      }
+      this.persistAllowed = true;
+      this.persistQueued = true;
+      await this.flushPersist();
+      console.log('[Store] No snapshot found; seeded state persisted');
     } catch (err) {
-      console.error('[Store] Failed to hydrate from database; continuing with in-memory seed:', err);
+      this.persistAllowed = false;
+      console.error('[Store] Failed to hydrate from database; RAM seed will NOT overwrite stored academies:', err);
     }
   }
 
@@ -654,7 +664,7 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async flushPersist(): Promise<void> {
-    if (!persistenceEnabled() || this.persisting || !this.persistQueued) return;
+    if (!persistenceEnabled() || !this.persistAllowed || this.persisting || !this.persistQueued) return;
     this.persisting = true;
     this.persistQueued = false;
     try {
@@ -799,87 +809,6 @@ export class InMemoryDataStore implements IDataStore {
       { id: 'ah-4', tenant_id: primaryTenant.id, code: 'EXP-03', name: 'Campus Facility Rent', type: 'expense', is_active: true, created_at: new Date().toISOString() },
       { id: 'ah-5', tenant_id: primaryTenant.id, code: 'EXP-04', name: 'Office & Academic Supplies', type: 'expense', is_active: true, created_at: new Date().toISOString() },
     );
-  }
-
-  private purgeDemoAcademies(): void {
-    // Only the original seed academy IDs — never wipe real registered academies.
-    const demoIds = new Set<string>([
-      'a0000000-0000-0000-0000-000000000001',
-      'b0000000-0000-0000-0000-000000000002',
-    ]);
-    for (const id of [...demoIds]) {
-      const tenant = this.tenants.get(id);
-      if (!tenant) {
-        demoIds.delete(id);
-        continue;
-      }
-      const name = (tenant.name || '').toLowerCase();
-      const isSeed =
-        tenant.slug === 'apex' ||
-        tenant.slug === 'crescent' ||
-        name.includes('apex academy') ||
-        name.includes('crescent');
-      if (!isSeed) demoIds.delete(id);
-    }
-    if (demoIds.size === 0) return;
-
-    for (const id of demoIds) this.tenants.delete(id);
-    for (const [key, user] of this.users.entries()) {
-      if (demoIds.has(user.tenant_id) && user.role !== 'super_admin') this.users.delete(key);
-    }
-    const drop = <T extends { tenant_id: string }>(rows: T[]) => rows.filter(r => !demoIds.has(r.tenant_id));
-    this.otps = drop(this.otps);
-    this.programs = drop(this.programs);
-    this.subjects = drop(this.subjects);
-    this.subjectGroups = drop(this.subjectGroups);
-    this.batches = drop(this.batches);
-    this.customFields = drop(this.customFields);
-    this.inquiries = drop(this.inquiries);
-    this.students = drop(this.students);
-    this.rooms = drop(this.rooms);
-    this.timetableSlots = drop(this.timetableSlots);
-    this.studentAttendance = drop(this.studentAttendance);
-    this.leaveApplications = drop(this.leaveApplications);
-    this.staffAttendance = drop(this.staffAttendance);
-    this.homeworkAssignments = drop(this.homeworkAssignments);
-    this.notebookChecks = drop(this.notebookChecks);
-    this.complaints = drop(this.complaints);
-    this.feeHeads = drop(this.feeHeads);
-    this.feeStructures = drop(this.feeStructures);
-    this.invoices = drop(this.invoices);
-    this.feePayments = drop(this.feePayments);
-    this.feeDiscounts = drop(this.feeDiscounts);
-    this.accountHeads = drop(this.accountHeads);
-    this.financialTransactions = drop(this.financialTransactions);
-    this.staffSalaryProfiles = drop(this.staffSalaryProfiles);
-    this.staffPayslips = drop(this.staffPayslips);
-    this.questionChapters = drop(this.questionChapters);
-    this.bankQuestions = drop(this.bankQuestions);
-    this.exams = drop(this.exams);
-    this.examQuestions = drop(this.examQuestions);
-    this.studentExamEvaluations = drop(this.studentExamEvaluations);
-    this.whatsappTemplates = drop(this.whatsappTemplates);
-    this.whatsappAuditLogs = drop(this.whatsappAuditLogs);
-    this.absenteeFollowups = drop(this.absenteeFollowups);
-    this.retentionCases = drop(this.retentionCases);
-    this.subscriptionReceipts = drop(this.subscriptionReceipts);
-    this.tenantAliases = this.tenantAliases.filter(a => !demoIds.has(a.tenant_id));
-    this.announcementReceipts = drop(this.announcementReceipts);
-    for (const key of [...this.geofenceConfigs.keys()]) {
-      if (demoIds.has(key)) this.geofenceConfigs.delete(key);
-    }
-    for (const key of [...this.feePriorityConfigs.keys()]) {
-      if (demoIds.has(key)) this.feePriorityConfigs.delete(key);
-    }
-
-    const superAdmins = [...this.users.values()].filter(u => u.role === 'super_admin');
-    this.seedPlatformOperator();
-    for (const admin of superAdmins) {
-      const platform = [...this.tenants.values()].find(t => this.isPlatformTenant(t));
-      if (!platform) continue;
-      admin.tenant_id = platform.id;
-      this.users.set(`${platform.id}:${admin.email.toLowerCase()}`, admin);
-    }
   }
 
   private seedTestData() {

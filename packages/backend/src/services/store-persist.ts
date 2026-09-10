@@ -41,6 +41,23 @@ async function ensureTable(client: pg.Pool): Promise<void> {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS kampus_store_snapshot_history (
+      id BIGSERIAL PRIMARY KEY,
+      payload JSONB NOT NULL,
+      saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
+export function countRealAcademies(payload: Record<string, unknown> | null | undefined): number {
+  if (!payload || !Array.isArray(payload.tenants)) return 0;
+  return payload.tenants.filter((entry: unknown) => {
+    const tenant = Array.isArray(entry) ? entry[1] : entry;
+    if (!tenant || typeof tenant !== 'object') return false;
+    const t = tenant as { slug?: string; settings?: { is_platform?: boolean } };
+    return t.slug !== 'app' && t.settings?.is_platform !== true;
+  }).length;
 }
 
 export async function loadSnapshot(): Promise<Record<string, unknown> | null> {
@@ -56,6 +73,30 @@ export async function saveSnapshot(payload: Record<string, unknown>): Promise<vo
   if (!persistenceEnabled()) return;
   const client = getPool();
   await ensureTable(client);
+
+  const existing = await client.query('SELECT payload FROM kampus_store_snapshot WHERE id = 1');
+  const previous = (existing.rows[0]?.payload || null) as Record<string, unknown> | null;
+  const previousCount = countRealAcademies(previous);
+  const nextCount = countRealAcademies(payload);
+  if (previousCount > 0 && nextCount === 0) {
+    throw new Error(
+      `Refusing to overwrite snapshot: would delete ${previousCount} live academ${previousCount === 1 ? 'y' : 'ies'}`
+    );
+  }
+
+  if (previous) {
+    await client.query(
+      `INSERT INTO kampus_store_snapshot_history (payload) VALUES ($1::jsonb)`,
+      [JSON.stringify(previous)]
+    );
+    await client.query(`
+      DELETE FROM kampus_store_snapshot_history
+      WHERE id NOT IN (
+        SELECT id FROM kampus_store_snapshot_history ORDER BY saved_at DESC LIMIT 20
+      )
+    `);
+  }
+
   await client.query(
     `INSERT INTO kampus_store_snapshot (id, payload, updated_at)
      VALUES (1, $1::jsonb, NOW())
