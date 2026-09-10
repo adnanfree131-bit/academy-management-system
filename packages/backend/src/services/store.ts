@@ -637,9 +637,6 @@ export class InMemoryDataStore implements IDataStore {
       ]);
       if (payload && Array.isArray(payload.tenants) && payload.tenants.length > 0) {
         this.applySnapshot(payload);
-        if (process.env.NODE_ENV !== 'test') {
-          this.purgeDemoAcademies();
-        }
         console.log(`[Store] Restored snapshot with ${this.tenants.size} academies`);
       } else {
         this.persistQueued = true;
@@ -805,17 +802,24 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   private purgeDemoAcademies(): void {
-    const demoIds = new Set<string>();
-    for (const [id, tenant] of this.tenants.entries()) {
-      const name = (tenant.name || '').toLowerCase();
-      if (
-        tenant.slug === 'apex' ||
-        tenant.slug === 'ssc' ||
-        name.includes('apex academy') ||
-        name.includes('smart scholar')
-      ) {
-        demoIds.add(id);
+    // Only the original seed academy IDs — never wipe real registered academies.
+    const demoIds = new Set<string>([
+      'a0000000-0000-0000-0000-000000000001',
+      'b0000000-0000-0000-0000-000000000002',
+    ]);
+    for (const id of [...demoIds]) {
+      const tenant = this.tenants.get(id);
+      if (!tenant) {
+        demoIds.delete(id);
+        continue;
       }
+      const name = (tenant.name || '').toLowerCase();
+      const isSeed =
+        tenant.slug === 'apex' ||
+        tenant.slug === 'crescent' ||
+        name.includes('apex academy') ||
+        name.includes('crescent');
+      if (!isSeed) demoIds.delete(id);
     }
     if (demoIds.size === 0) return;
 

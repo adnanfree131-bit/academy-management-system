@@ -472,7 +472,7 @@ export const LoginModal: React.FC = () => {
           
           {/* Top Bar: Clean Brand Logo */}
           <div className="relative z-10 pb-4 border-b border-slate-900">
-            <img src="/kampus-logo.png" alt="Kampus" className="h-7 w-auto object-contain brightness-0 invert" />
+            <img src="/kampus-logo.png" alt="Kampus" className="h-7 w-auto object-contain" />
           </div>
 
           {/* Middle Live Showcase: Features on Platform Sign-in, Branding on Tenant/Registration */}
@@ -748,7 +748,7 @@ export const LoginModal: React.FC = () => {
 
                 <button
                   type="submit"
-                  disabled={loading || !email.trim() || !password}
+                  disabled={loading}
                   className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
