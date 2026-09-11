@@ -7,6 +7,18 @@ export function attendanceRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
     fastify.addHook('onRequest', (fastify as any).authenticate);
 
+    const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
+      if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. You do not have permission to perform this attendance operation.' },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
+
     // --- Student Attendance ---
     const getStudentAttendanceHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -29,6 +41,7 @@ export function attendanceRoutes(store: IDataStore) {
     // Rapid batch attendance submission
     const recordBatchHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
       const schema = z.object({
         batch_id: z.string().min(1),
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -100,6 +113,7 @@ export function attendanceRoutes(store: IDataStore) {
 
     const reviewLeaveHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         status: z.enum(['approved', 'rejected']),

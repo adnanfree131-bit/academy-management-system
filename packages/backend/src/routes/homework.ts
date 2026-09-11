@@ -7,6 +7,18 @@ export function homeworkRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
     fastify.addHook('onRequest', (fastify as any).authenticate);
 
+    const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
+      if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. You do not have permission to perform this homework operation.' },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
+
     // --- Homework Assignments ---
     const getHomeworkHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -19,6 +31,7 @@ export function homeworkRoutes(store: IDataStore) {
 
     const createHomeworkHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
       const schema = z.object({
         batch_id: z.string().min(1),
         subject_id: z.string().min(1),
@@ -62,6 +75,7 @@ export function homeworkRoutes(store: IDataStore) {
 
     const recordChecksHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         checks: z.array(z.object({

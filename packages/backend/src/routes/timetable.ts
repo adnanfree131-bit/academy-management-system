@@ -9,6 +9,18 @@ export function timetableRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
     fastify.addHook('onRequest', (fastify as any).authenticate);
 
+    const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
+      if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. You do not have permission to perform this timetable operation.' },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
+
     // --- Rooms ---
     const getRoomsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -19,6 +31,7 @@ export function timetableRoutes(store: IDataStore) {
 
     fastify.post('/rooms', async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const schema = z.object({
         name: z.string().min(1),
         capacity: z.number().int().min(1).default(40),
@@ -83,6 +96,7 @@ export function timetableRoutes(store: IDataStore) {
     // Create Timetable Slot
     const createSlotHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const schema = z.object({
         batch_id: z.string().min(1),
         subject_id: z.string().min(1),
@@ -119,12 +133,15 @@ export function timetableRoutes(store: IDataStore) {
     fastify.post('/', createSlotHandler);
     fastify.post('/timetable', createSlotHandler);
 
-    // Assign Substitute Teacher
+    // Assign Substitute Teacher (Dated Overrides)
     const substituteHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         substitute_teacher_id: z.string().min(1),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        reason: z.string().optional()
       });
 
       const parse = schema.safeParse(request.body);
@@ -137,7 +154,13 @@ export function timetableRoutes(store: IDataStore) {
       }
 
       try {
-        const slot = await store.assignSubstitute(user.tenant_id, id, parse.data.substitute_teacher_id);
+        const slot = await store.assignSubstitute(
+          user.tenant_id,
+          id,
+          parse.data.substitute_teacher_id,
+          parse.data.date,
+          parse.data.reason
+        );
         return reply.send({ success: true, data: slot, timestamp: new Date().toISOString() });
       } catch (err: any) {
         return reply.status(400).send({
@@ -149,6 +172,24 @@ export function timetableRoutes(store: IDataStore) {
     };
     fastify.post('/:id/substitute', substituteHandler);
     fastify.post('/timetable/:id/substitute', substituteHandler);
+
+    // Delete Timetable Slot
+    const deleteSlotHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      const { id } = request.params as { id: string };
+      const ok = await store.deleteTimetableSlot(user.tenant_id, id);
+      if (!ok) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Timetable slot not found' },
+          timestamp: new Date().toISOString()
+        });
+      }
+      return reply.send({ success: true, message: 'Slot deleted', timestamp: new Date().toISOString() });
+    };
+    fastify.delete('/:id', deleteSlotHandler);
+    fastify.delete('/timetable/:id', deleteSlotHandler);
 
     // Available Teachers Lookup
     const availableTeachersHandler = async (request: any, reply: any) => {

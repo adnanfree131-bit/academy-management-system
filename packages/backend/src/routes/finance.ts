@@ -368,6 +368,42 @@ export function financeRoutes(store: IDataStore) {
     fastify.post('/payments', recordPaymentHandler);
     fastify.post('/finance/payments', recordPaymentHandler);
 
+    const voidPaymentHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
+      const { id } = request.params as { id: string };
+      const schema = z.object({
+        void_reason: z.string().min(5, 'A clear reason is required to void a payment receipt')
+      });
+
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid payment void request', details: parse.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const result = await store.voidPayment(
+          user.tenant_id,
+          id,
+          parse.data.void_reason,
+          user.email || 'Finance Administrator'
+        );
+        return reply.status(200).send({ success: true, data: result, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VOID_PAYMENT_FAILED', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+    fastify.post('/payments/:id/void', voidPaymentHandler);
+    fastify.post('/finance/payments/:id/void', voidPaymentHandler);
+
     // =========================================================================
     // 7. DYNAMIC AD-HOC DISCOUNTS & CONCESSIONS (With Mandatory Audit Remark)
     // =========================================================================

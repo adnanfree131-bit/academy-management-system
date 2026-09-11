@@ -21,10 +21,12 @@ import {
   InquiryStage,
   Room,
   TimetableSlot,
+  TimetableSubstitution,
   TimetableCollisionResult,
   DayOfWeek,
   StudentAttendanceRecord,
   AttendanceStatus,
+  AttendanceAuditLog,
   LeaveApplication,
   LeaveStatus,
   CampusGeofenceConfig,
@@ -257,11 +259,13 @@ export interface IDataStore {
     excludeSlotId?: string;
   }): Promise<TimetableCollisionResult>;
   createTimetableSlot(data: Omit<TimetableSlot, 'id' | 'created_at' | 'updated_at'>): Promise<TimetableSlot>;
-  assignSubstitute(tenantId: string, slotId: string, substituteTeacherId: string): Promise<TimetableSlot>;
+  assignSubstitute(tenantId: string, slotId: string, substituteTeacherId: string, date?: string, reason?: string): Promise<TimetableSlot>;
+  deleteTimetableSlot(tenantId: string, slotId: string): Promise<boolean>;
   getAvailableTeachers(tenantId: string, dayOfWeek: DayOfWeek, startTime: string, endTime: string): Promise<User[]>;
 
   // --- Phase 3: Student Attendance & Leaves ---
   getStudentAttendance(tenantId: string, batchId: string, date: string): Promise<StudentAttendanceRecord[]>;
+  getAttendanceAuditLogs(tenantId: string, studentId?: string, date?: string): Promise<AttendanceAuditLog[]>;
   recordBatchAttendance(
     tenantId: string,
     batchId: string,
@@ -362,6 +366,7 @@ export interface IDataStore {
     allocations?: PaymentDistributionItem[];
     collected_by: string;
   }): Promise<{ payment: FeePayment; invoice: StudentInvoice }>;
+  voidPayment(tenantId: string, paymentId: string, voidReason: string, voidedBy: string): Promise<{ payment: FeePayment; invoice: StudentInvoice }>;
 
   // --- Phase 4: Discounts & Audit Trail ---
   getDiscounts(tenantId: string, studentId?: string): Promise<FeeDiscount[]>;
@@ -537,6 +542,7 @@ export class InMemoryDataStore implements IDataStore {
   private rooms: Room[] = [];
   private timetableSlots: TimetableSlot[] = [];
   private studentAttendance: StudentAttendanceRecord[] = [];
+  private attendanceAuditLogs: AttendanceAuditLog[] = [];
   private leaveApplications: LeaveApplication[] = [];
   private geofenceConfigs: Map<string, CampusGeofenceConfig> = new Map();
   private staffAttendance: StaffAttendanceRecord[] = [];
@@ -658,6 +664,7 @@ export class InMemoryDataStore implements IDataStore {
       rooms: this.rooms,
       timetableSlots: this.timetableSlots,
       studentAttendance: this.studentAttendance,
+      attendanceAuditLogs: this.attendanceAuditLogs,
       leaveApplications: this.leaveApplications,
       geofenceConfigs: [...this.geofenceConfigs.entries()],
       staffAttendance: this.staffAttendance,
@@ -709,6 +716,7 @@ export class InMemoryDataStore implements IDataStore {
     if (payload.rooms) this.rooms = asArray(payload.rooms);
     if (payload.timetableSlots) this.timetableSlots = asArray(payload.timetableSlots);
     if (payload.studentAttendance) this.studentAttendance = asArray(payload.studentAttendance);
+    if (payload.attendanceAuditLogs) this.attendanceAuditLogs = asArray(payload.attendanceAuditLogs);
     if (payload.leaveApplications) this.leaveApplications = asArray(payload.leaveApplications);
     if (payload.geofenceConfigs) this.geofenceConfigs = new Map(asEntries(payload.geofenceConfigs));
     if (payload.staffAttendance) this.staffAttendance = asArray(payload.staffAttendance);
@@ -1236,10 +1244,11 @@ export class InMemoryDataStore implements IDataStore {
     this.students.push({
       id: 'stud-1',
       tenant_id: tenantAId,
+      user_id: 'a1000000-0000-0000-0000-000000000005',
       admission_number: 'ADM-2026-001',
       roll_number: 'A-101',
       full_name: 'Muhammad Ali Raza',
-      email: 'ali.raza@gmail.com',
+      email: 'student@apexacademy.edu.pk',
       phone: '+923001122334',
       guardian_name: 'Raza Ahmed',
       guardian_phone: '+923009876543',
@@ -2215,8 +2224,8 @@ export class InMemoryDataStore implements IDataStore {
     if (batch && !isFull) batch.current_enrollment += 1;
     this.schedulePersist();
 
-    // Auto-generate first month invoice if fee_structure is set
-    if (student.fee_structure && (student.fee_structure.first_month_total > 0 || (data as any).generate_first_month_invoice)) {
+    // Auto-generate first month invoice only for active students if fee_structure is set
+    if (student.status === 'active' && student.fee_structure && (student.fee_structure.first_month_total > 0 || (data as any).generate_first_month_invoice)) {
       const invoiceId = crypto.randomUUID();
       const invoiceCount = this.invoices.filter(i => i.tenant_id === data.tenant_id).length + 1;
       const invoiceNumber = `INV-2026-${invoiceCount.toString().padStart(4, '0')}`;
@@ -2354,6 +2363,22 @@ export class InMemoryDataStore implements IDataStore {
       changed_at: new Date().toISOString(),
     });
     student.updated_at = new Date().toISOString();
+
+    // Maintain Batch Enrollment Counters
+    if (previousStatus === 'active' && status !== 'active') {
+      const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
+      if (batch) {
+        batch.current_enrollment = Math.max(0, batch.current_enrollment - 1);
+      }
+    } else if (previousStatus !== 'active' && status === 'active') {
+      const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
+      if (batch) {
+        if (batch.current_enrollment >= batch.max_capacity) {
+          throw new Error(`Cannot reactivate student: Batch "${batch.name}" is already at full capacity (${batch.max_capacity}/${batch.max_capacity}). Expand batch capacity first.`);
+        }
+        batch.current_enrollment += 1;
+      }
+    }
 
     if (cancelUnpaidInvoices) {
       const studentInvoices = this.invoices.filter(
@@ -2533,7 +2558,15 @@ export class InMemoryDataStore implements IDataStore {
     return slot;
   }
 
-  async assignSubstitute(tenantId: string, slotId: string, substituteTeacherId: string): Promise<TimetableSlot> {
+  async deleteTimetableSlot(tenantId: string, slotId: string): Promise<boolean> {
+    const idx = this.timetableSlots.findIndex(s => s.id === slotId && s.tenant_id === tenantId);
+    if (idx < 0) return false;
+    this.timetableSlots.splice(idx, 1);
+    this.schedulePersist();
+    return true;
+  }
+
+  async assignSubstitute(tenantId: string, slotId: string, substituteTeacherId: string, date?: string, reason?: string): Promise<TimetableSlot> {
     const slot = this.timetableSlots.find(s => s.id === slotId && s.tenant_id === tenantId);
     if (!slot) throw new Error('Timetable slot not found');
 
@@ -2552,6 +2585,26 @@ export class InMemoryDataStore implements IDataStore {
 
     if (collision.has_conflict && collision.conflict_type === 'teacher_conflict') {
       throw new Error(`Substitute conflict: Teacher ${substitute.full_name} is already teaching another class during this time.`);
+    }
+
+    if (!slot.substitutions) {
+      slot.substitutions = [];
+    }
+    const subDate = date || new Date().toISOString().split('T')[0];
+    const existingIndex = slot.substitutions.findIndex(s => s.date === subDate);
+    const subRecord: TimetableSubstitution = {
+      id: crypto.randomUUID(),
+      date: subDate,
+      substitute_teacher_id: substituteTeacherId,
+      substitute_teacher_name: substitute.full_name,
+      reason: reason || 'Temporary class cover',
+      created_at: new Date().toISOString()
+    };
+
+    if (existingIndex >= 0) {
+      slot.substitutions[existingIndex] = subRecord;
+    } else {
+      slot.substitutions.push(subRecord);
     }
 
     slot.substitute_teacher_id = substituteTeacherId;
@@ -2582,6 +2635,14 @@ export class InMemoryDataStore implements IDataStore {
   async getStudentAttendance(tenantId: string, batchId: string, date: string): Promise<StudentAttendanceRecord[]> {
     return this.studentAttendance.filter(a => 
       a.tenant_id === tenantId && a.batch_id === batchId && a.date === date
+    );
+  }
+
+  async getAttendanceAuditLogs(tenantId: string, studentId?: string, date?: string): Promise<AttendanceAuditLog[]> {
+    return this.attendanceAuditLogs.filter(log =>
+      log.tenant_id === tenantId &&
+      (!studentId || log.student_id === studentId) &&
+      (!date || log.date === date)
     );
   }
 
@@ -2633,6 +2694,23 @@ export class InMemoryDataStore implements IDataStore {
       };
 
       if (existingIdx >= 0) {
+        const oldRec = this.studentAttendance[existingIdx];
+        if (oldRec.status !== effectiveStatus) {
+          const auditLog: AttendanceAuditLog = {
+            id: crypto.randomUUID(),
+            tenant_id: tenantId,
+            student_id: item.student_id,
+            student_name: student?.full_name || oldRec.student_name,
+            batch_id: batchId,
+            date,
+            previous_status: oldRec.status,
+            new_status: effectiveStatus,
+            reason: item.remarks || 'Administrative status modification',
+            changed_by: markedBy || 'system',
+            created_at: new Date().toISOString()
+          };
+          this.attendanceAuditLogs.push(auditLog);
+        }
         this.studentAttendance[existingIdx] = record;
       } else {
         this.studentAttendance.push(record);
@@ -3615,6 +3693,9 @@ export class InMemoryDataStore implements IDataStore {
   }): Promise<StudentInvoice> {
     const student = this.students.find(s => s.id === data.student_id && s.tenant_id === tenantId);
     if (!student) throw new Error('Student not found for invoice generation');
+    if (student.status !== 'active' && !(data as any).allow_inactive_billing) {
+      throw new Error(`Cannot generate fee invoice: Student "${student.full_name}" is ${student.status}. Invoices can only be generated for active students.`);
+    }
 
     const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
     const invoiceId = crypto.randomUUID();
@@ -3872,6 +3953,72 @@ export class InMemoryDataStore implements IDataStore {
     return { payment, invoice };
   }
 
+  async voidPayment(tenantId: string, paymentId: string, voidReason: string, voidedBy: string): Promise<{ payment: FeePayment; invoice: StudentInvoice }> {
+    const payment = this.feePayments.find(p => p.id === paymentId && p.tenant_id === tenantId);
+    if (!payment) throw new Error('Payment receipt not found');
+    if (payment.status === 'voided') throw new Error('Payment receipt is already voided');
+
+    const invoice = this.invoices.find(i => i.id === payment.invoice_id && i.tenant_id === tenantId);
+    if (!invoice) throw new Error('Associated invoice not found');
+
+    // Rollback allocations from invoice items
+    if (payment.allocations && payment.allocations.length > 0) {
+      for (const alloc of payment.allocations) {
+        const item = invoice.items.find(i => i.fee_head_id === alloc.fee_head_id);
+        if (item) {
+          item.paid_amount = Math.max(0, item.paid_amount - Number(alloc.allocated_amount));
+          item.balance_due = Math.max(0, item.net_amount - item.paid_amount);
+        }
+      }
+    } else {
+      let remainingToDeduct = payment.amount_paid;
+      for (const item of [...invoice.items].reverse()) {
+        const deduct = Math.min(item.paid_amount, remainingToDeduct);
+        item.paid_amount -= deduct;
+        item.balance_due = Math.max(0, item.net_amount - item.paid_amount);
+        remainingToDeduct -= deduct;
+        if (remainingToDeduct <= 0) break;
+      }
+    }
+
+    invoice.paid_amount = invoice.items.reduce((s, it) => s + it.paid_amount, 0);
+    invoice.balance_amount = Math.max(0, invoice.net_amount - invoice.paid_amount);
+    invoice.status = invoice.balance_amount <= 0 ? 'paid' : (invoice.paid_amount > 0 ? 'partially_paid' : 'unpaid');
+    invoice.updated_at = new Date().toISOString();
+
+    // Mark payment voided
+    payment.status = 'voided';
+    payment.voided_at = new Date().toISOString();
+    payment.voided_by = voidedBy;
+    payment.void_reason = voidReason;
+
+    // Auto-post reversing cashbook expense voucher
+    const txCount = this.financialTransactions.filter(t => t.tenant_id === tenantId && t.type === 'expense').length + 1;
+    const year = new Date().getFullYear();
+    const voucherNumber = `VCH-EXP-${year}-${txCount.toString().padStart(4, '0')}`;
+    const headId = (payment.allocations && payment.allocations[0]?.fee_head_id) || invoice.items[0]?.fee_head_id || 'fee-reversal';
+    const tx: FinancialTransaction = {
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      voucher_number: voucherNumber,
+      type: 'expense',
+      account_head_id: headId,
+      head_name: 'Fee Receipt Void / Refund',
+      amount: payment.amount_paid,
+      payment_method: payment.payment_method,
+      reference_number: `VOID-${payment.receipt_number}`,
+      transaction_date: new Date().toISOString().split('T')[0],
+      paid_to_or_received_from: invoice.student_name,
+      description: `Reversal of Fee Receipt #${payment.receipt_number} [Inv #${invoice.invoice_number}]: ${voidReason} (Voided by ${voidedBy})`,
+      recorded_by: voidedBy || 'Cashier',
+      created_at: new Date().toISOString()
+    };
+    this.financialTransactions.push(tx);
+    this.schedulePersist();
+
+    return { payment, invoice };
+  }
+
   // --- Ad-Hoc Dynamic Discounts with Mandatory Audit Remarks ---
   async getDiscounts(tenantId: string, studentId?: string): Promise<FeeDiscount[]> {
     return this.feeDiscounts.filter(d => 
@@ -3966,7 +4113,9 @@ export class InMemoryDataStore implements IDataStore {
       roll_number: p.roll_number,
       payment_method: p.payment_method,
       amount: p.amount_paid,
-      collected_by: p.collected_by
+      collected_by: p.collected_by,
+      status: p.status || 'paid',
+      void_reason: p.void_reason || null
     }));
   }
 
@@ -3989,15 +4138,36 @@ export class InMemoryDataStore implements IDataStore {
     });
 
     studentPayments.forEach(pmt => {
-      entries.push({
-        id: pmt.id,
-        date: pmt.payment_date,
-        description: `Payment Receipt ${pmt.receipt_number} via ${pmt.payment_method.toUpperCase()}`,
-        debit: 0,
-        credit: pmt.amount_paid,
-        running_balance: 0,
-        reference: pmt.receipt_number
-      });
+      if (pmt.status === 'voided') {
+        entries.push({
+          id: `${pmt.id}-paid`,
+          date: pmt.payment_date,
+          description: `Payment Receipt ${pmt.receipt_number} via ${pmt.payment_method.toUpperCase()}`,
+          debit: 0,
+          credit: pmt.amount_paid,
+          running_balance: 0,
+          reference: pmt.receipt_number
+        });
+        entries.push({
+          id: `${pmt.id}-void`,
+          date: pmt.voided_at ? pmt.voided_at.split('T')[0] : pmt.payment_date,
+          description: `[VOID REVERSAL] Receipt ${pmt.receipt_number}: ${pmt.void_reason || 'Cancelled'}`,
+          debit: pmt.amount_paid,
+          credit: 0,
+          running_balance: 0,
+          reference: `VOID-${pmt.receipt_number}`
+        });
+      } else {
+        entries.push({
+          id: pmt.id,
+          date: pmt.payment_date,
+          description: `Payment Receipt ${pmt.receipt_number} via ${pmt.payment_method.toUpperCase()}`,
+          debit: 0,
+          credit: pmt.amount_paid,
+          running_balance: 0,
+          reference: pmt.receipt_number
+        });
+      }
     });
 
     entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -4206,6 +4376,15 @@ export class InMemoryDataStore implements IDataStore {
     const presentDays = attendanceRecords.filter(a => a.status === 'on_time' || a.status === 'late').length;
     const lateCount = attendanceRecords.filter(a => a.status === 'late').length;
     const absentDays = attendanceRecords.filter(a => a.status === 'absent').length;
+    const approvedLeaves = attendanceRecords.filter(a => a.status === 'on_leave').length;
+
+    const hasRecordedAttendance = attendanceRecords.length > 0;
+    const workingDays = 26;
+    const effectivePresentDays = hasRecordedAttendance ? presentDays : 25;
+    const effectiveLateCount = hasRecordedAttendance ? lateCount : 1;
+    const effectiveAbsentDays = hasRecordedAttendance ? absentDays : 0;
+    const effectiveLeaves = hasRecordedAttendance ? approvedLeaves : 1;
+    const effectiveHours = hasRecordedAttendance ? (presentDays * 2) : 48;
 
     const earningsWithTotal = data.earnings.map(e => ({
       ...e,
@@ -4235,12 +4414,12 @@ export class InMemoryDataStore implements IDataStore {
       payroll_month: data.payroll_month,
       base_salary: profile.base_amount,
       attendance_summary: {
-        working_days: 26,
-        present_days: presentDays > 0 ? presentDays : 25,
-        late_count: lateCount,
-        absent_days: absentDays,
-        approved_leaves: 1,
-        hours_or_lectures: 45
+        working_days: hasRecordedAttendance ? Math.max(26, presentDays + absentDays + approvedLeaves) : workingDays,
+        present_days: effectivePresentDays,
+        late_count: effectiveLateCount,
+        absent_days: effectiveAbsentDays,
+        approved_leaves: effectiveLeaves,
+        hours_or_lectures: effectiveHours
       },
       earnings: earningsWithTotal,
       deductions: deductionsWithTotal,
@@ -4556,6 +4735,9 @@ export class InMemoryDataStore implements IDataStore {
 
     const student = this.students.find(s => s.id === data.student_id && s.tenant_id === tenantId);
     if (!student) throw new Error('Student not found');
+    if (student.status !== 'active') {
+      throw new Error(`Cannot evaluate exam: Student "${student.full_name}" is ${student.status}. Evaluations are restricted to active students.`);
+    }
 
     // 1. Auto-grade MCQs
     const examMcqs = this.examQuestions.filter(q => q.exam_id === exam.id && q.tenant_id === tenantId && q.section_type === 'MCQ');
@@ -5267,7 +5449,7 @@ export class InMemoryDataStore implements IDataStore {
   async getStudentParentPortalOverview(tenantId: string, studentId?: string): Promise<StudentParentPortalOverview> {
     const student = studentId
       ? this.students.find(s => s.id === studentId && s.tenant_id === tenantId)
-      : this.students.find(s => s.tenant_id === tenantId);
+      : null;
 
     if (!student) {
       throw new Error(`Student not found in tenant: ${tenantId}`);

@@ -223,9 +223,10 @@ export const ExamDeskView: React.FC = () => {
   const eligibleStudents = useMemo(() => {
     if (!currentExam) return [];
     return students.filter(st => {
+      const isActive = st.status === 'active';
       const matchBatch = st.batch_id === currentExam.batch_id;
       const matchSubject = !st.subjects || st.subjects.length === 0 || st.subjects.includes(currentExam.subject_id);
-      return matchBatch && matchSubject;
+      return isActive && matchBatch && matchSubject;
     });
   }, [students, currentExam]);
 

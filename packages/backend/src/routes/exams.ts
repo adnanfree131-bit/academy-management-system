@@ -7,6 +7,18 @@ export function examRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
     fastify.addHook('onRequest', (fastify as any).authenticate);
 
+    const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
+      if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. You do not have permission to perform this examination operation.' },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
+
     // =========================================================================
     // 1. QUESTION CHAPTERS (Chapter Tree: Program -> Subject -> Chapters)
     // =========================================================================
@@ -21,6 +33,7 @@ export function examRoutes(store: IDataStore) {
 
     const createChapterHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
       const schema = z.object({
         program_id: z.string().min(1),
         subject_id: z.string().min(1),
@@ -68,6 +81,7 @@ export function examRoutes(store: IDataStore) {
 
     const createQuestionHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
       const schema = z.object({
         chapter_id: z.string().optional().nullable(),
         subject_id: z.string().min(1),
@@ -98,6 +112,7 @@ export function examRoutes(store: IDataStore) {
 
     const deleteQuestionHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
       const { id } = request.params as { id: string };
       const success = await store.deleteBankQuestion(user.tenant_id, id);
       if (!success) {
@@ -192,6 +207,7 @@ export function examRoutes(store: IDataStore) {
 
     const createExamHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
       const schema = z.object({
         batch_id: z.string().min(1),
         subject_id: z.string().min(1),
@@ -237,6 +253,7 @@ export function examRoutes(store: IDataStore) {
 
     const updateExamHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         title: z.string().optional(),
@@ -287,6 +304,7 @@ export function examRoutes(store: IDataStore) {
 
     const addExamQuestionsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         questions: z.array(z.object({
@@ -328,6 +346,7 @@ export function examRoutes(store: IDataStore) {
     // =========================================================================
     const evaluateHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         student_id: z.string().min(1),

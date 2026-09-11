@@ -47,7 +47,6 @@ export function portalRoutes(store: IDataStore) {
           });
         }
 
-        const studentId = req.query.student_id;
         const users = await store.getTenantUsers(tenantId);
         const me = users.find(u => u.id === user.sub || u.email === user.email);
         if (me?.metadata?.portal_blocked) {
@@ -57,7 +56,66 @@ export function portalRoutes(store: IDataStore) {
             timestamp: new Date().toISOString(),
           });
         }
-        const overview = await store.getStudentParentPortalOverview(tenantId, studentId);
+
+        let targetStudentId = req.query.student_id;
+
+        // Strict Role-Based Identity Binding (Eliminates IDOR)
+        if (user.role === 'student') {
+          const allStudents = await store.getStudents(tenantId);
+          const myStudent = allStudents.find(s => s.user_id === user.sub || (s.email && s.email.toLowerCase() === user.email.toLowerCase()));
+          if (!myStudent) {
+            return reply.status(403).send({
+              success: false,
+              error: { code: 'STUDENT_UNLINKED', message: 'No student record is linked to this account.' }
+            });
+          }
+          if (targetStudentId && targetStudentId !== myStudent.id) {
+            return reply.status(403).send({
+              success: false,
+              error: { code: 'UNAUTHORIZED_STUDENT_ACCESS', message: 'You are not authorized to view another student profile.' }
+            });
+          }
+          targetStudentId = myStudent.id;
+        } else if (user.role === 'parent') {
+          const tenantStudents = await store.getStudents(tenantId);
+          const children = tenantStudents.filter(s => (s.guardian_email && s.guardian_email.toLowerCase() === user.email.toLowerCase()) || (s.guardian_phone && s.guardian_phone === (me as any)?.phone));
+          if (children.length === 0) {
+            return reply.status(403).send({
+              success: false,
+              error: { code: 'NO_LINKED_CHILDREN', message: 'No student records associated with this parent account.' }
+            });
+          }
+          if (targetStudentId) {
+            const isChild = children.some(c => c.id === targetStudentId);
+            if (!isChild) {
+              return reply.status(403).send({
+                success: false,
+                error: { code: 'UNAUTHORIZED_PARENT_ACCESS', message: 'You are not authorized to view records for this student.' }
+              });
+            }
+          } else {
+            targetStudentId = children[0].id;
+          }
+        } else if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN_ROLE', message: 'Unauthorized portal access.' }
+          });
+        } else {
+          // Admin viewing portal overview
+          if (!targetStudentId) {
+            const tenantStudents = await store.getStudents(tenantId);
+            if (tenantStudents.length === 0) {
+              return reply.status(404).send({
+                success: false,
+                error: { code: 'NO_STUDENTS', message: 'No students found in tenant.' }
+              });
+            }
+            targetStudentId = tenantStudents[0].id;
+          }
+        }
+
+        const overview = await store.getStudentParentPortalOverview(tenantId, targetStudentId);
         return reply.send({ success: true, data: overview, timestamp: new Date().toISOString() });
       } catch (err: any) {
         req.log.error(err);

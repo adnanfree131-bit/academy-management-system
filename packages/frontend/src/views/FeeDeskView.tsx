@@ -13,7 +13,8 @@ import {
   Download,
   Building2,
   X,
-  RefreshCw
+  RefreshCw,
+  AlertTriangle
 } from 'lucide-react';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import {
@@ -51,6 +52,11 @@ export const FeeDeskView: React.FC = () => {
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [showDiscountModal, setShowDiscountModal] = useState<boolean>(false);
   const [activeInvoice, setActiveInvoice] = useState<StudentInvoice | null>(null);
+
+  // Void Payment State
+  const [voidPaymentModal, setVoidPaymentModal] = useState<DailyCashbookEntry | null>(null);
+  const [voidReasonText, setVoidReasonText] = useState<string>('');
+  const [voidSubmitting, setVoidSubmitting] = useState<boolean>(false);
 
   // Form States
   const [newInvStudentId, setNewInvStudentId] = useState<string>('');
@@ -226,6 +232,37 @@ export const FeeDeskView: React.FC = () => {
       }
     } catch (err: any) {
       alert(err.message);
+    }
+  };
+
+  // Void Payment Receipt
+  const handleVoidPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!voidPaymentModal || !token) return;
+    if (!voidReasonText.trim()) {
+      alert('A valid administrative reason is mandatory to void a payment receipt.');
+      return;
+    }
+
+    setVoidSubmitting(true);
+    try {
+      const res = await fetch(`/api/v1/finance/payments/${voidPaymentModal.id}/void`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({ void_reason: voidReasonText.trim() })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setVoidPaymentModal(null);
+        setVoidReasonText('');
+        fetchData();
+      } else {
+        alert(data.error?.message || 'Failed to void payment receipt');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error occurred while voiding receipt');
+    } finally {
+      setVoidSubmitting(false);
     }
   };
 
@@ -861,12 +898,13 @@ export const FeeDeskView: React.FC = () => {
                     <th className="py-2 px-3">Method</th>
                     <th className="py-2 px-3 text-right">Amount (PKR)</th>
                     <th className="py-2 px-3">Cashier</th>
+                    <th className="py-2 px-3 text-right">Status / Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {cashbook.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-4 text-center text-slate-400">No collections for today yet.</td>
+                      <td colSpan={8} className="py-4 text-center text-slate-400">No collections for today yet.</td>
                     </tr>
                   ) : (
                     cashbook.map(c => (
@@ -876,8 +914,35 @@ export const FeeDeskView: React.FC = () => {
                         <td className="py-2 px-3 font-medium text-slate-900">{c.student_name}</td>
                         <td className="py-2 px-3 font-mono text-slate-500">{c.roll_number}</td>
                         <td className="py-2 px-3 font-mono uppercase text-[10px] text-slate-600">{c.payment_method}</td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-emerald-600">{c.amount.toLocaleString()}</td>
+                        <td className="py-2 px-3 text-right font-mono font-bold text-emerald-600">
+                          {c.status === 'voided' ? (
+                            <span className="line-through text-slate-400">{c.amount.toLocaleString()}</span>
+                          ) : (
+                            c.amount.toLocaleString()
+                          )}
+                        </td>
                         <td className="py-2 px-3 text-slate-500 text-[11px]">{c.collected_by}</td>
+                        <td className="py-2 px-3 text-right">
+                          {c.status === 'voided' ? (
+                            <span
+                              className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-50 text-rose-700 border border-rose-200"
+                              title={c.void_reason || 'Receipt Voided'}
+                            >
+                              VOIDED
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setVoidPaymentModal(c);
+                                setVoidReasonText('');
+                              }}
+                              className="px-2 py-0.5 text-[11px] font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 rounded transition-colors"
+                            >
+                              Void Receipt
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     ))
                   )}
@@ -1303,6 +1368,64 @@ export const FeeDeskView: React.FC = () => {
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-xs"
                 >
                   Grant Concession
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: VOID PAYMENT RECEIPT */}
+      {voidPaymentModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600" />
+                Void Payment Receipt
+              </h3>
+              <button onClick={() => setVoidPaymentModal(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs text-rose-800 space-y-1">
+              <p className="font-semibold">Confirm Receipt Reversal:</p>
+              <p>Receipt: <span className="font-mono font-bold">{voidPaymentModal.receipt_number}</span></p>
+              <p>Student: <span className="font-semibold">{voidPaymentModal.student_name}</span> ({voidPaymentModal.roll_number})</p>
+              <p>Amount: <span className="font-mono font-bold">PKR {voidPaymentModal.amount.toLocaleString()}</span> ({voidPaymentModal.payment_method.toUpperCase()})</p>
+              <p className="text-[11px] text-rose-600 mt-1">This will restore the invoice balance and automatically post a reversing cashbook expense voucher.</p>
+            </div>
+
+            <form onSubmit={handleVoidPayment} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Mandatory Void Reason / Remarks <span className="text-rose-500 font-mono">*</span>
+                </label>
+                <textarea
+                  value={voidReasonText}
+                  onChange={e => setVoidReasonText(e.target.value)}
+                  placeholder="e.g. Bank bounced cheque, erroneous cashier double-entry, student fee plan revised"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setVoidPaymentModal(null)}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={voidSubmitting || !voidReasonText.trim()}
+                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded-lg transition-colors"
+                >
+                  {voidSubmitting ? 'Voiding Receipt...' : 'Confirm Void & Reverse'}
                 </button>
               </div>
             </form>

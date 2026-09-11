@@ -380,6 +380,7 @@ export interface Student {
     phone?: string | null;
     guardian_name: string;
     guardian_phone: string;
+    guardian_email?: string | null;
     guardian_whatsapp?: string | null;
     photo_url?: string | null;
     program_id: string;
@@ -429,9 +430,18 @@ export interface TimetableSlot {
     end_time: string;
     substitute_teacher_id?: string | null;
     substitute_teacher_name?: string | null;
+    substitutions?: TimetableSubstitution[];
     is_cancelled?: boolean;
     created_at: string;
     updated_at: string;
+}
+export interface TimetableSubstitution {
+    id: string;
+    date: string;
+    substitute_teacher_id: string;
+    substitute_teacher_name?: string | null;
+    reason?: string | null;
+    created_at: string;
 }
 export interface TimetableCollisionResult {
     has_conflict: boolean;
@@ -455,6 +465,20 @@ export interface StudentAttendanceRecord {
     check_in_time?: string | null;
     created_at: string;
     updated_at: string;
+}
+export interface AttendanceAuditLog {
+    id: string;
+    tenant_id: string;
+    student_id: string;
+    student_name?: string;
+    batch_id: string;
+    date: string;
+    previous_status: AttendanceStatus;
+    new_status: AttendanceStatus;
+    changed_by: string;
+    changed_at?: string;
+    created_at?: string;
+    reason?: string | null;
 }
 export interface BatchAttendanceSubmission {
     batch_id: string;
@@ -684,6 +708,10 @@ export interface FeePayment {
     override_reason?: string | null;
     allocations: PaymentDistributionItem[];
     collected_by: string;
+    status?: 'paid' | 'voided';
+    voided_at?: string | null;
+    voided_by?: string | null;
+    void_reason?: string | null;
     created_at: string;
 }
 export interface FeeDiscount {
@@ -798,6 +826,8 @@ export interface DailyCashbookEntry {
     payment_method: PaymentMethod;
     amount: number;
     collected_by: string;
+    status?: 'paid' | 'voided';
+    void_reason?: string | null;
 }
 export interface StudentLedgerEntry {
     id: string;
