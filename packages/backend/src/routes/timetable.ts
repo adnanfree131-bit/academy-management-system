@@ -58,8 +58,8 @@ export function timetableRoutes(store: IDataStore) {
     // --- Timetable Slots ---
     const getSlotsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      const { batch_id, day } = request.query as { batch_id?: string; day?: DayOfWeek };
-      const slots = await store.getTimetable(user.tenant_id, batch_id, day);
+      const { batch_id, day, date } = request.query as { batch_id?: string; day?: DayOfWeek; date?: string };
+      const slots = await store.getTimetable(user.tenant_id, batch_id, day, date);
       return reply.send({ success: true, data: slots, timestamp: new Date().toISOString() });
     };
     fastify.get('/', getSlotsHandler);
@@ -76,6 +76,7 @@ export function timetableRoutes(store: IDataStore) {
         startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
         endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
         excludeSlotId: z.string().optional(),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       });
 
       const parse = schema.safeParse(request.body);
@@ -194,7 +195,7 @@ export function timetableRoutes(store: IDataStore) {
     // Available Teachers Lookup
     const availableTeachersHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      const { day, start_time, end_time } = request.query as { day: DayOfWeek; start_time: string; end_time: string };
+      const { day, start_time, end_time, date } = request.query as { day: DayOfWeek; start_time: string; end_time: string; date?: string };
 
       if (!day || !start_time || !end_time) {
         return reply.status(400).send({
@@ -204,7 +205,7 @@ export function timetableRoutes(store: IDataStore) {
         });
       }
 
-      const teachers = await store.getAvailableTeachers(user.tenant_id, day, start_time, end_time);
+      const teachers = await store.getAvailableTeachers(user.tenant_id, day, start_time, end_time, date);
       return reply.send({ success: true, data: teachers, timestamp: new Date().toISOString() });
     };
     fastify.get('/available-teachers', availableTeachersHandler);

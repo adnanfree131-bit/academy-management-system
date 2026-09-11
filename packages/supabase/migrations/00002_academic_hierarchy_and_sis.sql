@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS students (
   batch_id UUID NOT NULL REFERENCES batches(id),
   elective_group_id UUID REFERENCES subject_groups(id),
   status VARCHAR(50) NOT NULL DEFAULT 'active' 
-    CHECK (status IN ('active', 'on_leave', 'suspended', 'alumni', 'withdrawn')),
+    CHECK (status IN ('active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted')),
   custom_field_values JSONB NOT NULL DEFAULT '{}'::jsonb,
   admission_date DATE NOT NULL DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

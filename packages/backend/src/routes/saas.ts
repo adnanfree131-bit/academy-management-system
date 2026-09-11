@@ -5,15 +5,48 @@ import { CloudflareService } from '../services/cloudflare.js';
 
 export function saasRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
+    const requireSuperAdmin = async (req: any, reply: any): Promise<boolean> => {
+      try {
+        await req.jwtVerify();
+      } catch (err: any) {
+        reply.status(401).send({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required.' },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+
+      const user = req.user as JWTPayload;
+      if (user?.role !== 'super_admin') {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Super Admin access required.' },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
+
     // 1. Get Tenant Trial & Lockout Status (Public or Authenticated)
     const getTrialStatusHandler = async (req: any, reply: any) => {
       try {
         let tenantId = req.query.tenant_id;
-        if (!tenantId && req.headers.authorization) {
+        if (req.headers.authorization) {
           try {
-            const decoded = fastify.jwt.decode(req.headers.authorization.replace(/^Bearer /i, '')) as JWTPayload;
-            if (decoded?.tenant_id) tenantId = decoded.tenant_id;
-          } catch {}
+            await req.jwtVerify();
+            const user = req.user as JWTPayload;
+            if (user?.role !== 'super_admin' && user?.tenant_id) {
+              tenantId = user.tenant_id;
+            }
+          } catch (err: any) {
+            return reply.status(401).send({
+              success: false,
+              error: { code: 'UNAUTHORIZED', message: 'Invalid authorization token.' },
+              timestamp: new Date().toISOString()
+            });
+          }
         }
 
         if (!tenantId) {
@@ -46,11 +79,20 @@ export function saasRoutes(store: IDataStore) {
 
         if (req.headers.authorization) {
           try {
-            const decoded = fastify.jwt.decode(req.headers.authorization.replace(/^Bearer /i, '')) as JWTPayload;
-            if (decoded?.tenant_id && !tenantId) tenantId = decoded.tenant_id;
-            uploadedByUserId = decoded?.user_id || decoded?.sub;
-            uploadedByEmail = decoded?.email;
-          } catch {}
+            await req.jwtVerify();
+            const user = req.user as JWTPayload;
+            if (user?.role !== 'super_admin' && user?.tenant_id) {
+              tenantId = user.tenant_id;
+            }
+            uploadedByUserId = user?.user_id || user?.sub;
+            uploadedByEmail = user?.email;
+          } catch (err: any) {
+            return reply.status(401).send({
+              success: false,
+              error: { code: 'UNAUTHORIZED', message: 'Invalid authorization token.' },
+              timestamp: new Date().toISOString()
+            });
+          }
         }
 
         if (!tenantId) {
@@ -97,17 +139,33 @@ export function saasRoutes(store: IDataStore) {
     fastify.post('/receipts', submitReceiptHandler);
     fastify.post('/saas/receipts', submitReceiptHandler);
 
-    // 3. List Subscription Receipts
+    // 3. List Subscription Receipts (Requires Authentication)
     const listReceiptsHandler = async (req: any, reply: any) => {
       try {
-        let tenantId = req.query.tenant_id;
-        if (!tenantId && req.headers.authorization) {
-          try {
-            const decoded = fastify.jwt.decode(req.headers.authorization.replace(/^Bearer /i, '')) as JWTPayload;
-            if (decoded?.role !== 'super_admin') {
-              tenantId = decoded.tenant_id;
-            }
-          } catch {}
+        await req.jwtVerify();
+      } catch (err: any) {
+        return reply.status(401).send({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required to view subscription receipts.' },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      try {
+        const user = req.user as JWTPayload;
+        let tenantId: string | undefined;
+
+        if (user.role === 'super_admin') {
+          tenantId = req.query.tenant_id;
+        } else {
+          tenantId = user.tenant_id;
+          if (!tenantId) {
+            return reply.status(403).send({
+              success: false,
+              error: { code: 'FORBIDDEN', message: 'Tenant identifier required.' },
+              timestamp: new Date().toISOString()
+            });
+          }
         }
 
         const receipts = await store.getSubscriptionReceipts(tenantId);
@@ -126,6 +184,7 @@ export function saasRoutes(store: IDataStore) {
 
     // 4. Review Subscription Receipt (Approve / Reject)
     const reviewReceiptHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { id } = req.params;
         const { status } = req.body;
@@ -136,14 +195,7 @@ export function saasRoutes(store: IDataStore) {
           });
         }
 
-        let reviewerEmail = 'superadmin@kampus.pk';
-        if (req.headers.authorization) {
-          try {
-            const decoded = fastify.jwt.decode(req.headers.authorization.replace(/^Bearer /i, '')) as JWTPayload;
-            if (decoded?.email) reviewerEmail = decoded.email;
-          } catch {}
-        }
-
+        const reviewerEmail = req.user?.email || 'superadmin@kampus.pk';
         const receipt = await store.reviewSubscriptionReceipt(id, status, reviewerEmail);
         return reply.send({
           success: true,
@@ -181,6 +233,7 @@ export function saasRoutes(store: IDataStore) {
 
     // 6. Update Platform Banking Configuration
     const updateBankingConfigHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const config = await store.updatePlatformBankingConfig(req.body);
         return reply.send({
@@ -202,18 +255,12 @@ export function saasRoutes(store: IDataStore) {
 
     // 7. Activate Academy (1 Mo, 6 Mo, 1 Yr, Lifetime)
     const activateAcademyHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { id } = req.params;
         const { duration_months } = req.body;
         const months = Number(duration_months) || 1;
-
-        let reviewerEmail: string | undefined;
-        if (req.headers.authorization) {
-          try {
-            const decoded = fastify.jwt.decode(req.headers.authorization.replace(/^Bearer /i, '')) as JWTPayload;
-            reviewerEmail = decoded?.email;
-          } catch {}
-        }
+        const reviewerEmail = req.user?.email || 'superadmin@kampus.pk';
 
         const tenant = await store.activateAcademy(id, months, reviewerEmail);
         return reply.send({
@@ -234,7 +281,8 @@ export function saasRoutes(store: IDataStore) {
     fastify.post('/saas/tenants/:id/activate', activateAcademyHandler);
 
     // 8. Super-Admin Global Overview & Metrics
-    const superAdminOverviewHandler = async (_req: any, reply: any) => {
+    const superAdminOverviewHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const overview = await store.getSuperAdminOverview();
         return reply.send({ success: true, data: overview, timestamp: new Date().toISOString() });
@@ -250,7 +298,8 @@ export function saasRoutes(store: IDataStore) {
     fastify.get('/saas/superadmin/overview', superAdminOverviewHandler);
 
     // 9. Platform Global Configuration (Dynamic Trial Days, Grace Period, Fees, Banking)
-    const getPlatformConfigHandler = async (_req: any, reply: any) => {
+    const getPlatformConfigHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const config = await store.getPlatformConfig();
         return reply.send({ success: true, data: config, timestamp: new Date().toISOString() });
@@ -263,6 +312,7 @@ export function saasRoutes(store: IDataStore) {
     };
 
     const updatePlatformConfigHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const config = await store.updatePlatformConfig(req.body);
         return reply.send({
@@ -286,6 +336,7 @@ export function saasRoutes(store: IDataStore) {
 
     // 10. Subdomain Rename with 301 Alias Creation
     const updateSubdomainHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { id } = req.params;
         const { new_slug } = req.body;
@@ -317,6 +368,7 @@ export function saasRoutes(store: IDataStore) {
 
     // 11. Suspend & Reinstate Academy
     const suspendTenantHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { id } = req.params;
         const { reason } = req.body || {};
@@ -336,6 +388,7 @@ export function saasRoutes(store: IDataStore) {
     };
 
     const reinstateTenantHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { id } = req.params;
         const tenant = await store.reinstateTenant(id);
@@ -360,6 +413,7 @@ export function saasRoutes(store: IDataStore) {
 
     // 11b. Individual Academy Billing Controls, Renewals, Archive & Hard Delete
     const updateTenantBillingHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { id } = req.params;
         const tenant = await store.updateTenantBillingSettings(id, req.body);
@@ -378,16 +432,10 @@ export function saasRoutes(store: IDataStore) {
     };
 
     const renewTenantSubscriptionHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { id } = req.params;
-        let reviewerEmail = 'kampuserp@gmail.com';
-        if (req.headers.authorization) {
-          try {
-            const decoded = fastify.jwt.decode(req.headers.authorization.replace(/^Bearer /i, '')) as JWTPayload;
-            if (decoded?.email) reviewerEmail = decoded.email;
-          } catch {}
-        }
-
+        const reviewerEmail = req.user?.email || 'kampuserp@gmail.com';
         const result = await store.renewTenantSubscription(id, req.body || {}, reviewerEmail);
         return reply.send({
           success: true,
@@ -404,6 +452,7 @@ export function saasRoutes(store: IDataStore) {
     };
 
     const archiveTenantHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { id } = req.params;
         const { reason } = req.body || {};
@@ -423,6 +472,7 @@ export function saasRoutes(store: IDataStore) {
     };
 
     const hardDeleteTenantHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { id } = req.params;
         const result = await store.hardDeleteTenant(id);
@@ -451,6 +501,7 @@ export function saasRoutes(store: IDataStore) {
 
     // 12. SuperAdmin Broadcast Announcements
     const listAnnouncementsHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const onlyActive = req.query?.only_active === 'true' || req.query?.include_inactive === 'false';
         const announcements = await store.getAnnouncements(onlyActive);
@@ -464,6 +515,7 @@ export function saasRoutes(store: IDataStore) {
     };
 
     const createAnnouncementHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { title, message, type, frequency, target_audience, target_tenant_id, action_label, action_url } = req.body;
         if (!title || !message) {
@@ -500,6 +552,7 @@ export function saasRoutes(store: IDataStore) {
     };
 
     const updateAnnouncementHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { id } = req.params;
         const announcement = await store.updateAnnouncement(id, req.body || {});
@@ -518,6 +571,7 @@ export function saasRoutes(store: IDataStore) {
     };
 
     const deleteAnnouncementHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { id } = req.params;
         await store.deleteAnnouncement(id);
@@ -535,6 +589,7 @@ export function saasRoutes(store: IDataStore) {
     };
 
     const toggleAnnouncementHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const { id } = req.params;
         const { is_active } = req.body;
@@ -575,11 +630,20 @@ export function saasRoutes(store: IDataStore) {
 
         if (req.headers.authorization) {
           try {
-            const decoded = fastify.jwt.decode(req.headers.authorization.replace(/^Bearer /i, '')) as JWTPayload;
-            if (decoded?.tenant_id) tenantId = decoded.tenant_id;
-            if (decoded?.sub) userId = decoded.sub;
-            if (decoded?.role) role = decoded.role;
-          } catch {}
+            await req.jwtVerify();
+            const user = req.user as JWTPayload;
+            if (user?.role !== 'super_admin' && user?.tenant_id) {
+              tenantId = user.tenant_id;
+            }
+            if (user?.sub) userId = user.sub;
+            if (user?.role) role = user.role;
+          } catch (err: any) {
+            return reply.status(401).send({
+              success: false,
+              error: { code: 'UNAUTHORIZED', message: 'Invalid authorization token.' },
+              timestamp: new Date().toISOString()
+            });
+          }
         }
 
         if (!tenantId) {
@@ -607,10 +671,19 @@ export function saasRoutes(store: IDataStore) {
 
         if (req.headers.authorization) {
           try {
-            const decoded = fastify.jwt.decode(req.headers.authorization.replace(/^Bearer /i, '')) as JWTPayload;
-            if (decoded?.tenant_id) tenantId = decoded.tenant_id;
-            if (decoded?.sub) userId = decoded.sub;
-          } catch {}
+            await req.jwtVerify();
+            const user = req.user as JWTPayload;
+            if (user?.role !== 'super_admin' && user?.tenant_id) {
+              tenantId = user.tenant_id;
+            }
+            if (user?.sub) userId = user.sub;
+          } catch (err: any) {
+            return reply.status(401).send({
+              success: false,
+              error: { code: 'UNAUTHORIZED', message: 'Invalid authorization token.' },
+              timestamp: new Date().toISOString()
+            });
+          }
         }
 
         if (!tenantId) {
@@ -639,18 +712,6 @@ export function saasRoutes(store: IDataStore) {
     fastify.post('/tenant/announcements/:id/dismiss', dismissAnnouncementHandler);
     fastify.post('/saas/tenant/announcements/:id/dismiss', dismissAnnouncementHandler);
 
-    const requireSuperAdmin = (req: any, reply: any): boolean => {
-      try {
-        const decoded = fastify.jwt.decode(String(req.headers.authorization || '').replace(/^Bearer /i, '')) as JWTPayload;
-        if (decoded?.role === 'super_admin') return true;
-      } catch {}
-      reply.status(403).send({
-        success: false,
-        error: { code: 'FORBIDDEN', message: 'Super Admin access required for backups.' },
-      });
-      return false;
-    };
-
     const allowBackupExportToken = (req: any): boolean => {
       const header = String(req.headers.authorization || '').replace(/^Bearer /i, '').trim();
       const token = process.env.BACKUP_EXPORT_TOKEN || '';
@@ -658,20 +719,20 @@ export function saasRoutes(store: IDataStore) {
     };
 
     fastify.get('/backups', async (req: any, reply: any) => {
-      if (!requireSuperAdmin(req, reply)) return;
+      if (!(await requireSuperAdmin(req, reply))) return;
       const backups = await store.listDataBackups();
       return reply.send({ success: true, data: backups, timestamp: new Date().toISOString() });
     });
 
     fastify.get('/backups/export', async (req: any, reply: any) => {
-      if (!allowBackupExportToken(req) && !requireSuperAdmin(req, reply)) return;
+      if (!allowBackupExportToken(req) && !(await requireSuperAdmin(req, reply))) return;
       const file = await store.exportDataBackupFile();
       reply.header('Content-Disposition', `attachment; filename="kampus-backup-${file.exported_at.slice(0, 10)}.json"`);
       return reply.send(file);
     });
 
     fastify.post('/backups/import', async (req: any, reply: any) => {
-      if (!requireSuperAdmin(req, reply)) return;
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const result = await store.importDataBackupFile(req.body || {});
         return reply.send({
@@ -689,7 +750,7 @@ export function saasRoutes(store: IDataStore) {
     });
 
     fastify.post('/backups', async (req: any, reply: any) => {
-      if (!requireSuperAdmin(req, reply)) return;
+      if (!(await requireSuperAdmin(req, reply))) return;
       const backup = await store.createManualDataBackup();
       return reply.status(201).send({
         success: true,
@@ -700,7 +761,7 @@ export function saasRoutes(store: IDataStore) {
     });
 
     fastify.post('/backups/:id/restore', async (req: any, reply: any) => {
-      if (!requireSuperAdmin(req, reply)) return;
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const result = await store.restoreDataBackup(Number(req.params.id));
         return reply.send({

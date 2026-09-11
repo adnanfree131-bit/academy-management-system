@@ -118,6 +118,22 @@ export interface StoredOTP {
   purpose?: string;
 }
 
+export interface StaffLeaveRecord {
+  id: string;
+  tenant_id: string;
+  staff_id: string;
+  staff_name?: string;
+  start_date: string;
+  end_date: string;
+  category: 'medical' | 'casual' | 'official_duty' | 'emergency' | 'annual';
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by?: string | null;
+  review_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CreateStaffInput {
   tenant_id: string;
   full_name: string;
@@ -248,7 +264,7 @@ export interface IDataStore {
   // --- Phase 3: Timetable & Collision Engine ---
   getRooms(tenantId: string): Promise<Room[]>;
   createRoom(data: Omit<Room, 'id' | 'created_at' | 'updated_at'>): Promise<Room>;
-  getTimetable(tenantId: string, batchId?: string, day?: DayOfWeek): Promise<TimetableSlot[]>;
+  getTimetable(tenantId: string, batchId?: string, day?: DayOfWeek, date?: string): Promise<TimetableSlot[]>;
   checkCollision(tenantId: string, slot: {
     batchId: string;
     teacherId: string;
@@ -257,14 +273,16 @@ export interface IDataStore {
     startTime: string;
     endTime: string;
     excludeSlotId?: string;
+    date?: string;
   }): Promise<TimetableCollisionResult>;
   createTimetableSlot(data: Omit<TimetableSlot, 'id' | 'created_at' | 'updated_at'>): Promise<TimetableSlot>;
   assignSubstitute(tenantId: string, slotId: string, substituteTeacherId: string, date?: string, reason?: string): Promise<TimetableSlot>;
   deleteTimetableSlot(tenantId: string, slotId: string): Promise<boolean>;
-  getAvailableTeachers(tenantId: string, dayOfWeek: DayOfWeek, startTime: string, endTime: string): Promise<User[]>;
+  getAvailableTeachers(tenantId: string, dayOfWeek: DayOfWeek, startTime: string, endTime: string, date?: string): Promise<User[]>;
 
   // --- Phase 3: Student Attendance & Leaves ---
   getStudentAttendance(tenantId: string, batchId: string, date: string): Promise<StudentAttendanceRecord[]>;
+  getStudentAttendanceHistory(tenantId: string, studentId: string): Promise<StudentAttendanceRecord[]>;
   getAttendanceAuditLogs(tenantId: string, studentId?: string, date?: string): Promise<AttendanceAuditLog[]>;
   recordBatchAttendance(
     tenantId: string,
@@ -276,6 +294,11 @@ export interface IDataStore {
   getLeaveApplications(tenantId: string, studentId?: string): Promise<LeaveApplication[]>;
   submitLeaveApplication(data: Omit<LeaveApplication, 'id' | 'status' | 'created_at' | 'updated_at'>): Promise<LeaveApplication>;
   reviewLeaveApplication(tenantId: string, leaveId: string, status: LeaveStatus, reviewNotes?: string, reviewerId?: string): Promise<LeaveApplication>;
+
+  // --- Staff Leaves Support ---
+  getStaffLeaves(tenantId: string, staffId?: string): Promise<StaffLeaveRecord[]>;
+  submitStaffLeave(data: Omit<StaffLeaveRecord, 'id' | 'status' | 'created_at' | 'updated_at'>): Promise<StaffLeaveRecord>;
+  reviewStaffLeave(tenantId: string, leaveId: string, status: 'approved' | 'rejected', reviewNotes?: string, reviewerId?: string): Promise<StaffLeaveRecord>;
 
   // --- Phase 3: Campus Geofence & Staff Attendance ---
   getGeofenceConfig(tenantId: string): Promise<CampusGeofenceConfig>;
@@ -544,6 +567,7 @@ export class InMemoryDataStore implements IDataStore {
   private studentAttendance: StudentAttendanceRecord[] = [];
   private attendanceAuditLogs: AttendanceAuditLog[] = [];
   private leaveApplications: LeaveApplication[] = [];
+  private staffLeaves: StaffLeaveRecord[] = [];
   private geofenceConfigs: Map<string, CampusGeofenceConfig> = new Map();
   private staffAttendance: StaffAttendanceRecord[] = [];
   private homeworkAssignments: HomeworkAssignment[] = [];
@@ -666,6 +690,7 @@ export class InMemoryDataStore implements IDataStore {
       studentAttendance: this.studentAttendance,
       attendanceAuditLogs: this.attendanceAuditLogs,
       leaveApplications: this.leaveApplications,
+      staffLeaves: this.staffLeaves,
       geofenceConfigs: [...this.geofenceConfigs.entries()],
       staffAttendance: this.staffAttendance,
       homeworkAssignments: this.homeworkAssignments,
@@ -718,6 +743,7 @@ export class InMemoryDataStore implements IDataStore {
     if (payload.studentAttendance) this.studentAttendance = asArray(payload.studentAttendance);
     if (payload.attendanceAuditLogs) this.attendanceAuditLogs = asArray(payload.attendanceAuditLogs);
     if (payload.leaveApplications) this.leaveApplications = asArray(payload.leaveApplications);
+    if (payload.staffLeaves) this.staffLeaves = asArray(payload.staffLeaves);
     if (payload.geofenceConfigs) this.geofenceConfigs = new Map(asEntries(payload.geofenceConfigs));
     if (payload.staffAttendance) this.staffAttendance = asArray(payload.staffAttendance);
     if (payload.homeworkAssignments) this.homeworkAssignments = asArray(payload.homeworkAssignments);
@@ -2208,20 +2234,24 @@ export class InMemoryDataStore implements IDataStore {
 
     const batch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === data.tenant_id);
     const isFull = Boolean(batch && batch.current_enrollment >= batch.max_capacity);
+    const requestedStatus = data.status || 'active';
+    const finalStatus: StudentStatus = isFull
+      ? (requestedStatus === 'active' ? 'waitlisted' : requestedStatus)
+      : requestedStatus;
     const student: Student = {
       ...data,
       id: crypto.randomUUID(),
       admission_number: `ADM-2026-${count.toString().padStart(3, '0')}`,
       roll_number: `R-${(batchStudents.length + 101).toString()}`,
       admission_date: new Date().toISOString().split('T')[0],
-      status: isFull ? 'waitlisted' : (data.status || 'active'),
+      status: finalStatus,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
 
     this.students.push(student);
 
-    if (batch && !isFull) batch.current_enrollment += 1;
+    if (batch && finalStatus === 'active') batch.current_enrollment += 1;
     this.schedulePersist();
 
     // Auto-generate first month invoice only for active students if fee_structure is set
@@ -2454,13 +2484,23 @@ export class InMemoryDataStore implements IDataStore {
     return room;
   }
 
-  async getTimetable(tenantId: string, batchId?: string, day?: DayOfWeek): Promise<TimetableSlot[]> {
-    return this.timetableSlots.filter(s => 
-      s.tenant_id === tenantId &&
-      (!batchId || s.batch_id === batchId) &&
-      (!day || s.day_of_week === day) &&
-      !s.is_cancelled
-    );
+  async getTimetable(tenantId: string, batchId?: string, day?: DayOfWeek, date?: string): Promise<TimetableSlot[]> {
+    const queryDate = date || new Date().toISOString().split('T')[0];
+    return this.timetableSlots
+      .filter(s => 
+        s.tenant_id === tenantId &&
+        (!batchId || s.batch_id === batchId) &&
+        (!day || s.day_of_week === day) &&
+        !s.is_cancelled
+      )
+      .map(s => {
+        const activeSub = s.substitutions?.find(sub => sub.date === queryDate);
+        return {
+          ...s,
+          substitute_teacher_id: activeSub ? activeSub.substitute_teacher_id : (s.substitutions?.length ? null : (s.substitute_teacher_id || null)),
+          substitute_teacher_name: activeSub ? (activeSub.substitute_teacher_name || null) : (s.substitutions?.length ? null : (s.substitute_teacher_name || null)),
+        };
+      });
   }
 
   async checkCollision(tenantId: string, slot: {
@@ -2471,6 +2511,7 @@ export class InMemoryDataStore implements IDataStore {
     startTime: string;
     endTime: string;
     excludeSlotId?: string;
+    date?: string;
   }): Promise<TimetableCollisionResult> {
     const geofence = await this.getGeofenceConfig(tenantId);
     const multiRoom = geofence.multi_room_enabled;
@@ -2498,7 +2539,13 @@ export class InMemoryDataStore implements IDataStore {
       }
 
       // 2. Teacher conflict: Is the teacher (or substitute) already booked elsewhere?
-      const assignedTeacherId = existing.substitute_teacher_id || existing.teacher_id;
+      let assignedTeacherId = existing.teacher_id;
+      if (slot.date && existing.substitutions?.length) {
+        const subForDate = existing.substitutions.find(s => s.date === slot.date);
+        if (subForDate) {
+          assignedTeacherId = subForDate.substitute_teacher_id;
+        }
+      }
       if (assignedTeacherId === slot.teacherId) {
         return {
           has_conflict: true,
@@ -2573,7 +2620,10 @@ export class InMemoryDataStore implements IDataStore {
     const substitute = Array.from(this.users.values()).find(u => u.id === substituteTeacherId && u.tenant_id === tenantId);
     if (!substitute) throw new Error('Substitute teacher not found');
 
-    // Check if substitute teacher is already engaged during this time
+    const subDate = date || new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0];
+
+    // Check if substitute teacher is already engaged during this time on this date
     const collision = await this.checkCollision(tenantId, {
       batchId: 'none', // skip batch collision
       teacherId: substituteTeacherId,
@@ -2581,6 +2631,7 @@ export class InMemoryDataStore implements IDataStore {
       startTime: slot.start_time,
       endTime: slot.end_time,
       excludeSlotId: slotId,
+      date: subDate,
     });
 
     if (collision.has_conflict && collision.conflict_type === 'teacher_conflict') {
@@ -2590,7 +2641,6 @@ export class InMemoryDataStore implements IDataStore {
     if (!slot.substitutions) {
       slot.substitutions = [];
     }
-    const subDate = date || new Date().toISOString().split('T')[0];
     const existingIndex = slot.substitutions.findIndex(s => s.date === subDate);
     const subRecord: TimetableSubstitution = {
       id: crypto.randomUUID(),
@@ -2607,14 +2657,22 @@ export class InMemoryDataStore implements IDataStore {
       slot.substitutions.push(subRecord);
     }
 
-    slot.substitute_teacher_id = substituteTeacherId;
-    slot.substitute_teacher_name = substitute.full_name;
+    // Do NOT mutate permanent master teacher (slot.teacher_id).
+    // slot.substitute_teacher_id is active for today if subDate is today or date omitted.
+    if (!date || subDate === today) {
+      slot.substitute_teacher_id = substituteTeacherId;
+      slot.substitute_teacher_name = substitute.full_name;
+    } else {
+      const todaySub = slot.substitutions.find(s => s.date === today);
+      slot.substitute_teacher_id = todaySub ? todaySub.substitute_teacher_id : null;
+      slot.substitute_teacher_name = todaySub ? todaySub.substitute_teacher_name : null;
+    }
     slot.updated_at = new Date().toISOString();
     this.schedulePersist();
     return slot;
   }
 
-  async getAvailableTeachers(tenantId: string, dayOfWeek: DayOfWeek, startTime: string, endTime: string): Promise<User[]> {
+  async getAvailableTeachers(tenantId: string, dayOfWeek: DayOfWeek, startTime: string, endTime: string, date?: string): Promise<User[]> {
     const allTeachers = Array.from(this.users.values()).filter(u => u.tenant_id === tenantId && (u.role === 'teacher' || u.role === 'tenant_admin'));
     
     // Find teachers with conflicting slots
@@ -2623,7 +2681,12 @@ export class InMemoryDataStore implements IDataStore {
       if (slot.tenant_id === tenantId && slot.day_of_week === dayOfWeek && !slot.is_cancelled) {
         const overlaps = startTime < slot.end_time && endTime > slot.start_time;
         if (overlaps) {
-          busyTeacherIds.add(slot.substitute_teacher_id || slot.teacher_id);
+          if (date && slot.substitutions?.length) {
+            const sub = slot.substitutions.find(s => s.date === date);
+            busyTeacherIds.add(sub ? sub.substitute_teacher_id : slot.teacher_id);
+          } else {
+            busyTeacherIds.add(slot.teacher_id);
+          }
         }
       }
     }
@@ -2636,6 +2699,12 @@ export class InMemoryDataStore implements IDataStore {
     return this.studentAttendance.filter(a => 
       a.tenant_id === tenantId && a.batch_id === batchId && a.date === date
     );
+  }
+
+  async getStudentAttendanceHistory(tenantId: string, studentId: string): Promise<StudentAttendanceRecord[]> {
+    return this.studentAttendance
+      .filter(a => a.tenant_id === tenantId && a.student_id === studentId)
+      .sort((a, b) => b.date.localeCompare(a.date));
   }
 
   async getAttendanceAuditLogs(tenantId: string, studentId?: string, date?: string): Promise<AttendanceAuditLog[]> {
@@ -2766,6 +2835,42 @@ export class InMemoryDataStore implements IDataStore {
         }
       });
     }
+
+    this.schedulePersist();
+    return leave;
+  }
+
+  // --- Staff Leaves Support ---
+  async getStaffLeaves(tenantId: string, staffId?: string): Promise<StaffLeaveRecord[]> {
+    return this.staffLeaves
+      .filter(l => l.tenant_id === tenantId && (!staffId || l.staff_id === staffId))
+      .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+
+  async submitStaffLeave(data: Omit<StaffLeaveRecord, 'id' | 'status' | 'created_at' | 'updated_at'>): Promise<StaffLeaveRecord> {
+    const user = Array.from(this.users.values()).find(u => u.id === data.staff_id && u.tenant_id === data.tenant_id);
+    const leave: StaffLeaveRecord = {
+      ...data,
+      id: crypto.randomUUID(),
+      staff_name: data.staff_name || user?.full_name || (user as any)?.name || 'Staff Member',
+      status: 'pending',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    this.staffLeaves.push(leave);
+    this.schedulePersist();
+    return leave;
+  }
+
+  async reviewStaffLeave(tenantId: string, leaveId: string, status: 'approved' | 'rejected', reviewNotes?: string, reviewerId?: string): Promise<StaffLeaveRecord> {
+    const leave = this.staffLeaves.find(l => l.id === leaveId && l.tenant_id === tenantId);
+    if (!leave) throw new Error('Staff leave record not found');
+
+    leave.status = status;
+    leave.review_notes = reviewNotes || null;
+    leave.reviewed_by = reviewerId || null;
+    leave.updated_at = new Date().toISOString();
 
     this.schedulePersist();
     return leave;
@@ -2945,7 +3050,13 @@ export class InMemoryDataStore implements IDataStore {
       (u as any).status !== 'archived'
     );
     const records = this.staffAttendance.filter(s => s.tenant_id === tenantId && s.date === dateStr);
-    const leaves = this.leaveApplications.filter(l =>
+    const staffLeaves = this.staffLeaves.filter(l =>
+      l.tenant_id === tenantId &&
+      l.status === 'approved' &&
+      l.start_date <= dateStr &&
+      l.end_date >= dateStr
+    );
+    const legacyLeaves = this.leaveApplications.filter(l =>
       l.tenant_id === tenantId &&
       l.status === 'approved' &&
       l.start_date <= dateStr &&
@@ -2955,7 +3066,7 @@ export class InMemoryDataStore implements IDataStore {
     return users.map(user => {
       const uName = user.full_name || (user as any).name || 'Staff Member';
       const rec = records.find(r => r.staff_id === user.id || r.staff_id === (user as any).employee_code || r.staff_name === uName);
-      const leave = leaves.find(l => l.student_id === user.id);
+      const leave = staffLeaves.find(l => l.staff_id === user.id) || legacyLeaves.find(l => (l as any).staff_id === user.id);
       const empCode = (user as any).employee_code || `EMP-${user.id.slice(0, 4).toUpperCase()}`;
       const dept = (user as any).department || 'General';
       const designation = (user as any).designation || (user.role === 'teacher' ? 'Faculty Member' : 'Staff');
@@ -5855,6 +5966,7 @@ export class InMemoryDataStore implements IDataStore {
     if (this.rooms) this.rooms = this.rooms.filter(r => r.tenant_id !== tenantId);
     if (this.studentAttendance) this.studentAttendance = this.studentAttendance.filter(a => a.tenant_id !== tenantId);
     if (this.leaveApplications) this.leaveApplications = this.leaveApplications.filter(l => l.tenant_id !== tenantId);
+    if (this.staffLeaves) this.staffLeaves = this.staffLeaves.filter(l => l.tenant_id !== tenantId);
     if (this.staffAttendance) this.staffAttendance = this.staffAttendance.filter(a => a.tenant_id !== tenantId);
     if (this.homeworkAssignments) this.homeworkAssignments = this.homeworkAssignments.filter(h => h.tenant_id !== tenantId);
     if (this.notebookChecks) this.notebookChecks = this.notebookChecks.filter(n => n.tenant_id !== tenantId);

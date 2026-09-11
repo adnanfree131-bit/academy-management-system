@@ -306,7 +306,7 @@ CREATE TABLE IF NOT EXISTS students (
   batch_id UUID NOT NULL REFERENCES batches(id),
   elective_group_id UUID REFERENCES subject_groups(id),
   status VARCHAR(50) NOT NULL DEFAULT 'active' 
-    CHECK (status IN ('active', 'on_leave', 'suspended', 'alumni', 'withdrawn')),
+    CHECK (status IN ('active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted')),
   custom_field_values JSONB NOT NULL DEFAULT '{}'::jsonb,
   admission_date DATE NOT NULL DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1296,7 +1296,7 @@ DROP POLICY IF EXISTS platform_announcements_read_policy ON platform_announcemen
 CREATE POLICY platform_announcements_read_policy ON platform_announcements
   FOR SELECT
   USING (
-    is_active = true
+    (is_active = true AND (target_tenant_id IS NULL OR target_tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid))
     OR current_setting('app.is_super_admin', true) = 'true'
   );
 

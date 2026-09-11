@@ -61,7 +61,7 @@ DROP POLICY IF EXISTS platform_announcements_read_policy ON platform_announcemen
 CREATE POLICY platform_announcements_read_policy ON platform_announcements
   FOR SELECT
   USING (
-    is_active = true
+    (is_active = true AND (target_tenant_id IS NULL OR target_tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid))
     OR current_setting('app.is_super_admin', true) = 'true'
   );
 

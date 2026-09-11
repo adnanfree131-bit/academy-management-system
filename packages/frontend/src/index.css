@@ -5,8 +5,15 @@
 @tailwind utilities;
 
 @layer base {
-  body {
+  html, body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  * {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
@@ -20,3 +27,18 @@
   letter-spacing: -0.025em;
   font-weight: 650;
 }
+
+/* Mobile Safe Area Inset Classes */
+.safe-top {
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+
+.safe-bottom {
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+

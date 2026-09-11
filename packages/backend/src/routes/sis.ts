@@ -178,7 +178,7 @@ export function sisRoutes(store: IDataStore) {
           };
         }).optional(),
         generate_first_month_invoice: z.boolean().optional(),
-        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn']).default('active'),
+        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted']).default('active'),
         custom_field_values: z.record(z.any()).default({}),
         subjects: z.array(z.string()).default([]),
       });
@@ -215,7 +215,7 @@ export function sisRoutes(store: IDataStore) {
         email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
         guardian_name: z.string().optional(),
         guardian_phone: z.string().optional(),
-        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn']).optional(),
+        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted']).optional(),
         subjects: z.array(z.string()).optional(),
         fee_structure: z.any().optional(),
         custom_field_values: z.record(z.any()).optional(),
@@ -249,7 +249,7 @@ export function sisRoutes(store: IDataStore) {
       const { id } = request.params as { id: string };
 
       const schema = z.object({
-        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn']),
+        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted']),
         reason: z.string().min(1, 'Reason for status change is required'),
         cancel_unpaid_invoices: z.boolean().default(false),
       });

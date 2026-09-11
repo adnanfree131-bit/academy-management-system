@@ -27,7 +27,8 @@ import {
   Subject, 
   SubjectGroup, 
   StudentInvoice,
-  StudentStatus
+  StudentStatus,
+  StudentAttendanceRecord
 } from '@apex/shared-types';
 import { StudentIDCardModal } from './StudentIDCardModal';
 
@@ -277,6 +278,58 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
 
   const [examRows, setExamRows] = useState<{ title: string; date: string; obtained: number; total: number; grade: string; remarks: string }[]>([]);
   const [notebookRows, setNotebookRows] = useState<{ date: string; title: string; status: string; remarks: string }[]>([]);
+  const [attendanceLogs, setAttendanceLogs] = useState<StudentAttendanceRecord[]>([]);
+  const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
+
+  useEffect(() => {
+    if (!token || !currentStudent.id) return;
+    setIsLoadingAttendance(true);
+    const headers = { Authorization: `Bearer ${token}` };
+    fetch(`/api/v1/attendance/attendance/students?student_id=${currentStudent.id}`, { headers })
+      .then(r => r.json())
+      .then(body => {
+        if (body.success && Array.isArray(body.data)) {
+          setAttendanceLogs(body.data);
+        } else {
+          setAttendanceLogs([]);
+        }
+      })
+      .catch(err => {
+        console.error('Error fetching student attendance history:', err);
+        setAttendanceLogs([]);
+      })
+      .finally(() => setIsLoadingAttendance(false));
+  }, [token, currentStudent.id]);
+
+  const attendanceMetrics = useMemo(() => {
+    const total = attendanceLogs.length;
+    let present = 0;
+    let absent = 0;
+    let late = 0;
+    let excused = 0;
+
+    attendanceLogs.forEach(rec => {
+      if (rec.status === 'present') present++;
+      else if (rec.status === 'absent') absent++;
+      else if (rec.status === 'late') late++;
+      else if (rec.status === 'excused') excused++;
+    });
+
+    const attended = present + late;
+    const effectiveTotal = Math.max(0, total - excused);
+    const percentage = effectiveTotal > 0 ? Math.min(100, (attended / effectiveTotal) * 100) : (total > 0 ? 100 : 100);
+    const isEligible = percentage >= 75;
+
+    return {
+      total,
+      present,
+      absent,
+      late,
+      excused,
+      percentage: percentage.toFixed(1),
+      isEligible,
+    };
+  }, [attendanceLogs]);
 
   useEffect(() => {
     if (!token) return;
@@ -1103,27 +1156,41 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                       Minimum 75% attendance required for examinations.
                     </p>
                   </div>
-                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300 self-start sm:self-auto">
-                    Eligible (94.2%)
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                    attendanceMetrics.isEligible
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                      : 'bg-rose-50 text-rose-800 border border-rose-300'
+                  } self-start sm:self-auto`}>
+                    {attendanceMetrics.total === 0 ? 'No Records (100%)' : `${attendanceMetrics.isEligible ? 'Eligible' : 'Ineligible'} (${attendanceMetrics.percentage}%)`}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 text-left">
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-4 pt-3 text-left">
                   <div>
                     <span className="text-slate-500 text-[11px] block">Overall Attendance</span>
-                    <div className="text-lg font-bold text-emerald-700 font-mono mt-0.5">94.2%</div>
+                    <div className={`text-lg font-bold ${attendanceMetrics.isEligible ? 'text-emerald-700' : 'text-rose-700'} font-mono mt-0.5`}>
+                      {attendanceMetrics.total === 0 ? '—' : `${attendanceMetrics.percentage}%`}
+                    </div>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[11px] block">Working Days</span>
-                    <div className="text-lg font-bold text-slate-900 font-mono mt-0.5">26 Days</div>
+                    <div className="text-lg font-bold text-slate-900 font-mono mt-0.5">{attendanceMetrics.total} Days</div>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[11px] block">Present</span>
-                    <div className="text-lg font-bold text-slate-900 font-mono mt-0.5">24 Days</div>
+                    <div className="text-lg font-bold text-slate-900 font-mono mt-0.5">{attendanceMetrics.present} Days</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-[11px] block">Late</span>
+                    <div className="text-lg font-bold text-amber-700 font-mono mt-0.5">{attendanceMetrics.late} Days</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 text-[11px] block">Excused</span>
+                    <div className="text-lg font-bold text-indigo-700 font-mono mt-0.5">{attendanceMetrics.excused} Days</div>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[11px] block">Absences</span>
-                    <div className="text-lg font-bold text-rose-700 font-mono mt-0.5">1 Day</div>
+                    <div className="text-lg font-bold text-rose-700 font-mono mt-0.5">{attendanceMetrics.absent} Days</div>
                   </div>
                 </div>
               </div>
@@ -1131,84 +1198,68 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
               <div className="bg-white border border-slate-200 rounded overflow-hidden">
                 <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
                   <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                    Recent Attendance Logs
+                    Attendance History Logs
                   </h3>
-                  <span className="text-xs text-slate-500 font-mono">Current Month</span>
+                  <span className="text-xs text-slate-500 font-mono">
+                    {attendanceLogs.length} record{attendanceLogs.length === 1 ? '' : 's'}
+                  </span>
                 </div>
 
-                <table className="w-full text-xs text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-                      <th className="py-2.5 px-4">Date</th>
-                      <th className="py-2.5 px-4">Scheduled</th>
-                      <th className="py-2.5 px-4">Check-In</th>
-                      <th className="py-2.5 px-4">Method</th>
-                      <th className="py-2.5 px-4">Status</th>
-                      <th className="py-2.5 px-4 text-right">Notification</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    <tr className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-2.5 px-4 font-mono text-slate-900">08 Sep 2026 (Tue)</td>
-                      <td className="py-2.5 px-4 font-mono text-slate-600">08:00 AM</td>
-                      <td className="py-2.5 px-4 font-mono font-bold text-slate-900">07:53 AM</td>
-                      <td className="py-2.5 px-4 text-slate-600">Campus GPS</td>
-                      <td className="py-2.5 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          Present (On Time)
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-4 text-right font-mono text-[11px] text-slate-500">
-                        WhatsApp notification sent
-                      </td>
-                    </tr>
+                {isLoadingAttendance ? (
+                  <div className="p-8 text-center text-slate-400">
+                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-500" />
+                    <p className="text-xs font-mono">Loading live attendance records...</p>
+                  </div>
+                ) : attendanceLogs.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400">
+                    <Clock className="w-6 h-6 mx-auto mb-2 text-slate-300" />
+                    <p className="text-xs font-bold text-slate-700">No attendance records on file</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Attendance records marked in the Attendance Desk will appear here.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                          <th className="py-2.5 px-4">Date</th>
+                          <th className="py-2.5 px-4">Status</th>
+                          <th className="py-2.5 px-4">Check-In</th>
+                          <th className="py-2.5 px-4">Marked By</th>
+                          <th className="py-2.5 px-4">Remarks</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {attendanceLogs.map(log => {
+                          let badgeStyle = 'bg-slate-100 text-slate-700 border-slate-200';
+                          if (log.status === 'present') badgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                          if (log.status === 'absent') badgeStyle = 'bg-rose-50 text-rose-800 border-rose-200';
+                          if (log.status === 'late') badgeStyle = 'bg-amber-50 text-amber-800 border-amber-200';
+                          if (log.status === 'excused') badgeStyle = 'bg-indigo-50 text-indigo-800 border-indigo-200';
 
-                    <tr className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-2.5 px-4 font-mono text-slate-900">07 Sep 2026 (Mon)</td>
-                      <td className="py-2.5 px-4 font-mono text-slate-600">08:00 AM</td>
-                      <td className="py-2.5 px-4 font-mono font-bold text-slate-900">07:58 AM</td>
-                      <td className="py-2.5 px-4 text-slate-600">Biometric Machine #2</td>
-                      <td className="py-2.5 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                          Present (On Time)
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-4 text-right font-mono text-[11px] text-slate-500">
-                        WhatsApp notification sent
-                      </td>
-                    </tr>
-
-                    <tr className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-2.5 px-4 font-mono text-slate-900">05 Sep 2026 (Sat)</td>
-                      <td className="py-2.5 px-4 font-mono text-slate-600">08:00 AM</td>
-                      <td className="py-2.5 px-4 font-mono text-slate-400">—</td>
-                      <td className="py-2.5 px-4 text-slate-400">Manual Register</td>
-                      <td className="py-2.5 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-50 text-rose-800 border border-rose-200">
-                          Absent
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-4 text-right font-mono text-[11px] text-rose-700 font-medium">
-                        Absence alert sent to guardian
-                      </td>
-                    </tr>
-
-                    <tr className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-2.5 px-4 font-mono text-slate-900">04 Sep 2026 (Fri)</td>
-                      <td className="py-2.5 px-4 font-mono text-slate-600">08:00 AM</td>
-                      <td className="py-2.5 px-4 font-mono font-bold text-slate-900">08:09 AM</td>
-                      <td className="py-2.5 px-4 text-slate-600">Biometric Machine #1</td>
-                      <td className="py-2.5 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                          Late (+9m)
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-4 text-right font-mono text-[11px] text-slate-500">
-                        WhatsApp notification sent
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                          return (
+                            <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="py-2.5 px-4 font-mono font-medium text-slate-900">{log.date}</td>
+                              <td className="py-2.5 px-4">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize border ${badgeStyle}`}>
+                                  {log.status}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-4 font-mono text-slate-600">
+                                {log.check_in_time ? new Date(log.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                              </td>
+                              <td className="py-2.5 px-4 text-slate-600">
+                                {log.marked_by || 'Staff'}
+                              </td>
+                              <td className="py-2.5 px-4 text-slate-600">
+                                {log.remarks || '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1389,6 +1440,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                         className="w-full text-xs px-3 py-2 border border-slate-300 rounded bg-white text-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 font-medium"
                       >
                         <option value="active">Active (Regular Enrollment)</option>
+                        <option value="waitlisted">Waitlisted (Capacity Exceeded / Pending Seat)</option>
                         <option value="on_leave">On Leave (Approved Absence)</option>
                         <option value="suspended">Suspended (Disciplinary / Admin Hold)</option>
                         <option value="alumni">Alumni (Course Completed / Graduated)</option>

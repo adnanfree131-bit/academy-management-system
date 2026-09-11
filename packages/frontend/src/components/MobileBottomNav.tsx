@@ -29,7 +29,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     return (
       <nav 
         data-testid="mobile-bottom-nav"
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around md:hidden shadow-lg"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around md:hidden shadow-lg pb-[max(0.5rem,env(safe-area-inset-bottom))] select-none"
       >
         <button
           onClick={() => onSelectScreen('teacher')}
@@ -86,7 +86,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     return (
       <nav 
         data-testid="mobile-bottom-nav"
-        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around md:hidden shadow-lg"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around md:hidden shadow-lg pb-[max(0.5rem,env(safe-area-inset-bottom))] select-none"
       >
         <button
           onClick={() => onSelectScreen('student_portal')}
@@ -144,7 +144,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     return (
       <nav 
         data-testid="mobile-bottom-nav"
-        className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 flex items-center justify-around md:hidden shadow-xl"
+        className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-1.5 flex items-center justify-around md:hidden shadow-xl pb-[max(0.5rem,env(safe-area-inset-bottom))] select-none"
       >
         <button
           onClick={() => onSelectScreen('superadmin')}
@@ -191,7 +191,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   return (
     <nav 
       data-testid="mobile-bottom-nav"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around md:hidden shadow-lg"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around md:hidden shadow-lg pb-[max(0.5rem,env(safe-area-inset-bottom))] select-none"
     >
       <button
         onClick={() => onSelectScreen('dashboard')}

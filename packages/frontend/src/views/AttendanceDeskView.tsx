@@ -9,7 +9,8 @@ import {
   Plus, 
   RefreshCw, 
   FileText, 
-  X 
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { 
   Batch, 
@@ -19,6 +20,8 @@ import {
   LeaveApplication, 
   LeaveCategory 
 } from '@apex/shared-types';
+
+export type DeskAttendanceStatus = AttendanceStatus | 'unmarked';
 
 export const AttendanceDeskView: React.FC = () => {
   const { token, tenant } = useAuth();
@@ -31,7 +34,7 @@ export const AttendanceDeskView: React.FC = () => {
   const [students, setStudents] = useState<Student[]>([]);
   
   // Attendance State
-  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, { status: AttendanceStatus; remarks: string }>>({});
+  const [attendanceRecords, setAttendanceRecords] = useState<Record<string, { status: DeskAttendanceStatus; remarks: string }>>({});
   const [leaves, setLeaves] = useState<LeaveApplication[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -113,16 +116,22 @@ export const AttendanceDeskView: React.FC = () => {
       );
       const excusedStudentIds = new Set(activeLeaves.map(l => l.student_id));
 
+      const todayStr = new Date().toISOString().split('T')[0];
+      const isPastDate = selectedDate < todayStr;
+
       // Build state map
-      const stateMap: Record<string, { status: AttendanceStatus; remarks: string }> = {};
+      const stateMap: Record<string, { status: DeskAttendanceStatus; remarks: string }> = {};
       studentList.forEach(s => {
         const found = existingRecords.find(r => r.student_id === s.id);
         if (found) {
           stateMap[s.id] = { status: found.status, remarks: found.remarks || '' };
         } else if (excusedStudentIds.has(s.id)) {
           stateMap[s.id] = { status: 'excused', remarks: 'Auto-Excused: Approved Leave' };
+        } else if (isPastDate) {
+          // Past unrecorded dates or partial attendance must remain unmarked
+          stateMap[s.id] = { status: 'unmarked', remarks: '' };
         } else {
-          // Default to present for rapid 1-click verification
+          // Default to present for rapid 1-click verification on today or future dates
           stateMap[s.id] = { status: 'present', remarks: '' };
         }
       });
@@ -188,17 +197,28 @@ export const AttendanceDeskView: React.FC = () => {
   // Save Attendance Submission
   const handleSaveAttendance = async () => {
     if (!token || !selectedBatchId) return;
+
+    // Institutional integrity check: prevent saving unrecorded rows without explicit selection
+    const unmarkedCount = students.filter(s => attendanceRecords[s.id]?.status === 'unmarked' || !attendanceRecords[s.id]?.status).length;
+    if (unmarkedCount > 0) {
+      alert(`Cannot save roster: ${unmarkedCount} student(s) remain unmarked. Please mark all students (Present, Absent, Late, Excused) or click "1-Tap: Mark All Present".`);
+      return;
+    }
+
     setIsSaving(true);
     setSaveSuccessMessage(null);
 
     const payload = {
       batch_id: selectedBatchId,
       date: selectedDate,
-      records: students.map(s => ({
-        student_id: s.id,
-        status: attendanceRecords[s.id]?.status || 'present',
-        remarks: attendanceRecords[s.id]?.remarks || undefined,
-      })),
+      records: students.map(s => {
+        const effectiveStatus: AttendanceStatus = (attendanceRecords[s.id]?.status as AttendanceStatus) || 'present';
+        return {
+          student_id: s.id,
+          status: effectiveStatus,
+          remarks: attendanceRecords[s.id]?.remarks || undefined,
+        };
+      }),
     };
 
     try {
@@ -295,16 +315,21 @@ export const AttendanceDeskView: React.FC = () => {
     let absent = 0;
     let late = 0;
     let excused = 0;
+    let unmarked = 0;
 
     Object.values(attendanceRecords).forEach(r => {
       if (r.status === 'present') present++;
-      if (r.status === 'absent') absent++;
-      if (r.status === 'late') late++;
-      if (r.status === 'excused') excused++;
+      else if (r.status === 'absent') absent++;
+      else if (r.status === 'late') late++;
+      else if (r.status === 'excused') excused++;
+      else if (r.status === 'unmarked') unmarked++;
     });
 
-    return { total: students.length, present, absent, late, excused };
+    return { total: students.length, present, absent, late, excused, unmarked };
   }, [attendanceRecords, students.length]);
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isPastDate = selectedDate < todayStr;
 
   return (
     <div className="space-y-6">
@@ -450,12 +475,37 @@ export const AttendanceDeskView: React.FC = () => {
             </div>
           )}
 
+          {/* Unmarked Historical Register Notice */}
+          {isPastDate && stats.unmarked > 0 && (
+            <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+              <div className="flex items-center gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <div>
+                  <span className="font-bold">Unmarked Historical Register:</span> Attendance has not been recorded for {stats.unmarked} {stats.unmarked === 1 ? 'student' : 'students'} on {selectedDate}. All students must be marked before saving.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={markAllPresent}
+                className="px-3 py-1.5 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-900 text-xs font-bold transition-all shrink-0"
+              >
+                1-Tap: Mark All Present
+              </button>
+            </div>
+          )}
+
           {/* Stat Badges */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div className={`grid grid-cols-2 ${stats.unmarked > 0 ? 'sm:grid-cols-6' : 'sm:grid-cols-5'} gap-3`}>
             <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-2xs">
               <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Enrolled Students</span>
               <span className="text-xl font-extrabold text-slate-900 mt-1 block">{stats.total}</span>
             </div>
+            {stats.unmarked > 0 && (
+              <div className="bg-amber-50/50 border border-amber-200/90 rounded-2xl p-3 shadow-2xs">
+                <span className="text-[10px] font-mono uppercase text-amber-700 font-bold block">Unmarked</span>
+                <span className="text-xl font-extrabold text-amber-800 mt-1 block">{stats.unmarked}</span>
+              </div>
+            )}
             <div className="bg-white border border-slate-200/90 rounded-2xl p-3 shadow-2xs">
               <span className="text-[10px] font-mono uppercase text-emerald-600 font-bold block">Present</span>
               <span className="text-xl font-extrabold text-emerald-700 mt-1 block">{stats.present}</span>
@@ -506,8 +556,9 @@ export const AttendanceDeskView: React.FC = () => {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {students.map(student => {
-                      const record = attendanceRecords[student.id] || { status: 'present', remarks: '' };
+                      const record = attendanceRecords[student.id] || { status: 'unmarked', remarks: '' };
                       const isAutoExcused = record.status === 'excused' && record.remarks.includes('Auto-Excused');
+                      const isUnmarked = record.status === 'unmarked';
 
                       return (
                         <tr key={student.id} className="hover:bg-slate-50/60 transition-colors">
@@ -517,6 +568,11 @@ export const AttendanceDeskView: React.FC = () => {
                           <td className="py-3 px-4">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-slate-900">{student.full_name}</span>
+                              {isUnmarked && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 font-bold font-mono">
+                                  Unmarked
+                                </span>
+                              )}
                               {student.subjects && student.subjects.length > 0 && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-mono">
                                   {student.subjects.length} Subjects

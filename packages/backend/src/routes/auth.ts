@@ -81,6 +81,7 @@ export function authRoutes(
         email: z.string().email('Please enter a valid institutional email address.'),
         password: z.string().min(1, 'Password is required.'),
         tenant_slug: z.string().optional(),
+        tenant_id: z.string().optional(),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -97,8 +98,8 @@ export function authRoutes(
       }
 
       try {
-        const { email, password, tenant_slug } = parseResult.data;
-        const { user, tenant } = await authService.loginWithPassword(email, password, tenant_slug);
+        const { email, password, tenant_slug, tenant_id } = parseResult.data;
+        const { user, tenant } = await authService.loginWithPassword(email, password, tenant_slug, tenant_id);
 
         const jwtPayload: JWTPayload = {
           sub: user.id,

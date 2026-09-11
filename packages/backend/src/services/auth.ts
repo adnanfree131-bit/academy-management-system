@@ -18,25 +18,47 @@ export class AuthService {
   /**
    * Daily Operational Sign In with Email & Password
    */
-  async loginWithPassword(email: string, password: string, tenantSlug?: string): Promise<{ user: User; tenant: Tenant }> {
+  async loginWithPassword(email: string, password: string, tenantSlug?: string, tenantId?: string): Promise<{ user: User; tenant: Tenant }> {
     const cleanEmail = email.toLowerCase().trim();
     let tenant: Tenant | null = null;
     let user: User | null = null;
 
-    if (tenantSlug && tenantSlug.trim()) {
+    if (tenantId && tenantId.trim()) {
+      tenant = await this.store.getTenantById(tenantId.trim());
+      if (!tenant) {
+        throw new Error('Academy not found.');
+      }
+      user = await this.store.getUserByEmail(tenant.id, cleanEmail);
+    } else if (tenantSlug && tenantSlug.trim()) {
       tenant = await this.store.getTenantBySlug(tenantSlug.trim());
       if (!tenant) {
         throw new Error(`Academy with identifier '${tenantSlug}' not found.`);
       }
       user = await this.store.getUserByEmail(tenant.id, cleanEmail);
     } else {
-      // Global domain login resolution
+      // Global domain login resolution across multiple academies
       const users = await this.store.getUserByEmailGlobal(cleanEmail);
       if (users.length === 0) {
         throw new Error('Invalid email or password.');
       }
-      user = users[0];
-      tenant = await this.store.getTenantById(user.tenant_id);
+
+      // Check credentials across matching accounts to find valid match
+      const matchingAccounts: { user: User; tenant: Tenant }[] = [];
+      for (const u of users) {
+        if (verifyPassword(password, u.password_hash)) {
+          const t = await this.store.getTenantById(u.tenant_id);
+          if (t) matchingAccounts.push({ user: u, tenant: t });
+        }
+      }
+
+      if (matchingAccounts.length === 0) {
+        throw new Error('Invalid email or password.');
+      }
+
+      // Select active, non-suspended account first if available
+      const activeMatch = matchingAccounts.find(m => m.tenant.status !== 'suspended' && m.user.status === 'active') || matchingAccounts[0];
+      user = activeMatch.user;
+      tenant = activeMatch.tenant;
     }
 
     if (!user || !tenant) {
