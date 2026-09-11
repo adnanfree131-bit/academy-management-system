@@ -35,5 +35,6 @@ google-services.json
 .agent
 .agent/
 .agents/skills.json
+.gstack/
 
 
