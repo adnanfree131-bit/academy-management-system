@@ -51,6 +51,12 @@ export interface TenantSettings {
         late_fee_per_day?: number;
         priority_order?: string[];
     };
+    fee_rules?: {
+        due_day?: number;
+        grace_days?: number;
+        late_fee_per_day?: number;
+        priority_order?: string[];
+    };
     shifts?: {
         morning?: {
             start?: string;
@@ -324,16 +330,18 @@ export interface SubjectGroup {
     subject_ids: string[];
     created_at: string;
 }
+export type BatchShift = 'morning' | 'afternoon' | 'evening' | 'weekend';
 export interface Batch {
     id: string;
     tenant_id: string;
     program_id: string;
     name: string;
-    shift: 'morning' | 'evening';
+    shift: BatchShift | string;
+    start_time?: string | null;
+    end_time?: string | null;
     academic_session: string;
     max_capacity: number;
     current_enrollment: number;
-    room_number?: string | null;
     fee_schedule?: FeeScheduleItem[];
     class_teacher_id?: string | null;
     class_teacher_name?: string | null;
@@ -782,6 +790,8 @@ export interface StudentInvoice {
     student_id: string;
     student_name: string;
     roll_number: string;
+    program_id?: string;
+    program_name?: string;
     batch_id: string;
     batch_name: string;
     billing_month: string;
@@ -801,6 +811,8 @@ export interface StudentInvoice {
     items: InvoiceItem[];
     notes?: string | null;
     fine_amount?: number;
+    late_fee?: number;
+    arrears_amount?: number;
     created_at: string;
     updated_at: string;
 }
@@ -824,7 +836,7 @@ export interface PaymentDistributionItem {
     head_name: string;
     allocated_amount: number;
 }
-export type PaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'wallet';
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'wallet' | 'easypaisa' | 'jazzcash';
 export interface FeePayment {
     id: string;
     tenant_id: string;
@@ -837,6 +849,9 @@ export interface FeePayment {
     amount_paid: number;
     payment_method: PaymentMethod;
     reference_number?: string | null;
+    bank_name?: string | null;
+    cheque_number?: string | null;
+    clearing_date?: string | null;
     is_override: boolean;
     override_reason?: string | null;
     allocations: PaymentDistributionItem[];
@@ -1098,6 +1113,7 @@ export interface StudentOfficialReportCard {
         roll_number: string;
         guardian_name: string;
         class_name?: string;
+        program_name?: string;
         batch_name?: string;
     };
     rank?: number;
@@ -1276,6 +1292,9 @@ export interface StudentParentPortalOverview {
         admission_number?: string;
         program_name?: string;
         batch_name: string;
+        shift?: string;
+        start_time?: string | null;
+        end_time?: string | null;
         guardian_name: string;
         guardian_phone: string;
         guardian_id_card?: string;

@@ -382,7 +382,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-bold text-slate-900 text-xs">{b.name}</h4>
-                      <p className="text-[10px] text-slate-500">{b.shift.toUpperCase()} • Room: {b.room_number || 'Hall 1'}</p>
+                      <p className="text-[10px] text-slate-500">{b.shift.toUpperCase()} {b.start_time && b.end_time ? `• ${b.start_time} – ${b.end_time}` : ''}</p>
                     </div>
                     <span className="px-2 py-0.5 bg-slate-100 text-slate-700 font-mono text-[10px] font-bold rounded">
                       {b.current_enrollment} Students

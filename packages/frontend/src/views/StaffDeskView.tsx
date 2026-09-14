@@ -623,14 +623,6 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={loadData}
-            title="Refresh directory"
-            className="p-2 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          <button
-            type="button"
             onClick={openCreateModal}
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-all"
           >
@@ -692,8 +684,23 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
 
       {/* High-Density Filtering Strip */}
       <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-xs">
-        {/* Unnumbered Navigation Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0">
+        {/* Mobile Filter Selector (Eliminates horizontal scrolling hurdle) */}
+        <div className="sm:hidden w-full">
+          <select
+            value={selectedFilterTab}
+            onChange={e => setSelectedFilterTab(e.target.value as any)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs focus:outline-none focus:ring-1 focus:ring-slate-900"
+          >
+            <option value="all">All Staff</option>
+            <option value="faculty">Faculty</option>
+            <option value="admin_accounts">Admin & Accounts</option>
+            <option value="support">Support</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+
+        {/* Desktop/Tablet Unnumbered Navigation Tabs */}
+        <div className="hidden sm:flex items-center gap-1 overflow-x-auto pb-1 md:pb-0">
           <button
             type="button"
             onClick={() => setSelectedFilterTab('all')}

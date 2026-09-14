@@ -252,7 +252,8 @@ describe('Phase 2: Academic Hierarchy, Custom Form Fields, Inquiries & SIS API',
         shift: 'morning',
         academic_session: '2026-2027',
         max_capacity: 45,
-        room_number: 'Room 102',
+        start_time: '08:00 AM',
+        end_time: '01:30 PM',
       },
     });
     expect(createBatchRes.statusCode).toBe(201);

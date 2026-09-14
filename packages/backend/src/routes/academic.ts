@@ -239,10 +239,11 @@ export function academicRoutes(store: IDataStore) {
       const schema = z.object({
         program_id: z.string().min(1),
         name: z.string().min(1),
-        shift: z.enum(['morning', 'evening']),
+        shift: z.enum(['morning', 'afternoon', 'evening', 'weekend']),
+        start_time: z.string().optional().nullable(),
+        end_time: z.string().optional().nullable(),
         academic_session: z.string().min(1).default('2026-2027'),
         max_capacity: z.coerce.number().int().min(1).default(40),
-        room_number: z.string().optional().nullable(),
         class_teacher_id: z.string().optional().nullable(),
         class_teacher_name: z.string().optional().nullable(),
         status: z.enum(['active', 'archived']).default('active'),
@@ -281,10 +282,11 @@ export function academicRoutes(store: IDataStore) {
 
       const schema = z.object({
         name: z.string().min(1).optional(),
-        shift: z.enum(['morning', 'evening']).optional(),
+        shift: z.enum(['morning', 'afternoon', 'evening', 'weekend']).optional(),
+        start_time: z.string().optional().nullable(),
+        end_time: z.string().optional().nullable(),
         academic_session: z.string().optional(),
         max_capacity: z.coerce.number().int().min(1).optional(),
-        room_number: z.string().optional().nullable(),
         class_teacher_id: z.string().optional().nullable(),
         class_teacher_name: z.string().optional().nullable(),
         status: z.enum(['active', 'archived']).optional(),

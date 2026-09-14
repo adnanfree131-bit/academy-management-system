@@ -132,7 +132,6 @@ describe('Senior ERP Systems Audit Fixes: Security, Substitution, Leaves & Waitl
         day_of_week: 'monday',
         start_time: '15:00:00',
         end_time: '16:00:00',
-        room_number: 'Room 101',
         teacher_id: permanentTeacherId,
       });
 

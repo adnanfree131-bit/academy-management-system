@@ -77,7 +77,7 @@ export const AcademySettingsView: React.FC = () => {
 
   const [dueDay, setDueDay] = useState<number>(10);
   const [graceDays, setGraceDays] = useState<number>(5);
-  const [liquidationPriority, setLiquidationPriority] = useState<string[]>([]);
+  const [paymentAllocationPriority, setPaymentAllocationPriority] = useState<string[]>([]);
   const [feeHeads, setFeeHeads] = useState<{ id: string; name: string; code: string; is_system_default?: boolean }[]>([]);
   const [newHeadName, setNewHeadName] = useState('');
   const [editingHeadId, setEditingHeadId] = useState<string | null>(null);
@@ -126,9 +126,10 @@ export const AcademySettingsView: React.FC = () => {
         setIban(s.iban || '');
         setRaastId(s.raast_id || (s as any).payment_settings?.raast_id || '');
 
-        if (s.liquidation_rules) {
-          if (s.liquidation_rules.due_day) setDueDay(s.liquidation_rules.due_day);
-          if (s.liquidation_rules.grace_days) setGraceDays(s.liquidation_rules.grace_days);
+        const feeRules = (s as any).fee_rules || s.liquidation_rules;
+        if (feeRules) {
+          if (feeRules.due_day) setDueDay(feeRules.due_day);
+          if (feeRules.grace_days) setGraceDays(feeRules.grace_days);
         }
 
         if (s.shifts) {
@@ -157,15 +158,15 @@ export const AcademySettingsView: React.FC = () => {
         is_system_default: Boolean(h.is_system_default || h.code === 'TUITION'),
       }));
       setFeeHeads(heads);
-      const savedOrder: string[] = data?.data?.settings?.liquidation_rules?.priority_order || [];
+      const savedOrder: string[] = data?.data?.settings?.fee_rules?.priority_order || data?.data?.settings?.liquidation_rules?.priority_order || [];
       const dummyKeys = ['admission_fee', 'exam_fee', 'lab_fee', 'tuition_fee', 'fine'];
       const looksDummy = savedOrder.length === 0 || savedOrder.every((k: string) => dummyKeys.includes(k));
       if (looksDummy) {
-        setLiquidationPriority(heads.map((h: { name: string }) => h.name));
+        setPaymentAllocationPriority(heads.map((h: { name: string }) => h.name));
       } else {
         const known = savedOrder.filter((name: string) => heads.some((h: { name: string; id: string }) => h.name === name || h.id === name));
         const missing = heads.map((h: { name: string }) => h.name).filter((n: string) => !known.includes(n));
-        setLiquidationPriority([...known, ...missing]);
+        setPaymentAllocationPriority([...known, ...missing]);
       }
     } catch (err) {
       console.error('Failed to load academy settings:', err);
@@ -321,7 +322,7 @@ export const AcademySettingsView: React.FC = () => {
       is_system_default: Boolean(h.is_system_default || h.code === 'TUITION'),
     }));
     setFeeHeads(heads);
-    setLiquidationPriority(prev => {
+    setPaymentAllocationPriority(prev => {
       const names = heads.map((h: { name: string }) => h.name);
       const kept = prev.filter(n => names.includes(n));
       const missing = names.filter((n: string) => !kept.includes(n));
@@ -411,11 +412,17 @@ export const AcademySettingsView: React.FC = () => {
       account_number: accountNumber,
       iban,
       raast_id: raastId,
+      fee_rules: {
+        due_day: dueDay,
+        grace_days: graceDays,
+        late_fee_per_day: 0,
+        priority_order: paymentAllocationPriority,
+      },
       liquidation_rules: {
         due_day: dueDay,
         grace_days: graceDays,
         late_fee_per_day: 0,
-        priority_order: liquidationPriority,
+        priority_order: paymentAllocationPriority,
       },
       shifts: {
         morning: { start: morningStart, end: morningEnd },
@@ -456,15 +463,7 @@ export const AcademySettingsView: React.FC = () => {
         title="Settings"
         description="Manage campus profile, bank accounts for fee challans, shift timings, and fee payment rules."
         icon={<Building2 className="w-4 h-4 text-slate-700" />}
-      >
-        <button
-          onClick={fetchSettings}
-          className="p-2 text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
-          title="Reload"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
-      </PageHeading>
+      />
 
       {successMsg && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs flex items-center gap-2">
@@ -488,7 +487,33 @@ export const AcademySettingsView: React.FC = () => {
       ) : (
         <div className="space-y-6">
           {/* Institutional Navigation Tabs - Native Segmented Control */}
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold overflow-x-auto no-scrollbar whitespace-nowrap">
+          {/* Mobile Tab Selector (Eliminates horizontal scrolling hurdle) */}
+          <div className="sm:hidden w-full">
+            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Settings Section</label>
+            <select
+              value={activeTab}
+              onChange={e => {
+                const tab = e.target.value as any;
+                setActiveTab(tab);
+                setSuccessMsg(null);
+                setErrorMsg(null);
+                if (tab === 'security') {
+                  setSecurityError(null);
+                  setSecuritySuccess(null);
+                }
+              }}
+              className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
+            >
+              <option value="profile">🏫 Campus Profile</option>
+              <option value="departments">👥 Academic Departments</option>
+              <option value="challan">🏦 Bank & Challan Rules</option>
+              <option value="shifts">⏰ Shift Timings</option>
+              <option value="security">🛡️ Security & Sessions</option>
+            </select>
+          </div>
+
+          {/* Desktop/Tablet Segmented Control */}
+          <div className="hidden sm:flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold overflow-x-auto no-scrollbar whitespace-nowrap">
             <button
               type="button"
               onClick={() => { setActiveTab('profile'); setSuccessMsg(null); setErrorMsg(null); }}
@@ -964,11 +989,11 @@ export const AcademySettingsView: React.FC = () => {
                         <p className="text-[11px] text-slate-500 mb-2">
                           If a parent pays less than the full bill, money is applied in this order.
                         </p>
-                        {liquidationPriority.length === 0 ? (
+                        {paymentAllocationPriority.length === 0 ? (
                           <p className="text-xs text-slate-500">Add a fee head first.</p>
                         ) : (
                           <div className="space-y-1.5">
-                            {liquidationPriority.map((item, idx) => (
+                            {paymentAllocationPriority.map((item, idx) => (
                               <div key={item} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200">
                                 <span className="text-xs font-semibold text-slate-800">
                                   {idx + 1}. {item}
@@ -978,9 +1003,9 @@ export const AcademySettingsView: React.FC = () => {
                                     type="button"
                                     disabled={idx === 0}
                                     onClick={() => {
-                                      const next = [...liquidationPriority];
+                                      const next = [...paymentAllocationPriority];
                                       [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
-                                      setLiquidationPriority(next);
+                                      setPaymentAllocationPriority(next);
                                     }}
                                     className="px-2 py-0.5 text-[10px] border border-slate-200 rounded disabled:opacity-30"
                                   >
@@ -988,11 +1013,11 @@ export const AcademySettingsView: React.FC = () => {
                                   </button>
                                   <button
                                     type="button"
-                                    disabled={idx === liquidationPriority.length - 1}
+                                    disabled={idx === paymentAllocationPriority.length - 1}
                                     onClick={() => {
-                                      const next = [...liquidationPriority];
+                                      const next = [...paymentAllocationPriority];
                                       [next[idx + 1], next[idx]] = [next[idx], next[idx + 1]];
-                                      setLiquidationPriority(next);
+                                      setPaymentAllocationPriority(next);
                                     }}
                                     className="px-2 py-0.5 text-[10px] border border-slate-200 rounded disabled:opacity-30"
                                   >

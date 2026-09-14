@@ -463,42 +463,42 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         )}
       </div>
 
-      {/* Tabs Navigation - Native Segmented Control */}
-      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold overflow-x-auto no-scrollbar whitespace-nowrap">
+      {/* Tabs Navigation - Native Segmented Grid (Eliminates horizontal sliding) */}
+      <div className="grid grid-cols-3 bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold">
         <button
           onClick={() => setActiveTab('roster')}
-          className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
+          className={`py-2 px-1.5 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
             activeTab === 'roster'
               ? 'bg-white text-slate-900 shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <PhoneForwarded className="w-3.5 h-3.5" />
-          <span>Absentee Roster</span>
+          <PhoneForwarded className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Absentee</span>
         </button>
 
         <button
           onClick={() => setActiveTab('retention')}
-          className={`flex-1 min-w-[110px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
+          className={`py-2 px-1.5 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
             activeTab === 'retention'
               ? 'bg-white text-slate-900 shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <Users className="w-3.5 h-3.5" />
-          <span>Retention Cases</span>
+          <Users className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Retention</span>
         </button>
 
         <button
           onClick={() => setActiveTab('templates')}
-          className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
+          className={`py-2 px-1.5 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
             activeTab === 'templates'
               ? 'bg-white text-slate-900 shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <MessageCircle className="w-3.5 h-3.5" />
-          <span>WhatsApp Templates</span>
+          <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Templates</span>
         </button>
       </div>
 

@@ -287,7 +287,6 @@ export const StaffClockInView: React.FC = () => {
   const [auditSearchTerm, setAuditSearchTerm] = useState<string>('');
   const [auditStaffFilter, setAuditStaffFilter] = useState<string>('all');
   const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [isExportingPdf, setIsExportingPdf] = useState<boolean>(false);
 
   // Individual Ledger State
@@ -672,17 +671,6 @@ export const StaffClockInView: React.FC = () => {
   // =========================================================================
   // Handlers
   // =========================================================================
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await Promise.all([
-      fetchGeofenceConfig(),
-      fetchDailyRoster(),
-      fetchMonthlySummary(),
-      fetchAuditLogs()
-    ]);
-    setRefreshing(false);
-  };
 
   const handleDateStep = (deltaDays: number) => {
     const current = new Date(selectedDate);
@@ -2550,18 +2538,6 @@ export const StaffClockInView: React.FC = () => {
           >
             <Sliders className="w-3.5 h-3.5" />
             Attendance Heads & Settings
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
-            title="Refresh Attendance Data"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>

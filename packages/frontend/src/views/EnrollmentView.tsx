@@ -79,9 +79,15 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedProgramFilter, setSelectedProgramFilter] = useState<string>('all');
   const [selectedBatchFilter, setSelectedBatchFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [inquiryStageFilter, setInquiryStageFilter] = useState<string>('all');
+
+  const availableDirectoryBatches = useMemo(() => {
+    if (selectedProgramFilter === 'all') return batches;
+    return batches.filter(b => b.program_id === selectedProgramFilter);
+  }, [batches, selectedProgramFilter]);
 
   // Drawer / Modals
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -263,12 +269,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         s.roll_number.toLowerCase().includes(q) ||
         (s.phone && s.phone.includes(searchQuery));
       
+      const matchesProgram = selectedProgramFilter === 'all' || s.program_id === selectedProgramFilter;
       const matchesBatch = selectedBatchFilter === 'all' || s.batch_id === selectedBatchFilter;
       const matchesStatus = statusFilter === 'all' || s.status === statusFilter;
 
-      return matchesSearch && matchesBatch && matchesStatus;
+      return matchesSearch && matchesProgram && matchesBatch && matchesStatus;
     });
-  }, [students, searchQuery, selectedBatchFilter, statusFilter]);
+  }, [students, searchQuery, selectedProgramFilter, selectedBatchFilter, statusFilter]);
 
   const toggleDirectoryStudent = (id: string) => {
     const next = new Set(selectedDirectoryStudentIds);
@@ -801,7 +808,22 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       />
 
       {/* Tab Switcher - Native Segmented Control */}
-      <div className="flex items-center overflow-x-auto no-scrollbar max-w-full whitespace-nowrap bg-slate-100/90 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+      {/* Mobile Tab Selector (Eliminates horizontal scrolling hurdle) */}
+      <div className="sm:hidden w-full">
+        <select
+          value={activeTab}
+          onChange={e => setActiveTab(e.target.value as any)}
+          className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
+        >
+          <option value="directory">👥 Directory ({students.length})</option>
+          <option value="inquiries">❓ Inquiries ({inquiries.length})</option>
+          <option value="new_admission">📝 Admission Form</option>
+          <option value="id_cards">🪪 ID Cards</option>
+        </select>
+      </div>
+
+      {/* Desktop/Tablet Tab Bar */}
+      <div className="hidden sm:flex items-center overflow-x-auto no-scrollbar max-w-full whitespace-nowrap bg-slate-100/90 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
         <button
           onClick={() => setActiveTab('directory')}
           className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all touch-press ${
@@ -883,15 +905,29 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               />
             </div>
 
-            {/* Mobile Filter Chips Row */}
-            <div className="flex sm:hidden items-center gap-2 w-full overflow-x-auto no-scrollbar py-0.5">
+            {/* Mobile Filter Grid (Eliminates horizontal scrolling hurdle) */}
+            <div className="grid grid-cols-2 sm:hidden gap-1.5 w-full">
+              <select
+                value={selectedProgramFilter}
+                onChange={e => {
+                  setSelectedProgramFilter(e.target.value);
+                  setSelectedBatchFilter('all');
+                }}
+                className="col-span-2 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+              >
+                <option value="all">All Classes ({programs.length})</option>
+                {programs.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+
               <select
                 value={selectedBatchFilter}
                 onChange={e => setSelectedBatchFilter(e.target.value)}
-                className="flex-1 min-w-[130px] px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                className="col-span-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
               >
-                <option value="all">All Batches ({batches.length})</option>
-                {batches.map(b => (
+                <option value="all">All Sections ({availableDirectoryBatches.length})</option>
+                {availableDirectoryBatches.map(b => (
                   <option key={b.id} value={b.id}>{b.name}</option>
                 ))}
               </select>
@@ -899,7 +935,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                className="flex-1 min-w-[110px] px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                className="col-span-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
               >
                 <option value="all">All Statuses</option>
                 <option value="active">Active</option>
@@ -914,16 +950,33 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             <div className="hidden sm:flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
               <div className="flex items-center gap-1.5 text-xs text-slate-600">
                 <Filter className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-[11px] font-medium text-slate-500">Batch:</span>
+                <span className="text-[11px] font-medium text-slate-500">Class:</span>
+                <select
+                  value={selectedProgramFilter}
+                  onChange={e => {
+                    setSelectedProgramFilter(e.target.value);
+                    setSelectedBatchFilter('all');
+                  }}
+                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+                >
+                  <option value="all">All Classes ({programs.length})</option>
+                  {programs.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                <span className="text-[11px] font-medium text-slate-500">Section:</span>
                 <select
                   value={selectedBatchFilter}
                   onChange={e => setSelectedBatchFilter(e.target.value)}
                   className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
                 >
-                  <option value="all">All Batches ({batches.length})</option>
-                  {batches.map(b => (
+                  <option value="all">All Sections ({availableDirectoryBatches.length})</option>
+                  {availableDirectoryBatches.map(b => (
                     <option key={b.id} value={b.id}>
-                      {b.name} ({b.shift.toUpperCase()} • {b.current_enrollment}/{b.max_capacity})
+                      {selectedProgramFilter === 'all' ? `${getProgramName(b.program_id)} • ${b.name}` : b.name} ({b.shift.toUpperCase()} • {b.current_enrollment}/{b.max_capacity})
                     </option>
                   ))}
                 </select>
@@ -1019,7 +1072,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <th className="py-3 px-4">Student Details</th>
                     <th className="py-3 px-4">Admission #</th>
                     <th className="py-3 px-4">Roll #</th>
-                    <th className="py-3 px-4">Program & Batch</th>
+                    <th className="py-3 px-4">Class & Section</th>
                     <th className="py-3 px-4">Guardian Contact</th>
                     <th className="py-3 px-4">Subjects</th>
                     <th className="py-3 px-4">Status</th>
@@ -2395,7 +2448,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 >
                   {batches.map(b => (
                     <option key={b.id} value={b.id}>
-                      {b.name} ({b.shift.toUpperCase()} • {b.current_enrollment}/{b.max_capacity})
+                      {getProgramName(b.program_id)} • {b.name} ({b.shift.toUpperCase()} • {b.current_enrollment}/{b.max_capacity})
                     </option>
                   ))}
                 </select>
@@ -3113,7 +3166,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               >
                 {batches.map(b => (
                   <option key={b.id} value={b.id}>
-                    {b.name} ({b.shift.toUpperCase()} • {b.current_enrollment}/{b.max_capacity})
+                    {getProgramName(b.program_id)} • {b.name} ({b.shift.toUpperCase()} • {b.current_enrollment}/{b.max_capacity})
                   </option>
                 ))}
               </select>

@@ -28,7 +28,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: heads, timestamp: new Date().toISOString() });
     };
     fastify.get('/heads', getHeadsHandler);
-    fastify.get('/finance/heads', getHeadsHandler);
 
     const createHeadHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -58,7 +57,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.status(201).send({ success: true, data: head, timestamp: new Date().toISOString() });
     };
     fastify.post('/heads', createHeadHandler);
-    fastify.post('/finance/heads', createHeadHandler);
 
     const updateHeadHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -90,7 +88,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: head, timestamp: new Date().toISOString() });
     };
     fastify.patch('/heads/:id', updateHeadHandler);
-    fastify.patch('/finance/heads/:id', updateHeadHandler);
 
     const deleteHeadHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -107,10 +104,9 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: { id }, timestamp: new Date().toISOString() });
     };
     fastify.delete('/heads/:id', deleteHeadHandler);
-    fastify.delete('/finance/heads/:id', deleteHeadHandler);
 
     // =========================================================================
-    // 2. PRIORITY CONFIGURATION (Drag-and-Drop Liquidation Order)
+    // 2. PAYMENT ALLOCATION ORDER CONFIGURATION
     // =========================================================================
     const getPriorityHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -118,7 +114,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: config, timestamp: new Date().toISOString() });
     };
     fastify.get('/priority-config', getPriorityHandler);
-    fastify.get('/finance/priority-config', getPriorityHandler);
 
     const updatePriorityHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -140,7 +135,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: config, timestamp: new Date().toISOString() });
     };
     fastify.post('/priority-config', updatePriorityHandler);
-    fastify.post('/finance/priority-config', updatePriorityHandler);
 
     // =========================================================================
     // 3. FEE STRUCTURES (Class/Batch Default with Student Overrides)
@@ -152,7 +146,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: structures, timestamp: new Date().toISOString() });
     };
     fastify.get('/structures', getStructuresHandler);
-    fastify.get('/finance/structures', getStructuresHandler);
 
     const saveStructureHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -184,7 +177,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.status(200).send({ success: true, data: saved, timestamp: new Date().toISOString() });
     };
     fastify.post('/structures', saveStructureHandler);
-    fastify.post('/finance/structures', saveStructureHandler);
 
     // =========================================================================
     // 3.5 BULK FEE REVISION
@@ -224,7 +216,6 @@ export function financeRoutes(store: IDataStore) {
       }
     };
     fastify.post('/fees/bulk-increment', bulkFeeRevisionHandler);
-    fastify.post('/finance/fees/bulk-increment', bulkFeeRevisionHandler);
 
     // =========================================================================
     // 4. STUDENT INVOICES / CHALLANS
@@ -246,7 +237,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: invoices, timestamp: new Date().toISOString() });
     };
     fastify.get('/invoices', getInvoicesHandler);
-    fastify.get('/finance/invoices', getInvoicesHandler);
 
     const getInvoiceByIdHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -262,7 +252,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: invoice, timestamp: new Date().toISOString() });
     };
     fastify.get('/invoices/:id', getInvoiceByIdHandler);
-    fastify.get('/finance/invoices/:id', getInvoiceByIdHandler);
 
     const generateInvoiceHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -271,6 +260,7 @@ export function financeRoutes(store: IDataStore) {
         student_id: z.string().min(1),
         billing_month: z.string().min(1),
         due_date: z.string().min(1),
+        include_arrears: z.boolean().optional(),
         custom_items: z.array(z.object({
           fee_head_id: z.string(),
           amount: z.number().min(0)
@@ -299,7 +289,6 @@ export function financeRoutes(store: IDataStore) {
       }
     };
     fastify.post('/invoices/generate', generateInvoiceHandler);
-    fastify.post('/finance/invoices/generate', generateInvoiceHandler);
 
     const generateBatchInvoicesHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -328,7 +317,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.status(201).send({ success: true, data: generated, timestamp: new Date().toISOString() });
     };
     fastify.post('/invoices/generate-batch', generateBatchInvoicesHandler);
-    fastify.post('/finance/invoices/generate-batch', generateBatchInvoicesHandler);
 
     // =========================================================================
     // 5. SMART AUTO-DISTRIBUTION PREVIEW (Zero Auto-Submit)
@@ -361,7 +349,6 @@ export function financeRoutes(store: IDataStore) {
       }
     };
     fastify.post('/distribute-preview', previewDistributionHandler);
-    fastify.post('/finance/distribute-preview', previewDistributionHandler);
 
     // =========================================================================
     // 6. FEE PAYMENT & CASHIER REVIEW COMMITTAL
@@ -372,8 +359,11 @@ export function financeRoutes(store: IDataStore) {
       const schema = z.object({
         invoice_id: z.string().min(1),
         amount_paid: z.number().positive(),
-        payment_method: z.enum(['cash', 'bank_transfer', 'cheque', 'wallet']),
+        payment_method: z.enum(['cash', 'bank_transfer', 'cheque', 'wallet', 'easypaisa', 'jazzcash']),
         reference_number: z.string().optional(),
+        bank_name: z.string().optional().nullable(),
+        cheque_number: z.string().optional().nullable(),
+        clearing_date: z.string().optional().nullable(),
         is_override: z.boolean().default(false),
         override_reason: z.string().optional(),
         allocations: z.array(z.object({
@@ -407,14 +397,83 @@ export function financeRoutes(store: IDataStore) {
       }
     };
     fastify.post('/payments', recordPaymentHandler);
-    fastify.post('/finance/payments', recordPaymentHandler);
+
+    const recordFamilyPaymentHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'accountant'], reply)) return;
+
+      const schema = z.object({
+        payment_method: z.enum(['cash', 'bank_transfer', 'cheque', 'wallet', 'easypaisa', 'jazzcash']),
+        reference_number: z.string().optional(),
+        bank_name: z.string().optional().nullable(),
+        cheque_number: z.string().optional().nullable(),
+        clearing_date: z.string().optional().nullable(),
+        payments: z.array(z.object({
+          invoice_id: z.string().min(1),
+          amount_paid: z.number().positive(),
+          is_override: z.boolean().default(false),
+          override_reason: z.string().optional(),
+          allocations: z.array(z.object({
+            fee_head_id: z.string(),
+            head_name: z.string(),
+            allocated_amount: z.number().min(0)
+          })).optional()
+        })).min(1)
+      });
+
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid family payment data', details: parse.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const result = await store.recordFamilyPayment(user.tenant_id, {
+          ...parse.data,
+          collected_by: user.email || 'Cashier Desk'
+        });
+        return reply.status(201).send({ success: true, data: result, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'PAYMENT_FAILED', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+    fastify.post('/family-payment', recordFamilyPaymentHandler);
+
+    const getPaymentsHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const q = (request.query || {}) as any;
+      const invoice_id = q.invoice_id || q.invoiceId;
+      const student_id = q.student_id || q.studentId;
+      const date = q.date;
+      const status = q.status;
+
+      const payments = await store.getPayments(user.tenant_id, {
+        invoice_id,
+        student_id,
+        date,
+        status
+      });
+      return reply.send({ success: true, data: payments, timestamp: new Date().toISOString() });
+    };
+    fastify.get('/payments', getPaymentsHandler);
 
     const voidPaymentHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
-        void_reason: z.string().min(5, 'A clear reason is required to void a payment receipt')
+        void_reason: z.string().min(3).optional(),
+        reason: z.string().min(3).optional(),
+      }).refine(data => !!(data.void_reason || data.reason), {
+        message: 'A clear reason is required to void a payment receipt',
+        path: ['void_reason']
       });
 
       const parse = schema.safeParse(request.body);
@@ -426,11 +485,13 @@ export function financeRoutes(store: IDataStore) {
         });
       }
 
+      const effectiveReason = (parse.data.void_reason || parse.data.reason || '').trim();
+
       try {
         const result = await store.voidPayment(
           user.tenant_id,
           id,
-          parse.data.void_reason,
+          effectiveReason,
           user.email || 'Finance Administrator'
         );
         return reply.status(200).send({ success: true, data: result, timestamp: new Date().toISOString() });
@@ -443,7 +504,6 @@ export function financeRoutes(store: IDataStore) {
       }
     };
     fastify.post('/payments/:id/void', voidPaymentHandler);
-    fastify.post('/finance/payments/:id/void', voidPaymentHandler);
 
     // =========================================================================
     // 7. DYNAMIC AD-HOC DISCOUNTS & CONCESSIONS (With Mandatory Audit Remark)
@@ -455,7 +515,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: discounts, timestamp: new Date().toISOString() });
     };
     fastify.get('/discounts', getDiscountsHandler);
-    fastify.get('/finance/discounts', getDiscountsHandler);
 
     const applyDiscountHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -493,7 +552,6 @@ export function financeRoutes(store: IDataStore) {
       }
     };
     fastify.post('/discounts', applyDiscountHandler);
-    fastify.post('/finance/discounts', applyDiscountHandler);
 
     // =========================================================================
     // 8. FINANCIAL REPORTS & LEDGERS
@@ -505,7 +563,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: cashbook, timestamp: new Date().toISOString() });
     };
     fastify.get('/reports/cashbook', getCashbookHandler);
-    fastify.get('/finance/reports/cashbook', getCashbookHandler);
 
     const getLedgerHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -514,7 +571,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: ledger, timestamp: new Date().toISOString() });
     };
     fastify.get('/reports/student-ledger/:studentId', getLedgerHandler);
-    fastify.get('/finance/reports/student-ledger/:studentId', getLedgerHandler);
 
     const getFeeHeadSummaryHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -522,7 +578,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: summary, timestamp: new Date().toISOString() });
     };
     fastify.get('/reports/fee-head-summary', getFeeHeadSummaryHandler);
-    fastify.get('/finance/reports/fee-head-summary', getFeeHeadSummaryHandler);
 
     // =========================================================================
     // 9. DYNAMIC OPERATIONAL ACCOUNT HEADS (Income & Expense Tags)
@@ -534,7 +589,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: heads, timestamp: new Date().toISOString() });
     };
     fastify.get('/account-heads', getAccountHeadsHandler);
-    fastify.get('/finance/account-heads', getAccountHeadsHandler);
 
     const createAccountHeadHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -570,7 +624,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.status(201).send({ success: true, data: head, timestamp: new Date().toISOString() });
     };
     fastify.post('/account-heads', createAccountHeadHandler);
-    fastify.post('/finance/account-heads', createAccountHeadHandler);
 
     const deleteAccountHeadHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -586,7 +639,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, message: 'Account head deactivated', timestamp: new Date().toISOString() });
     };
     fastify.delete('/account-heads/:id', deleteAccountHeadHandler);
-    fastify.delete('/finance/account-heads/:id', deleteAccountHeadHandler);
 
     // =========================================================================
     // 10. FINANCIAL TRANSACTIONS & VOUCHERS (Income & Expense Logging)
@@ -608,7 +660,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: transactions, timestamp: new Date().toISOString() });
     };
     fastify.get('/transactions', getTransactionsHandler);
-    fastify.get('/finance/transactions', getTransactionsHandler);
 
     const createTransactionHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -666,7 +717,6 @@ export function financeRoutes(store: IDataStore) {
       return reply.status(201).send({ success: true, data: tx, timestamp: new Date().toISOString() });
     };
     fastify.post('/transactions', createTransactionHandler);
-    fastify.post('/finance/transactions', createTransactionHandler);
 
     // =========================================================================
     // 11. PROFIT & LOSS STATEMENT REPORT
@@ -678,6 +728,5 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: report, timestamp: new Date().toISOString() });
     };
     fastify.get('/reports/profit-loss', getProfitLossHandler);
-    fastify.get('/finance/reports/profit-loss', getProfitLossHandler);
   };
 }

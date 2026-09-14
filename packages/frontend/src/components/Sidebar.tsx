@@ -22,6 +22,7 @@ import {
   Layers,
   TrendingUp,
   Settings,
+  FileText,
   X 
 } from 'lucide-react';
 import { hapticSelection } from '../lib/haptics';
@@ -531,6 +532,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Fee Ledger</span>
+                      </button>}
+
+                      {allow('challans') && <button 
+                        onClick={() => handleNavClick('challans')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
+                          currentScreen === 'challans'
+                            ? 'bg-slate-900 text-white font-bold shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                        }`}
+                      >
+                        <FileText className={`w-4 h-4 ${currentScreen === 'challans' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Fee Challans</span>
                       </button>}
 
                       {allow('expenses') && <button 

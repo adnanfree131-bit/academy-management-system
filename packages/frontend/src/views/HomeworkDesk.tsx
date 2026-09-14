@@ -11,6 +11,7 @@ import {
   X
 } from 'lucide-react';
 import { 
+  AcademicProgram,
   Batch, 
   Subject, 
   Student, 
@@ -25,6 +26,7 @@ export const HomeworkDesk: React.FC = () => {
   const { token } = useAuth();
 
   // State
+  const [programs, setPrograms] = useState<AcademicProgram[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
@@ -56,12 +58,17 @@ export const HomeworkDesk: React.FC = () => {
     const headers = { Authorization: `Bearer ${token}` };
 
     try {
-      const [bRes, sRes] = await Promise.all([
+      const [pRes, bRes, sRes] = await Promise.all([
+        fetch('/api/v1/academic/programs', { headers }),
         fetch('/api/v1/academic/batches', { headers }),
         fetch('/api/v1/academic/subjects', { headers }),
       ]);
 
-      const [bData, sData] = await Promise.all([bRes.json(), sRes.json()]);
+      const [pData, bData, sData] = await Promise.all([pRes.json(), bRes.json(), sRes.json()]);
+
+      if (pData.success && pData.data?.length > 0) {
+        setPrograms(pData.data);
+      }
 
       if (bData.success && bData.data?.length > 0) {
         setBatches(bData.data);
@@ -269,16 +276,21 @@ export const HomeworkDesk: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left Column: Assignments List */}
         <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3 min-w-0">
             <SectionInfo title="Assignments" description="Class homework topics and due dates" />
             <select
               value={selectedBatchId}
               onChange={e => setSelectedBatchId(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 font-medium text-slate-800 focus:outline-none"
+              className="w-full sm:w-auto max-w-full truncate text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 font-medium text-slate-800 focus:outline-none min-w-0"
             >
-              {batches.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
+              {batches.map(b => {
+                const progName = programs.find(p => p.id === b.program_id)?.name;
+                return (
+                  <option key={b.id} value={b.id}>
+                    {progName ? `${progName} • ` : ''}{b.name}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -504,9 +516,14 @@ export const HomeworkDesk: React.FC = () => {
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800"
                     required
                   >
-                    {batches.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
+                    {batches.map(b => {
+                      const progName = programs.find(p => p.id === b.program_id)?.name;
+                      return (
+                        <option key={b.id} value={b.id}>
+                          {progName ? `${progName} • ` : ''}{b.name}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 

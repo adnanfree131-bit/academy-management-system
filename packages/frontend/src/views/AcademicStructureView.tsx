@@ -7,14 +7,11 @@ import {
   Plus, 
   Search, 
   Trash2, 
-  Sun, 
-  Moon, 
   CheckCircle2, 
   AlertCircle, 
   GraduationCap, 
   FolderTree, 
   X, 
-  RefreshCw, 
   Split, 
   ChevronRight, 
   ShieldCheck, 
@@ -22,7 +19,9 @@ import {
   DollarSign,
   Pencil,
   UserCheck,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Clock,
+  Calendar
 } from 'lucide-react';
 import { AcademicProgram, Batch, Subject, SubjectGroup, Student } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
@@ -41,7 +40,6 @@ export const AcademicStructureView: React.FC = () => {
   const [subjectGroups, setSubjectGroups] = useState<SubjectGroup[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [staffMembers, setStaffMembers] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -108,20 +106,22 @@ export const AcademicStructureView: React.FC = () => {
   const [batchForm, setBatchForm] = useState({
     program_id: '',
     name: '',
-    shift: 'morning' as 'morning' | 'evening',
+    shift: 'morning' as 'morning' | 'afternoon' | 'evening' | 'weekend',
+    start_time: '',
+    end_time: '',
     academic_session: tenant?.academic_session || '2026-2027',
     max_capacity: 40 as number | '',
-    room_number: '',
     class_teacher_id: '',
   });
 
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
   const [editBatchForm, setEditBatchForm] = useState({
     name: '',
-    shift: 'morning' as 'morning' | 'evening',
+    shift: 'morning' as 'morning' | 'afternoon' | 'evening' | 'weekend',
+    start_time: '',
+    end_time: '',
     academic_session: tenant?.academic_session || '2026-2027',
     max_capacity: 40 as number | '',
-    room_number: '',
     class_teacher_id: '',
   });
 
@@ -136,7 +136,6 @@ export const AcademicStructureView: React.FC = () => {
   // Fetch all academic data
   const fetchData = async () => {
     if (!token) return;
-    setIsLoading(true);
     setError(null);
 
     const headers = { Authorization: `Bearer ${token}` };
@@ -176,8 +175,6 @@ export const AcademicStructureView: React.FC = () => {
     } catch (err: any) {
       console.error('Error fetching academic data:', err);
       setError('Failed to fetch academic hierarchy from server.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -492,9 +489,10 @@ export const AcademicStructureView: React.FC = () => {
       program_id: activeProgram.id,
       name: '',
       shift: 'morning',
+      start_time: '08:00 AM',
+      end_time: '01:30 PM',
       academic_session: tenant?.academic_session || '2026-2027',
       max_capacity: 40,
-      room_number: '',
       class_teacher_id: '',
     });
     setShowBatchModal(true);
@@ -512,6 +510,8 @@ export const AcademicStructureView: React.FC = () => {
         body: JSON.stringify({
           ...batchForm,
           max_capacity: Number(batchForm.max_capacity) || 40,
+          start_time: batchForm.start_time.trim() || undefined,
+          end_time: batchForm.end_time.trim() || undefined,
           class_teacher_id: batchForm.class_teacher_id || undefined,
           class_teacher_name: teacher ? teacher.full_name : undefined,
           fee_schedule: activeProgram?.fee_schedule || [],
@@ -534,10 +534,11 @@ export const AcademicStructureView: React.FC = () => {
     setEditingBatch(b);
     setEditBatchForm({
       name: b.name,
-      shift: b.shift,
+      shift: (b.shift as any) || 'morning',
+      start_time: b.start_time || '',
+      end_time: b.end_time || '',
       academic_session: b.academic_session || tenant?.academic_session || '2026-2027',
       max_capacity: b.max_capacity || 40,
-      room_number: b.room_number || '',
       class_teacher_id: b.class_teacher_id || '',
     });
     setShowEditBatchModal(true);
@@ -555,9 +556,10 @@ export const AcademicStructureView: React.FC = () => {
         body: JSON.stringify({
           name: editBatchForm.name.trim(),
           shift: editBatchForm.shift,
+          start_time: editBatchForm.start_time.trim() || null,
+          end_time: editBatchForm.end_time.trim() || null,
           academic_session: editBatchForm.academic_session,
           max_capacity: Number(editBatchForm.max_capacity) || 40,
-          room_number: editBatchForm.room_number.trim() || null,
           class_teacher_id: editBatchForm.class_teacher_id || null,
           class_teacher_name: teacher ? teacher.full_name : null,
         }),
@@ -740,14 +742,6 @@ export const AcademicStructureView: React.FC = () => {
         icon={<Layers className="w-4 h-4 text-slate-700" />}
         badge={`Session ${tenant?.academic_session || '2026-2027'}`}
       >
-        <button 
-          onClick={fetchData} 
-          className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-          title="Refresh Data"
-        >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-        </button>
-
         <button
           onClick={() => setShowProgramModal(true)}
           className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs"
@@ -767,7 +761,7 @@ export const AcademicStructureView: React.FC = () => {
               : 'text-slate-500 hover:text-slate-900'
           }`}
         >
-          <Split className="w-3.5 h-3.5 text-indigo-600" />
+          <Split className="w-3.5 h-3.5 text-slate-700" />
           <span>Class Hierarchy</span>
         </button>
         <button
@@ -778,7 +772,7 @@ export const AcademicStructureView: React.FC = () => {
               : 'text-slate-500 hover:text-slate-900'
           }`}
         >
-          <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+          <BookOpen className="w-3.5 h-3.5 text-slate-700" />
           <span>Subject Catalog ({subjects.length})</span>
         </button>
       </div>
@@ -802,7 +796,7 @@ export const AcademicStructureView: React.FC = () => {
         <div className="bg-white border border-slate-200/90 rounded-xl p-3 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 mb-1">
             <span className="text-[11px] sm:text-xs font-semibold">Classes / Grades</span>
-            <GraduationCap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600" />
+            <GraduationCap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600" />
           </div>
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono">{programs.length}</p>
           <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 truncate">Academic programs</p>
@@ -811,7 +805,7 @@ export const AcademicStructureView: React.FC = () => {
         <div className="bg-white border border-slate-200/90 rounded-xl p-3 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 mb-1">
             <span className="text-[11px] sm:text-xs font-semibold">Elective Streams</span>
-            <Split className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600" />
+            <Split className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600" />
           </div>
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono">
             {subjectGroups.filter(g => g.type === 'elective_track').length}
@@ -822,7 +816,7 @@ export const AcademicStructureView: React.FC = () => {
         <div className="bg-white border border-slate-200/90 rounded-xl p-3 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 mb-1">
             <span className="text-[11px] sm:text-xs font-semibold">Class Sections</span>
-            <FolderTree className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+            <FolderTree className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600" />
           </div>
           <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono">{batches.length}</p>
           <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 truncate">Active batch sections</p>
@@ -831,7 +825,7 @@ export const AcademicStructureView: React.FC = () => {
         <div className="bg-white border border-slate-200/90 rounded-xl p-3 sm:p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 mb-1">
             <span className="text-[11px] sm:text-xs font-semibold">Total Occupancy</span>
-            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
+            <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-600" />
           </div>
           <div className="flex items-baseline gap-1.5">
             <p className="text-xl sm:text-2xl font-black text-slate-900 font-mono">{totalEnrolled}</p>
@@ -858,7 +852,7 @@ export const AcademicStructureView: React.FC = () => {
           <div className="lg:col-span-4 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                <GraduationCap className="w-3.5 h-3.5 text-slate-700" />
                 Select Academic Class
               </span>
               <span className="text-[11px] font-mono text-slate-400">
@@ -873,7 +867,7 @@ export const AcademicStructureView: React.FC = () => {
                 value={searchClassQuery}
                 onChange={e => setSearchClassQuery(e.target.value)}
                 placeholder="Search classes..."
-                className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
               />
             </div>
 
@@ -884,6 +878,7 @@ export const AcademicStructureView: React.FC = () => {
                 const classTracks = subjectGroups.filter(g => g.program_id === p.id && g.type === 'elective_track');
                 const hasCompulsory = subjectGroups.some(g => g.program_id === p.id && g.type === 'compulsory');
                 const classStudentCount = students.filter(s => s.program_id === p.id).length;
+                const hasDistinctCode = p.code && p.code.trim().toLowerCase() !== p.name.trim().toLowerCase();
 
                 return (
                   <button
@@ -891,29 +886,31 @@ export const AcademicStructureView: React.FC = () => {
                     onClick={() => setSelectedProgramId(p.id)}
                     className={`w-full text-left p-3 rounded-xl transition-all border ${
                       isSelected
-                        ? 'bg-indigo-50/70 border-indigo-300 shadow-xs'
+                        ? 'bg-slate-100/80 border-slate-800 shadow-xs'
                         : 'bg-white border-slate-200/70 hover:bg-slate-50 hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-1.5">
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                            isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-700'
-                          }`}>
-                            {p.code}
-                          </span>
+                          {hasDistinctCode && (
+                            <span className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              isSelected ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
+                            }`}>
+                              {p.code}
+                            </span>
+                          )}
                           <span className="text-xs font-bold text-slate-900 truncate">
                             {p.name}
                           </span>
                         </div>
                       </div>
-                      <ChevronRight className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isSelected ? 'text-indigo-600' : 'text-slate-300'}`} />
+                      <ChevronRight className={`w-4 h-4 flex-shrink-0 mt-0.5 ${isSelected ? 'text-slate-900' : 'text-slate-300'}`} />
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] font-medium text-slate-500">
                       <span className="flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                        <ShieldCheck className="w-3 h-3 text-slate-500" />
                         {hasCompulsory ? 'Core Set' : 'No Core'}
                       </span>
                       <span>•</span>
@@ -943,12 +940,14 @@ export const AcademicStructureView: React.FC = () => {
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md">
-                        {activeProgram.code}
-                      </span>
                       <h2 className="text-lg font-black text-slate-900">
                         {activeProgram.name}
                       </h2>
+                      {activeProgram.code && activeProgram.code.trim().toLowerCase() !== activeProgram.name.trim().toLowerCase() && (
+                        <span className="font-mono text-xs font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md border border-slate-200">
+                          {activeProgram.code}
+                        </span>
+                      )}
                     </div>
                     {activeProgram.description && (
                       <p className="text-xs text-slate-500 mt-1">
@@ -975,7 +974,7 @@ export const AcademicStructureView: React.FC = () => {
                     </button>
                     <button
                       onClick={openAddBatchModal}
-                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs touch-press"
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs touch-press"
                     >
                       <Plus className="w-3.5 h-3.5 text-white" />
                       <span>Add Section</span>
@@ -994,8 +993,8 @@ export const AcademicStructureView: React.FC = () => {
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
-                      <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <Check className="w-4 h-4 text-emerald-600" />
+                      <span className="p-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+                        <Check className="w-4 h-4 text-slate-700" />
                       </span>
                       <div>
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
@@ -1022,9 +1021,9 @@ export const AcademicStructureView: React.FC = () => {
                         return (
                           <span 
                             key={subId}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 border border-slate-200 text-slate-800 rounded-xl text-xs font-semibold"
                           >
-                            <span className="font-mono text-[10px] bg-emerald-200/80 px-1 py-0.2 rounded text-emerald-900">
+                            <span className="font-mono text-[10px] bg-slate-200 px-1 py-0.2 rounded text-slate-700 font-bold">
                               {sub?.code || 'SUB'}
                             </span>
                             <span>{sub?.name || 'Subject'}</span>
@@ -1043,8 +1042,8 @@ export const AcademicStructureView: React.FC = () => {
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
-                      <span className="p-1.5 rounded-lg bg-purple-50 text-purple-700 border border-purple-200">
-                        <Split className="w-4 h-4 text-purple-600" />
+                      <span className="p-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+                        <Split className="w-4 h-4 text-slate-700" />
                       </span>
                       <div>
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
@@ -1058,7 +1057,7 @@ export const AcademicStructureView: React.FC = () => {
 
                     <button
                       onClick={openAddElectiveTrackModal}
-                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-all shadow-xs"
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-all shadow-xs"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Elective Group</span>
@@ -1070,12 +1069,12 @@ export const AcademicStructureView: React.FC = () => {
                       const trackStudents = activeStudents.filter(s => s.elective_group_id === track.id);
 
                       return (
-                        <div key={track.id} className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/50 hover:bg-white hover:border-purple-300 transition-all flex flex-col justify-between">
+                        <div key={track.id} className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/50 hover:bg-white hover:border-slate-300 transition-all flex flex-col justify-between">
                           <div>
                             <div className="flex items-start justify-between gap-2">
                               <div>
                                 <span className="font-bold text-xs text-slate-900">{track.name}</span>
-                                <div className="text-[10px] font-mono text-purple-700 font-semibold mt-0.5">
+                                <div className="text-[10px] font-mono text-slate-500 font-semibold mt-0.5">
                                   {trackStudents.length} Students Enrolled
                                 </div>
                               </div>
@@ -1118,15 +1117,15 @@ export const AcademicStructureView: React.FC = () => {
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
-                      <span className="p-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
-                        <FolderTree className="w-4 h-4 text-blue-600" />
+                      <span className="p-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+                        <FolderTree className="w-4 h-4 text-slate-700" />
                       </span>
                       <div>
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
                           Class Sections & Batches ({activeBatches.length})
                         </h3>
                         <p className="text-[11px] text-slate-500">
-                          Section allocations, shift schedules, and elective breakdown.
+                          Section allocations, shift timings, and elective breakdown.
                         </p>
                       </div>
                     </div>
@@ -1134,10 +1133,10 @@ export const AcademicStructureView: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => openPromoteModal()}
-                        className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+                        className="px-3 py-1.5 bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
                         title="Promote or Transfer Students across classes or sections"
                       >
-                        <Split className="w-3.5 h-3.5 text-indigo-600" />
+                        <Split className="w-3.5 h-3.5 text-slate-600" />
                         <span>Promote / Transfer</span>
                       </button>
 
@@ -1159,24 +1158,22 @@ export const AcademicStructureView: React.FC = () => {
 
                       return (
                         <div key={b.id} className="border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 transition-all">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-bold text-xs text-slate-900">{b.name}</span>
-                                {b.shift === 'morning' ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                    <Sun className="w-3 h-3 text-amber-500" />
-                                    Morning
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200">
-                                    <Moon className="w-3 h-3 text-indigo-500" />
-                                    Evening
-                                  </span>
-                                )}
+                                
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-800 border border-slate-200">
+                                  <Clock className="w-3 h-3 text-slate-500" />
+                                  <span className="capitalize">{b.shift} Shift</span>
+                                  {b.start_time && b.end_time && (
+                                    <span className="font-mono text-slate-600 font-normal">({b.start_time} – {b.end_time})</span>
+                                  )}
+                                </span>
+
                                 {b.class_teacher_name ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                                    <UserCheck className="w-3 h-3 text-indigo-600" />
+                                    <UserCheck className="w-3 h-3 text-slate-600" />
                                     <span>Incharge: {b.class_teacher_name}</span>
                                   </span>
                                 ) : (
@@ -1184,21 +1181,22 @@ export const AcademicStructureView: React.FC = () => {
                                     No Incharge
                                   </span>
                                 )}
+
                                 {activeProgram.fee_schedule && activeProgram.fee_schedule.length > 0 && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                    <DollarSign className="w-3 h-3 text-emerald-600" />
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-slate-50 text-slate-800 border border-slate-200">
+                                    <DollarSign className="w-3 h-3 text-slate-500" />
                                     PKR {activeProgram.fee_schedule.find(f => f.fee_type === 'tuition')?.amount?.toLocaleString() || '0'}/mo
                                   </span>
                                 )}
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                              <div className="text-right mr-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="text-right mr-1">
                                 <div className="text-[11px] font-mono">
                                   <strong>{enrolledCount}</strong> / {maxCap} seats ({percent}%)
                                 </div>
-                                <div className="w-28 bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden">
+                                <div className="w-24 bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden">
                                   <div 
                                     className={`h-1.5 rounded-full ${
                                       percent >= 100 ? 'bg-rose-600' : percent > 85 ? 'bg-amber-500' : 'bg-emerald-500'
@@ -1208,30 +1206,63 @@ export const AcademicStructureView: React.FC = () => {
                                 </div>
                               </div>
 
-                              <button
-                                onClick={() => openPromoteModal(b.id)}
-                                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
-                                title="Promote or Transfer Students from this Section"
-                              >
-                                <Split className="w-3 h-3 text-indigo-600" />
-                                <span>Promote</span>
-                              </button>
+                              {/* Connected Workflows */}
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => window.location.hash = 'students'}
+                                  className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 shadow-2xs"
+                                  title="View Students Roster"
+                                >
+                                  <Users className="w-3 h-3 text-slate-500" />
+                                  <span>Roster</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => window.location.hash = 'timetables'}
+                                  className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 shadow-2xs"
+                                  title="View Class Timetable"
+                                >
+                                  <Calendar className="w-3 h-3 text-slate-500" />
+                                  <span>Timetable</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => window.location.hash = 'attendance'}
+                                  className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1 shadow-2xs"
+                                  title="Mark or View Attendance"
+                                >
+                                  <CheckCircle2 className="w-3 h-3 text-slate-500" />
+                                  <span>Attendance</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openPromoteModal(b.id)}
+                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1"
+                                  title="Promote or Transfer Students from this Section"
+                                >
+                                  <Split className="w-3 h-3 text-slate-600" />
+                                  <span>Promote</span>
+                                </button>
 
-                              <button
-                                onClick={() => openEditBatchModal(b)}
-                                className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                title="Edit Section"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openEditBatchModal(b)}
+                                  className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors border border-slate-200"
+                                  title="Edit Section"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
 
-                              <button
-                                onClick={() => initiateDeleteBatch(b)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                                title="Delete Section"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                                <button
+                                  type="button"
+                                  onClick={() => initiateDeleteBatch(b)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-slate-200"
+                                  title="Delete Section"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           </div>
 
@@ -1846,11 +1877,11 @@ export const AcademicStructureView: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <span className="p-2 rounded-xl bg-blue-600 text-white">
+                <span className="p-2 rounded-xl bg-slate-900 text-white">
                   <FolderTree className="w-4 h-4 text-white" />
                 </span>
                 <div>
-                  <SectionInfo title={`Allocate Section: ${activeProgram.name}`} description="Define shift, capacity, session, and section incharge" />
+                  <SectionInfo title={`Allocate Section: ${activeProgram.name}`} description="Define shift, shift timings, capacity, session, and section incharge" />
                 </div>
               </div>
               <button onClick={() => setShowBatchModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
@@ -1869,7 +1900,7 @@ export const AcademicStructureView: React.FC = () => {
                   placeholder="e.g. Section A, Morning Med-1"
                   value={batchForm.name}
                   onChange={e => setBatchForm({ ...batchForm, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
                 />
               </div>
 
@@ -1880,11 +1911,13 @@ export const AcademicStructureView: React.FC = () => {
                   </label>
                   <select
                     value={batchForm.shift}
-                    onChange={e => setBatchForm({ ...batchForm, shift: e.target.value as 'morning' | 'evening' })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={e => setBatchForm({ ...batchForm, shift: e.target.value as any })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-slate-400"
                   >
                     <option value="morning">Morning Shift</option>
+                    <option value="afternoon">Afternoon Shift</option>
                     <option value="evening">Evening Shift</option>
+                    <option value="weekend">Weekend Shift</option>
                   </select>
                 </div>
 
@@ -1898,7 +1931,35 @@ export const AcademicStructureView: React.FC = () => {
                     required
                     value={batchForm.max_capacity}
                     onChange={e => setBatchForm({ ...batchForm, max_capacity: parseInt(e.target.value) || 40 })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  />
+                </div>
+              </div>
+
+              {/* Shift Timings */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Start Time <span className="text-slate-400 font-normal text-[10px]">(e.g. 08:00 AM)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="08:00 AM"
+                    value={batchForm.start_time}
+                    onChange={e => setBatchForm({ ...batchForm, start_time: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    End Time <span className="text-slate-400 font-normal text-[10px]">(e.g. 01:30 PM)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="01:30 PM"
+                    value={batchForm.end_time}
+                    onChange={e => setBatchForm({ ...batchForm, end_time: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-400"
                   />
                 </div>
               </div>
@@ -1909,7 +1970,7 @@ export const AcademicStructureView: React.FC = () => {
                   type="text"
                   value={batchForm.academic_session}
                   onChange={e => setBatchForm({ ...batchForm, academic_session: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-400"
                 />
               </div>
 
@@ -1921,7 +1982,7 @@ export const AcademicStructureView: React.FC = () => {
                 <select
                   value={batchForm.class_teacher_id}
                   onChange={e => setBatchForm({ ...batchForm, class_teacher_id: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-slate-400"
                 >
                   <option value="">-- Unassigned (Select Staff) --</option>
                   {teachers.map(t => (
@@ -1940,7 +2001,7 @@ export const AcademicStructureView: React.FC = () => {
                     Inherits Monthly Tuition (PKR {activeProgram.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount?.toLocaleString() || '0'}/mo) from {activeProgram.name}.
                   </p>
                 </div>
-                <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 text-xs shrink-0">
+                <span className="font-mono font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 text-xs shrink-0">
                   PKR {activeProgram.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount?.toLocaleString() || '0'}/mo
                 </span>
               </div>
@@ -1956,7 +2017,7 @@ export const AcademicStructureView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50"
                 >
                   {isSubmitting ? 'Saving...' : 'Create Section'}
                 </button>
@@ -1972,12 +2033,12 @@ export const AcademicStructureView: React.FC = () => {
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
-                <span className="p-2 rounded-xl bg-indigo-600 text-white">
+                <span className="p-2 rounded-xl bg-slate-900 text-white">
                   <Pencil className="w-4 h-4 text-white" />
                 </span>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Edit Section: {editingBatch.name}</h3>
-                  <p className="text-[11px] text-slate-500">Update capacity, shift, session, or assigned incharge</p>
+                  <p className="text-[11px] text-slate-500">Update capacity, shift, timings, session, or assigned incharge</p>
                 </div>
               </div>
               <button onClick={() => setShowEditBatchModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
@@ -1995,7 +2056,7 @@ export const AcademicStructureView: React.FC = () => {
                   required
                   value={editBatchForm.name}
                   onChange={e => setEditBatchForm({ ...editBatchForm, name: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
                 />
               </div>
 
@@ -2006,11 +2067,13 @@ export const AcademicStructureView: React.FC = () => {
                   </label>
                   <select
                     value={editBatchForm.shift}
-                    onChange={e => setEditBatchForm({ ...editBatchForm, shift: e.target.value as 'morning' | 'evening' })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    onChange={e => setEditBatchForm({ ...editBatchForm, shift: e.target.value as any })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-slate-400"
                   >
                     <option value="morning">Morning Shift</option>
+                    <option value="afternoon">Afternoon Shift</option>
                     <option value="evening">Evening Shift</option>
+                    <option value="weekend">Weekend Shift</option>
                   </select>
                 </div>
 
@@ -2024,7 +2087,35 @@ export const AcademicStructureView: React.FC = () => {
                     required
                     value={editBatchForm.max_capacity}
                     onChange={e => setEditBatchForm({ ...editBatchForm, max_capacity: parseInt(e.target.value) || 40 })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  />
+                </div>
+              </div>
+
+              {/* Shift Timings */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Start Time <span className="text-slate-400 font-normal text-[10px]">(e.g. 08:00 AM)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="08:00 AM"
+                    value={editBatchForm.start_time}
+                    onChange={e => setEditBatchForm({ ...editBatchForm, start_time: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    End Time <span className="text-slate-400 font-normal text-[10px]">(e.g. 01:30 PM)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="01:30 PM"
+                    value={editBatchForm.end_time}
+                    onChange={e => setEditBatchForm({ ...editBatchForm, end_time: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-400"
                   />
                 </div>
               </div>
@@ -2035,7 +2126,7 @@ export const AcademicStructureView: React.FC = () => {
                   type="text"
                   value={editBatchForm.academic_session}
                   onChange={e => setEditBatchForm({ ...editBatchForm, academic_session: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-slate-400"
                 />
               </div>
 
@@ -2047,7 +2138,7 @@ export const AcademicStructureView: React.FC = () => {
                 <select
                   value={editBatchForm.class_teacher_id}
                   onChange={e => setEditBatchForm({ ...editBatchForm, class_teacher_id: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-slate-400"
                 >
                   <option value="">-- Unassigned (Select Staff) --</option>
                   {teachers.map(t => (
@@ -2069,7 +2160,7 @@ export const AcademicStructureView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50"
                 >
                   {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </button>

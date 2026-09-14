@@ -16,7 +16,6 @@ import {
   HardDrive, 
   Check, 
   X, 
-  RefreshCw, 
   Globe, 
   Ban, 
   Play, 
@@ -851,15 +850,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
         description="Academy directory, individualized billing parameters, subscription ledgers, and broadcast notices."
         icon={<Shield className="w-4 h-4 text-slate-700" />}
         badge="Super Admin"
-      >
-        <button
-          onClick={() => { fetchOverview(); fetchAnnouncements(); }}
-          className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-lg border border-slate-300 flex items-center gap-1.5 transition-colors shadow-xs"
-        >
-          <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
-          <span>Refresh Data</span>
-        </button>
-      </PageHeading>
+      />
 
       {/* High-Density Tabular Metrics Strip */}
       <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs">

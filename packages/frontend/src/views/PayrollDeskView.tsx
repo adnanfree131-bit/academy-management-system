@@ -11,8 +11,7 @@ import {
   Printer,
   Download,
   FileText,
-  X,
-  RefreshCw
+  X
 } from 'lucide-react';
 import {
   StaffSalaryProfile,
@@ -241,14 +240,6 @@ export const PayrollDeskView: React.FC = () => {
             <option value="October 2026">October 2026</option>
           </select>
         </div>
-
-        <button
-          onClick={fetchPayrollData}
-          className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
       </PageHeading>
 
       {/* KPI Cards */}

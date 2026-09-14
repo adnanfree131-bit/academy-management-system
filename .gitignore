@@ -39,5 +39,5 @@ google-services.json
 .gstack/
 .local-store-snapshot.json
 *.local-snapshot.json
-
-
+.school-erp-data/
+school-erp/.school-erp-data/

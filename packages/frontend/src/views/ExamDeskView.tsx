@@ -536,42 +536,42 @@ export const ExamDeskView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Tabs Navigation */}
-      <div className="flex border-b border-slate-200 bg-white rounded-t-xl px-4 pt-3 gap-2">
+      {/* Main Tabs Navigation - Segmented Grid (Eliminates horizontal sliding) */}
+      <div className="grid grid-cols-3 border-b border-slate-200 bg-white rounded-t-xl px-2 sm:px-4 pt-2 sm:pt-3 gap-1">
         <button
           onClick={() => setActiveTab('exams')}
-          className={`pb-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+          className={`pb-2.5 sm:pb-3 px-1.5 sm:px-4 text-xs font-bold border-b-2 flex items-center justify-center gap-1.5 sm:gap-2 transition-all text-center truncate ${
             activeTab === 'exams'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          <FileCheck2 className="w-4 h-4" />
-          Exams
+          <FileCheck2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span className="truncate">Exams</span>
         </button>
 
         <button
           onClick={() => setActiveTab('bank')}
-          className={`pb-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+          className={`pb-2.5 sm:pb-3 px-1.5 sm:px-4 text-xs font-bold border-b-2 flex items-center justify-center gap-1.5 sm:gap-2 transition-all text-center truncate ${
             activeTab === 'bank'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          <BookOpen className="w-4 h-4" />
-          Question Bank
+          <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span className="truncate">Bank</span>
         </button>
 
         <button
           onClick={() => setActiveTab('evaluate')}
-          className={`pb-3 px-4 text-xs font-bold border-b-2 flex items-center gap-2 transition-all ${
+          className={`pb-2.5 sm:pb-3 px-1.5 sm:px-4 text-xs font-bold border-b-2 flex items-center justify-center gap-1.5 sm:gap-2 transition-all text-center truncate ${
             activeTab === 'evaluate'
               ? 'border-indigo-600 text-indigo-600'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
-          <PenTool className="w-4 h-4" />
-          Grading
+          <PenTool className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+          <span className="truncate">Grading</span>
         </button>
       </div>
 
@@ -1867,8 +1867,11 @@ export const ExamDeskView: React.FC = () => {
                   <span className="text-slate-800">{activeReportCard.student.guardian_name}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-slate-400 block text-[10px]">Batch & Class:</span>
-                  <span className="text-slate-800">{activeReportCard.student.batch_name}</span>
+                  <span className="text-slate-400 block text-[10px]">Class & Section:</span>
+                  <span className="text-slate-800 font-semibold">
+                    {(activeReportCard.student as any).program_name || (activeReportCard.student as any).class_name ? `${(activeReportCard.student as any).program_name || (activeReportCard.student as any).class_name} • ` : ''}
+                    {activeReportCard.student.batch_name}
+                  </span>
                 </div>
               </div>
 

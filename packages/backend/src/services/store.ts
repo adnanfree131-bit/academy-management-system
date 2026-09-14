@@ -459,16 +459,39 @@ export interface IDataStore {
 
   // --- Phase 4: Payment Distribution & Cashier Review ---
   previewPaymentDistribution(tenantId: string, invoiceId: string, amount: number): Promise<PaymentDistributionItem[]>;
+  getPayments(tenantId: string, options?: { invoice_id?: string; student_id?: string; date?: string; status?: string }): Promise<FeePayment[]>;
   recordPayment(tenantId: string, data: {
     invoice_id: string;
     amount_paid: number;
     payment_method: PaymentMethod;
     reference_number?: string;
+    bank_name?: string | null;
+    cheque_number?: string | null;
+    clearing_date?: string | null;
     is_override?: boolean;
     override_reason?: string;
     allocations?: PaymentDistributionItem[];
     collected_by: string;
   }): Promise<{ payment: FeePayment; invoice: StudentInvoice }>;
+  recordFamilyPayment(tenantId: string, data: {
+    payment_method: PaymentMethod;
+    reference_number?: string;
+    bank_name?: string | null;
+    cheque_number?: string | null;
+    clearing_date?: string | null;
+    collected_by: string;
+    payments: Array<{
+      invoice_id: string;
+      amount_paid: number;
+      allocations?: PaymentDistributionItem[];
+      is_override?: boolean;
+      override_reason?: string;
+    }>;
+  }): Promise<{
+    family_receipt_number: string;
+    results: Array<{ payment: FeePayment; invoice: StudentInvoice }>;
+    total_amount: number;
+  }>;
   voidPayment(tenantId: string, paymentId: string, voidReason: string, voidedBy: string): Promise<{ payment: FeePayment; invoice: StudentInvoice }>;
 
   // --- Phase 4: Discounts & Audit Trail ---
@@ -1317,7 +1340,17 @@ export class InMemoryDataStore implements IDataStore {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    this.programs.push(mdcatProg, fscProg, crescentProg);
+    const class7Prog: AcademicProgram = {
+      id: 'a2000000-0000-0000-0000-000000000007',
+      tenant_id: tenantAId,
+      name: 'Class 7',
+      code: 'CLASS-7',
+      description: 'Middle school grade 7 curriculum',
+      sort_order: 3,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.programs.push(mdcatProg, fscProg, crescentProg, class7Prog);
 
     const phySub: Subject = { id: 's1', tenant_id: tenantAId, name: 'Physics', code: 'PHY', is_core: true, created_at: new Date().toISOString() };
     const chmSub: Subject = { id: 's2', tenant_id: tenantAId, name: 'Chemistry', code: 'CHM', is_core: true, created_at: new Date().toISOString() };
@@ -1352,10 +1385,11 @@ export class InMemoryDataStore implements IDataStore {
       program_id: mdcatProg.id,
       name: 'Batch 2026-A',
       shift: 'morning',
+      start_time: '08:00 AM',
+      end_time: '01:30 PM',
       academic_session: '2026-2027',
       max_capacity: 50,
       current_enrollment: 1,
-      room_number: 'Hall 1',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -1365,10 +1399,25 @@ export class InMemoryDataStore implements IDataStore {
       program_id: fscProg.id,
       name: 'FSc Morning - Alpha',
       shift: 'morning',
+      start_time: '08:00 AM',
+      end_time: '01:30 PM',
       academic_session: '2026-2027',
       max_capacity: 40,
       current_enrollment: 0,
-      room_number: 'Room 204',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const batchClass7: Batch = {
+      id: 'a3000000-0000-0000-0000-000000000007',
+      tenant_id: tenantAId,
+      program_id: class7Prog.id,
+      name: 'Section A',
+      shift: 'morning',
+      start_time: '08:00 AM',
+      end_time: '01:30 PM',
+      academic_session: '2026-2027',
+      max_capacity: 40,
+      current_enrollment: 0,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -1378,13 +1427,15 @@ export class InMemoryDataStore implements IDataStore {
       program_id: crescentProg.id,
       name: 'O-Levels Morning Section 1',
       shift: 'morning',
+      start_time: '08:30 AM',
+      end_time: '01:45 PM',
       academic_session: '2026-2027',
       max_capacity: 30,
       current_enrollment: 1,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
-    this.batches.push(batchA, batchB, crescentBatch);
+    this.batches.push(batchA, batchB, batchClass7, crescentBatch);
 
     this.customFields.push(
       {
@@ -5556,11 +5607,26 @@ export class InMemoryDataStore implements IDataStore {
   async getFeePriorityConfig(tenantId: string): Promise<FeePriorityConfig> {
     let config = this.feePriorityConfigs.get(tenantId);
     if (!config) {
+      const tenant = this.tenants.get(tenantId);
+      const savedPriority = (tenant?.settings as any)?.fee_rules?.priority_order 
+        || (tenant?.settings as any)?.liquidation_rules?.priority_order;
+
       const heads = await this.getFeeHeads(tenantId);
+      let order: string[] = [];
+      if (Array.isArray(savedPriority) && savedPriority.length > 0) {
+        order = savedPriority.map((item: string) => {
+          const match = heads.find(h => h.id === item || h.name.toLowerCase() === item.toLowerCase() || h.code.toLowerCase() === item.toLowerCase());
+          return match ? match.id : item;
+        }).filter(Boolean);
+      }
+      if (order.length === 0) {
+        order = heads.map(h => h.id);
+      }
+
       config = {
         id: crypto.randomUUID(),
         tenant_id: tenantId,
-        priority_order: heads.map(h => h.id),
+        priority_order: order,
         updated_at: new Date().toISOString()
       };
       this.feePriorityConfigs.set(tenantId, config);
@@ -5576,6 +5642,18 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString()
     };
     this.feePriorityConfigs.set(tenantId, config);
+
+    const tenant = this.tenants.get(tenantId);
+    if (tenant) {
+      tenant.settings = {
+        ...(tenant.settings || {}),
+        fee_rules: {
+          ...((tenant.settings as any)?.fee_rules || {}),
+          priority_order: priorityOrder
+        }
+      };
+    }
+    this.schedulePersist();
     return config;
   }
 
@@ -5644,9 +5722,12 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
+    const programId = student.program_id || batch?.program_id || '';
+    const program = this.programs.find(p => p.id === programId && p.tenant_id === tenantId);
     const invoiceId = crypto.randomUUID();
     const count = this.invoices.filter(i => i.tenant_id === tenantId).length + 1;
-    const invoiceNumber = `INV-2026-${count.toString().padStart(4, '0')}`;
+    const currentYear = new Date().getFullYear();
+    const invoiceNumber = `INV-${currentYear}-${count.toString().padStart(4, '0')}`;
 
     const items: InvoiceItem[] = [];
     let subtotal = 0;
@@ -5670,14 +5751,34 @@ export class InMemoryDataStore implements IDataStore {
         subtotal += amount;
       }
     } else {
-      // Inherit from student fee structure or batch default
+      // Inherit from student cohort fee structure or student's SIS fee structure
       const studentStructure = this.feeStructures.find(fs => fs.tenant_id === tenantId && fs.student_id === student.id)
         || this.feeStructures.find(fs => fs.tenant_id === tenantId && fs.batch_id === student.batch_id);
 
-      if (studentStructure && studentStructure.items.length > 0) {
+      const sFee = (student as any).fee_structure || {};
+      const hasStudentScholarship = (sFee.concession_val && Number(sFee.concession_val) > 0) ||
+                                    (sFee.net_tuition && sFee.base_tuition && sFee.net_tuition < sFee.base_tuition);
+
+      if (studentStructure && studentStructure.items && studentStructure.items.length > 0) {
         for (const it of studentStructure.items) {
           const head = this.feeHeads.find(h => h.id === it.fee_head_id && h.tenant_id === tenantId);
           const amount = Number(it.amount) || 0;
+          let itemDiscount = 0;
+          let itemNet = amount;
+
+          // If tuition head and student has an individual approved scholarship, apply it
+          const isTuition = head?.code === 'TUITION' || head?.name.toLowerCase().includes('tuition');
+          if (isTuition && hasStudentScholarship && !studentStructure.student_id) {
+            if (sFee.concession_type === 'percentage') {
+              itemDiscount = Math.round((amount * Number(sFee.concession_val)) / 100);
+            } else if (sFee.concession_type === 'fixed') {
+              itemDiscount = Math.min(amount, Number(sFee.concession_val));
+            } else if (sFee.base_tuition && sFee.net_tuition) {
+              itemDiscount = Math.max(0, sFee.base_tuition - sFee.net_tuition);
+            }
+            itemNet = Math.max(0, amount - itemDiscount);
+          }
+
           items.push({
             id: crypto.randomUUID(),
             invoice_id: invoiceId,
@@ -5685,15 +5786,50 @@ export class InMemoryDataStore implements IDataStore {
             head_name: head?.name || it.head_name,
             head_code: head?.code || 'FEE',
             original_amount: amount,
-            discount_amount: 0,
-            net_amount: amount,
+            discount_amount: itemDiscount,
+            net_amount: itemNet,
             paid_amount: 0,
-            balance_due: amount
+            balance_due: itemNet
           });
           subtotal += amount;
         }
+      } else if (sFee.net_tuition || sFee.base_tuition || sFee.recurring_monthly) {
+        // Inherit directly from student's SIS admission / bulk revised fee structure
+        const tuitionHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'TUITION') || this.feeHeads.find(h => h.tenant_id === tenantId);
+        const baseTuition = Number(sFee.base_tuition || sFee.recurring_monthly || sFee.net_tuition || 0);
+        let netTuition = Number(sFee.net_tuition || sFee.recurring_monthly || baseTuition);
+        let discountAmt = Math.max(0, baseTuition - netTuition);
+
+        if (sFee.concession_val && Number(sFee.concession_val) > 0) {
+          if (sFee.concession_type === 'percentage') {
+            discountAmt = Math.round((baseTuition * Number(sFee.concession_val)) / 100);
+            netTuition = Math.max(0, baseTuition - discountAmt);
+          } else if (sFee.concession_type === 'fixed') {
+            discountAmt = Math.min(baseTuition, Number(sFee.concession_val));
+            netTuition = Math.max(0, baseTuition - discountAmt);
+          }
+        }
+
+        const billedTuition = baseTuition > 0 ? baseTuition : (tuitionHead?.default_amount || 8000);
+        const billedNet = netTuition > 0 ? netTuition : billedTuition;
+
+        if (tuitionHead) {
+          items.push({
+            id: crypto.randomUUID(),
+            invoice_id: invoiceId,
+            fee_head_id: tuitionHead.id,
+            head_name: tuitionHead.name,
+            head_code: tuitionHead.code,
+            original_amount: billedTuition,
+            discount_amount: discountAmt,
+            net_amount: billedNet,
+            paid_amount: 0,
+            balance_due: billedNet
+          });
+          subtotal += billedTuition;
+        }
       } else {
-        // Fallback to default tuition
+        // Fallback to default tuition head
         const tuitionHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'TUITION') || this.feeHeads.find(h => h.tenant_id === tenantId);
         const defaultAmount = tuitionHead?.default_amount || 8000;
         if (tuitionHead) {
@@ -5714,6 +5850,56 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
 
+    // Check prior unpaid balances (Arrears Rollover)
+    let priorArrears = 0;
+    const shouldIncludeArrears = Boolean((data as any).include_arrears);
+    if (shouldIncludeArrears) {
+      const priorInvoices = this.invoices.filter(i =>
+        i.tenant_id === tenantId &&
+        i.student_id === student.id &&
+        i.id !== invoiceId &&
+        i.status !== 'paid' &&
+        i.status !== 'voided' &&
+        i.status !== 'cancelled' &&
+        (Number(i.balance_amount ?? i.balance_due ?? 0) > 0)
+      );
+      priorArrears = priorInvoices.reduce((sum, inv) => sum + Number(inv.balance_amount ?? inv.balance_due ?? 0), 0);
+
+      if (priorArrears > 0 && !items.some(it => it.head_code === 'ARREARS')) {
+        let arrearsHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'ARREARS');
+        if (!arrearsHead) {
+          arrearsHead = {
+            id: crypto.randomUUID(),
+            tenant_id: tenantId,
+            name: 'Previous Arrears',
+            code: 'ARREARS',
+            is_system_default: true,
+            default_amount: 0,
+            priority_order: 1,
+            show_at_admission: false,
+            created_at: new Date().toISOString()
+          };
+          this.feeHeads.unshift(arrearsHead);
+        }
+        items.unshift({
+          id: crypto.randomUUID(),
+          invoice_id: invoiceId,
+          fee_head_id: arrearsHead.id,
+          head_name: arrearsHead.name,
+          head_code: arrearsHead.code,
+          original_amount: priorArrears,
+          discount_amount: 0,
+          net_amount: priorArrears,
+          paid_amount: 0,
+          balance_due: priorArrears
+        });
+        subtotal += priorArrears;
+      }
+    }
+
+    const totalDiscount = items.reduce((s, it) => s + (it.discount_amount || 0), 0);
+    const netAmount = items.reduce((s, it) => s + it.net_amount, 0);
+
     const invoice: StudentInvoice = {
       id: invoiceId,
       tenant_id: tenantId,
@@ -5723,16 +5909,19 @@ export class InMemoryDataStore implements IDataStore {
       roll_number: student.roll_number,
       batch_id: student.batch_id,
       batch_name: batch?.name || 'General Batch',
+      program_id: programId,
+      program_name: program?.name || 'Class',
       billing_month: data.billing_month,
       issue_date: new Date().toISOString().split('T')[0],
       due_date: data.due_date,
       subtotal_amount: subtotal,
-      discount_amount: 0,
-      net_amount: subtotal,
+      discount_amount: totalDiscount,
+      net_amount: netAmount,
       paid_amount: 0,
-      balance_amount: subtotal,
+      balance_amount: netAmount,
       status: 'unpaid',
       items,
+      arrears_amount: priorArrears,
       notes: data.notes || null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -5748,25 +5937,39 @@ export class InMemoryDataStore implements IDataStore {
     const created: StudentInvoice[] = [];
 
     for (const student of studentsInBatch) {
-      // Check if invoice already exists for this student and billing month
+      // Check if invoice already exists for this student and billing month (excluding voided/cancelled)
       const existing = this.invoices.find(i => 
         i.tenant_id === tenantId &&
         i.student_id === student.id &&
-        i.billing_month.toLowerCase() === billingMonth.toLowerCase()
+        i.billing_month.toLowerCase() === billingMonth.toLowerCase() &&
+        i.status !== 'voided' &&
+        i.status !== 'cancelled'
       );
       if (!existing) {
         const inv = await this.generateInvoice(tenantId, {
           student_id: student.id,
           billing_month: billingMonth,
-          due_date: dueDate
-        });
+          due_date: dueDate,
+          include_arrears: true
+        } as any);
         created.push(inv);
       }
     }
     return created;
   }
 
-  // --- Smart Auto-Distribution Algorithm & Cashier Review ---
+  // --- Payment Allocation Order & Cashier Review ---
+  async getPayments(tenantId: string, options?: { invoice_id?: string; student_id?: string; date?: string; status?: string }): Promise<FeePayment[]> {
+    return this.feePayments.filter(p => {
+      if (p.tenant_id !== tenantId) return false;
+      if (options?.invoice_id && p.invoice_id !== options.invoice_id) return false;
+      if (options?.student_id && p.student_id !== options.student_id) return false;
+      if (options?.date && p.payment_date !== options.date) return false;
+      if (options?.status && p.status !== options.status) return false;
+      return true;
+    }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
   async previewPaymentDistribution(tenantId: string, invoiceId: string, amount: number): Promise<PaymentDistributionItem[]> {
     const invoice = this.invoices.find(i => i.id === invoiceId && i.tenant_id === tenantId);
     if (!invoice) throw new Error('Invoice not found for distribution calculation');
@@ -5774,7 +5977,7 @@ export class InMemoryDataStore implements IDataStore {
     const prioConfig = await this.getFeePriorityConfig(tenantId);
     const priorityOrder = prioConfig.priority_order;
 
-    // Sort items by liquidation priority
+    // Sort items by payment allocation priority
     const sortedItems = [...invoice.items].sort((a, b) => {
       const idxA = priorityOrder.indexOf(a.fee_head_id);
       const idxB = priorityOrder.indexOf(b.fee_head_id);
@@ -5813,6 +6016,9 @@ export class InMemoryDataStore implements IDataStore {
     amount_paid: number;
     payment_method: PaymentMethod;
     reference_number?: string;
+    bank_name?: string | null;
+    cheque_number?: string | null;
+    clearing_date?: string | null;
     is_override?: boolean;
     override_reason?: string;
     allocations?: PaymentDistributionItem[];
@@ -5849,7 +6055,8 @@ export class InMemoryDataStore implements IDataStore {
     invoice.updated_at = new Date().toISOString();
 
     const count = this.feePayments.filter(p => p.tenant_id === tenantId).length + 1;
-    const receiptNumber = `REC-2026-${count.toString().padStart(5, '0')}`;
+    const currentYear = new Date().getFullYear();
+    const receiptNumber = `REC-${currentYear}-${count.toString().padStart(5, '0')}`;
 
     const payment: FeePayment = {
       id: crypto.randomUUID(),
@@ -5863,6 +6070,9 @@ export class InMemoryDataStore implements IDataStore {
       amount_paid: amountPaid,
       payment_method: data.payment_method,
       reference_number: data.reference_number || null,
+      bank_name: data.bank_name || null,
+      cheque_number: data.cheque_number || null,
+      clearing_date: data.clearing_date || null,
       is_override: Boolean(data.is_override),
       override_reason: data.override_reason || null,
       allocations,
@@ -5897,6 +6107,62 @@ export class InMemoryDataStore implements IDataStore {
     this.schedulePersist();
 
     return { payment, invoice };
+  }
+
+  async recordFamilyPayment(tenantId: string, data: {
+    payment_method: PaymentMethod;
+    reference_number?: string;
+    bank_name?: string | null;
+    cheque_number?: string | null;
+    clearing_date?: string | null;
+    collected_by: string;
+    payments: Array<{
+      invoice_id: string;
+      amount_paid: number;
+      allocations?: PaymentDistributionItem[];
+      is_override?: boolean;
+      override_reason?: string;
+    }>;
+  }): Promise<{
+    family_receipt_number: string;
+    results: Array<{ payment: FeePayment; invoice: StudentInvoice }>;
+    total_amount: number;
+  }> {
+    if (!data.payments || data.payments.length === 0) {
+      throw new Error('At least one child payment is required');
+    }
+
+    const currentYear = new Date().getFullYear();
+    const count = this.feePayments.filter(p => p.tenant_id === tenantId).length + 1;
+    const familyReceiptNumber = `FAM-${currentYear}-${count.toString().padStart(5, '0')}`;
+
+    const results: Array<{ payment: FeePayment; invoice: StudentInvoice }> = [];
+    let totalAmount = 0;
+
+    for (const p of data.payments) {
+      if (p.amount_paid <= 0) continue;
+      const res = await this.recordPayment(tenantId, {
+        invoice_id: p.invoice_id,
+        amount_paid: p.amount_paid,
+        payment_method: data.payment_method,
+        reference_number: data.reference_number || familyReceiptNumber,
+        bank_name: data.bank_name,
+        cheque_number: data.cheque_number,
+        clearing_date: data.clearing_date,
+        is_override: p.is_override,
+        override_reason: p.override_reason,
+        allocations: p.allocations,
+        collected_by: data.collected_by,
+      });
+      results.push(res);
+      totalAmount += p.amount_paid;
+    }
+
+    return {
+      family_receipt_number: familyReceiptNumber,
+      results,
+      total_amount: totalAmount,
+    };
   }
 
   async voidPayment(tenantId: string, paymentId: string, voidReason: string, voidedBy: string): Promise<{ payment: FeePayment; invoice: StudentInvoice }> {
@@ -6008,18 +6274,26 @@ export class InMemoryDataStore implements IDataStore {
       invoice.status = invoice.balance_amount <= 0 ? 'paid' : (invoice.paid_amount > 0 ? 'partially_paid' : 'unpaid');
       invoice.updated_at = new Date().toISOString();
 
-      // Distribute discount to items (proportionately or to first eligible head)
+      // Distribute discount to items (proportionately or to eligible heads)
       if (data.fee_head_id) {
         const item = invoice.items.find((it: InvoiceItem) => it.fee_head_id === data.fee_head_id);
         if (item) {
-          item.discount_amount += actualDiscount;
+          const alloc = Math.min(actualDiscount, item.original_amount);
+          item.discount_amount += alloc;
           item.net_amount = Math.max(0, item.original_amount - item.discount_amount);
           item.balance_due = Math.max(0, item.net_amount - item.paid_amount);
         }
-      } else if (invoice.items.length > 0) {
-        invoice.items[0].discount_amount += actualDiscount;
-        invoice.items[0].net_amount = Math.max(0, invoice.items[0].original_amount - invoice.items[0].discount_amount);
-        invoice.items[0].balance_due = Math.max(0, invoice.items[0].net_amount - invoice.items[0].paid_amount);
+      } else {
+        let remainingDisc = actualDiscount;
+        for (const item of invoice.items) {
+          if (remainingDisc <= 0) break;
+          const maxDeduct = Math.max(0, item.original_amount - item.discount_amount);
+          const deduct = Math.min(remainingDisc, maxDeduct);
+          item.discount_amount += deduct;
+          item.net_amount = Math.max(0, item.original_amount - item.discount_amount);
+          item.balance_due = Math.max(0, item.net_amount - item.paid_amount);
+          remainingDisc -= deduct;
+        }
       }
     } else {
       actualDiscount = Number(data.discount_value);
@@ -7509,7 +7783,9 @@ export class InMemoryDataStore implements IDataStore {
             full_name: student.full_name,
             roll_number: student.roll_number,
             guardian_name: student.guardian_name,
-            batch_name: batch?.name || 'Assigned Batch'
+            batch_name: batch?.name || 'Assigned Batch',
+            class_name: program?.name || 'Class',
+            program_name: program?.name || 'Class'
           },
           rank: actualRank,
           total_students: totalStudentsInExam
@@ -7598,6 +7874,9 @@ export class InMemoryDataStore implements IDataStore {
         admission_number: student.admission_number,
         program_name: program?.name || 'Academic Program',
         batch_name: batch?.name || 'Assigned Batch',
+        shift: batch?.shift,
+        start_time: batch?.start_time,
+        end_time: batch?.end_time,
         guardian_name: student.guardian_name,
         guardian_phone: student.guardian_phone,
         guardian_id_card: student.guardian_id_card,

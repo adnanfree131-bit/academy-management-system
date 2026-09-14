@@ -398,42 +398,42 @@ export const IncomeExpenseDeskView: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs Navigation - Native Segmented Control */}
-      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold overflow-x-auto no-scrollbar whitespace-nowrap">
+      {/* Tabs Navigation - Native Segmented Grid (Eliminates horizontal sliding) */}
+      <div className="grid grid-cols-3 bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold">
         <button
           onClick={() => setActiveTab('cashbook')}
-          className={`flex-1 min-w-[90px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
+          className={`py-2 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
             activeTab === 'cashbook'
               ? 'bg-white text-slate-900 shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <FileText className="w-3.5 h-3.5" />
-          <span>Cashbook</span>
+          <FileText className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Cashbook</span>
         </button>
 
         <button
           onClick={() => setActiveTab('heads')}
-          className={`flex-1 min-w-[110px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
+          className={`py-2 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
             activeTab === 'heads'
               ? 'bg-white text-slate-900 shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <Tag className="w-3.5 h-3.5" />
-          <span>Account Heads</span>
+          <Tag className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Heads</span>
         </button>
 
         <button
           onClick={() => setActiveTab('pl_report')}
-          className={`flex-1 min-w-[100px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
+          className={`py-2 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
             activeTab === 'pl_report'
               ? 'bg-white text-slate-900 shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <PieChart className="w-3.5 h-3.5" />
-          <span>P&L Statement</span>
+          <PieChart className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">P&L</span>
         </button>
       </div>
 
@@ -441,9 +441,9 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {/* TAB 1: DAILY CASHBOOK LEDGER */}
       {/* ========================================================================= */}
       {activeTab === 'cashbook' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden space-y-4 p-5">
+        <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden space-y-4 p-4 sm:p-5">
           {/* Controls Bar */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             <div className="relative w-full md:w-80">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
               <input
@@ -454,21 +454,21 @@ export const IncomeExpenseDeskView: React.FC = () => {
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto">
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto min-w-0">
               <select
                 value={typeFilter}
                 onChange={e => setTypeFilter(e.target.value as any)}
-                className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-semibold"
+                className="flex-1 sm:flex-initial min-w-[120px] max-w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-semibold truncate"
               >
-                <option value="all">All Types (Income & Expense)</option>
-                <option value="income">Income Only (+)</option>
-                <option value="expense">Expense Only (-)</option>
+                <option value="all">All Types</option>
+                <option value="income">Income (+)</option>
+                <option value="expense">Expense (-)</option>
               </select>
 
               <select
                 value={selectedHeadFilter}
                 onChange={e => setSelectedHeadFilter(e.target.value)}
-                className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-semibold max-w-[180px]"
+                className="flex-1 sm:flex-initial min-w-[120px] max-w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-semibold truncate"
               >
                 <option value="all">All heads</option>
                 {accountHeads.map(h => (
@@ -481,7 +481,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
               <button
                 onClick={printCashbookPdf}
                 disabled={isPrinting}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold shrink-0"
                 title="Download cashbook PDF"
               >
                 <Printer className="w-3.5 h-3.5" />

@@ -57,6 +57,12 @@ export interface TenantSettings {
     late_fee_per_day?: number;
     priority_order?: string[];
   };
+  fee_rules?: {
+    due_day?: number;
+    grace_days?: number;
+    late_fee_per_day?: number;
+    priority_order?: string[];
+  };
   shifts?: {
     morning?: { start?: string; end?: string };
     evening?: { start?: string; end?: string };
@@ -380,16 +386,19 @@ export interface SubjectGroup {
   created_at: string;
 }
 
+export type BatchShift = 'morning' | 'afternoon' | 'evening' | 'weekend';
+
 export interface Batch {
   id: string;
   tenant_id: string;
   program_id: string;
   name: string;              // e.g. "MDCAT Morning - Batch A"
-  shift: 'morning' | 'evening';
+  shift: BatchShift | string;
+  start_time?: string | null; // e.g. "08:00 AM" or "08:00"
+  end_time?: string | null;   // e.g. "01:30 PM" or "13:30"
   academic_session: string;  // e.g. "2026-2027"
   max_capacity: number;      // e.g. 50
   current_enrollment: number;
-  room_number?: string | null; // Nullable for Single-Room default setup
   fee_schedule?: FeeScheduleItem[];
   class_teacher_id?: string | null;
   class_teacher_name?: string | null;
@@ -858,7 +867,7 @@ export interface FeeHead {
   code: string;                // e.g. "TUITION", "ARREARS", "ANNUAL", "EXAM", "LAB", "ADMISSION"
   is_system_default: boolean;
   default_amount: number;
-  priority_order: number;      // 1 = highest liquidation priority
+  priority_order: number;      // 1 = highest payment allocation priority
   show_at_admission?: boolean; // Whether this head appears on student admission form
   created_at: string;
 }
@@ -866,7 +875,7 @@ export interface FeeHead {
 export interface FeePriorityConfig {
   id: string;
   tenant_id: string;
-  priority_order: string[];    // Array of FeeHead IDs in descending liquidation priority
+  priority_order: string[];    // Array of FeeHead IDs in descending payment allocation priority
   updated_at: string;
 }
 
@@ -907,6 +916,8 @@ export interface StudentInvoice {
   student_id: string;
   student_name: string;
   roll_number: string;
+  program_id?: string;
+  program_name?: string;       // e.g. "Class 7", "Class 10", "F.Sc Pre-Medical"
   batch_id: string;
   batch_name: string;
   billing_month: string;       // e.g. "September 2026"
@@ -926,6 +937,8 @@ export interface StudentInvoice {
   items: InvoiceItem[];
   notes?: string | null;
   fine_amount?: number;
+  late_fee?: number;
+  arrears_amount?: number;
   created_at: string;
   updated_at: string;
 }
@@ -952,7 +965,7 @@ export interface PaymentDistributionItem {
   allocated_amount: number;
 }
 
-export type PaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'wallet';
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'wallet' | 'easypaisa' | 'jazzcash';
 
 export interface FeePayment {
   id: string;
@@ -966,6 +979,9 @@ export interface FeePayment {
   amount_paid: number;
   payment_method: PaymentMethod;
   reference_number?: string | null;
+  bank_name?: string | null;
+  cheque_number?: string | null;
+  clearing_date?: string | null;
   is_override: boolean;        // Cashier manually adjusted distribution
   override_reason?: string | null;
   allocations: PaymentDistributionItem[];
@@ -1257,6 +1273,7 @@ export interface StudentOfficialReportCard {
     roll_number: string;
     guardian_name: string;
     class_name?: string;
+    program_name?: string;
     batch_name?: string;
   };
   rank?: number;
@@ -1459,6 +1476,9 @@ export interface StudentParentPortalOverview {
     admission_number?: string;
     program_name?: string;
     batch_name: string;
+    shift?: string;
+    start_time?: string | null;
+    end_time?: string | null;
     guardian_name: string;
     guardian_phone: string;
     guardian_id_card?: string;

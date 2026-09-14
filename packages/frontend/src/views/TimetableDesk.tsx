@@ -13,6 +13,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { 
+  AcademicProgram,
   Batch, 
   Subject, 
   Room, 
@@ -36,6 +37,7 @@ export const TimetableDesk: React.FC = () => {
   const { token } = useAuth();
 
   // State
+  const [programs, setPrograms] = useState<AcademicProgram[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -77,7 +79,8 @@ export const TimetableDesk: React.FC = () => {
     const headers = { Authorization: `Bearer ${token}` };
 
     try {
-      const [batchRes, subRes, roomRes, slotsRes, geoRes] = await Promise.all([
+      const [progRes, batchRes, subRes, roomRes, slotsRes, geoRes] = await Promise.all([
+        fetch('/api/v1/academic/programs', { headers }),
         fetch('/api/v1/academic/batches', { headers }),
         fetch('/api/v1/academic/subjects', { headers }),
         fetch('/api/v1/timetable/rooms', { headers }),
@@ -85,7 +88,8 @@ export const TimetableDesk: React.FC = () => {
         fetch('/api/v1/geofence/config', { headers }),
       ]);
 
-      const [batchData, subData, roomData, slotsData, geoData] = await Promise.all([
+      const [progData, batchData, subData, roomData, slotsData, geoData] = await Promise.all([
+        progRes.json(),
         batchRes.json(),
         subRes.json(),
         roomRes.json(),
@@ -93,6 +97,7 @@ export const TimetableDesk: React.FC = () => {
         geoRes.json(),
       ]);
 
+      if (progData.success) setPrograms(progData.data || []);
       if (batchData.success) setBatches(batchData.data || []);
       if (subData.success) setSubjects(subData.data || []);
       if (roomData.success) setRooms(roomData.data || []);
@@ -293,14 +298,6 @@ export const TimetableDesk: React.FC = () => {
         icon={<Calendar className="w-4 h-4 text-slate-700" />}
       >
         <button
-          onClick={() => fetchBaseData()}
-          className="p-1.5 text-slate-500 hover:text-slate-800 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-xs transition-colors"
-          title="Refresh Timetable"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-        </button>
-
-        <button
           onClick={() => setShowScheduleModal(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 font-semibold text-xs shadow-xs transition-colors"
         >
@@ -316,27 +313,45 @@ export const TimetableDesk: React.FC = () => {
       )}
 
       {/* Control Bar: Filters & Multi-Room Status */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto min-w-0">
           {/* Batch Selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-slate-600">Batch:</span>
+          <div className="flex items-center gap-2 w-full sm:w-auto min-w-0">
+            <span className="text-xs font-semibold text-slate-600 shrink-0">Batch:</span>
             <select
               value={selectedBatchId}
               onChange={e => setSelectedBatchId(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full sm:w-auto max-w-full truncate text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               <option value="all">All Batches</option>
-              {batches.map(b => (
-                <option key={b.id} value={b.id}>
-                  {b.name} ({b.shift.toUpperCase()})
-                </option>
+              {batches.map(b => {
+                const progName = programs.find(p => p.id === b.program_id)?.name;
+                return (
+                  <option key={b.id} value={b.id}>
+                    {progName ? `${progName} • ` : ''}{b.name} ({b.shift.toUpperCase()})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Mobile Day Selector (Eliminates horizontal scrolling hurdle) */}
+          <div className="sm:hidden flex items-center gap-2 w-full min-w-0">
+            <span className="text-xs font-semibold text-slate-600 shrink-0">Day:</span>
+            <select
+              value={selectedDay}
+              onChange={e => setSelectedDay(e.target.value as DayOfWeek | 'all')}
+              className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="all">All Days</option>
+              {DAYS.map(d => (
+                <option key={d.id} value={d.id}>{d.label}</option>
               ))}
             </select>
           </div>
 
-          {/* Day Tabs */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto max-w-full no-scrollbar">
+          {/* Desktop/Tablet Day Tabs */}
+          <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto max-w-full no-scrollbar">
             <button
               onClick={() => setSelectedDay('all')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
@@ -416,9 +431,15 @@ export const TimetableDesk: React.FC = () => {
                   <BookOpen className="w-4 h-4 text-indigo-600" />
                   <span>{slot.subject_name || 'Class Period'}</span>
                 </h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  Batch: <span className="text-slate-800 font-semibold">{slot.batch_name || slot.batch_id}</span>
-                </p>
+                {(() => {
+                  const bObj = batches.find(b => b.id === slot.batch_id);
+                  const pName = programs.find(p => p.id === bObj?.program_id)?.name;
+                  return (
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      Class & Section: <span className="text-slate-800 font-semibold">{pName ? `${pName} • ` : ''}{slot.batch_name || slot.batch_id}</span>
+                    </p>
+                  );
+                })()}
 
                 {/* Teacher & Substitute Status */}
                 <div className="mt-3 p-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs space-y-1">
@@ -504,9 +525,14 @@ export const TimetableDesk: React.FC = () => {
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800"
                     required
                   >
-                    {batches.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
+                    {batches.map(b => {
+                      const progName = programs.find(p => p.id === b.program_id)?.name;
+                      return (
+                        <option key={b.id} value={b.id}>
+                          {progName ? `${progName} • ` : ''}{b.name} ({b.shift.toUpperCase()})
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 

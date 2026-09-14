@@ -21,6 +21,7 @@ const StaffClockInView = lazy(() => import('./views/StaffClockInView').then(m =>
 const HomeworkDesk = lazy(() => import('./views/HomeworkDesk').then(m => ({ default: m.HomeworkDesk })));
 const ComplaintsDeskView = lazy(() => import('./views/ComplaintsDeskView').then(m => ({ default: m.ComplaintsDeskView })));
 const FeeDeskView = lazy(() => import('./views/FeeDeskView').then(m => ({ default: m.FeeDeskView })));
+const FeeChallansView = lazy(() => import('./views/FeeChallansView').then(m => ({ default: m.FeeChallansView })));
 const PayrollDeskView = lazy(() => import('./views/PayrollDeskView').then(m => ({ default: m.PayrollDeskView })));
 const ExamDeskView = lazy(() => import('./views/ExamDeskView').then(m => ({ default: m.ExamDeskView })));
 const AbsenteeRetentionDeskView = lazy(() => import('./views/AbsenteeRetentionDeskView').then(m => ({ default: m.AbsenteeRetentionDeskView })));
@@ -100,6 +101,7 @@ const getScreenMeta = (screen: string, role?: string): ScreenMeta => {
     case 'complaints': return { section: 'Daily Operations', title: 'Feedback' };
     case 'exams': return { section: 'Examinations', title: 'Examinations' };
     case 'voucher': return { section: 'Finance', title: 'Fee Ledger' };
+    case 'challans': return { section: 'Finance', title: 'Fee Challans' };
     case 'expenses': return { section: 'Finance', title: 'Income & Expenses' };
     case 'payroll': return { section: 'Finance', title: 'Payroll' };
     case 'staff': return { section: 'Administration', title: 'Staff Directory' };
@@ -411,6 +413,8 @@ const MainLayout: React.FC = () => {
                 <ExamDeskView />
               ) : currentScreen === 'voucher' ? (
                 <FeeDeskView />
+              ) : currentScreen === 'challans' ? (
+                <FeeChallansView />
               ) : currentScreen === 'expenses' ? (
                 <IncomeExpenseDeskView />
               ) : currentScreen === 'payroll' ? (

@@ -575,7 +575,22 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
       />
 
       {/* Institutional Segmented Control Tabs */}
-      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold overflow-x-auto no-scrollbar max-w-full whitespace-nowrap">
+      {/* Mobile Tab Selector (Eliminates horizontal scrolling hurdle) */}
+      <div className="sm:hidden w-full">
+        <select
+          value={activeTab}
+          onChange={e => setActiveTab(e.target.value as any)}
+          className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
+        >
+          <option value="roster">📅 Daily Roster</option>
+          <option value="monthly">🗓️ Monthly Register</option>
+          <option value="defaulters">⚠️ Defaulters ({defaultersList.filter(d => d.isDefaulter).length})</option>
+          <option value="leaves">🛡️ Formal Leaves {leaves.filter(l => l.status === 'pending').length > 0 ? `(${leaves.filter(l => l.status === 'pending').length} Pending)` : ''}</option>
+        </select>
+      </div>
+
+      {/* Desktop/Tablet Tab Bar */}
+      <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold overflow-x-auto no-scrollbar max-w-full whitespace-nowrap">
         <button
           onClick={() => setActiveTab('roster')}
           className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press ${
@@ -735,11 +750,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                     {filteredBatches.length === 0 ? (
                       <option value="">No batches found</option>
                     ) : (
-                      filteredBatches.map(b => (
-                        <option key={b.id} value={b.id}>
-                          {b.name} ({b.shift.toUpperCase()})
-                        </option>
-                      ))
+                      filteredBatches.map(b => {
+                        const progName = programs.find(p => p.id === b.program_id)?.name;
+                        return (
+                          <option key={b.id} value={b.id}>
+                            {selectedProgramId === 'ALL' && progName ? `${progName} • ` : ''}{b.name} ({b.shift.toUpperCase()})
+                          </option>
+                        );
+                      })
                     )}
                   </select>
                 </div>
@@ -1388,9 +1406,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                   onChange={e => setSelectedBatchId(e.target.value)}
                   className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none"
                 >
-                  {batches.map(b => (
-                    <option key={b.id} value={b.id}>{b.name} ({b.shift.toUpperCase()})</option>
-                  ))}
+                  {batches.map(b => {
+                    const progName = programs.find(p => p.id === b.program_id)?.name;
+                    return (
+                      <option key={b.id} value={b.id}>
+                        {progName ? `${progName} • ` : ''}{b.name} ({b.shift.toUpperCase()})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

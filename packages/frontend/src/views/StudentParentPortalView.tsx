@@ -417,7 +417,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   } else if (cleanWa.startsWith('3')) {
     cleanWa = '92' + cleanWa;
   }
-  const waMsg = `Assalam-o-Alaikum, I have transferred the tuition fee for ${profile?.full_name || 'student'} (Roll #${profile?.roll_number || '—'}, Class: ${profile?.batch_name || '—'}). Attached is the payment screenshot for your records.`;
+  const waMsg = `Assalam-o-Alaikum, I have transferred the tuition fee for ${profile?.full_name || 'student'} (Roll #${profile?.roll_number || '—'}, Class: ${profile?.program_name || '—'}, Section: ${profile?.batch_name || '—'}). Attached is the payment screenshot for your records.`;
   const waUrl = cleanWa ? `https://wa.me/${cleanWa}?text=${encodeURIComponent(waMsg)}` : '#';
 
   return (
@@ -480,9 +480,12 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               </div>
 
               <p className="text-xs text-slate-600">
-                Class: <strong className="text-slate-900 font-semibold">{profile?.batch_name || '—'}</strong>
-                {profile?.program_name && (
-                  <> • <span className="text-slate-700">{profile.program_name}</span></>
+                Class: <strong className="text-slate-900 font-semibold">{profile?.program_name || '—'}</strong>
+                {profile?.batch_name && (
+                  <> • Section: <strong className="text-slate-900 font-semibold">{profile.batch_name}</strong></>
+                )}
+                {profile?.shift && (
+                  <> • Shift: <strong className="text-slate-900 font-semibold capitalize">{profile.shift}</strong>{profile?.start_time && profile?.end_time ? <span className="font-mono text-slate-700"> ({profile.start_time} – {profile.end_time})</span> : ''}</>
                 )}
                 {profile?.guardian_name && (
                   <> • Guardian: <span className="text-slate-800">{profile.guardian_name}</span></>
@@ -995,7 +998,10 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   <span>Class Timetable</span>
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Class: <strong className="text-slate-800 font-semibold">{profile?.batch_name}</strong> • Program: <strong className="text-slate-800 font-semibold">{profile?.program_name}</strong>
+                  Class: <strong className="text-slate-800 font-semibold">{profile?.program_name || '—'}</strong> • Section: <strong className="text-slate-800 font-semibold">{profile?.batch_name || '—'}</strong>
+                  {profile?.shift && (
+                    <> • Shift: <strong className="text-slate-800 font-semibold capitalize">{profile.shift}</strong>{profile?.start_time && profile?.end_time ? <span className="font-mono text-slate-700"> ({profile.start_time} – {profile.end_time})</span> : ''}</>
+                  )}
                 </p>
               </div>
 
@@ -1891,8 +1897,8 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                           <span className="font-bold text-slate-900 truncate max-w-[140px]">{profile?.full_name}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-500 font-bold">Roll / Class:</span>
-                          <span className="font-mono text-slate-800">Roll #{profile?.roll_number} • {profile?.batch_name}</span>
+                          <span className="text-slate-500 font-bold">Class & Section:</span>
+                          <span className="font-mono text-slate-800">{profile?.program_name || 'Class'} ({profile?.batch_name || 'Section'}) • Roll #{profile?.roll_number}</span>
                         </div>
                       </div>
 
@@ -2023,7 +2029,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   <div className="space-y-1">
                     <div><span className="text-slate-500 font-bold uppercase text-[10px]">Student Name: </span><span className="font-bold text-slate-900">{printingReportCard.student.full_name}</span></div>
                     <div><span className="text-slate-500 font-bold uppercase text-[10px]">Roll Number: </span><span className="font-mono font-bold text-slate-900">{printingReportCard.student.roll_number}</span></div>
-                    <div><span className="text-slate-500 font-bold uppercase text-[10px]">Class / Batch: </span><span className="font-bold text-slate-900">{printingReportCard.student.batch_name}</span></div>
+                    <div><span className="text-slate-500 font-bold uppercase text-[10px]">Class & Section: </span><span className="font-bold text-slate-900">{(printingReportCard.student as any).program_name || (printingReportCard.student as any).class_name ? `${(printingReportCard.student as any).program_name || (printingReportCard.student as any).class_name} • ` : ''}{printingReportCard.student.batch_name}</span></div>
                   </div>
                   <div className="space-y-1">
                     <div><span className="text-slate-500 font-bold uppercase text-[10px]">Father / Guardian: </span><span className="font-bold text-slate-900">{profile?.guardian_name || '—'}</span></div>

@@ -237,10 +237,11 @@ CREATE TABLE IF NOT EXISTS batches (
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   program_id UUID NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
-  shift VARCHAR(50) NOT NULL DEFAULT 'morning' CHECK (shift IN ('morning', 'evening')),
+  shift VARCHAR(50) NOT NULL DEFAULT 'morning' CHECK (shift IN ('morning', 'afternoon', 'evening', 'weekend')),
+  start_time VARCHAR(20),
+  end_time VARCHAR(20),
   academic_session VARCHAR(50) NOT NULL DEFAULT '2026-2027',
   max_capacity INT NOT NULL DEFAULT 40,
-  room_number VARCHAR(50),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

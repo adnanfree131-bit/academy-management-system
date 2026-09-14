@@ -54,9 +54,9 @@ VALUES
   ('a2000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'MDCAT Comprehensive Prep', 'MDCAT-PREP', 'Medical entry test preparation')
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO batches (id, tenant_id, program_id, name, shift, academic_session, max_capacity, room_number)
+INSERT INTO batches (id, tenant_id, program_id, name, shift, academic_session, max_capacity, start_time, end_time)
 VALUES 
-  ('a3000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'a2000000-0000-0000-0000-000000000001', 'MDCAT Morning - Batch A', 'morning', '2026-2027', 50, 'Hall 1')
+  ('a3000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'a2000000-0000-0000-0000-000000000001', 'MDCAT Morning - Batch A', 'morning', '2026-2027', 50, '08:00 AM', '01:30 PM')
 ON CONFLICT (id) DO NOTHING;
 
 -- Tenant A Inquiries & Students

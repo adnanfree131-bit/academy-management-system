@@ -578,33 +578,35 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 m-0">
-      {/* Print Stylesheet */}
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden;
+      {/* Print Stylesheet (rendered only when viewing a challan to avoid overriding global page prints) */}
+      {challanInvoice && (
+        <style>{`
+          @media print {
+            body * {
+              visibility: hidden;
+            }
+            #printable-challan-area, #printable-challan-area * {
+              visibility: visible;
+            }
+            #printable-challan-area {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 100%;
+              margin: 0;
+              padding: 8mm;
+              background: white !important;
+            }
+            .no-print {
+              display: none !important;
+            }
+            @page {
+              size: A4 landscape;
+              margin: 6mm;
+            }
           }
-          #printable-challan-area, #printable-challan-area * {
-            visibility: visible;
-          }
-          #printable-challan-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            margin: 0;
-            padding: 8mm;
-            background: white !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-          @page {
-            size: A4 landscape;
-            margin: 6mm;
-          }
-        }
-      `}</style>
+        `}</style>
+      )}
 
       {/* Main Container / Bottom Sheet on Mobile */}
       <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-5xl w-full shadow-2xl border-t sm:border border-slate-300/90 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[94vh] animate-in slide-in-from-bottom-5 sm:zoom-in-95 duration-200 has-drag-handle">
@@ -668,7 +670,12 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                   <span className="text-slate-300">•</span>
                   <div>
                     <span className="text-slate-400 text-[11px] mr-1">Class:</span>
-                    <span className="font-medium text-slate-900">{activeProgram?.name || 'Class'} ({activeBatch?.name || 'Batch'})</span>
+                    <span className="font-medium text-slate-900">{activeProgram?.name || '—'}</span>
+                  </div>
+                  <span className="text-slate-300">•</span>
+                  <div>
+                    <span className="text-slate-400 text-[11px] mr-1">Section:</span>
+                    <span className="font-medium text-slate-900">{activeBatch?.name || '—'}</span>
                   </div>
                   <span className="text-slate-300">•</span>
                   <div>
@@ -990,16 +997,16 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                     <tbody className="divide-y divide-slate-100">
                       <tr>
                         <td className="py-2 text-slate-500 w-2/5">Class</td>
-                        <td className="py-2 font-semibold text-slate-900">{activeProgram?.name || 'Class 10'}</td>
+                        <td className="py-2 font-semibold text-slate-900">{activeProgram?.name || '—'}</td>
                       </tr>
                       <tr>
-                        <td className="py-2 text-slate-500">Section / Batch</td>
-                        <td className="py-2 font-semibold text-slate-900">{activeBatch?.name || 'Section A'}</td>
+                        <td className="py-2 text-slate-500">Section</td>
+                        <td className="py-2 font-semibold text-slate-900">{activeBatch?.name || '—'}</td>
                       </tr>
                       <tr>
-                        <td className="py-2 text-slate-500">Shift & Room</td>
+                        <td className="py-2 text-slate-500">Shift & Timings</td>
                         <td className="py-2 font-mono text-slate-800">
-                          {activeBatch?.shift.toUpperCase()} • Room {activeBatch?.room_number || '101'}
+                          {activeBatch?.shift ? activeBatch.shift.toUpperCase() : '—'} {activeBatch?.start_time && activeBatch?.end_time ? `• ${activeBatch.start_time} – ${activeBatch.end_time}` : ''}
                         </td>
                       </tr>
                       <tr>
@@ -1301,15 +1308,6 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                       <CreditCard className="w-3.5 h-3.5" />
                       <span>{isCashierOpen ? 'Hide Payment Form' : 'Receive Payment'}</span>
                       {isCashierOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                    </button>
-
-                    <button
-                      onClick={fetchInvoices}
-                      disabled={isLoadingFinance}
-                      className="px-2.5 py-1.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded text-xs font-medium flex items-center gap-1"
-                      title="Refresh"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${isLoadingFinance ? 'animate-spin' : ''}`} />
                     </button>
                   </div>
                 </div>
@@ -2103,7 +2101,9 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                       {tenant?.name || 'Academy'}
                     </h4>
                     <div className="text-[8px] text-slate-700 font-mono">
-                      Meezan Bank Ltd • A/C: 0102-0103492810 • IBAN: PK52MEZN0001020103492810
+                      {(tenant?.settings as any)?.bank_name 
+                        ? `${(tenant?.settings as any).bank_name} • A/C: ${(tenant?.settings as any).account_number || 'Official Account'}${(tenant?.settings as any).iban ? ` • IBAN: ${(tenant?.settings as any).iban}` : ''}`
+                        : 'Official Fee Voucher • Authorized Campus Counter'}
                     </div>
                   </div>
 
@@ -2128,7 +2128,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                     <div className="pt-1 border-t border-slate-200">
                       <div className="text-slate-950 font-bold truncate">Student: {student.full_name}</div>
                       <div className="text-slate-700 font-mono text-[8px]">Roll: {student.roll_number} | Adm: {student.admission_number}</div>
-                      <div className="text-slate-700 text-[8px]">Class: {activeProgram?.name || 'Class 10'} ({activeBatch?.name || 'Section Morning'})</div>
+                      <div className="text-slate-700 text-[8px]">Class: {activeProgram?.name || '—'} • Section: {activeBatch?.name || '—'}</div>
                     </div>
                   </div>
 
@@ -2155,20 +2155,34 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                   </div>
 
                   {/* Total Payable Block */}
-                  <div className="border-t-2 border-slate-900 pt-2 space-y-1 text-[10px]">
-                    <div className="flex justify-between font-extrabold text-slate-950 text-xs">
-                      <span>Amount by Due Date:</span>
-                      <span className="font-mono">PKR {(challanInvoice.net_total ?? challanInvoice.net_amount ?? 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between text-[8px] text-slate-600">
-                      <span>Late Payment Surcharge:</span>
-                      <span className="font-mono">PKR 500</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-[9px] text-rose-900">
-                      <span>After Due Date:</span>
-                      <span className="font-mono">PKR {((challanInvoice.net_total ?? challanInvoice.net_amount ?? 0) + 500).toLocaleString()}</span>
-                    </div>
-                  </div>
+                  {(() => {
+                    const lateFee = Number((tenant?.settings as any)?.fee_rules?.late_fee_per_day || (tenant?.settings as any)?.liquidation_rules?.late_fee_per_day || 0);
+                    const netPayable = Number(challanInvoice.net_total ?? challanInvoice.net_amount ?? 0);
+                    return (
+                      <div className="border-t-2 border-slate-900 pt-2 space-y-1 text-[10px]">
+                        <div className="flex justify-between font-extrabold text-slate-950 text-xs">
+                          <span>Amount by Due Date:</span>
+                          <span className="font-mono">PKR {netPayable.toLocaleString()}</span>
+                        </div>
+                        {lateFee > 0 ? (
+                          <>
+                            <div className="flex justify-between text-[8px] text-slate-600">
+                              <span>Late Payment Surcharge:</span>
+                              <span className="font-mono">PKR {lateFee.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between font-bold text-[9px] text-rose-900">
+                              <span>After Due Date:</span>
+                              <span className="font-mono">PKR {(netPayable + lateFee).toLocaleString()}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-[8px] text-slate-500 font-mono text-center pt-0.5">
+                            Zero Late Surcharge Applied
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Signatures */}
                   <div className="pt-6 border-t border-slate-300 grid grid-cols-2 gap-2 text-center text-[8px] text-slate-500">

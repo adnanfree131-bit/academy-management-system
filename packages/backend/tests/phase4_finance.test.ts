@@ -144,6 +144,67 @@ describe('Phase 4: Finance, Fee Vouchers, Priority Auto-Distribution & Staff Pay
       expect(body.data.net_amount).toBe(10500);
       expect(body.data.status).toBe('unpaid');
     });
+
+    it('rolls over prior unpaid arrears when generating a subsequent monthly invoice', async () => {
+      // stud-1 already has inv-1 with balance 11,500. A new invoice for November 2026 should roll over 11,500 arrears!
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/finance/invoices/generate',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          student_id: 'stud-1',
+          billing_month: 'November 2026',
+          due_date: '2026-11-15',
+          include_arrears: true,
+          custom_items: [
+            { fee_head_id: 'head-tuition', amount: 8000 }
+          ]
+        }
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      // Arrears item should have been rolled over
+      const arrearsItem = body.data.items.find((it: any) => it.head_code === 'ARREARS');
+      expect(arrearsItem).toBeDefined();
+      expect(arrearsItem.net_amount).toBeGreaterThanOrEqual(11500);
+      expect(body.data.arrears_amount).toBeGreaterThanOrEqual(11500);
+    });
+
+    it('saves and retrieves batch fee structures correctly', async () => {
+      const saveRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/finance/structures',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          batch_id: 'batch-fsc-1',
+          academic_session: '2026-2027',
+          items: [
+            { fee_head_id: 'head-tuition', head_name: 'Monthly Tuition Fee', amount: 9000 },
+            { fee_head_id: 'head-lab', head_name: 'Science & Computer Lab Fee', amount: 1500 }
+          ]
+        }
+      });
+
+      expect(saveRes.statusCode).toBe(200);
+      const savedBody = saveRes.json();
+      expect(savedBody.success).toBe(true);
+      expect(savedBody.data.batch_id).toBe('batch-fsc-1');
+      expect(savedBody.data.items.length).toBe(2);
+
+      const getRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/finance/structures',
+        headers: { authorization: `Bearer ${token}` },
+        query: { batch_id: 'batch-fsc-1' }
+      });
+
+      expect(getRes.statusCode).toBe(200);
+      const getBody = getRes.json();
+      expect(getBody.data.length).toBe(1);
+      expect(getBody.data[0].items[0].amount).toBe(9000);
+    });
   });
 
   // =========================================================================
@@ -240,6 +301,78 @@ describe('Phase 4: Finance, Fee Vouchers, Priority Auto-Distribution & Staff Pay
 
       expect(res.statusCode).toBe(400);
       expect(res.json().error.code).toBe('PAYMENT_FAILED');
+    });
+
+    it('records payment successfully with cheque metadata and clearing particulars', async () => {
+      const invRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/finance/invoices/generate',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          student_id: 'stud-1',
+          billing_month: 'December 2026',
+          due_date: '2026-12-15',
+          include_arrears: false,
+          custom_items: [{ fee_head_id: 'head-tuition', amount: 8000 }]
+        }
+      });
+      const testInvoiceId = invRes.json().data.id;
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/finance/payments',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          invoice_id: testInvoiceId,
+          amount_paid: 2000,
+          payment_method: 'cheque',
+          bank_name: 'Meezan Bank Ltd',
+          cheque_number: 'CHQ-2026-99124',
+          clearing_date: '2026-10-18',
+          reference_number: 'DEP-88412'
+        }
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.payment.payment_method).toBe('cheque');
+      expect(body.data.payment.bank_name).toBe('Meezan Bank Ltd');
+      expect(body.data.payment.cheque_number).toBe('CHQ-2026-99124');
+    });
+
+    it('records payment successfully using easypaisa payment method', async () => {
+      const invRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/finance/invoices/generate',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          student_id: 'stud-1',
+          billing_month: 'January 2027',
+          due_date: '2027-01-15',
+          include_arrears: false,
+          custom_items: [{ fee_head_id: 'head-tuition', amount: 8000 }]
+        }
+      });
+      const testInvoiceId = invRes.json().data.id;
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/v1/finance/payments',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          invoice_id: testInvoiceId,
+          amount_paid: 1000,
+          payment_method: 'easypaisa',
+          reference_number: 'TID-9920194812'
+        }
+      });
+
+      expect(res.statusCode).toBe(201);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.payment.payment_method).toBe('easypaisa');
+      expect(body.data.payment.reference_number).toBe('TID-9920194812');
     });
   });
 
