@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload } from '@apex/shared-types';
@@ -58,11 +59,40 @@ export function portalRoutes(store: IDataStore) {
         }
 
         let targetStudentId = req.query.student_id;
+        let linkedChildren: any[] | undefined = undefined;
 
         // Strict Role-Based Identity Binding (Eliminates IDOR)
         if (user.role === 'student') {
           const allStudents = await store.getStudents(tenantId);
-          const myStudent = allStudents.find(s => s.user_id === user.sub || (s.email && s.email.toLowerCase() === user.email.toLowerCase()));
+          let myStudent = allStudents.find(s => 
+            (s.user_id && s.user_id === user.sub) || 
+            (s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase())
+          );
+          if (!myStudent) {
+            // Match via guardian CNIC, roll number, or admission number if user was authenticated with identifier
+            const guardianCnic = (me?.metadata as any)?.clean_guardian_id_card || (me?.metadata as any)?.guardian_id_card;
+            const cleanCnic = guardianCnic ? String(guardianCnic).replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+            const metaRoll = (me?.metadata as any)?.roll_number;
+            const metaAdm = (me?.metadata as any)?.admission_number;
+            const cleanUserEmail = (user.email || '').toLowerCase().trim();
+            myStudent = allStudents.find(s => {
+              if (metaRoll && s.roll_number && s.roll_number.toLowerCase() === metaRoll.toLowerCase()) return true;
+              if (metaAdm && s.admission_number && s.admission_number.toLowerCase() === metaAdm.toLowerCase()) return true;
+              if (cleanCnic && s.guardian_id_card && s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() === cleanCnic) return true;
+              if (cleanUserEmail && s.admission_number) {
+                const admClean = s.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (cleanUserEmail.includes(admClean)) return true;
+              }
+              if (cleanUserEmail && s.roll_number) {
+                const rollClean = s.roll_number.toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (cleanUserEmail.includes(rollClean)) return true;
+              }
+              return false;
+            });
+            if (myStudent) {
+              await store.updateStudent(tenantId, myStudent.id, { user_id: user.sub });
+            }
+          }
           if (!myStudent) {
             return reply.status(403).send({
               success: false,
@@ -78,7 +108,19 @@ export function portalRoutes(store: IDataStore) {
           targetStudentId = myStudent.id;
         } else if (user.role === 'parent') {
           const tenantStudents = await store.getStudents(tenantId);
-          const children = tenantStudents.filter(s => (s.guardian_email && s.guardian_email.toLowerCase() === user.email.toLowerCase()) || (s.guardian_phone && s.guardian_phone === (me as any)?.phone));
+          const parentCnic = (me?.metadata as any)?.guardian_id_card || (me?.metadata as any)?.clean_guardian_id_card;
+          const cleanParentCnic = parentCnic ? String(parentCnic).replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+
+          const children = tenantStudents.filter(s => {
+            if (s.guardian_id_card && cleanParentCnic) {
+              const cleanStdCnic = s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
+              if (cleanStdCnic === cleanParentCnic) return true;
+            }
+            if (s.guardian_email && user.email && s.guardian_email.toLowerCase() === user.email.toLowerCase()) return true;
+            if (s.guardian_phone && (me as any)?.phone && s.guardian_phone === (me as any)?.phone) return true;
+            return false;
+          });
+
           if (children.length === 0) {
             return reply.status(403).send({
               success: false,
@@ -96,6 +138,27 @@ export function portalRoutes(store: IDataStore) {
           } else {
             targetStudentId = children[0].id;
           }
+
+          const allBatches = await store.getBatches(tenantId);
+          const allPrograms = await store.getPrograms(tenantId);
+          const allInvoices = await store.getInvoices(tenantId);
+
+          linkedChildren = children.map(c => {
+            const b = allBatches.find(batch => batch.id === c.batch_id);
+            const p = allPrograms.find(prog => prog.id === c.program_id);
+            const cInvoices = allInvoices.filter(i => (i.student_id === c.id || i.roll_number === c.roll_number) && i.status !== 'voided');
+            const unpaid = cInvoices.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
+            return {
+              id: c.id,
+              full_name: c.full_name,
+              roll_number: c.roll_number,
+              admission_number: c.admission_number,
+              program_name: p?.name || 'Class',
+              batch_name: b?.name || 'Batch',
+              photo_url: c.photo_url,
+              unpaid_balance: unpaid,
+            };
+          });
         } else if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
           return reply.status(403).send({
             success: false,
@@ -103,30 +166,57 @@ export function portalRoutes(store: IDataStore) {
           });
         } else {
           // Admin viewing portal overview
+          const tenantStudents = await store.getStudents(tenantId);
+          if (tenantStudents.length === 0) {
+            return reply.status(404).send({
+              success: false,
+              error: { code: 'NO_STUDENTS', message: 'No students found in tenant.' }
+            });
+          }
           if (!targetStudentId) {
-            const tenantStudents = await store.getStudents(tenantId);
-            if (tenantStudents.length === 0) {
-              return reply.status(404).send({
-                success: false,
-                error: { code: 'NO_STUDENTS', message: 'No students found in tenant.' }
-              });
-            }
             targetStudentId = tenantStudents[0].id;
           }
+          // Allow admin to switch between students via linked_children list
+          const allBatches = await store.getBatches(tenantId);
+          const allPrograms = await store.getPrograms(tenantId);
+          const allInvoices = await store.getInvoices(tenantId);
+          linkedChildren = tenantStudents.slice(0, 20).map(c => {
+            const b = allBatches.find(batch => batch.id === c.batch_id);
+            const p = allPrograms.find(prog => prog.id === c.program_id);
+            const cInvoices = allInvoices.filter(i => (i.student_id === c.id || i.roll_number === c.roll_number) && i.status !== 'voided');
+            const unpaid = cInvoices.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
+            return {
+              id: c.id,
+              full_name: c.full_name,
+              roll_number: c.roll_number,
+              admission_number: c.admission_number,
+              program_name: p?.name || 'Class',
+              batch_name: b?.name || 'Batch',
+              photo_url: c.photo_url,
+              unpaid_balance: unpaid,
+            };
+          });
         }
 
         const overview = await store.getStudentParentPortalOverview(tenantId, targetStudentId);
+        if (linkedChildren) {
+          overview.linked_children = linkedChildren;
+        }
         return reply.send({ success: true, data: overview, timestamp: new Date().toISOString() });
       } catch (err: any) {
         req.log.error(err);
-        return reply.status(500).send({
+        const isBlocked = err.message?.includes('blocked');
+        return reply.status(isBlocked ? 403 : 500).send({
           success: false,
-          error: { code: 'STUDENT_PORTAL_FAILED', message: err.message || 'Failed fetching student portal overview' }
+          error: { 
+            code: isBlocked ? 'PORTAL_BLOCKED' : 'STUDENT_PORTAL_FAILED', 
+            message: err.message || 'Failed fetching student portal overview' 
+          },
+          timestamp: new Date().toISOString(),
         });
       }
     };
 
     fastify.get('/student-parent', getStudentParentPortalHandler);
-    fastify.get('/portal/student-parent', getStudentParentPortalHandler);
   };
 }

@@ -8,6 +8,7 @@ import {
   ArrowRight, 
   RefreshCw, 
   ShieldCheck, 
+  ShieldAlert,
   ArrowLeft,
   CheckCircle2,
   GraduationCap,
@@ -95,7 +96,7 @@ export const LoginModal: React.FC = () => {
 
   // Mode & Steps
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [step, setStep] = useState<'form' | 'otp' | 'registration_success' | 'forgot_password_request' | 'forgot_password_reset'>('form');
+  const [step, setStep] = useState<'form' | 'otp' | 'registration_success' | 'forgot_password_request' | 'forgot_password_reset' | 'contact_admin_forgot_password'>('form');
 
   // Completed Registration Details
   const [registrationDetails, setRegistrationDetails] = useState<{
@@ -462,7 +463,7 @@ export const LoginModal: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 sm:p-6 lg:p-10 font-sans">
-      <div className="w-full max-w-6xl bg-white sm:rounded-2xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[680px]">
+      <div className="w-full max-w-6xl bg-white sm:rounded-2xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-screen sm:min-h-[680px]">
         
         <div className="hidden lg:flex lg:col-span-5 bg-slate-950 text-white p-8 lg:p-10 flex-col justify-between relative overflow-hidden border-r border-slate-900">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
@@ -538,7 +539,7 @@ export const LoginModal: React.FC = () => {
         {/* ================================================================ */}
         {/* RIGHT COLUMN: PORTAL FORMS (7/12 cols)                            */}
         {/* ================================================================ */}
-        <div className="lg:col-span-7 bg-white p-6 sm:p-10 lg:p-12 flex flex-col justify-between min-h-[600px] overflow-y-auto">
+        <div className="lg:col-span-7 bg-white p-4 sm:p-10 lg:p-12 flex flex-col justify-between min-h-0 sm:min-h-[600px] overflow-y-auto">
           
           {/* Top Bar: Mode Switcher & Mobile Branding */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 border-b border-slate-100 pb-4">
@@ -608,6 +609,7 @@ export const LoginModal: React.FC = () => {
                 {step === 'registration_success' && 'Registration Complete'}
                 {step === 'forgot_password_request' && 'Reset Password'}
                 {step === 'forgot_password_reset' && 'Set New Password'}
+                {step === 'contact_admin_forgot_password' && 'Password Reset Assistance'}
                 {step === 'form' && (mode === 'login' ? 'Sign In' : 'Register Academy')}
               </h2>
               <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
@@ -615,8 +617,9 @@ export const LoginModal: React.FC = () => {
                 {step === 'registration_success' && 'Your academy portal is active and ready to use.'}
                 {step === 'forgot_password_request' && 'Enter your institutional email to receive a password reset code.'}
                 {step === 'forgot_password_reset' && `Enter the 6-digit code sent to ${email} and choose your new password.`}
+                {step === 'contact_admin_forgot_password' && 'Administrative guidance for student and guardian account access.'}
                 {step === 'form' && (mode === 'login' 
-                  ? 'Enter your institutional email and password to access your academy account.' 
+                  ? 'Enter your institutional email or Father/Guardian CNIC to sign in.' 
                   : 'Create your academy profile, choose your web address, and set up your director account.')}
               </p>
             </div>
@@ -638,25 +641,31 @@ export const LoginModal: React.FC = () => {
             )}
 
             {/* ------------------------------------------------------------- */}
-            {/* 1. DAILY SIGN IN FORM: EMAIL + PASSWORD                       */}
+            {/* 1. DAILY SIGN IN FORM: EMAIL / CNIC + PASSWORD                */}
             {/* ------------------------------------------------------------- */}
             {step === 'form' && mode === 'login' && (
               <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Email Address
+                    Email / Username (Father/Guardian CNIC)
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
                     <input
-                      type="email"
+                      id="login-identifier"
+                      name="identifier"
+                      type="text"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Staff Email or Father/Guardian CNIC (e.g. 35201-1234567-1)"
                       required
                       autoFocus
                       className="w-full pl-10 pr-3.5 py-2.5 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
                     />
                   </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Students &amp; Guardians sign in using their registered Father/Guardian CNIC.
+                  </p>
                 </div>
 
                 <div>
@@ -666,7 +675,7 @@ export const LoginModal: React.FC = () => {
                     </label>
                     <button
                       type="button"
-                      onClick={() => { setStep('forgot_password_request'); setError(null); setMessage(null); }}
+                      onClick={() => { setStep('contact_admin_forgot_password'); setError(null); setMessage(null); }}
                       className="text-[11px] text-slate-500 hover:text-slate-900 font-medium cursor-pointer"
                     >
                       Forgot password?
@@ -675,6 +684,8 @@ export const LoginModal: React.FC = () => {
                   <div className="relative">
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
                     <input
+                      id="login-password"
+                      name="password"
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -692,6 +703,7 @@ export const LoginModal: React.FC = () => {
                 </div>
 
                 <button
+                  id="login-submit-btn"
                   type="submit"
                   disabled={loading}
                   className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
@@ -1189,6 +1201,65 @@ export const LoginModal: React.FC = () => {
                   <span>Go to Academy Portal</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </button>
+              </div>
+            )}
+
+            {/* ------------------------------------------------------------- */}
+            {/* 3.5 FORGOT PASSWORD: CONTACT CAMPUS ADMIN (STUDENTS/PARENTS) */}
+            {/* ------------------------------------------------------------- */}
+            {step === 'contact_admin_forgot_password' && (
+              <div className="space-y-4">
+                <div className="p-4 bg-amber-50/80 border border-amber-200/90 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-800 shrink-0">
+                      <ShieldAlert className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-bold text-amber-900">Student & Guardian Password Reset</h4>
+                      <p className="text-[11px] text-amber-800/90 leading-relaxed">
+                        For student privacy and official records integrity, student and guardian passwords are reset directly by academy administration.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5 text-xs text-slate-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-medium">Campus Office:</span>
+                    <span className="font-semibold text-slate-900">{tenantSlug ? tenantSlug.toUpperCase() : 'Main Campus'} Administration Desk</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-medium">Office Timings:</span>
+                    <span className="font-semibold text-slate-900">Monday – Saturday, 8:00 AM – 5:00 PM</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-medium">Username:</span>
+                    <span className="font-semibold text-slate-900 font-mono">Father / Guardian CNIC</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-500 font-medium">Default Password:</span>
+                    <span className="font-mono font-bold bg-white px-2 py-0.5 border border-slate-200 rounded text-slate-800">Student@123</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { setStep('form'); setError(null); setMessage(null); }}
+                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Return to Sign In</span>
+                </button>
+
+                <div className="pt-2 text-center border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => { setStep('forgot_password_request'); setError(null); setMessage(null); }}
+                    className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline underline-offset-2"
+                  >
+                    Academy staff member with institutional email? Reset here →
+                  </button>
+                </div>
               </div>
             )}
 

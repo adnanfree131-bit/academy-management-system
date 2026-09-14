@@ -1,96 +1,201 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginModal } from './components/LoginModal';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
-import { DashboardView } from './views/DashboardView';
-import { AcademicStructureView } from './views/AcademicStructureView';
-import { EnrollmentView } from './views/EnrollmentView';
-import { TimetableDesk } from './views/TimetableDesk';
-import { AttendanceDeskView } from './views/AttendanceDeskView';
-import { StaffClockInView } from './views/StaffClockInView';
-import { HomeworkDesk } from './views/HomeworkDesk';
-import { ComplaintsDeskView } from './views/ComplaintsDeskView';
-import { FeeDeskView } from './views/FeeDeskView';
-import { PayrollDeskView } from './views/PayrollDeskView';
-import { ExamDeskView } from './views/ExamDeskView';
-import { AbsenteeRetentionDeskView } from './views/AbsenteeRetentionDeskView';
-import { GenericModuleView } from './views/GenericModuleView';
-import { TeacherPortalView } from './views/TeacherPortalView';
-import { StudentParentPortalView } from './views/StudentParentPortalView';
-import { SuperAdminControlPlaneView } from './views/SuperAdminControlPlaneView';
-import { IncomeExpenseDeskView } from './views/IncomeExpenseDeskView';
-import { AcademySettingsView } from './views/AcademySettingsView';
-import { StaffDeskView } from './views/StaffDeskView';
 import { canOpenScreen, isManagedStaff } from './lib/portalAccess';
 import { TrialExpiredLockoutModal } from './components/TrialExpiredLockoutModal';
 import { AnnouncementPopupModal } from './components/AnnouncementPopupModal';
 import { CommandPalette } from './components/CommandPalette';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ShieldAlert } from 'lucide-react';
 
-const getTitle = (screen: string, role?: string): string => {
+// Lazy-loaded Views for high-speed bundle performance and code-splitting
+const DashboardView = lazy(() => import('./views/DashboardView').then(m => ({ default: m.DashboardView })));
+const AcademicStructureView = lazy(() => import('./views/AcademicStructureView').then(m => ({ default: m.AcademicStructureView })));
+const EnrollmentView = lazy(() => import('./views/EnrollmentView').then(m => ({ default: m.EnrollmentView })));
+const TimetableDesk = lazy(() => import('./views/TimetableDesk').then(m => ({ default: m.TimetableDesk })));
+const AttendanceDeskView = lazy(() => import('./views/AttendanceDeskView').then(m => ({ default: m.AttendanceDeskView })));
+const StaffClockInView = lazy(() => import('./views/StaffClockInView').then(m => ({ default: m.StaffClockInView })));
+const HomeworkDesk = lazy(() => import('./views/HomeworkDesk').then(m => ({ default: m.HomeworkDesk })));
+const ComplaintsDeskView = lazy(() => import('./views/ComplaintsDeskView').then(m => ({ default: m.ComplaintsDeskView })));
+const FeeDeskView = lazy(() => import('./views/FeeDeskView').then(m => ({ default: m.FeeDeskView })));
+const PayrollDeskView = lazy(() => import('./views/PayrollDeskView').then(m => ({ default: m.PayrollDeskView })));
+const ExamDeskView = lazy(() => import('./views/ExamDeskView').then(m => ({ default: m.ExamDeskView })));
+const AbsenteeRetentionDeskView = lazy(() => import('./views/AbsenteeRetentionDeskView').then(m => ({ default: m.AbsenteeRetentionDeskView })));
+const GenericModuleView = lazy(() => import('./views/GenericModuleView').then(m => ({ default: m.GenericModuleView })));
+const TeacherPortalView = lazy(() => import('./views/TeacherPortalView').then(m => ({ default: m.TeacherPortalView })));
+const StudentParentPortalView = lazy(() => import('./views/StudentParentPortalView').then(m => ({ default: m.StudentParentPortalView })));
+const SuperAdminControlPlaneView = lazy(() => import('./views/SuperAdminControlPlaneView').then(m => ({ default: m.SuperAdminControlPlaneView })));
+const IncomeExpenseDeskView = lazy(() => import('./views/IncomeExpenseDeskView').then(m => ({ default: m.IncomeExpenseDeskView })));
+const AcademySettingsView = lazy(() => import('./views/AcademySettingsView').then(m => ({ default: m.AcademySettingsView })));
+const StaffDeskView = lazy(() => import('./views/StaffDeskView').then(m => ({ default: m.StaffDeskView })));
+
+const ViewLoadingSkeleton: React.FC = () => (
+  <div className="space-y-4 animate-pulse">
+    <div className="h-14 bg-white border border-slate-200/90 rounded-2xl p-4 flex items-center justify-between">
+      <div className="h-4 w-40 bg-slate-200 rounded-lg"></div>
+      <div className="h-7 w-28 bg-slate-100 rounded-lg"></div>
+    </div>
+    <div className="h-96 bg-white border border-slate-200/90 rounded-2xl p-6 space-y-4">
+      <div className="h-4 w-2/3 bg-slate-100 rounded"></div>
+      <div className="h-4 w-1/3 bg-slate-100 rounded"></div>
+      <div className="h-64 bg-slate-50 rounded-xl border border-slate-100"></div>
+    </div>
+  </div>
+);
+
+interface ScreenMeta {
+  section: string;
+  title: string;
+}
+
+const getScreenMeta = (screen: string, role?: string): ScreenMeta => {
   if (role === 'teacher') {
     switch (screen) {
-      case 'teacher': return 'Faculty Overview';
-      case 'timetable': return 'Class Schedule';
-      case 'attendance': return 'Take Attendance';
-      case 'homework': return 'Homework & Notebooks';
-      case 'exams': return 'Grade Examinations';
-      case 'geofence': return 'Campus Check-In';
-      case 'complaints': return 'Faculty Feedback';
-      default: return 'Faculty Portal';
+      case 'teacher': return { section: 'Faculty', title: 'Teacher Portal' };
+      case 'timetable': return { section: 'Academic', title: 'Class Schedule' };
+      case 'attendance': return { section: 'Daily Operations', title: 'Attendance' };
+      case 'homework': return { section: 'Daily Operations', title: 'Homework & Notebooks' };
+      case 'exams': return { section: 'Examinations', title: 'Grade Examinations' };
+      case 'geofence': return { section: 'Daily Operations', title: 'Check-In' };
+      case 'complaints': return { section: 'Messages', title: 'Feedback' };
+      default: return { section: 'Faculty', title: 'Teacher Portal' };
     }
   }
 
-  if (role === 'student') {
+  if (role === 'student' || role === 'parent') {
     switch (screen) {
-      case 'student_portal': return 'Student Overview';
-      case 'timetable': return 'Class Timetable';
-      case 'voucher': return 'Fee Invoices & Payments';
-      case 'homework': return 'Homework Diary';
-      case 'exams': return 'Report Cards';
-      case 'complaints': return 'Complaints & Requests';
-      default: return 'Student Portal';
+      case 'student_portal': return { section: 'Student Portal', title: 'Student & Parent Overview' };
+      case 'timetable': return { section: 'Academic', title: 'Class Timetable' };
+      case 'attendance': return { section: 'Daily Operations', title: 'Attendance & Leaves' };
+      case 'voucher': return { section: 'Finance', title: 'Fee Invoices & Payments' };
+      case 'homework': return { section: 'Academic', title: 'Homework Diary' };
+      case 'exams': return { section: 'Examinations', title: 'Report Cards & Results' };
+      case 'complaints': return { section: 'Support', title: 'Requests & Complaints' };
+      default: return { section: 'Student Portal', title: 'Student & Parent Overview' };
     }
   }
 
   if (role === 'super_admin') {
     switch (screen) {
-      case 'superadmin': return 'Platform Administration';
-      case 'dashboard': return 'Campus Overview';
-      default: return 'System Administration';
+      case 'superadmin': return { section: 'Platform', title: 'Platform Administration' };
+      case 'dashboard': return { section: 'Platform', title: 'Campus Overview' };
+      default: return { section: 'Platform', title: 'Platform Administration' };
     }
   }
 
-  // Tenant Admin (Principal / Director)
+  // Tenant Admin (Principal / Director) & Staff
   switch (screen) {
-    case 'dashboard': return 'Dashboard';
-    case 'classes': return 'Classes & Batches';
-    case 'id_cards': return 'Student ID Card Studio';
-    case 'enrollment': return 'Student Admissions & Directory';
-    case 'timetable': return 'Timetable & Scheduling';
-    case 'attendance': return 'Student Attendance';
-    case 'absentee': return 'Absence Follow-Up';
-    case 'homework': return 'Homework & Notebooks';
-    case 'exams': return 'Exams & Results';
-    case 'voucher': return 'Fee Invoices & Vouchers';
-    case 'expenses': return 'Income & Expense Management';
-    case 'payroll': return 'Staff Payroll';
-    case 'geofence': return 'Staff Attendance';
-    case 'complaints': return 'Complaints & Feedback';
-    case 'settings': return 'Academy Settings';
-    case 'staff': return 'Staff';
-    case 'mobile': return 'Mobile App';
-    default: return 'Academy Portal';
+    case 'dashboard': return { section: 'Overview', title: 'Dashboard' };
+    case 'enrollment': return { section: 'Academic Management', title: 'Students' };
+    case 'classes': return { section: 'Academic Management', title: 'Classes & Batches' };
+    case 'timetable': return { section: 'Academic Management', title: 'Timetables' };
+    case 'new_admission': return { section: 'Academic Management', title: 'Admission Form' };
+    case 'attendance': return { section: 'Daily Operations', title: 'Attendance' };
+    case 'absentee': return { section: 'Daily Operations', title: 'Absence Follow-Up' };
+    case 'homework': return { section: 'Daily Operations', title: 'Homework & Notebooks' };
+    case 'geofence': return { section: 'Daily Operations', title: 'Staff Attendance' };
+    case 'complaints': return { section: 'Daily Operations', title: 'Feedback' };
+    case 'exams': return { section: 'Examinations', title: 'Examinations' };
+    case 'voucher': return { section: 'Finance', title: 'Fee Ledger' };
+    case 'expenses': return { section: 'Finance', title: 'Income & Expenses' };
+    case 'payroll': return { section: 'Finance', title: 'Payroll' };
+    case 'staff': return { section: 'Administration', title: 'Staff Directory' };
+    case 'settings': return { section: 'Administration', title: 'Settings' };
+    case 'mobile': return { section: 'Mobile', title: 'Mobile App' };
+    default: return { section: 'Academy', title: 'Portal' };
   }
+};
+
+const parseScreenFromHash = (): { screen: string; studentId?: string } | null => {
+  try {
+    const raw = window.location.hash.replace(/^#\/?/, '').trim();
+    if (!raw) return null;
+    const [screenPart, queryPart] = raw.split('?');
+    const screen = screenPart.split('/')[0].trim();
+    if (!screen) return null;
+    let studentId: string | undefined;
+    if (queryPart) {
+      const params = new URLSearchParams(queryPart);
+      studentId = params.get('student_id') || undefined;
+    }
+    return { screen, studentId };
+  } catch {
+    return null;
+  }
+};
+
+const getDefaultScreenForRole = (role?: string, permissions?: string[] | null): string => {
+  if (role === 'teacher' && !isManagedStaff(role, permissions)) {
+    return 'teacher';
+  } else if (role === 'student' || role === 'parent') {
+    return 'student_portal';
+  } else if (role === 'super_admin') {
+    return 'superadmin';
+  }
+  return 'dashboard';
 };
 
 const MainLayout: React.FC = () => {
   const { user, tenant, isLoading, refreshSession, logout } = useAuth();
-  const [currentScreen, setCurrentScreen] = useState<string>('dashboard');
+  
+  const [previewStudentId, setPreviewStudentId] = useState<string | null>(() => {
+    const parsed = parseScreenFromHash();
+    return parsed?.studentId || null;
+  });
+
+  // Initialize screen state with URL hash -> localStorage -> default
+  const [currentScreen, setCurrentScreen] = useState<string>(() => {
+    const fromHash = parseScreenFromHash();
+    if (fromHash?.screen) return fromHash.screen;
+    try {
+      const stored = localStorage.getItem('apex_active_screen');
+      if (stored) return stored;
+    } catch {}
+    return 'dashboard';
+  });
+
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [searchOpen, setSearchOpen] = useState<boolean>(false);
+  const [screenNavKey, setScreenNavKey] = useState<number>(0);
+
+  // Centralized screen switch handler that synchronizes state, URL hash, and persistent storage
+  const handleSwitchScreen = useCallback((screenId: string, studentId?: string | null) => {
+    let targetScreen = screenId;
+    let targetStudentId: string | null = studentId ?? null;
+
+    if (screenId.includes('?')) {
+      const [s, q] = screenId.split('?');
+      targetScreen = s;
+      const params = new URLSearchParams(q);
+      if (params.has('student_id')) {
+        targetStudentId = params.get('student_id');
+      }
+    }
+
+    if (targetStudentId !== null) {
+      setPreviewStudentId(targetStudentId);
+    } else if (targetScreen !== 'student_portal') {
+      setPreviewStudentId(null);
+    }
+
+    if (user && !canOpenScreen(user.role, user.permissions, targetScreen)) {
+      return;
+    }
+    setCurrentScreen(targetScreen);
+    setScreenNavKey(k => k + 1);
+    try {
+      localStorage.setItem('apex_active_screen', targetScreen);
+      const newHash = targetStudentId && targetScreen === 'student_portal'
+        ? `#${targetScreen}?student_id=${encodeURIComponent(targetStudentId)}`
+        : '#' + targetScreen;
+      if (window.location.hash !== newHash) {
+        window.history.replaceState(null, '', newHash);
+      }
+    } catch {}
+  }, [user]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -103,33 +208,63 @@ const MainLayout: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Set initial screen based on user role when logging in
+  // Listen to browser Back/Forward navigation
   useEffect(() => {
-    if (user) {
-      if (user.role === 'teacher' && !isManagedStaff(user.role, user.permissions)) {
-        setCurrentScreen('teacher');
-      } else if (user.role === 'student') {
-        setCurrentScreen('student_portal');
-      } else if (user.role === 'super_admin') {
-        setCurrentScreen('superadmin');
-      } else {
-        setCurrentScreen('dashboard');
+    const handleHashChange = () => {
+      const parsed = parseScreenFromHash();
+      if (parsed?.screen) {
+        if (parsed.studentId !== undefined) {
+          setPreviewStudentId(parsed.studentId || null);
+        }
+        if (parsed.screen !== currentScreen) {
+          if (!user || canOpenScreen(user.role, user.permissions, parsed.screen)) {
+            setCurrentScreen(parsed.screen);
+            setScreenNavKey(k => k + 1);
+            try {
+              localStorage.setItem('apex_active_screen', parsed.screen);
+            } catch {}
+          }
+        }
       }
-    }
-  }, [user?.role, user?.id]);
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [currentScreen, user]);
 
+  // Preserve user's restored screen upon refresh, or set default role screen if unauthorized
   useEffect(() => {
     if (!user) return;
-    if (canOpenScreen(user.role, user.permissions, currentScreen)) return;
-    setCurrentScreen('dashboard');
-  }, [user?.role, user?.permissions, currentScreen]);
+
+    // If currentScreen is already valid and permitted for this user, keep it!
+    if (currentScreen && canOpenScreen(user.role, user.permissions, currentScreen)) {
+      try {
+        localStorage.setItem('apex_active_screen', currentScreen);
+        const parsed = parseScreenFromHash();
+        if (parsed?.screen !== currentScreen) {
+          const newHash = previewStudentId && currentScreen === 'student_portal'
+            ? `#${currentScreen}?student_id=${encodeURIComponent(previewStudentId)}`
+            : '#' + currentScreen;
+          window.history.replaceState(null, '', newHash);
+        }
+      } catch {}
+      return;
+    }
+
+    // Otherwise fall back to role default
+    const defaultScreen = getDefaultScreenForRole(user.role, user.permissions);
+    setCurrentScreen(defaultScreen);
+    try {
+      localStorage.setItem('apex_active_screen', defaultScreen);
+      window.history.replaceState(null, '', '#' + defaultScreen);
+    } catch {}
+  }, [user?.id, user?.role]);
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-          <p className="text-xs font-mono text-slate-400">Loading Academy Session...</p>
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center font-sans">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-slate-300 border-t-slate-800 rounded-full animate-spin mx-auto mb-3"></div>
+          <p className="text-xs font-semibold text-slate-600 tracking-wide">Loading Session...</p>
         </div>
       </div>
     );
@@ -185,115 +320,128 @@ const MainLayout: React.FC = () => {
       <CommandPalette
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
-        onNavigate={setCurrentScreen}
+        onNavigate={handleSwitchScreen}
       />
 
       <Sidebar
         currentScreen={currentScreen}
-        onSelectScreen={setCurrentScreen}
+        onSelectScreen={handleSwitchScreen}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
 
       <div className="flex-1 flex flex-col min-w-0 min-h-screen">
         <Header
-          currentScreenTitle={getTitle(currentScreen, user.role)}
+          section={getScreenMeta(currentScreen, user?.role).section}
+          currentScreenTitle={getScreenMeta(currentScreen, user?.role).title}
           onOpenSidebar={() => setSidebarOpen(true)}
-          onNewAdmission={() => setCurrentScreen('new_admission')}
-          onSwitchScreen={setCurrentScreen}
+          onSwitchScreen={handleSwitchScreen}
           onOpenSearch={() => setSearchOpen(true)}
         />
 
-        <main className="flex-1 p-4 sm:p-6 pb-20 md:pb-6 w-full space-y-5 overflow-y-auto">
-          {/* ROLE: STUDENT / PARENT VIEW ROUTING */}
-          {user.role === 'student' ? (
-            currentScreen === 'complaints' ? (
-              <ComplaintsDeskView />
-            ) : (
-              <StudentParentPortalView
-                forcedTab={
-                  currentScreen === 'voucher' ? 'fees' :
-                  currentScreen === 'homework' ? 'homework' :
-                  currentScreen === 'exams' ? 'reports' :
-                  'schedule'
-                }
-                onNavigate={setCurrentScreen}
-              />
-            )
-          ) : /* ROLE: FACULTY TEACHER VIEW ROUTING */
-          user.role === 'teacher' && !isManagedStaff(user.role, user.permissions) ? (
-            currentScreen === 'teacher' ? (
-              <TeacherPortalView onNavigate={setCurrentScreen} />
-            ) : currentScreen === 'timetable' ? (
-              <TimetableDesk />
-            ) : currentScreen === 'attendance' ? (
-              <AttendanceDeskView />
-            ) : currentScreen === 'homework' ? (
-              <HomeworkDesk />
-            ) : currentScreen === 'exams' ? (
-              <ExamDeskView />
-            ) : currentScreen === 'geofence' ? (
-              <StaffClockInView />
-            ) : currentScreen === 'complaints' ? (
-              <ComplaintsDeskView />
-            ) : (
-              <TeacherPortalView onNavigate={setCurrentScreen} />
-            )
-          ) : /* ROLE: SUPER ADMIN VIEW ROUTING */
-          user.role === 'super_admin' ? (
-            currentScreen === 'superadmin' ? (
-              <SuperAdminControlPlaneView />
-            ) : currentScreen === 'dashboard' ? (
-              <DashboardView onNavigate={setCurrentScreen} />
-            ) : (
-              <SuperAdminControlPlaneView />
-            )
-          ) : /* ROLE: TENANT ADMIN (Principal / Director) */
-          (
-            currentScreen === 'dashboard' ? (
-              <DashboardView onNavigate={setCurrentScreen} />
-            ) : currentScreen === 'classes' ? (
-              <AcademicStructureView />
-            ) : currentScreen === 'id_cards' ? (
-              <EnrollmentView defaultTab="id_cards" />
-            ) : currentScreen === 'enrollment' ? (
-              <EnrollmentView />
-            ) : currentScreen === 'new_admission' ? (
-              <EnrollmentView defaultTab="new_admission" />
-            ) : currentScreen === 'timetable' ? (
-              <TimetableDesk />
-            ) : currentScreen === 'attendance' ? (
-              <AttendanceDeskView />
-            ) : currentScreen === 'absentee' ? (
-              <AbsenteeRetentionDeskView />
-            ) : currentScreen === 'homework' ? (
-              <HomeworkDesk />
-            ) : currentScreen === 'exams' ? (
-              <ExamDeskView />
-            ) : currentScreen === 'voucher' ? (
-              <FeeDeskView />
-            ) : currentScreen === 'expenses' ? (
-              <IncomeExpenseDeskView />
-            ) : currentScreen === 'payroll' ? (
-              <PayrollDeskView />
-            ) : currentScreen === 'geofence' ? (
-              <StaffClockInView />
-            ) : currentScreen === 'complaints' ? (
-              <ComplaintsDeskView />
-            ) : currentScreen === 'staff' ? (
-              <StaffDeskView />
-            ) : currentScreen === 'settings' ? (
-              <AcademySettingsView />
-            ) : (
-              <GenericModuleView moduleId={currentScreen} />
-            )
-          )}
+        <main className="flex-1 p-3 sm:p-6 pb-24 md:pb-6 w-full space-y-4 sm:space-y-5 overflow-y-auto min-w-0">
+          <Suspense fallback={<ViewLoadingSkeleton />}>
+            <ErrorBoundary key={`${currentScreen}-${screenNavKey}`} onReset={() => handleSwitchScreen('dashboard')}>
+            {/* ROLE: STUDENT / PARENT VIEW ROUTING */}
+            {user.role === 'student' || user.role === 'parent' ? (
+              currentScreen === 'complaints' ? (
+                <ComplaintsDeskView />
+              ) : (
+                <StudentParentPortalView
+                  activeScreen={currentScreen}
+                  onNavigate={handleSwitchScreen}
+                />
+              )
+            ) : /* ROLE: FACULTY TEACHER VIEW ROUTING */
+            user.role === 'teacher' && !isManagedStaff(user.role, user.permissions) ? (
+              currentScreen === 'teacher' ? (
+                <TeacherPortalView onNavigate={handleSwitchScreen} />
+              ) : currentScreen === 'timetable' ? (
+                <TimetableDesk />
+              ) : currentScreen === 'attendance' ? (
+                <AttendanceDeskView onNavigate={handleSwitchScreen} />
+              ) : currentScreen === 'homework' ? (
+                <HomeworkDesk />
+              ) : currentScreen === 'exams' ? (
+                <ExamDeskView />
+              ) : currentScreen === 'geofence' ? (
+                <StaffClockInView />
+              ) : currentScreen === 'complaints' ? (
+                <ComplaintsDeskView />
+              ) : (
+                <TeacherPortalView onNavigate={handleSwitchScreen} />
+              )
+            ) : /* ROLE: SUPER ADMIN VIEW ROUTING */
+            user.role === 'super_admin' ? (
+              currentScreen === 'superadmin' ? (
+                <SuperAdminControlPlaneView />
+              ) : currentScreen === 'dashboard' ? (
+                <DashboardView onNavigate={handleSwitchScreen} />
+              ) : currentScreen === 'student_portal' ? (
+                <StudentParentPortalView 
+                  studentId={previewStudentId}
+                  isAdminPreview={Boolean(previewStudentId)}
+                  activeScreen={currentScreen}
+                  onNavigate={handleSwitchScreen} 
+                />
+              ) : (
+                <SuperAdminControlPlaneView />
+              )
+            ) : /* ROLE: TENANT ADMIN (Principal / Director) */
+            (
+              currentScreen === 'dashboard' ? (
+                <DashboardView onNavigate={handleSwitchScreen} />
+              ) : currentScreen === 'classes' ? (
+                <AcademicStructureView />
+              ) : currentScreen === 'id_cards' ? (
+                <EnrollmentView defaultTab="id_cards" onNavigate={handleSwitchScreen} />
+              ) : currentScreen === 'enrollment' ? (
+                <EnrollmentView defaultTab="directory" onNavigate={handleSwitchScreen} />
+              ) : currentScreen === 'new_admission' ? (
+                <EnrollmentView defaultTab="new_admission" onNavigate={handleSwitchScreen} />
+              ) : currentScreen === 'timetable' ? (
+                <TimetableDesk />
+              ) : currentScreen === 'attendance' ? (
+                <AttendanceDeskView onNavigate={handleSwitchScreen} />
+              ) : currentScreen === 'absentee' ? (
+                <AbsenteeRetentionDeskView />
+              ) : currentScreen === 'homework' ? (
+                <HomeworkDesk />
+              ) : currentScreen === 'exams' ? (
+                <ExamDeskView />
+              ) : currentScreen === 'voucher' ? (
+                <FeeDeskView />
+              ) : currentScreen === 'expenses' ? (
+                <IncomeExpenseDeskView />
+              ) : currentScreen === 'payroll' ? (
+                <PayrollDeskView />
+              ) : currentScreen === 'geofence' ? (
+                <StaffClockInView />
+              ) : currentScreen === 'complaints' ? (
+                <ComplaintsDeskView />
+              ) : currentScreen === 'staff' ? (
+                <StaffDeskView onNavigate={handleSwitchScreen} />
+              ) : currentScreen === 'settings' ? (
+                <AcademySettingsView />
+              ) : currentScreen === 'student_portal' ? (
+                <StudentParentPortalView 
+                  studentId={previewStudentId}
+                  isAdminPreview={Boolean(previewStudentId)}
+                  activeScreen={currentScreen}
+                  onNavigate={handleSwitchScreen} 
+                />
+              ) : (
+                <GenericModuleView moduleId={currentScreen} />
+              )
+            )}
+            </ErrorBoundary>
+          </Suspense>
         </main>
 
         {/* Mobile Bottom Navigation Bar (< 768px touch screen devices) */}
         <MobileBottomNav
           currentScreen={currentScreen}
-          onSelectScreen={setCurrentScreen}
+          onSelectScreen={handleSwitchScreen}
           onOpenMenu={() => setSidebarOpen(true)}
           userRole={user.role}
         />

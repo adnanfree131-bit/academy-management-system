@@ -43,7 +43,9 @@ export interface TenantSettings {
   account_title?: string;
   account_number?: string;
   iban?: string;
+  raast_id?: string;
   branch_code?: string;
+  whatsapp_number?: string;
   morning_shift_start?: string;
   morning_shift_end?: string;
   evening_shift_start?: string;
@@ -71,6 +73,7 @@ export interface TenantSettings {
     geofence_attendance: boolean;
   };
   grading_scale?: GradingTier[];
+  departments?: string[];
 }
 
 export interface GradingTier {
@@ -388,6 +391,9 @@ export interface Batch {
   current_enrollment: number;
   room_number?: string | null; // Nullable for Single-Room default setup
   fee_schedule?: FeeScheduleItem[];
+  class_teacher_id?: string | null;
+  class_teacher_name?: string | null;
+  status?: 'active' | 'archived';
   created_at: string;
   updated_at: string;
 }
@@ -427,12 +433,14 @@ export interface StudentInquiry {
   email?: string | null;
   guardian_name?: string | null;
   guardian_phone?: string | null;
+  guardian_id_card?: string | null; // National Identity Card (CNIC) e.g. "35201-1234567-1"
   program_id?: string | null;
   source: string;            // Walk-in, Website, Social Media, Recommendation
   stage: InquiryStage;
   priority: InquiryPriority;
   notes?: string | null;
   next_follow_up_date?: string | null;
+  custom_field_values?: Record<string, any>;
   created_at: string;
   updated_at: string;
 }
@@ -451,7 +459,9 @@ export interface Student {
   guardian_name: string;
   guardian_phone: string;
   guardian_email?: string | null;
+  guardian_id_card?: string | null; // National Identity Card (CNIC) e.g. "35201-1234567-1"
   guardian_whatsapp?: string | null;
+  guardian_relation?: string | null;
   photo_url?: string | null;
   program_id: string;
   batch_id: string;
@@ -462,6 +472,8 @@ export interface Student {
   blood_group?: string | null;
   fee_structure?: any;
   first_invoice_id?: string | null;
+  unpaid_balance?: number;
+  fee_clearance_status?: 'cleared' | 'partial' | 'defaulter';
   admission_date: string;
   status_reason?: string | null;
   status_change_history?: Array<{
@@ -593,23 +605,101 @@ export interface LeaveApplication {
   updated_at: string;
 }
 
+export type AttendanceHeadCategory = 'present' | 'late' | 'half_day' | 'leave' | 'absent';
+
+export type AttendanceTriggerType =
+  | 'check_in_after'
+  | 'check_in_before'
+  | 'check_in_between'
+  | 'check_out_before'
+  | 'check_out_after'
+  | 'check_out_between'
+  | 'hours_below'
+  | 'hours_at_least'
+  | 'hours_between'
+  | 'no_check_in'
+  | 'manual_only';
+
+export interface AttendanceHeadTrigger {
+  type: AttendanceTriggerType;
+  time?: string; // "HH:MM" e.g. "08:15"
+  time_end?: string; // "HH:MM" for 'between' triggers e.g. "09:00"
+  hours?: number; // e.g. 4.0
+  hours_end?: number; // e.g. 6.0 for 'hours_between'
+}
+
+export interface AttendanceHead {
+  id: string;
+  name: string; // user-defined free text, e.g. "Present", "Casual Leave", "Late Arrival"
+  code?: string; // short label e.g. "P", "L", "HD", "A", "CL"
+  category?: AttendanceHeadCategory; // internal enum used for status coloring/grouping
+  kind?: 'punch' | 'leave'; // punch: evaluated against clock punches/hours; leave: off-campus / non-attendance
+  paid?: boolean;
+  priority?: number; // list order precedence: 1, 2, 3... (first match wins)
+  trigger?: AttendanceHeadTrigger;
+  is_active?: boolean;
+}
+
+export type AttendanceHeadOption = AttendanceHead;
+
 export interface CampusGeofenceConfig {
   tenant_id: string;
-  campus_name: string;
   latitude: number;
   longitude: number;
   radius_meters: number;
-  shift_start_time: string;   // e.g. "08:00:00"
-  shift_end_time?: string;     // e.g. "14:00:00"
-  grace_period_minutes: number;
-  half_day_hours?: number;     // e.g. 4.0
   enforcement_mode?: 'strict' | 'flagged'; // strict blocks clock-in, flagged records out-of-perimeter
-  multi_room_enabled?: boolean; // Settings toggle for Multi-Room mode
+  heads?: AttendanceHead[];
+  // Legacy fields marked optional for backward compatibility
+  campus_name?: string;
+  shift_start_time?: string;
+  shift_end_time?: string;
+  grace_period_minutes?: number;
+  late_threshold_minutes?: number;
+  half_day_hours?: number;
+  full_day_min_hours?: number;
+  early_departure_minutes?: number;
+  lates_for_leave_deduction?: number;
+  late_penalty_rule?: 'none' | 'deduct_casual_leave' | 'deduct_half_day_salary' | 'deduct_full_day_salary';
+  attendance_heads?: AttendanceHead[];
+  multi_room_enabled?: boolean;
   created_at: string;
   updated_at: string;
 }
 
+export interface StaffAttendanceAuditLog {
+  id: string;
+  tenant_id: string;
+  record_id?: string | null;
+  staff_id: string;
+  staff_name: string;
+  date: string;
+  action: 'created' | 'updated' | 'regularized' | 'status_override' | 'deleted';
+  previous_status?: StaffAttendanceStatus | null;
+  new_status: StaffAttendanceStatus;
+  head_id?: string | null;
+  head_name?: string | null;
+  previous_clock_in?: string | null;
+  new_clock_in?: string | null;
+  previous_clock_out?: string | null;
+  new_clock_out?: string | null;
+  reason_head: string;
+  notes?: string | null;
+  adjusted_by: string;
+  created_at: string;
+}
+
 export type StaffAttendanceStatus = 'on_time' | 'late' | 'half_day' | 'absent' | 'on_leave';
+
+export interface StaffAttendanceSession {
+  id?: string;
+  in: string;
+  out?: string | null;
+  duration_minutes?: number | null;
+  in_lat?: number;
+  in_lng?: number;
+  out_lat?: number | null;
+  out_lng?: number | null;
+}
 
 export interface StaffAttendanceRecord {
   id: string;
@@ -617,7 +707,7 @@ export interface StaffAttendanceRecord {
   staff_id: string;
   staff_name: string;
   date: string;              // YYYY-MM-DD
-  clock_in_time: string;     // ISO timestamp
+  clock_in_time?: string | null;     // ISO timestamp
   clock_out_time?: string | null;
   clock_in_lat: number;
   clock_in_lng: number;
@@ -627,11 +717,15 @@ export interface StaffAttendanceRecord {
   early_departure?: boolean;
   distance_meters: number;
   status: StaffAttendanceStatus;
+  head_id?: string | null;
+  head_name?: string | null;
+  head_code?: string | null;
   is_geofence_verified: boolean;
-  verification_mode?: 'geofence' | 'manual_regularization' | 'biometric_sync';
+  verification_mode?: 'geofence' | 'manual_regularization' | 'official_duty';
   admin_adjusted?: boolean;
   admin_adjustment_notes?: string | null;
   adjusted_by?: string | null;
+  sessions?: StaffAttendanceSession[];
   created_at: string;
   updated_at: string;
 }
@@ -644,16 +738,59 @@ export interface DailyStaffRosterEntry {
   designation: string;
   date: string;
   status: StaffAttendanceStatus | 'not_marked';
+  head_id?: string | null;
+  head_name?: string | null;
+  head_code?: string | null;
   clock_in_time?: string | null;
   clock_out_time?: string | null;
   work_duration_minutes?: number | null;
   early_departure?: boolean;
   distance_meters?: number | null;
   is_geofence_verified: boolean;
-  verification_mode?: 'geofence' | 'manual_regularization' | 'biometric_sync';
+  verification_mode?: 'geofence' | 'manual_regularization' | 'official_duty';
   admin_adjusted?: boolean;
   admin_adjustment_notes?: string | null;
   record_id?: string | null;
+  sessions?: StaffAttendanceSession[];
+}
+
+export interface StaffMonthlyAttendanceSummary {
+  staff_id: string;
+  staff_name: string;
+  employee_code: string;
+  department: string;
+  designation: string;
+  month: string; // YYYY-MM
+  total_calendar_days: number;
+  total_working_days: number;
+  present_days: number;
+  late_days: number;
+  half_days: number;
+  leave_days: number;
+  absent_days: number;
+  total_work_minutes: number;
+  geofence_verified_count: number;
+  attendance_percentage?: number;
+}
+
+export interface StaffRegularizationRequest {
+  id: string;
+  tenant_id: string;
+  staff_id: string;
+  staff_name: string;
+  employee_code?: string;
+  department?: string;
+  designation?: string;
+  date: string;              // YYYY-MM-DD
+  clock_in_time?: string | null;
+  clock_out_time?: string | null;
+  reason_type: string;       // 'Official Academy Duty' | 'Field Assignment' | 'Hardware / GPS Failure' | 'Emergency' | 'Missed Punch'
+  notes?: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewed_by?: string | null;
+  review_notes?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface HomeworkAssignment {
@@ -722,6 +859,7 @@ export interface FeeHead {
   is_system_default: boolean;
   default_amount: number;
   priority_order: number;      // 1 = highest liquidation priority
+  show_at_admission?: boolean; // Whether this head appears on student admission form
   created_at: string;
 }
 
@@ -780,6 +918,7 @@ export interface StudentInvoice {
   discount_total?: number;
   net_amount: number;
   net_total?: number;
+  total_amount?: number;
   paid_amount: number;
   balance_amount: number;
   balance_due?: number;
@@ -789,6 +928,22 @@ export interface StudentInvoice {
   fine_amount?: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface StudentProfileAuditLog {
+  id: string;
+  tenant_id: string;
+  student_id: string;
+  action: string;
+  changed_by_user_id: string;
+  changed_by: string;
+  changed_by_name: string;
+  field_name?: string;
+  old_value?: string | null;
+  new_value?: string | null;
+  changes?: Record<string, any>;
+  reason?: string | null;
+  created_at: string;
 }
 
 export interface PaymentDistributionItem {
@@ -1285,17 +1440,37 @@ export interface TeacherPortalOverview {
   };
 }
 
+export interface SiblingStudentSummary {
+  id: string;
+  full_name: string;
+  roll_number: string;
+  admission_number?: string;
+  program_name: string;
+  batch_name: string;
+  photo_url?: string;
+  unpaid_balance: number;
+}
+
 export interface StudentParentPortalOverview {
   student_profile: {
     id: string;
     full_name: string;
     roll_number: string;
+    admission_number?: string;
+    program_name?: string;
+    batch_name: string;
     guardian_name: string;
     guardian_phone: string;
-    batch_name: string;
+    guardian_id_card?: string;
+    guardian_relation?: string;
     monthly_attendance_pct: number;
+    photo_url?: string;
+    subjects?: string[];
+    admission_date?: string;
   };
+  linked_children?: SiblingStudentSummary[];
   today_schedule: TimetableSlot[];
+  weekly_schedule?: TimetableSlot[];
   invoices: StudentInvoice[];
   unpaid_balance: number;
   recent_receipts: FeePayment[];
@@ -1306,6 +1481,16 @@ export interface StudentParentPortalOverview {
     status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
     remarks?: string | null;
   }[];
+  leave_applications?: LeaveApplication[];
+  tenant_banking?: {
+    bank_name: string;
+    account_title: string;
+    iban: string;
+    raast_id?: string;
+    account_number?: string;
+    branch_code?: string;
+    whatsapp_number?: string;
+  };
 }
 
 export interface TenantSlugAlias {

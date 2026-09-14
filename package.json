@@ -10,6 +10,7 @@
     "test": "pnpm -r run test",
     "test:rls": "pnpm --filter @apex/supabase test",
     "db:migrate": "pnpm --filter @apex/supabase run migrate",
+    "db:sync-live": "pnpm --filter @apex/backend exec tsx ../../scripts/sync-live-data.ts",
     "dev:backend": "pnpm --filter @apex/backend dev",
     "dev:frontend": "pnpm --filter @apex/frontend dev",
     "lint": "pnpm -r run lint"
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
+    "playwright": "^1.63.0",
     "puppeteer-core": "^25.10.0"
   },
   "pnpm": {

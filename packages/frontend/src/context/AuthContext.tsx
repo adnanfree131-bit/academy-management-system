@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { TenantSettings } from '@apex/shared-types';
 
 export interface UserSession {
   id: string;
@@ -23,6 +24,7 @@ export interface TenantSession {
   city?: string | null;
   domain?: string | null;
   suspended_reason?: string | null;
+  settings?: TenantSettings | null;
 }
 
 export interface RegisterAcademyPayload {
@@ -91,10 +93,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             phone: body.data.tenant.settings?.phone || null,
             city: body.data.tenant.settings?.city || null,
             domain: body.data.tenant.domain || null,
+            settings: body.data.tenant.settings || null,
           });
         } else {
           // Token expired or invalid
           localStorage.removeItem('apex_jwt_token');
+          localStorage.removeItem('apex_active_screen');
+          localStorage.removeItem('apex_staff_attendance_tab');
+          if (window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
           setToken(null);
           setUser(null);
           setTenant(null);
@@ -320,6 +328,11 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
 
   const logout = () => {
     localStorage.removeItem('apex_jwt_token');
+    localStorage.removeItem('apex_active_screen');
+    localStorage.removeItem('apex_staff_attendance_tab');
+    if (window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
     setToken(null);
     setUser(null);
     setTenant(null);
@@ -346,6 +359,7 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
           phone: body.data.tenant.settings?.phone || null,
           city: body.data.tenant.settings?.city || null,
           domain: body.data.tenant.domain || null,
+          settings: body.data.tenant.settings || null,
         });
       }
     } catch (err) {

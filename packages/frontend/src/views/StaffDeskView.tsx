@@ -35,6 +35,8 @@ import {
   AlertTriangle,
   MoreVertical,
 } from 'lucide-react';
+import { PageHeading } from '../components/PageHeading';
+import { SectionInfo } from '../components/SectionInfo';
 
 const DEPARTMENTS: StaffDepartment[] = [
   'Science',
@@ -54,8 +56,20 @@ const EMPLOYMENT_TYPES: { id: EmploymentType; label: string }[] = [
   { id: 'visiting', label: 'Visiting Faculty' },
 ];
 
-export const StaffDeskView: React.FC = () => {
+interface StaffDeskViewProps {
+  onNavigate?: (screen: string) => void;
+}
+
+export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   const { token, tenant } = useAuth();
+
+  // Dynamic Departments from Academy Settings
+  const availableDepartments: string[] = useMemo(() => {
+    if (tenant?.settings?.departments && tenant.settings.departments.length > 0) {
+      return tenant.settings.departments;
+    }
+    return DEPARTMENTS;
+  }, [tenant?.settings?.departments]);
 
   // Core Data
   const [rows, setRows] = useState<StaffMemberRecord[]>([]);
@@ -133,8 +147,8 @@ export const StaffDeskView: React.FC = () => {
     joining_date: new Date().toISOString().split('T')[0],
     probation_end_date: '',
     qualification: '',
-    experience_years: 0,
-    base_salary: 50000,
+    experience_years: '' as unknown as (number | ''),
+    base_salary: '' as unknown as (number | ''),
     bank_name: '',
     bank_account_title: '',
     bank_account_number: '',
@@ -292,7 +306,10 @@ export const StaffDeskView: React.FC = () => {
   // Open Create Modal
   const openCreateModal = () => {
     setEditingStaff(null);
-    setForm(initialFormState);
+    setForm({
+      ...initialFormState,
+      department: (availableDepartments[0] || 'Science') as StaffDepartment,
+    });
     setDossierTab('personal');
     setError(null);
     setDossierModalOpen(true);
@@ -322,8 +339,8 @@ export const StaffDeskView: React.FC = () => {
       joining_date: staff.joining_date || new Date().toISOString().split('T')[0],
       probation_end_date: staff.probation_end_date || '',
       qualification: staff.qualification || '',
-      experience_years: staff.experience_years || 0,
-      base_salary: staff.base_salary || 0,
+      experience_years: staff.experience_years !== undefined && staff.experience_years !== null ? staff.experience_years : ('' as unknown as (number | '')),
+      base_salary: staff.base_salary !== undefined && staff.base_salary !== null ? staff.base_salary : ('' as unknown as (number | '')),
       bank_name: staff.bank_name || '',
       bank_account_title: staff.bank_account_title || '',
       bank_account_number: staff.bank_account_number || '',
@@ -593,25 +610,13 @@ export const StaffDeskView: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Top Header Strip */}
-      <div className="bg-white border border-slate-200 rounded-xl px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-        <div className="flex items-center gap-3">
-          <span className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs shrink-0">
-            <Users className="w-5 h-5" />
-          </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-slate-900 tracking-tight">Staff & Faculty Register</h1>
-              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                {totalStaffCount} Personnel
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Employee dossiers, academic teaching workload, payroll allocations, and portal credentials.
-            </p>
-          </div>
-        </div>
-
+      {/* Top Header */}
+      <PageHeading
+        title="Staff Directory"
+        description="Employee dossiers, academic teaching workload, payroll allocations, and portal credentials."
+        icon={<Users className="w-4 h-4 text-slate-700" />}
+        badge={`${totalStaffCount} Personnel`}
+      >
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"
@@ -627,10 +632,10 @@ export const StaffDeskView: React.FC = () => {
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-all"
           >
             <Plus className="w-4 h-4" />
-            Add Staff Member
+            Add Staff
           </button>
         </div>
-      </div>
+      </PageHeading>
 
       {/* Notifications */}
       {error && (
@@ -706,7 +711,7 @@ export const StaffDeskView: React.FC = () => {
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
             }`}
           >
-            Teaching Faculty
+            Faculty
           </button>
           <button
             type="button"
@@ -717,7 +722,7 @@ export const StaffDeskView: React.FC = () => {
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
             }`}
           >
-            Administration & Accounts
+            Admin & Accounts
           </button>
           <button
             type="button"
@@ -728,7 +733,7 @@ export const StaffDeskView: React.FC = () => {
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
             }`}
           >
-            Support Staff
+            Support
           </button>
           <button
             type="button"
@@ -739,7 +744,7 @@ export const StaffDeskView: React.FC = () => {
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200'
             }`}
           >
-            Archived Staff
+            Archived
           </button>
         </div>
 
@@ -750,7 +755,6 @@ export const StaffDeskView: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search code, name, CNIC, phone…"
             className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all"
           />
         </div>
@@ -1070,13 +1074,11 @@ export const StaffDeskView: React.FC = () => {
           >
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div>
+              <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900">
-                  {editingStaff ? `Edit Staff Dossier: ${editingStaff.full_name}` : 'Add Staff Member'}
+                  {editingStaff ? `Edit Staff: ${editingStaff.full_name}` : 'Add Staff'}
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Institutional personnel registry and payroll configuration.
-                </p>
+                <SectionInfo text="Institutional personnel registry, role permissions, and payroll configuration." />
               </div>
               <button
                 type="button"
@@ -1087,7 +1089,7 @@ export const StaffDeskView: React.FC = () => {
               </button>
             </div>
 
-            {/* Unnumbered Navigation Tabs */}
+            {/* Navigation Tabs */}
             <div className="px-6 border-b border-slate-200 flex gap-2 overflow-x-auto bg-white">
               <button
                 type="button"
@@ -1098,7 +1100,7 @@ export const StaffDeskView: React.FC = () => {
                     : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                Personal & Contact
+                Personal
               </button>
               <button
                 type="button"
@@ -1109,7 +1111,7 @@ export const StaffDeskView: React.FC = () => {
                     : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                Employment & Role
+                Employment
               </button>
               <button
                 type="button"
@@ -1120,7 +1122,7 @@ export const StaffDeskView: React.FC = () => {
                     : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                Compensation & Banking
+                Compensation
               </button>
               <button
                 type="button"
@@ -1131,7 +1133,7 @@ export const StaffDeskView: React.FC = () => {
                     : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                Portal Access & Presets
+                Portal Access
               </button>
             </div>
 
@@ -1150,7 +1152,6 @@ export const StaffDeskView: React.FC = () => {
                         type="text"
                         value={form.full_name}
                         onChange={e => setForm({ ...form, full_name: e.target.value })}
-                        placeholder="e.g. Professor Rashid Minhas"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1162,7 +1163,6 @@ export const StaffDeskView: React.FC = () => {
                         type="text"
                         value={form.father_or_spouse_name}
                         onChange={e => setForm({ ...form, father_or_spouse_name: e.target.value })}
-                        placeholder="Father or spouse name"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1177,7 +1177,6 @@ export const StaffDeskView: React.FC = () => {
                         type="text"
                         value={form.cnic}
                         onChange={e => setForm({ ...form, cnic: e.target.value })}
-                        placeholder="37405-XXXXXXX-X"
                         autoComplete="off"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 font-mono focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
@@ -1239,7 +1238,6 @@ export const StaffDeskView: React.FC = () => {
                         type="email"
                         value={form.email}
                         onChange={e => setForm({ ...form, email: e.target.value })}
-                        placeholder="staff@academy.edu.pk"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1253,7 +1251,6 @@ export const StaffDeskView: React.FC = () => {
                         minLength={6}
                         value={form.password}
                         onChange={e => setForm({ ...form, password: e.target.value })}
-                        placeholder={editingStaff ? '••••••••' : 'Min 6 characters'}
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1268,7 +1265,6 @@ export const StaffDeskView: React.FC = () => {
                         type="tel"
                         value={form.phone}
                         onChange={e => setForm({ ...form, phone: e.target.value })}
-                        placeholder="03001234567"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 font-mono focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1280,7 +1276,6 @@ export const StaffDeskView: React.FC = () => {
                         type="tel"
                         value={form.whatsapp}
                         onChange={e => setForm({ ...form, whatsapp: e.target.value })}
-                        placeholder="03001234567"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 font-mono focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1295,7 +1290,6 @@ export const StaffDeskView: React.FC = () => {
                         type="tel"
                         value={form.emergency_contact}
                         onChange={e => setForm({ ...form, emergency_contact: e.target.value })}
-                        placeholder="03219876543"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 font-mono focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1307,7 +1301,6 @@ export const StaffDeskView: React.FC = () => {
                         type="text"
                         value={form.emergency_relation}
                         onChange={e => setForm({ ...form, emergency_relation: e.target.value })}
-                        placeholder="e.g. Brother, Spouse, Parent"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1321,7 +1314,6 @@ export const StaffDeskView: React.FC = () => {
                       rows={2}
                       value={form.address}
                       onChange={e => setForm({ ...form, address: e.target.value })}
-                      placeholder="Current residential address"
                       className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none"
                     />
                   </div>
@@ -1340,7 +1332,6 @@ export const StaffDeskView: React.FC = () => {
                         type="text"
                         value={form.employee_code}
                         onChange={e => setForm({ ...form, employee_code: e.target.value })}
-                        placeholder="Auto-generated (e.g. EMP-0001)"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 font-mono focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                       <span className="text-[10px] text-slate-400">Leave blank to auto-generate per tenant.</span>
@@ -1368,17 +1359,32 @@ export const StaffDeskView: React.FC = () => {
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
                         Department
                       </label>
-                      <select
-                        value={form.department}
-                        onChange={e => setForm({ ...form, department: e.target.value as StaffDepartment })}
-                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none bg-white"
-                      >
-                        {DEPARTMENTS.map(d => (
-                          <option key={d} value={d}>
-                            {d}
-                          </option>
-                        ))}
-                      </select>
+                      {availableDepartments.length === 0 ? (
+                        <div className="text-[11px] text-amber-700 bg-amber-50 p-2 rounded-xl border border-amber-200">
+                          <span>No departments configured yet.</span>
+                          {onNavigate && (
+                            <button
+                              type="button"
+                              onClick={() => onNavigate('settings')}
+                              className="font-bold underline hover:text-amber-900 cursor-pointer block mt-1"
+                            >
+                              Configure in Academy Settings →
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <select
+                          value={form.department}
+                          onChange={e => setForm({ ...form, department: e.target.value as StaffDepartment })}
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none bg-white"
+                        >
+                          {availableDepartments.map(d => (
+                            <option key={d} value={d}>
+                              {d}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
 
                     <div>
@@ -1390,7 +1396,6 @@ export const StaffDeskView: React.FC = () => {
                         type="text"
                         value={form.designation}
                         onChange={e => setForm({ ...form, designation: e.target.value })}
-                        placeholder="e.g. Senior Physics Lecturer"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1424,7 +1429,6 @@ export const StaffDeskView: React.FC = () => {
                         type="text"
                         value={form.qualification}
                         onChange={e => setForm({ ...form, qualification: e.target.value })}
-                        placeholder="e.g. M.Phil Physics, M.Com, MCS"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1436,9 +1440,9 @@ export const StaffDeskView: React.FC = () => {
                       <input
                         type="number"
                         min={0}
-                        value={form.experience_years}
+                        value={form.experience_years === '' ? '' : form.experience_years}
                         onChange={e =>
-                          setForm({ ...form, experience_years: parseInt(e.target.value, 10) || 0 })
+                          setForm({ ...form, experience_years: e.target.value === '' ? ('' as any) : parseInt(e.target.value, 10) })
                         }
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 font-mono focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
@@ -1477,8 +1481,9 @@ export const StaffDeskView: React.FC = () => {
               {dossierTab === 'compensation' && (
                 <div className="space-y-4">
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Monthly Base Salary (PKR) *
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 mb-1">
+                      <span>Monthly Base Salary (PKR) *</span>
+                      <SectionInfo text="Directly links to Staff Payroll desk for automated payslip generation." />
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
@@ -1489,17 +1494,13 @@ export const StaffDeskView: React.FC = () => {
                         type="number"
                         min={0}
                         step={500}
-                        value={form.base_salary}
+                        value={form.base_salary === '' ? '' : form.base_salary}
                         onChange={e =>
-                          setForm({ ...form, base_salary: parseFloat(e.target.value) || 0 })
+                          setForm({ ...form, base_salary: e.target.value === '' ? ('' as any) : parseFloat(e.target.value) })
                         }
-                        placeholder="75000"
                         className="w-full text-sm font-bold font-mono pl-12 pr-3 py-2 border border-slate-200 rounded-xl focus:ring-1 focus:ring-slate-900 focus:outline-none bg-white"
                       />
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      Directly links to Staff Payroll desk for automated payslip generation.
-                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1511,7 +1512,6 @@ export const StaffDeskView: React.FC = () => {
                         type="text"
                         value={form.bank_name}
                         onChange={e => setForm({ ...form, bank_name: e.target.value })}
-                        placeholder="e.g. Meezan Bank Ltd, HBL"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1524,7 +1524,6 @@ export const StaffDeskView: React.FC = () => {
                         type="text"
                         value={form.bank_account_title}
                         onChange={e => setForm({ ...form, bank_account_title: e.target.value })}
-                        placeholder="e.g. Rashid Minhas"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1539,7 +1538,6 @@ export const StaffDeskView: React.FC = () => {
                         type="text"
                         value={form.bank_account_number}
                         onChange={e => setForm({ ...form, bank_account_number: e.target.value })}
-                        placeholder="01020304050607"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 font-mono focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1552,7 +1550,6 @@ export const StaffDeskView: React.FC = () => {
                         type="text"
                         value={form.bank_iban}
                         onChange={e => setForm({ ...form, bank_iban: e.target.value })}
-                        placeholder="PK36MEZN0001020304050607"
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 font-mono focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
@@ -1773,14 +1770,11 @@ export const StaffDeskView: React.FC = () => {
         <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col max-h-[85vh] overflow-hidden">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-              <div>
+              <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900">
-                  Assign Teaching Classes & Subjects
+                  Teaching Workload
                 </h2>
-                <p className="text-xs text-slate-600 mt-0.5 font-medium">
-                  {teachingModalStaff.full_name} ({teachingModalStaff.employee_code}) ·{' '}
-                  {teachingModalStaff.department}
-                </p>
+                <SectionInfo text={`Workload allocation for ${teachingModalStaff.full_name} (${teachingModalStaff.employee_code}) · ${teachingModalStaff.department}`} />
               </div>
               <button
                 type="button"
@@ -1961,7 +1955,8 @@ export const StaffDeskView: React.FC = () => {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Key className="w-5 h-5 text-amber-600" />
-                <h3 className="font-bold text-slate-900 text-sm">Administrative Password Reset</h3>
+                <h3 className="font-bold text-slate-900 text-sm">Reset Password</h3>
+                <SectionInfo text={`Reset portal sign-in credentials for ${resetPwdStaff.full_name} (${resetPwdStaff.email}).`} />
               </div>
               <button
                 type="button"
@@ -1971,12 +1966,6 @@ export const StaffDeskView: React.FC = () => {
                 <X className="w-4 h-4" />
               </button>
             </div>
-
-            <p className="text-xs text-slate-600">
-              Reset sign-in credentials for{' '}
-              <strong className="text-slate-900">{resetPwdStaff.full_name}</strong> (
-              {resetPwdStaff.email}).
-            </p>
 
             {generatedTempPwd ? (
               <div className="space-y-3 bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
@@ -2060,13 +2049,11 @@ export const StaffDeskView: React.FC = () => {
           `}</style>
           <div className="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3 no-print">
-              <div>
+              <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-slate-900">
-                  Institutional Staff ID Card (CR-80 Duplex)
+                  Staff ID Card
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Standard ISO/IEC 7810 ID-1 PVC dimensions (85.6mm × 53.98mm)
-                </p>
+                <SectionInfo text="Standard ISO/IEC 7810 ID-1 PVC dimensions (85.6mm × 53.98mm) duplex layout." />
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -2231,13 +2218,11 @@ export const StaffDeskView: React.FC = () => {
           `}</style>
           <div className="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-6 max-h-[90vh] overflow-y-auto print:border-none print:shadow-none print:p-0 print:max-h-none print:overflow-visible">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3 no-print">
-              <div>
+              <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-slate-900">
-                  Institutional Appointment Letter
+                  Appointment Letter
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Official contract document ready for A4 printing on letterhead.
-                </p>
+                <SectionInfo text="Official contract document ready for A4 printing on letterhead." />
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -2246,7 +2231,7 @@ export const StaffDeskView: React.FC = () => {
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm"
                 >
                   <Printer className="w-3.5 h-3.5" />
-                  Print Letter (A4)
+                  Print Letter
                 </button>
                 <button
                   type="button"
@@ -2411,9 +2396,19 @@ export const StaffDeskView: React.FC = () => {
       {archiveTarget && (
         <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-xl p-6 space-y-4">
-            <div className="flex items-center gap-2.5 text-amber-600">
-              <Archive className="w-5 h-5" />
-              <h3 className="font-bold text-slate-900 text-sm">Archive Staff Member</h3>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-amber-600">
+                <Archive className="w-5 h-5" />
+                <h3 className="font-bold text-slate-900 text-sm">Archive Staff</h3>
+                <SectionInfo text="Portal login will be revoked; historical attendance, evaluations, and payroll vouchers remain preserved." />
+              </div>
+              <button
+                type="button"
+                onClick={() => setArchiveTarget(null)}
+                className="p-1 text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             <p className="text-xs text-slate-600">
@@ -2436,7 +2431,6 @@ export const StaffDeskView: React.FC = () => {
                 type="text"
                 value={archiveReason}
                 onChange={e => setArchiveReason(e.target.value)}
-                placeholder="e.g. Relieved on personal request, Contract completed"
                 className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-slate-900"
               />
             </div>
@@ -2454,7 +2448,7 @@ export const StaffDeskView: React.FC = () => {
                 onClick={executeArchive}
                 className="px-4 py-2 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white"
               >
-                Confirm Archive
+                Archive Staff
               </button>
             </div>
           </div>
@@ -2467,9 +2461,19 @@ export const StaffDeskView: React.FC = () => {
       {deleteTarget && (
         <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-xl p-6 space-y-4">
-            <div className="flex items-center gap-2.5 text-rose-600">
-              <Trash2 className="w-5 h-5" />
-              <h3 className="font-bold text-slate-900 text-sm">Delete Staff Member</h3>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-rose-600">
+                <Trash2 className="w-5 h-5" />
+                <h3 className="font-bold text-slate-900 text-sm">Delete Staff</h3>
+                <SectionInfo text="Deletion permitted only for newly added staff with zero financial, payroll, or exam records." />
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="p-1 text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             <p className="text-xs text-slate-600">
@@ -2497,7 +2501,7 @@ export const StaffDeskView: React.FC = () => {
                 onClick={executeDelete}
                 className="px-4 py-2 text-xs font-semibold rounded-lg bg-rose-700 hover:bg-rose-800 text-white"
               >
-                Permanently Delete
+                Delete Staff
               </button>
             </div>
           </div>

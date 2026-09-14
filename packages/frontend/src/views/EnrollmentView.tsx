@@ -11,7 +11,6 @@ import {
   ChevronRight, 
   X, 
   Phone, 
-  ShieldCheck, 
   UserCheck,
   RefreshCw,
   Plus,
@@ -19,7 +18,15 @@ import {
   BookOpen,
   CreditCard,
   CheckSquare,
-  Square
+  Square,
+  MessageSquare,
+  Printer,
+  Check,
+  Copy,
+  Camera, 
+  Upload, 
+  FileSpreadsheet,
+  Eye
 } from 'lucide-react';
 import { 
   AcademicProgram, 
@@ -29,19 +36,26 @@ import {
   CustomFieldDefinition, 
   Student, 
   StudentInquiry, 
-  InquiryStage 
+  InquiryStage, 
+  InquiryPriority,
+  FeeHead,
+  PaymentMethod
 } from '@apex/shared-types';
 import { Student360Modal } from '../components/Student360Modal';
 import { StudentIDCardDesk } from './StudentIDCardDesk';
+import { PageHeading } from '../components/PageHeading';
+import { SectionInfo } from '../components/SectionInfo';
 
 export interface EnrollmentViewProps {
-  defaultTab?: 'directory' | 'id_cards' | 'inquiries' | 'new_admission';
+  defaultTab?: 'directory' | 'inquiries' | 'new_admission' | 'id_cards';
+  onNavigate?: (screen: string) => void;
 }
 
-export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'directory' }) => {
-  const { token } = useAuth();
-  const [activeTab, setActiveTab] = useState<'directory' | 'id_cards' | 'inquiries' | 'new_admission'>(defaultTab);
+export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'directory', onNavigate }) => {
+  const { token, tenant } = useAuth();
+  const [activeTab, setActiveTab] = useState<'directory' | 'inquiries' | 'new_admission' | 'id_cards'>(defaultTab);
   const [selectedDirectoryStudentIds, setSelectedDirectoryStudentIds] = useState<Set<string>>(new Set());
+  const [showBulkIdCardsModal, setShowBulkIdCardsModal] = useState(false);
 
   useEffect(() => {
     if (defaultTab) {
@@ -55,6 +69,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectGroups, setSubjectGroups] = useState<SubjectGroup[]>([]);
   const [customFields, setCustomFields] = useState<CustomFieldDefinition[]>([]);
+  const [feeHeads, setFeeHeads] = useState<FeeHead[]>([]);
 
   // SIS Records
   const [students, setStudents] = useState<Student[]>([]);
@@ -65,14 +80,28 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBatchFilter, setSelectedBatchFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [inquiryStageFilter, setInquiryStageFilter] = useState<string>('all');
 
   // Drawer / Modals
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [contactStudentModal, setContactStudentModal] = useState<Student | null>(null);
   const [admitInquiryModal, setAdmitInquiryModal] = useState<StudentInquiry | null>(null);
   const [admitBatchId, setAdmitBatchId] = useState<string>('');
   const [admitElectiveGroupId, setAdmitElectiveGroupId] = useState<string>('');
+  const [admitTuitionFee, setAdmitTuitionFee] = useState<number | ''>('');
+  const [admitAdmissionFee, setAdmitAdmissionFee] = useState<number | ''>('');
+  const [admitConcessionAmount, setAdmitConcessionAmount] = useState<number | ''>('');
+  const [admitConcessionReason, setAdmitConcessionReason] = useState<string>('');
+  const [admitGuardianCnic, setAdmitGuardianCnic] = useState<string>('');
   const [isAdmitting, setIsAdmitting] = useState<boolean>(false);
+
+  // Bulk CSV Import Modal State
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+  const [bulkImportBatchId, setBulkImportBatchId] = useState<string>('');
+  const [bulkImportCsvText, setBulkImportCsvText] = useState<string>('');
+  const [isBulkImporting, setIsBulkImporting] = useState<boolean>(false);
+  const [bulkImportResult, setBulkImportResult] = useState<{ imported_count: number; failed_count: number; errors: any[] } | null>(null);
 
   // New Inquiry Modal
   const [showNewInquiryModal, setShowNewInquiryModal] = useState(false);
@@ -82,7 +111,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     email: '',
     guardian_name: '',
     guardian_phone: '',
+    guardian_id_card: '',
     program_id: '',
+    source: 'Walk-in',
+    priority: 'medium' as InquiryPriority,
+    next_follow_up_date: '',
+    previous_school: '',
+    previous_marks: '',
     notes: '',
   });
 
@@ -93,26 +128,77 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     email: '',
     guardian_name: '',
     guardian_phone: '',
+    guardian_email: '',
+    guardian_id_card: '',
     program_id: '',
     batch_id: '',
     elective_group_id: '',
     custom_field_values: {} as Record<string, any>,
   });
+  const [photoUrl, setPhotoUrl] = useState<string>('');
+  const [guardianRelation, setGuardianRelation] = useState<string>('Father');
+  const [guardianWhatsapp, setGuardianWhatsapp] = useState<string>('');
+  const [whatsappSameAsCalling, setWhatsappSameAsCalling] = useState<boolean>(true);
+
+  const handleAdmissionPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Photo must be less than 3MB in size');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const [selectedEnrollSubjectIds, setSelectedEnrollSubjectIds] = useState<string[]>([]);
   const [admitCustomSubjectIds, setAdmitCustomSubjectIds] = useState<string[]>([]);
-  const [bloodGroup, setBloodGroup] = useState('O+');
-  const [admissionTuition, setAdmissionTuition] = useState<number>(8000);
-  const [admissionFeeCharge, setAdmissionFeeCharge] = useState<number>(5000);
-  const [admissionExamCharge, setAdmissionExamCharge] = useState<number>(1500);
+  const [bloodGroup, setBloodGroup] = useState('');
+  const [admissionTuition, setAdmissionTuition] = useState<number | ''>('');
+  const [admissionFeeCharge, setAdmissionFeeCharge] = useState<number | ''>('');
+  const [admissionExamCharge, setAdmissionExamCharge] = useState<number | ''>('');
+  const [admissionHeadOverrides, setAdmissionHeadOverrides] = useState<Record<string, number | ''>>({});
+
   const [concessionType, setConcessionType] = useState<'none' | 'kinship' | 'merit' | 'hardship' | 'staff' | 'custom'>('none');
   const [concessionMode, setConcessionMode] = useState<'percentage' | 'flat'>('percentage');
-  const [concessionVal, setConcessionVal] = useState<number>(0);
+  const [concessionVal, setConcessionVal] = useState<number | ''>('');
   const [concessionReason, setConcessionReason] = useState<string>('');
   const [generateFirstChallan, setGenerateFirstChallan] = useState(true);
+
+  // Direct First Payment Collection at Admission
+  const [collectInitialPayment, setCollectInitialPayment] = useState(false);
+  const [initialPaymentAmount, setInitialPaymentAmount] = useState<number | ''>('');
+  const [initialPaymentMethod, setInitialPaymentMethod] = useState<PaymentMethod>('cash');
+  const [initialPaymentReference, setInitialPaymentReference] = useState('');
+
+  // Branded WhatsApp Receipt Modal State
+  const [receiptModalData, setReceiptModalData] = useState<{
+    student: Student;
+    payment?: any;
+    invoice?: any;
+    amountPaid: number;
+    totalDue: number;
+    billingMonth: string;
+    items: { name: string; amount: number }[];
+  } | null>(null);
+  const [receiptWhatsappNumber, setReceiptWhatsappNumber] = useState('');
+  const [copiedReceipt, setCopiedReceipt] = useState(false);
 
   const [createdStudentResult, setCreatedStudentResult] = useState<Student | null>(null);
   const [isSubmittingEnrollment, setIsSubmittingEnrollment] = useState(false);
   const [enrollSuccessMessage, setEnrollSuccessMessage] = useState<string | null>(null);
+
+  const cleanPhoneForWhatsApp = (p?: string | null) => {
+    if (!p) return '';
+    let cleaned = p.replace(/[^0-9]/g, '');
+    if (cleaned.startsWith('03')) {
+      cleaned = '92' + cleaned.slice(1);
+    }
+    return cleaned;
+  };
 
   // Load all initial academic and SIS data
   const fetchData = async () => {
@@ -123,7 +209,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     const headers = { Authorization: `Bearer ${token}` };
 
     try {
-      const [progRes, batchRes, subRes, groupRes, fieldRes, studRes, inqRes] = await Promise.all([
+      const [progRes, batchRes, subRes, groupRes, fieldRes, studRes, inqRes, headsRes] = await Promise.all([
         fetch('/api/v1/academic/programs', { headers }),
         fetch('/api/v1/academic/batches', { headers }),
         fetch('/api/v1/academic/subjects', { headers }),
@@ -131,6 +217,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         fetch('/api/v1/academic/custom-fields?entity_type=student', { headers }),
         fetch('/api/v1/sis/students', { headers }),
         fetch('/api/v1/sis/inquiries', { headers }),
+        fetch('/api/v1/finance/heads', { headers }).catch(() => null),
       ]);
 
       const [progs, bts, subs, grps, fields, studs, inqs] = await Promise.all([
@@ -150,6 +237,10 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       if (fields.success) setCustomFields(fields.data);
       if (studs.success) setStudents(studs.data);
       if (inqs.success) setInquiries(inqs.data);
+      if (headsRes && headsRes.ok) {
+        const headsData = await headsRes.json();
+        if (headsData.success) setFeeHeads(headsData.data || []);
+      }
     } catch (err: any) {
       console.error('Error fetching academic data:', err);
       setError('Failed to synchronize academic hierarchy from server.');
@@ -173,10 +264,11 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         (s.phone && s.phone.includes(searchQuery));
       
       const matchesBatch = selectedBatchFilter === 'all' || s.batch_id === selectedBatchFilter;
+      const matchesStatus = statusFilter === 'all' || s.status === statusFilter;
 
-      return matchesSearch && matchesBatch;
+      return matchesSearch && matchesBatch && matchesStatus;
     });
-  }, [students, searchQuery, selectedBatchFilter]);
+  }, [students, searchQuery, selectedBatchFilter, statusFilter]);
 
   const toggleDirectoryStudent = (id: string) => {
     const next = new Set(selectedDirectoryStudentIds);
@@ -236,6 +328,12 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     setIsAdmitting(true);
 
     try {
+      const tuition = typeof admitTuitionFee === 'number' ? admitTuitionFee : 0;
+      const admissionFee = typeof admitAdmissionFee === 'number' ? admitAdmissionFee : 0;
+      const concession = typeof admitConcessionAmount === 'number' ? admitConcessionAmount : 0;
+      const netTuition = Math.max(0, tuition - concession);
+      const firstMonthTotal = netTuition + admissionFee;
+
       const res = await fetch(`/api/v1/sis/inquiries/${admitInquiryModal.id}/admit`, {
         method: 'POST',
         headers: {
@@ -246,6 +344,17 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           batch_id: admitBatchId,
           elective_group_id: admitElectiveGroupId || undefined,
           subjects: admitCustomSubjectIds.length > 0 ? admitCustomSubjectIds : undefined,
+          guardian_id_card: admitGuardianCnic.trim() || undefined,
+          fee_structure: {
+            base_tuition: tuition,
+            tuition_fee: tuition,
+            admission_fee: admissionFee,
+            concession_type: concession > 0 ? 'fixed' : 'none',
+            concession_val: concession,
+            concession_reason: concession > 0 ? (admitConcessionReason || 'Admissions Concession') : undefined,
+            net_tuition: netTuition,
+            first_month_total: firstMonthTotal,
+          },
         }),
       });
 
@@ -257,6 +366,11 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         setAdmitBatchId('');
         setAdmitElectiveGroupId('');
         setAdmitCustomSubjectIds([]);
+        setAdmitTuitionFee('');
+        setAdmitAdmissionFee('');
+        setAdmitConcessionAmount('');
+        setAdmitConcessionReason('');
+        setAdmitGuardianCnic('');
         setActiveTab('directory');
       } else {
         alert(result.error?.message || 'Admission failed');
@@ -266,6 +380,66 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       alert('Failed to execute 1-click admission.');
     } finally {
       setIsAdmitting(false);
+    }
+  };
+
+  // Bulk CSV Import Handler
+  const handleExecuteBulkImport = async () => {
+    if (!token || !bulkImportCsvText.trim()) return;
+    setIsBulkImporting(true);
+    setBulkImportResult(null);
+    try {
+      const lines = bulkImportCsvText.trim().split(/\r?\n/);
+      if (lines.length <= 1) {
+        alert('CSV must contain a header row and at least one student data row');
+        setIsBulkImporting(false);
+        return;
+      }
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
+      const rows: any[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const values = line.split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
+        const rowObj: any = {};
+        headers.forEach((h, idx) => {
+          rowObj[h] = values[idx] || '';
+        });
+        rows.push({
+          full_name: rowObj.full_name || rowObj.name || rowObj['student name'] || '',
+          roll_number: rowObj.roll_number || rowObj.roll_no || rowObj.roll || undefined,
+          phone: rowObj.phone || rowObj.mobile || undefined,
+          email: rowObj.email || undefined,
+          guardian_name: rowObj.guardian_name || rowObj.father_name || rowObj['guardian name'] || 'Guardian',
+          guardian_phone: rowObj.guardian_phone || rowObj.guardian_mobile || rowObj.phone || '0300-0000000',
+          guardian_id_card: rowObj.guardian_id_card || rowObj.guardian_cnic || rowObj.cnic || undefined,
+          guardian_relation: rowObj.guardian_relation || rowObj.relation || 'Father',
+          batch_id: rowObj.batch_id || bulkImportBatchId || (batches[0]?.id || ''),
+          gender: rowObj.gender || undefined,
+          blood_group: rowObj.blood_group || undefined,
+        });
+      }
+
+      const res = await fetch('/api/v1/sis/students/bulk-import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ students: rows })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setBulkImportResult(data.data);
+        await fetchData();
+      } else {
+        alert(data.error?.message || 'Bulk import failed');
+      }
+    } catch (err) {
+      console.error('Bulk import error:', err);
+      alert('Failed to execute bulk import');
+    } finally {
+      setIsBulkImporting(false);
     }
   };
 
@@ -280,9 +454,22 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          ...newInquiryForm,
-          source: 'Walk-in',
+          student_name: newInquiryForm.student_name,
+          phone: newInquiryForm.phone,
+          email: newInquiryForm.email || undefined,
+          guardian_name: newInquiryForm.guardian_name || undefined,
+          guardian_phone: newInquiryForm.guardian_phone || undefined,
+          guardian_id_card: (newInquiryForm as any).guardian_id_card || undefined,
+          program_id: newInquiryForm.program_id || undefined,
+          source: newInquiryForm.source || 'Walk-in',
           stage: 'new',
+          priority: newInquiryForm.priority || 'medium',
+          next_follow_up_date: newInquiryForm.next_follow_up_date || undefined,
+          notes: newInquiryForm.notes || undefined,
+          custom_field_values: {
+            ...(newInquiryForm.previous_school ? { previous_school: newInquiryForm.previous_school } : {}),
+            ...(newInquiryForm.previous_marks ? { previous_marks: newInquiryForm.previous_marks } : {}),
+          },
         }),
       });
 
@@ -296,7 +483,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           email: '',
           guardian_name: '',
           guardian_phone: '',
+          guardian_id_card: '',
           program_id: '',
+          source: 'Walk-in',
+          priority: 'medium',
+          next_follow_up_date: '',
+          previous_school: '',
+          previous_marks: '',
           notes: '',
         });
       }
@@ -305,36 +498,74 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     }
   };
 
-  // Sync batch fee schedule when batch is selected
+  // Transfer Inquiry data directly into Admission Form
+  const handleTransferInquiryToAdmission = (inq: StudentInquiry) => {
+    setEnrollForm(prev => ({
+      ...prev,
+      full_name: inq.student_name,
+      phone: inq.phone,
+      email: inq.email || '',
+      guardian_name: inq.guardian_name || '',
+      guardian_phone: inq.guardian_phone || '',
+      guardian_id_card: (inq as any).guardian_id_card || '',
+      program_id: inq.program_id || '',
+      batch_id: '',
+      elective_group_id: '',
+      custom_field_values: (inq as any).custom_field_values || {},
+    }));
+    setActiveTab('new_admission');
+  };
+
+  // Sync batch fee schedule dynamically when batch is selected (no hardcoded fee fallbacks)
   useEffect(() => {
     if (enrollForm.batch_id) {
       const b = batches.find(x => x.id === enrollForm.batch_id);
       const p = programs.find(x => x.id === enrollForm.program_id);
       const tuition = b?.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount 
-        ?? p?.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount 
-        ?? 8000;
+        ?? p?.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount;
       const admission = b?.fee_schedule?.find(f => f.fee_type === 'admission')?.amount 
-        ?? p?.fee_schedule?.find(f => f.fee_type === 'admission')?.amount 
-        ?? 5000;
+        ?? p?.fee_schedule?.find(f => f.fee_type === 'admission')?.amount;
       const exam = b?.fee_schedule?.find(f => f.fee_type === 'exam_lab')?.amount 
-        ?? p?.fee_schedule?.find(f => f.fee_type === 'exam_lab')?.amount 
-        ?? 1500;
-      setAdmissionTuition(tuition);
-      setAdmissionFeeCharge(admission);
-      setAdmissionExamCharge(exam);
+        ?? p?.fee_schedule?.find(f => f.fee_type === 'exam_lab')?.amount;
+      
+      if (tuition !== undefined) setAdmissionTuition(tuition);
+      if (admission !== undefined) setAdmissionFeeCharge(admission);
+      if (exam !== undefined) setAdmissionExamCharge(exam);
     }
   }, [enrollForm.batch_id, enrollForm.program_id, batches, programs]);
 
-  const discountAmount = useMemo(() => {
-    if (concessionType === 'none' || concessionVal <= 0) return 0;
-    if (concessionMode === 'percentage') {
-      return Math.round((admissionTuition * Math.min(100, concessionVal)) / 100);
-    }
-    return Math.min(admissionTuition, concessionVal);
-  }, [concessionType, concessionMode, concessionVal, admissionTuition]);
+  const tuitionNum = typeof admissionTuition === 'number' ? admissionTuition : 0;
+  const admissionFeeNum = typeof admissionFeeCharge === 'number' ? admissionFeeCharge : 0;
+  const examFeeNum = typeof admissionExamCharge === 'number' ? admissionExamCharge : 0;
+  const concessionValNum = typeof concessionVal === 'number' ? concessionVal : 0;
 
-  const netMonthlyTuition = Math.max(0, admissionTuition - discountAmount);
-  const firstMonthTotal = netMonthlyTuition + admissionFeeCharge + admissionExamCharge;
+  const discountAmount = useMemo(() => {
+    if (concessionType === 'none' || concessionValNum <= 0) return 0;
+    if (concessionMode === 'percentage') {
+      return Math.round((tuitionNum * Math.min(100, concessionValNum)) / 100);
+    }
+    return Math.min(tuitionNum, concessionValNum);
+  }, [concessionType, concessionMode, concessionValNum, tuitionNum]);
+
+  const netMonthlyTuition = Math.max(0, tuitionNum - discountAmount);
+
+  // Active Fee Heads configured for Admission
+  const admissionActiveHeads = useMemo(() => {
+    return feeHeads.filter(h => h.show_at_admission !== false);
+  }, [feeHeads]);
+
+  const otherAdmissionHeads = useMemo(() => {
+    return admissionActiveHeads.filter(h => h.code !== 'TUITION' && h.code !== 'ADMISSION' && h.code !== 'EXAM');
+  }, [admissionActiveHeads]);
+
+  const otherHeadsTotal = useMemo(() => {
+    return otherAdmissionHeads.reduce((sum, h) => {
+      const val = admissionHeadOverrides[h.id] !== undefined ? admissionHeadOverrides[h.id] : h.default_amount;
+      return sum + (typeof val === 'number' ? val : 0);
+    }, 0);
+  }, [otherAdmissionHeads, admissionHeadOverrides]);
+
+  const firstMonthTotal = netMonthlyTuition + admissionFeeNum + examFeeNum + otherHeadsTotal;
 
   // Direct Admission Submit
   const handleEnrollStudent = async (e: React.FormEvent) => {
@@ -375,18 +606,23 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           full_name: enrollForm.full_name,
           phone: enrollForm.phone,
           email: enrollForm.email || undefined,
+          photo_url: photoUrl || undefined,
           guardian_name: enrollForm.guardian_name,
+          guardian_relation: guardianRelation,
           guardian_phone: enrollForm.guardian_phone,
+          guardian_email: enrollForm.guardian_email || undefined,
+          guardian_id_card: (enrollForm as any).guardian_id_card || undefined,
+          guardian_whatsapp: (guardianWhatsapp || enrollForm.guardian_phone).trim(),
           program_id: enrollForm.program_id,
           batch_id: enrollForm.batch_id,
           elective_group_id: enrollForm.elective_group_id || undefined,
-          blood_group: bloodGroup,
+          blood_group: bloodGroup || undefined,
           fee_structure: {
-            base_tuition: admissionTuition,
-            admission_fee: admissionFeeCharge,
-            exam_fee: admissionExamCharge,
+            base_tuition: tuitionNum,
+            admission_fee: admissionFeeNum,
+            exam_fee: examFeeNum,
             concession_type: concessionMode,
-            concession_val: discountAmount > 0 ? concessionVal : 0,
+            concession_val: discountAmount > 0 ? concessionValNum : 0,
             concession_reason: discountAmount > 0 ? concessionReason : undefined,
             net_tuition: netMonthlyTuition,
             first_month_total: firstMonthTotal,
@@ -408,20 +644,85 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       if (res.ok && result.success) {
         setCreatedStudentResult(result.data);
         setEnrollSuccessMessage(`Enrollment confirmed! Admission: ${result.data.admission_number} | Roll: ${result.data.roll_number}`);
+
+        let recordedPayment: any = null;
+        const payAmt = typeof initialPaymentAmount === 'number' && initialPaymentAmount > 0 ? initialPaymentAmount : firstMonthTotal;
+
+        // Collect initial payment if requested and invoice exists
+        if (collectInitialPayment && result.data.first_invoice_id) {
+          try {
+            const payRes = await fetch('/api/v1/finance/payments', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                invoice_id: result.data.first_invoice_id,
+                amount_paid: payAmt,
+                payment_method: initialPaymentMethod,
+                reference_number: initialPaymentReference || undefined,
+              }),
+            });
+            const payJson = await payRes.json();
+            if (payJson.success) {
+              recordedPayment = payJson.data?.payment;
+            }
+          } catch (payErr) {
+            console.error('Failed to post admission payment:', payErr);
+          }
+        }
+
+        // Prepare receipt items
+        const receiptItems = [
+          { name: 'Monthly Tuition (Net)', amount: netMonthlyTuition },
+          ...(admissionFeeNum > 0 ? [{ name: 'Admission Fee', amount: admissionFeeNum }] : []),
+          ...(examFeeNum > 0 ? [{ name: 'Exam & Lab Charges', amount: examFeeNum }] : []),
+          ...otherAdmissionHeads.map(h => {
+            const val = admissionHeadOverrides[h.id] !== undefined ? admissionHeadOverrides[h.id] : h.default_amount;
+            return { name: h.name, amount: typeof val === 'number' ? val : 0 };
+          }).filter(it => it.amount > 0)
+        ];
+
+        // Trigger Branded WhatsApp Receipt Modal
+        setReceiptModalData({
+          student: result.data,
+          payment: recordedPayment,
+          amountPaid: collectInitialPayment ? payAmt : 0,
+          totalDue: firstMonthTotal,
+          billingMonth: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          items: receiptItems,
+        });
+        setReceiptWhatsappNumber(guardianWhatsapp || enrollForm.guardian_phone);
+
         setEnrollForm({
           full_name: '',
           phone: '',
           email: '',
           guardian_name: '',
           guardian_phone: '',
+          guardian_email: '',
+          guardian_id_card: '',
           program_id: '',
           batch_id: '',
           elective_group_id: '',
           custom_field_values: {},
         });
+        setPhotoUrl('');
+        setGuardianRelation('Father');
+        setGuardianWhatsapp('');
+        setWhatsappSameAsCalling(true);
+        setBloodGroup('');
+        setAdmissionTuition('');
+        setAdmissionFeeCharge('');
+        setAdmissionExamCharge('');
+        setAdmissionHeadOverrides({});
         setConcessionType('none');
-        setConcessionVal(0);
+        setConcessionVal('');
         setConcessionReason('');
+        setCollectInitialPayment(false);
+        setInitialPaymentAmount('');
+        setInitialPaymentReference('');
         await fetchData();
       } else {
         alert(result?.error?.message || `Enrollment failed with status ${res.status}`);
@@ -492,79 +793,60 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Tab Navigation */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs">
-            <UserPlus className="w-5 h-5 text-white" />
-          </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black tracking-tight text-slate-900">Student Admissions & Directory</h1>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                <ShieldCheck className="w-3 h-3 text-indigo-600" />
-                Student Records
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Manage student admissions, review inquiries, and maintain student records.
-            </p>
-          </div>
-        </div>
-
+      {/* Page Header & Navigation */}
+      <PageHeading 
+        title="Students" 
+        description="Student directory records, inquiry pipeline, and admissions." 
+        icon={<Users className="w-4 h-4 text-slate-700" />}
+      >
         {/* Tab Switcher */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+        <div className="flex items-center overflow-x-auto no-scrollbar max-w-full whitespace-nowrap bg-slate-100/90 p-1 rounded-lg border border-slate-200 text-xs font-semibold">
           <button
             onClick={() => setActiveTab('directory')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
               activeTab === 'directory' 
                 ? 'bg-white text-slate-900 shadow-xs font-bold' 
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Users className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Student Directory ({students.length})</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('id_cards')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
-              activeTab === 'id_cards' 
-                ? 'bg-white text-slate-900 shadow-xs font-bold' 
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <CreditCard className="w-3.5 h-3.5 text-slate-700" />
-            <span>Student ID Cards</span>
-            {selectedDirectoryStudentIds.size > 0 && (
-              <span className="px-1.5 py-0.2 bg-slate-900 text-white rounded-full text-[10px] font-mono font-bold">
-                {selectedDirectoryStudentIds.size}
-              </span>
-            )}
+            <Users className="w-3.5 h-3.5 text-slate-500" />
+            <span>Directory ({students.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('inquiries')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
               activeTab === 'inquiries' 
                 ? 'bg-white text-slate-900 shadow-xs font-bold' 
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
-            <span>Inquiries Desk ({inquiries.length})</span>
+            <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
+            <span>Inquiries ({inquiries.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('new_admission')}
-            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
               activeTab === 'new_admission' 
                 ? 'bg-white text-slate-900 shadow-xs font-bold' 
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <UserPlus className="w-3.5 h-3.5 text-emerald-600" />
-            <span>New Admission Form</span>
+            <UserPlus className="w-3.5 h-3.5 text-slate-500" />
+            <span>Admission Form</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('id_cards')}
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
+              activeTab === 'id_cards' 
+                ? 'bg-white text-slate-900 shadow-xs font-bold' 
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+            <span>ID Cards</span>
           </button>
         </div>
-      </div>
+      </PageHeading>
 
       {/* Error state */}
       {error && (
@@ -586,51 +868,82 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       {/* TAB 1: STUDENT DIRECTORY & STUDENT PROFILE                                 */}
       {/* ========================================================================= */}
       {activeTab === 'directory' && (
-        <div className="space-y-4">
-          {/* Controls Bar */}
-          <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+          {/* Controls Toolbar */}
+          <div className="p-3 bg-white border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search by student name, roll #, admission #..."
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all font-sans"
+                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors font-sans text-slate-900"
               />
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <Filter className="w-3.5 h-3.5" />
-                <span className="font-semibold">Batch:</span>
+            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+              <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                <Filter className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-[11px] font-medium text-slate-500">Batch:</span>
+                <select
+                  value={selectedBatchFilter}
+                  onChange={e => setSelectedBatchFilter(e.target.value)}
+                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+                >
+                  <option value="all">All Batches ({batches.length})</option>
+                  {batches.map(b => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} ({b.shift.toUpperCase()} • {b.current_enrollment}/{b.max_capacity})
+                    </option>
+                  ))}
+                </select>
               </div>
-              <select
-                value={selectedBatchFilter}
-                onChange={e => setSelectedBatchFilter(e.target.value)}
-                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+
+              <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                <span className="text-[11px] font-medium text-slate-500">Status:</span>
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+                >
+                  <option value="all">All Statuses ({students.length})</option>
+                  <option value="active">Active ({students.filter(s => s.status === 'active').length})</option>
+                  <option value="withdrawn">Withdrawn ({students.filter(s => s.status === 'withdrawn').length})</option>
+                  <option value="suspended">Suspended ({students.filter(s => s.status === 'suspended').length})</option>
+                  <option value="on_leave">On Leave ({students.filter(s => s.status === 'on_leave').length})</option>
+                  <option value="alumni">Alumni ({students.filter(s => s.status === 'alumni').length})</option>
+                  <option value="waitlisted">Waitlisted ({students.filter(s => s.status === 'waitlisted').length})</option>
+                </select>
+              </div>
+
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowBulkImportModal(true);
+                  setBulkImportResult(null);
+                  setBulkImportCsvText('');
+                  if (batches.length > 0 && !bulkImportBatchId) setBulkImportBatchId(batches[0].id);
+                }}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-200"
+                title="Bulk Import Students via CSV"
               >
-                <option value="all">All Academic Batches ({batches.length})</option>
-                {batches.map(b => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.shift.toUpperCase()} • {b.current_enrollment}/{b.max_capacity})
-                  </option>
-                ))}
-              </select>
+                <Upload className="w-3.5 h-3.5 text-slate-600" />
+                <span>Bulk CSV Import</span>
+              </button>
 
               <button 
                 onClick={() => setActiveTab('new_admission')}
-                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors ml-auto"
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors ml-auto sm:ml-0"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Admit Student</span>
+                <span>Admission</span>
               </button>
             </div>
           </div>
 
           {/* Selected Action Bar */}
           {selectedDirectoryStudentIds.size > 0 && (
-            <div className="bg-slate-900 text-white rounded-xl p-3 px-4 flex items-center justify-between shadow-xs">
+            <div className="bg-slate-900 text-white p-2.5 px-4 flex items-center justify-between border-b border-slate-800">
               <div className="flex items-center gap-2 text-xs font-semibold">
                 <CheckSquare className="w-4 h-4 text-emerald-400" />
                 <span>{selectedDirectoryStudentIds.size} student{selectedDirectoryStudentIds.size > 1 ? 's' : ''} selected</span>
@@ -638,30 +951,28 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setActiveTab('id_cards')}
-                  className="px-3 py-1.5 bg-white text-slate-900 hover:bg-slate-100 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+                  onClick={() => setShowBulkIdCardsModal(true)}
+                  className="px-3 py-1.5 bg-white text-slate-900 hover:bg-slate-100 rounded-md text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
                 >
                   <CreditCard className="w-3.5 h-3.5" />
-                  <span>Generate & Print ID Cards ({selectedDirectoryStudentIds.size})</span>
+                  <span>Print ID Cards ({selectedDirectoryStudentIds.size})</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedDirectoryStudentIds(new Set())}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition-colors"
+                  className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-md text-xs font-semibold transition-colors"
                 >
-                  Clear Selection
+                  Clear
                 </button>
               </div>
             </div>
           )}
-
-          {/* Table */}
-          <div className="bg-white border border-slate-200/90 rounded-xl shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
-                    <th className="py-3 px-3 w-10 text-center">
+          {/* Directory Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
+                  <th className="py-3 px-3 w-10 text-center">
                       <button
                         type="button"
                         onClick={toggleSelectAllFiltered}
@@ -740,7 +1051,12 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           <div className="text-[11px] text-indigo-600 font-medium">{getBatchName(student.batch_id)}</div>
                         </td>
                         <td className="py-3 px-4">
-                          <div className="text-slate-800 font-medium">{student.guardian_name}</div>
+                          <div className="text-slate-800 font-medium flex items-center gap-1">
+                            <span>{student.guardian_name}</span>
+                            {student.guardian_relation && (
+                              <span className="text-[10.5px] text-slate-500 font-normal">({student.guardian_relation})</span>
+                            )}
+                          </div>
                           <div className="text-[11px] text-slate-500 font-mono">{student.guardian_phone}</div>
                         </td>
                         <td className="py-3 px-4">
@@ -753,19 +1069,59 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            Active
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${
+                            student.status === 'active'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : student.status === 'withdrawn'
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : student.status === 'suspended'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200'
+                              : student.status === 'on_leave'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              student.status === 'active'
+                                ? 'bg-emerald-500'
+                                : student.status === 'withdrawn'
+                                ? 'bg-rose-500'
+                                : student.status === 'suspended'
+                                ? 'bg-amber-500'
+                                : student.status === 'on_leave'
+                                ? 'bg-blue-500'
+                                : 'bg-slate-400'
+                            }`}></span>
+                            {student.status ? student.status.replace('_', ' ') : 'Active'}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <button
-                            onClick={() => setSelectedStudent(student)}
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 rounded-lg text-xs font-bold transition-all border border-slate-200 hover:border-indigo-200 inline-flex items-center gap-1"
-                          >
-                            <span>Profile</span>
-                            <ChevronRight className="w-3 h-3" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setContactStudentModal(student)}
+                              className="p-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 rounded-lg transition-colors border border-slate-200 hover:border-emerald-200"
+                              title="Call or WhatsApp contact options"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                            </button>
+                            {onNavigate && (
+                              <button
+                                type="button"
+                                onClick={() => onNavigate(`student_portal?student_id=${encodeURIComponent(student.id)}`)}
+                                className="p-1.5 bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 rounded-lg transition-colors border border-slate-200 hover:border-indigo-200"
+                                title="Preview Student Portal"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setSelectedStudent(student)}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-600 rounded-lg text-xs font-bold transition-all border border-slate-200 hover:border-indigo-200 inline-flex items-center gap-1"
+                            >
+                              <span>Profile</span>
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -774,33 +1130,22 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </table>
             </div>
           </div>
-        </div>
       )}
 
       {/* ========================================================================= */}
       {/* TAB: STUDENT ID CARDS GENERATOR & PRINTING STUDIO                         */}
       {/* ========================================================================= */}
-      {activeTab === 'id_cards' && (
-        <StudentIDCardDesk
-          students={students}
-          batches={batches}
-          programs={programs}
-          initialSelectedIds={Array.from(selectedDirectoryStudentIds)}
-          onBackToDirectory={() => setActiveTab('directory')}
-        />
-      )}
-
       {/* ========================================================================= */}
       {/* TAB 2: INQUIRIES DESK & 1-CLICK ADMIT                                     */}
       {/* ========================================================================= */}
       {activeTab === 'inquiries' && (
-        <div className="space-y-4">
-          {/* Inquiries Header Controls */}
-          <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+          {/* Inquiries Header Toolbar */}
+          <div className="p-3 bg-white border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
               {[
                 { id: 'all', label: 'All Inquiries' },
-                { id: 'new', label: 'New Inquiries' },
+                { id: 'new', label: 'New' },
                 { id: 'follow_up', label: 'Follow Up' },
                 { id: 'fee_discussion', label: 'Fee Discussion' },
                 { id: 'admitted', label: 'Admitted' },
@@ -808,7 +1153,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <button
                   key={st.id}
                   onClick={() => setInquiryStageFilter(st.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all ${
                     inquiryStageFilter === st.id
                       ? 'bg-slate-900 text-white font-bold shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:text-slate-900'
@@ -821,119 +1166,157 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
             <button
               onClick={() => setShowNewInquiryModal(true)}
-              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors whitespace-nowrap ml-auto"
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors whitespace-nowrap ml-auto"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Log New Inquiry</span>
+              <span>Log Inquiry</span>
             </button>
           </div>
 
           {/* Inquiries Table */}
-          <div className="bg-white border border-slate-200/90 rounded-xl shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
                     <th className="py-3 px-4">Inquiry #</th>
-                    <th className="py-3 px-4">Candidate Name</th>
-                    <th className="py-3 px-4">Phone Contact</th>
-                    <th className="py-3 px-4">Guardian Particulars</th>
-                    <th className="py-3 px-4">Program Interest</th>
+                    <th className="py-3 px-4">Candidate Particulars</th>
+                    <th className="py-3 px-4">Contact</th>
+                    <th className="py-3 px-4">Target Program</th>
+                    <th className="py-3 px-4">Source & Priority</th>
+                    <th className="py-3 px-4">Follow-Up</th>
                     <th className="py-3 px-4">Stage</th>
-                    <th className="py-3 px-4 text-right">Quick Action</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70">
                   {filteredInquiries.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400">
-                        No inquiries in this pipeline stage.
+                      <td colSpan={8} className="py-8 text-center text-slate-400">
+                        No inquiries found.
                       </td>
                     </tr>
                   ) : (
-                    filteredInquiries.map(inq => (
-                      <tr key={inq.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3 px-4 font-mono font-bold text-slate-700">
-                          {inq.inquiry_number}
-                        </td>
-                        <td className="py-3 px-4 font-bold text-slate-900">
-                          {inq.student_name}
-                          {inq.notes && (
-                            <p className="text-[10px] text-slate-500 font-normal mt-0.5 line-clamp-1 italic">
-                              "{inq.notes}"
-                            </p>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 font-mono text-slate-700">
-                          {inq.phone}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="text-slate-800 font-medium">{inq.guardian_name || 'N/A'}</div>
-                          {inq.guardian_phone && (
-                            <div className="text-[10px] text-slate-500 font-mono">{inq.guardian_phone}</div>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 font-semibold text-slate-800">
-                          {inq.program_id ? getProgramName(inq.program_id) : 'General Inquirer'}
-                        </td>
-                        <td className="py-3 px-4">
-                          {inq.stage === 'admitted' ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              Admitted
-                            </span>
-                          ) : (
-                            <select
-                              value={inq.stage}
-                              onChange={e => handleUpdateStage(inq.id, e.target.value as InquiryStage)}
-                              className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-[11px] font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                            >
-                              <option value="new">New Inquiry</option>
-                              <option value="follow_up">Follow Up</option>
-                              <option value="trial_scheduled">Trial Scheduled</option>
-                              <option value="fee_discussion">Fee Discussion</option>
-                              <option value="closed">Closed / Dropped</option>
-                            </select>
-                          )}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          {inq.stage !== 'admitted' ? (
-                            <button
-                              onClick={() => {
-                                setAdmitInquiryModal(inq);
-                                if (batches.length > 0) setAdmitBatchId(batches[0].id);
-                              }}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1"
-                            >
-                              <UserCheck className="w-3.5 h-3.5" />
-                              <span>Admit Student</span>
-                            </button>
-                          ) : (
-                            <span className="text-[11px] text-slate-400 font-semibold italic">
-                              Enrolled
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                    filteredInquiries.map(inq => {
+                      const prevSchool = inq.custom_field_values?.previous_school;
+                      const prevMarks = inq.custom_field_values?.previous_marks;
+
+                      return (
+                        <tr key={inq.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3 px-4 font-mono font-bold text-slate-700">
+                            {inq.inquiry_number}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-bold text-slate-900">{inq.student_name}</div>
+                            {(prevSchool || prevMarks) && (
+                              <div className="text-[10px] text-slate-500 truncate max-w-xs mt-0.5">
+                                {prevSchool ? `Prev: ${prevSchool}` : ''} {prevMarks ? `(${prevMarks})` : ''}
+                              </div>
+                            )}
+                            {inq.notes && (
+                              <p className="text-[10px] text-slate-500 font-normal mt-0.5 line-clamp-1 italic">
+                                "{inq.notes}"
+                              </p>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-mono text-slate-700 font-semibold">{inq.phone}</div>
+                            {inq.guardian_name && (
+                              <div className="text-[10.5px] text-slate-500">{inq.guardian_name} {inq.guardian_phone ? `(${inq.guardian_phone})` : ''}</div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-semibold text-slate-800">
+                            {inq.program_id ? getProgramName(inq.program_id) : 'General'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex flex-col gap-1 items-start">
+                              <span className="text-[10px] font-medium text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                {inq.source || 'Walk-in'}
+                              </span>
+                              <span className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold uppercase tracking-wider ${
+                                inq.priority === 'high' 
+                                  ? 'bg-rose-50 text-rose-700 border border-rose-200' 
+                                  : inq.priority === 'medium'
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : 'bg-slate-100 text-slate-600 border border-slate-200'
+                              }`}>
+                                {inq.priority || 'medium'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-[11px] text-slate-600">
+                            {inq.next_follow_up_date || '—'}
+                          </td>
+                          <td className="py-3 px-4">
+                            {inq.stage === 'admitted' ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                Admitted
+                              </span>
+                            ) : (
+                              <select
+                                value={inq.stage}
+                                onChange={e => handleUpdateStage(inq.id, e.target.value as InquiryStage)}
+                                className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-[11px] font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              >
+                                <option value="new">New</option>
+                                <option value="follow_up">Follow Up</option>
+                                <option value="trial_scheduled">Trial Scheduled</option>
+                                <option value="fee_discussion">Fee Discussion</option>
+                                <option value="closed">Closed</option>
+                              </select>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {inq.stage !== 'admitted' ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleTransferInquiryToAdmission(inq)}
+                                  className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1"
+                                  title="Open candidate in Admission Form"
+                                >
+                                  <UserPlus className="w-3.5 h-3.5" />
+                                  <span>Admit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAdmitInquiryModal(inq);
+                                    if (batches.length > 0) setAdmitBatchId(batches[0].id);
+                                  }}
+                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-all border border-slate-200 inline-flex items-center"
+                                  title="Quick direct batch assignment"
+                                >
+                                  <span>Batch</span>
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[11px] text-slate-400 font-semibold italic">
+                                Enrolled
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
           </div>
-        </div>
       )}
 
       {/* ========================================================================= */}
       {/* TAB 3: DYNAMIC ADMISSION FORM                                            */}
       {/* ========================================================================= */}
       {activeTab === 'new_admission' && (
-        <div className="bg-white border border-slate-200/90 rounded-xl p-6 shadow-xs max-w-4xl mx-auto space-y-6">
-          <div className="border-b border-slate-200 pb-4">
-            <h2 className="text-lg font-black text-slate-900 tracking-tight">Institutional Student Admission Form</h2>
-            <p className="text-xs text-slate-500 mt-1">
-              Zero hardcoded curriculums. Program tracks, batch capacity limits, and custom fields adapt dynamically to institutional database rules.
-            </p>
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs max-w-4xl mx-auto space-y-6">
+          <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
+            <SectionInfo 
+              title="New Student Registration" 
+              description="Student registration with dynamic academic programs, batch capacity limits, and custom institutional fields."
+              titleClassName="text-base font-bold text-slate-900"
+            />
           </div>
 
           {enrollSuccessMessage && (
@@ -958,8 +1341,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       onClick={() => {
                         if (createdStudentResult) {
                           setSelectedDirectoryStudentIds(new Set([createdStudentResult.id]));
+                          setShowBulkIdCardsModal(true);
                         }
-                        setActiveTab('id_cards');
                       }}
                       className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold flex items-center gap-1.5 shadow-xs transition-colors"
                     >
@@ -984,7 +1367,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">1</span>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Academic Hierarchy Selection</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Academic Placement</h3>
+                <SectionInfo description="Select the academic program, allocated shift, and batch." />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -1006,7 +1390,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     required
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="">-- Select Academic Program --</option>
+                    <option value="">Select Academic Program</option>
                     {programs.map(p => (
                       <option key={p.id} value={p.id}>
                         {p.name} ({p.code})
@@ -1026,7 +1410,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     disabled={!enrollForm.program_id}
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                   >
-                    <option value="">-- Select Shift & Batch --</option>
+                    <option value="">Select Shift & Batch</option>
                     {availableBatchesForEnroll.map(b => (
                       <option key={b.id} value={b.id}>
                         {b.name} ({b.shift.toUpperCase()} • Enrolled: {b.current_enrollment}/{b.max_capacity})
@@ -1046,7 +1430,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       onChange={e => setEnrollForm(prev => ({ ...prev, elective_group_id: e.target.value }))}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                      <option value="">-- Select Elective Track (Optional) --</option>
+                      <option value="">Select Elective Track (Optional)</option>
                       {electiveGroupsForEnroll.map(eg => (
                         <option key={eg.id} value={eg.id}>
                           {eg.name} ({getSubjectNames(eg.subject_ids).join(', ')})
@@ -1203,10 +1587,47 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">2</span>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Student & Guardian Identity</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Student Particulars</h3>
+                <SectionInfo description="Legal name, mobile number, optional email, blood group, and guardian contact." />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                {/* Photo Upload Box */}
+                <div className="sm:col-span-2 flex items-center gap-4 p-3 bg-white rounded-lg border border-slate-200">
+                  <div className="w-14 h-18 rounded border border-slate-300 bg-slate-100 flex items-center justify-center overflow-hidden shrink-0">
+                    {photoUrl ? (
+                      <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="flex flex-col items-center text-slate-400">
+                        <Camera className="w-5 h-5 mb-0.5" />
+                        <span className="text-[8px] uppercase font-sans">Photo</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold border border-slate-300 transition-colors">
+                      <Camera className="w-3.5 h-3.5 text-slate-600" />
+                      <span>{photoUrl ? 'Change Photo' : 'Upload Student Photo'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAdmissionPhotoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    <p className="text-[10px] text-slate-500">Official passport portrait for student ID card & profile registry (Max 3MB).</p>
+                    {photoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setPhotoUrl('')}
+                        className="text-[10px] text-rose-600 hover:underline block"
+                      >
+                        Remove photo
+                      </button>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Student Full Legal Name <span className="text-rose-500">*</span>
@@ -1216,7 +1637,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     required
                     value={enrollForm.full_name}
                     onChange={e => setEnrollForm(prev => ({ ...prev, full_name: e.target.value }))}
-                    placeholder="e.g. Muhammad Bilal"
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                   />
                 </div>
@@ -1230,7 +1650,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     required
                     value={enrollForm.phone}
                     onChange={e => setEnrollForm(prev => ({ ...prev, phone: e.target.value }))}
-                    placeholder="0300-1234567"
+                    placeholder="0300 1234567"
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                   />
                 </div>
@@ -1250,13 +1670,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Blood Group (For Student ID Pass)
+                    Blood Group
                   </label>
                   <select
                     value={bloodGroup}
                     onChange={e => setBloodGroup(e.target.value)}
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                   >
+                    <option value="">Select Blood Group</option>
                     <option value="A+">A+</option>
                     <option value="A-">A-</option>
                     <option value="B+">B+</option>
@@ -1270,30 +1691,118 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Guardian / Father's Name <span className="text-rose-500">*</span>
+                    Guardian Full Name <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     value={enrollForm.guardian_name}
                     onChange={e => setEnrollForm(prev => ({ ...prev, guardian_name: e.target.value }))}
-                    placeholder="e.g. Muhammad Aslam"
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Guardian Emergency Mobile <span className="text-rose-500">*</span>
+                    Guardian Relationship <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={guardianRelation}
+                    onChange={e => setGuardianRelation(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Father">Father</option>
+                    <option value="Mother">Mother</option>
+                    <option value="Brother">Brother</option>
+                    <option value="Uncle">Uncle</option>
+                    <option value="Guardian">Guardian</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Guardian Calling Mobile <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     value={enrollForm.guardian_phone}
-                    onChange={e => setEnrollForm(prev => ({ ...prev, guardian_phone: e.target.value }))}
-                    placeholder="0321-9876543"
+                    onChange={e => {
+                      const val = e.target.value;
+                      setEnrollForm(prev => ({ ...prev, guardian_phone: val }));
+                      if (whatsappSameAsCalling) {
+                        setGuardianWhatsapp(val);
+                      }
+                    }}
+                    placeholder="0300 1234567"
                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                   />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-700">
+                      Guardian WhatsApp Number
+                    </label>
+                    <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={whatsappSameAsCalling}
+                        onChange={e => {
+                          const checked = e.target.checked;
+                          setWhatsappSameAsCalling(checked);
+                          if (checked) {
+                            setGuardianWhatsapp(enrollForm.guardian_phone);
+                          }
+                        }}
+                        className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span>Same as Calling</span>
+                    </label>
+                  </div>
+                  <input
+                    type="text"
+                    value={guardianWhatsapp}
+                    onChange={e => {
+                      setGuardianWhatsapp(e.target.value);
+                      setWhatsappSameAsCalling(false);
+                    }}
+                    placeholder="0300 1234567"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Guardian Email Address (Optional)
+                  </label>
+                  <input
+                    type="email"
+                    value={enrollForm.guardian_email}
+                    onChange={e => setEnrollForm(prev => ({ ...prev, guardian_email: e.target.value }))}
+                    placeholder="guardian@example.com"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    For fee receipts & email notifications.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Guardian CNIC / National ID Card
+                  </label>
+                  <input
+                    type="text"
+                    value={enrollForm.guardian_id_card || ''}
+                    onChange={e => setEnrollForm(prev => ({ ...prev, guardian_id_card: e.target.value }))}
+                    placeholder="35201-1234567-1"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Primary login identifier for Parent Portal. Auto-provisions parent account.
+                  </p>
                 </div>
               </div>
             </div>
@@ -1302,19 +1811,20 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">3</span>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Financial Schedule & Fee Concessions</h3>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">Fee Schedule & Concessions</h3>
+                <SectionInfo description="Monthly tuition, admission fee, exam fee, and approved scholarship/concession rate." />
               </div>
 
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-                {/* Baseline Inherited from Batch */}
+                {/* Dynamic Fee Heads Registered for Admission */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-slate-700 font-bold mb-1 text-[11px]">Monthly Tuition (PKR)</label>
                     <input
                       type="number"
                       min={0}
-                      value={admissionTuition}
-                      onChange={e => setAdmissionTuition(Number(e.target.value) || 0)}
+                      value={admissionTuition === '' ? '' : admissionTuition}
+                      onChange={e => setAdmissionTuition(e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
                     />
                   </div>
@@ -1323,8 +1833,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <input
                       type="number"
                       min={0}
-                      value={admissionFeeCharge}
-                      onChange={e => setAdmissionFeeCharge(Number(e.target.value) || 0)}
+                      value={admissionFeeCharge === '' ? '' : admissionFeeCharge}
+                      onChange={e => setAdmissionFeeCharge(e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
                     />
                   </div>
@@ -1333,11 +1843,30 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <input
                       type="number"
                       min={0}
-                      value={admissionExamCharge}
-                      onChange={e => setAdmissionExamCharge(Number(e.target.value) || 0)}
+                      value={admissionExamCharge === '' ? '' : admissionExamCharge}
+                      onChange={e => setAdmissionExamCharge(e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
                     />
                   </div>
+
+                  {/* Additional Dynamic Fee Heads */}
+                  {otherAdmissionHeads.map(head => (
+                    <div key={head.id}>
+                      <label className="block text-slate-700 font-bold mb-1 text-[11px]">
+                        {head.name} ({head.code})
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={admissionHeadOverrides[head.id] !== undefined ? admissionHeadOverrides[head.id] : head.default_amount}
+                        onChange={e => {
+                          const val = e.target.value === '' ? '' : Number(e.target.value);
+                          setAdmissionHeadOverrides(prev => ({ ...prev, [head.id]: val }));
+                        }}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                      />
+                    </div>
+                  ))}
                 </div>
 
                 {/* Concession / Discount Selector */}
@@ -1379,7 +1908,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             setConcessionVal(50);
                             setConcessionReason('Staff child benefit');
                           } else if (type === 'none') {
-                            setConcessionVal(0);
+                            setConcessionVal('');
                             setConcessionReason('');
                           }
                         }}
@@ -1410,8 +1939,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             <input
                               type="number"
                               min={0}
-                              value={concessionVal}
-                              onChange={e => setConcessionVal(Number(e.target.value) || 0)}
+                              value={concessionVal === '' ? '' : concessionVal}
+                              onChange={e => setConcessionVal(e.target.value === '' ? '' : Number(e.target.value))}
                               className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold"
                             />
                           </div>
@@ -1424,7 +1953,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           <input
                             type="text"
                             required
-                            placeholder="e.g. Sibling Roll #104 in Class 10"
                             value={concessionReason}
                             onChange={e => setConcessionReason(e.target.value)}
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs"
@@ -1439,7 +1967,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <div className="space-y-0.5">
                       <span className="font-bold text-slate-800 block">First Month Admission Total Due:</span>
                       <span className="text-[11px] text-slate-500 font-mono">
-                        Net Tuition: PKR {netMonthlyTuition.toLocaleString()} + Adm: PKR {admissionFeeCharge.toLocaleString()} + Exam: PKR {admissionExamCharge.toLocaleString()}
+                        Net Tuition: PKR {netMonthlyTuition.toLocaleString()} + Adm: PKR {admissionFeeNum.toLocaleString()} + Exam: PKR {examFeeNum.toLocaleString()}
+                        {otherHeadsTotal > 0 && ` + Other Heads: PKR ${otherHeadsTotal.toLocaleString()}`}
                       </span>
                     </div>
                     <div className="text-right">
@@ -1457,21 +1986,93 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       className="w-4 h-4 text-indigo-600 rounded border-slate-300"
                     />
                     <span className="text-slate-700 text-xs font-semibold">
-                      Auto-generate first month admission invoice & 3-part bank challan immediately
+                      Generate first month admission invoice and fee challan immediately
                     </span>
                   </label>
+
+                  {/* Direct Payment Collection Option */}
+                  <div className="pt-3 border-t border-slate-200/80 space-y-3">
+                    <label className="flex items-center gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={collectInitialPayment}
+                        onChange={e => {
+                          const checked = e.target.checked;
+                          setCollectInitialPayment(checked);
+                          if (checked && (initialPaymentAmount === '' || initialPaymentAmount === 0)) {
+                            setInitialPaymentAmount(firstMonthTotal);
+                          }
+                        }}
+                        className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+                      />
+                      <span className="text-slate-800 text-xs font-bold flex items-center gap-1.5">
+                        <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                        Collect Initial Payment at Admission Desk
+                      </span>
+                    </label>
+
+                    {collectInitialPayment && (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            Amount Collected (PKR) <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={firstMonthTotal || undefined}
+                            required={collectInitialPayment}
+                            value={initialPaymentAmount === '' ? '' : initialPaymentAmount}
+                            onChange={e => setInitialPaymentAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                            className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            Payment Method <span className="text-rose-500">*</span>
+                          </label>
+                          <select
+                            value={initialPaymentMethod}
+                            onChange={e => setInitialPaymentMethod(e.target.value as any)}
+                            className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold"
+                          >
+                            <option value="cash">Cash Counter</option>
+                            <option value="meezan_bank">Bank Transfer / Meezan IBFT</option>
+                            <option value="easypaisa">EasyPaisa</option>
+                            <option value="jazzcash">JazzCash</option>
+                            <option value="cheque">Bank Cheque</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            Receipt / Reference Note
+                          </label>
+                          <input
+                            type="text"
+                            value={initialPaymentReference}
+                            onChange={e => setInitialPaymentReference(e.target.value)}
+                            placeholder="e.g. Trx # / Cheque #"
+                            className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Step 3: Dynamic Form Builder Custom Fields */}
+            {/* Step 4: Dynamic Form Builder Custom Fields */}
             {customFields.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">3</span>
+                  <span className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">4</span>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Tenant-Configured Form Fields
+                    Additional Fields
                   </h3>
+                  <SectionInfo description="Institution-specific custom registration fields." />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
@@ -1517,7 +2118,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                               },
                             }));
                           }}
-                          placeholder={`Enter ${field.label.toLowerCase()}...`}
                           className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                         />
                       )}
@@ -1559,6 +2159,19 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       )}
 
       {/* ========================================================================= */}
+      {/* TAB 4: STUDENT ID CARDS & PRINT REGISTER                                   */}
+      {/* ========================================================================= */}
+      {activeTab === 'id_cards' && (
+        <StudentIDCardDesk
+          students={students}
+          batches={batches}
+          programs={programs}
+          initialSelectedIds={Array.from(selectedDirectoryStudentIds)}
+          onBackToDirectory={() => setActiveTab('directory')}
+        />
+      )}
+
+      {/* ========================================================================= */}
       {/* STUDENT PROFILE & ID CARD MODAL                                           */}
       {/* ========================================================================= */}
       {selectedStudent && (
@@ -1570,6 +2183,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           subjectGroups={subjectGroups}
           onClose={() => setSelectedStudent(null)}
           onStudentUpdated={fetchData}
+          onPreviewPortal={onNavigate ? (studentId) => onNavigate(`student_portal?student_id=${encodeURIComponent(studentId)}`) : undefined}
         />
       )}
 
@@ -1578,7 +2192,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       {/* ========================================================================= */}
       {admitInquiryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2 text-slate-900 font-black text-sm">
                 <UserCheck className="w-4 h-4 text-emerald-600" />
@@ -1666,6 +2280,83 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </div>
                 </div>
               )}
+
+              {/* Guardian CNIC / ID Card */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Guardian CNIC / ID Card (Parent Portal Login)
+                </label>
+                <input
+                  type="text"
+                  value={admitGuardianCnic}
+                  onChange={e => setAdmitGuardianCnic(e.target.value)}
+                  placeholder="35201-1234567-1"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Used as the login username for the Guardian Portal.
+                </p>
+              </div>
+
+              {/* Fee Breakdown Schedule */}
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800">Fee Schedule & First Challan</span>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded font-bold font-mono">
+                    Auto-Issues 3-Part Challan
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10.5px] font-semibold text-slate-600 mb-0.5">Monthly Tuition (PKR)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={admitTuitionFee}
+                      onChange={e => setAdmitTuitionFee(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs font-mono font-bold text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10.5px] font-semibold text-slate-600 mb-0.5">Admission Fee (PKR)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={admitAdmissionFee}
+                      onChange={e => setAdmitAdmissionFee(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs font-mono font-bold text-slate-900"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[10.5px] font-semibold text-slate-600 mb-0.5">Concession / Discount (PKR)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={admitConcessionAmount}
+                      onChange={e => setAdmitConcessionAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs font-mono font-bold text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10.5px] font-semibold text-slate-600 mb-0.5">Concession Category</label>
+                    <input
+                      type="text"
+                      value={admitConcessionReason}
+                      onChange={e => setAdmitConcessionReason(e.target.value)}
+                      placeholder="e.g. Merit / Kinship"
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-900"
+                    />
+                  </div>
+                </div>
+                <div className="pt-1.5 border-t border-slate-200 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-600">First Month Payable:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    PKR {(Math.max(0, (Number(admitTuitionFee) || 0) - (Number(admitConcessionAmount) || 0)) + (Number(admitAdmissionFee) || 0)).toLocaleString()}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
@@ -1719,14 +2410,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             <form onSubmit={handleCreateInquiry} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Student Name <span className="text-rose-500">*</span>
+                  Candidate Full Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
                   value={newInquiryForm.student_name}
                   onChange={e => setNewInquiryForm(prev => ({ ...prev, student_name: e.target.value }))}
-                  placeholder="e.g. Harris Khan"
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                 />
               </div>
@@ -1734,14 +2424,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Phone <span className="text-rose-500">*</span>
+                    Contact Phone <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
                     value={newInquiryForm.phone}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, phone: e.target.value }))}
-                    placeholder="0300-0000000"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                   />
                 </div>
@@ -1751,7 +2440,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     type="email"
                     value={newInquiryForm.email}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="candidate@mail.com"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                   />
                 </div>
@@ -1764,7 +2452,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     type="text"
                     value={newInquiryForm.guardian_name}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, guardian_name: e.target.value }))}
-                    placeholder="Father/Mother"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                   />
                 </div>
@@ -1774,32 +2461,103 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     type="text"
                     value={newInquiryForm.guardian_phone}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, guardian_phone: e.target.value }))}
-                    placeholder="0321-0000000"
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Program of Interest</label>
-                <select
-                  value={newInquiryForm.program_id}
-                  onChange={e => setNewInquiryForm(prev => ({ ...prev, program_id: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">-- Select Program --</option>
-                  {programs.map(p => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
-                  ))}
-                </select>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Guardian CNIC / ID Card</label>
+                <input
+                  type="text"
+                  value={newInquiryForm.guardian_id_card}
+                  onChange={e => setNewInquiryForm(prev => ({ ...prev, guardian_id_card: e.target.value }))}
+                  placeholder="35201-1234567-1"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Program of Interest</label>
+                  <select
+                    value={newInquiryForm.program_id}
+                    onChange={e => setNewInquiryForm(prev => ({ ...prev, program_id: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">-- Select Program --</option>
+                    {programs.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Lead Source</label>
+                  <select
+                    value={newInquiryForm.source}
+                    onChange={e => setNewInquiryForm(prev => ({ ...prev, source: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Walk-in">Walk-in Desk</option>
+                    <option value="Phone Call">Phone Call</option>
+                    <option value="Referral">Student Referral</option>
+                    <option value="Social Media">Social Media / Website</option>
+                    <option value="Banner">Banner / Pamphlet</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Priority</label>
+                  <select
+                    value={newInquiryForm.priority}
+                    onChange={e => setNewInquiryForm(prev => ({ ...prev, priority: e.target.value as any }))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="high">High Priority</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Next Follow-Up Date</label>
+                  <input
+                    type="date"
+                    value={newInquiryForm.next_follow_up_date}
+                    onChange={e => setNewInquiryForm(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Previous Institution</label>
+                  <input
+                    type="text"
+                    value={newInquiryForm.previous_school}
+                    onChange={e => setNewInquiryForm(prev => ({ ...prev, previous_school: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Previous Marks / %</label>
+                  <input
+                    type="text"
+                    value={newInquiryForm.previous_marks}
+                    onChange={e => setNewInquiryForm(prev => ({ ...prev, previous_marks: e.target.value }))}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Notes / Inquiry Requirements</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Discussion Notes</label>
                 <textarea
                   value={newInquiryForm.notes}
                   onChange={e => setNewInquiryForm(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="e.g. Wants evening shift, inquiring about fee discounts..."
                   rows={2}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
                 />
@@ -1821,6 +2579,480 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk ID Card Printing Modal */}
+      {showBulkIdCardsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-5xl p-6 shadow-2xl border border-slate-200 space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <CreditCard className="w-4 h-4 text-slate-700" />
+                <span>Student ID Cards</span>
+              </div>
+              <button
+                onClick={() => setShowBulkIdCardsModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <StudentIDCardDesk
+              students={students}
+              batches={batches}
+              programs={programs}
+              initialSelectedIds={Array.from(selectedDirectoryStudentIds)}
+              onBackToDirectory={() => setShowBulkIdCardsModal(false)}
+            />
+          </div>
+        </div>
+      )}
+      {/* Contact Options Modal for Student & Guardian */}
+      {contactStudentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Contact Options</h3>
+                <p className="text-[11px] text-slate-500 font-medium">{contactStudentModal.full_name} • Roll: {contactStudentModal.roll_number}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setContactStudentModal(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {/* Guardian Contact */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800">
+                    {contactStudentModal.guardian_name}
+                  </span>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    {contactStudentModal.guardian_relation || 'Guardian'}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-600 font-mono">
+                  {contactStudentModal.guardian_phone}
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <a
+                    href={`tel:${contactStudentModal.guardian_phone.replace(/\s+/g, '')}`}
+                    className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 rounded-lg text-xs font-bold border border-slate-200 flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Call</span>
+                  </a>
+                  <a
+                    href={`https://wa.me/${cleanPhoneForWhatsApp(contactStudentModal.guardian_whatsapp || contactStudentModal.guardian_phone)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    <span>WhatsApp</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Student Direct Contact */}
+              {contactStudentModal.phone && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">
+                      {contactStudentModal.full_name}
+                    </span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                      Student
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-600 font-mono">
+                    {contactStudentModal.phone}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <a
+                      href={`tel:${contactStudentModal.phone.replace(/\s+/g, '')}`}
+                      className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 rounded-lg text-xs font-bold border border-slate-200 flex items-center justify-center gap-1.5 transition-colors"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Call</span>
+                    </a>
+                    <a
+                      href={`https://wa.me/${cleanPhoneForWhatsApp(contactStudentModal.phone)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>WhatsApp</span>
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setContactStudentModal(null)}
+              className="w-full py-1.5 text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg font-semibold transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Branded WhatsApp Fee Receipt & Admission Slip Modal */}
+      {receiptModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 my-6">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>Admission Confirmed & Fee Receipt</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReceiptModalData(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Official Institutional Receipt Card */}
+            <div id="admission-receipt-slip" className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 font-sans text-xs">
+              <div className="text-center pb-3 border-b border-slate-200">
+                <h4 className="font-bold text-sm text-slate-900 uppercase tracking-wide">
+                  {tenant?.name || 'Apex Academy'}
+                </h4>
+                <p className="text-[11px] text-slate-500 font-medium">OFFICIAL ADMISSION & FEE RECEIPT</p>
+                <p className="text-[10px] font-mono text-slate-400 mt-0.5">
+                  {receiptModalData.payment ? `Receipt #: ${receiptModalData.payment.receipt_number}` : `Invoice Month: ${receiptModalData.billingMonth}`}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <span className="text-slate-500 block">Student Name:</span>
+                  <span className="font-bold text-slate-900">{receiptModalData.student.full_name}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Roll / Admission #:</span>
+                  <span className="font-mono font-bold text-slate-900">{receiptModalData.student.roll_number} ({receiptModalData.student.admission_number})</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Guardian:</span>
+                  <span className="text-slate-800 font-medium">
+                    {receiptModalData.student.guardian_name} {receiptModalData.student.guardian_relation ? `(${receiptModalData.student.guardian_relation})` : ''}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 block">Date & Session:</span>
+                  <span className="font-mono text-slate-800">{receiptModalData.student.admission_date}</span>
+                </div>
+              </div>
+
+              {/* Itemized Particulars */}
+              <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                <table className="w-full text-left text-[11px]">
+                  <thead className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                    <tr>
+                      <th className="py-1.5 px-3">Fee Particular</th>
+                      <th className="py-1.5 px-3 text-right">Amount (PKR)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono">
+                    {receiptModalData.items.map((item, idx) => (
+                      <tr key={idx}>
+                        <td className="py-1.5 px-3 text-slate-700 font-sans">{item.name}</td>
+                        <td className="py-1.5 px-3 text-right text-slate-900 font-semibold">{item.amount.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-slate-50 font-bold">
+                      <td className="py-2 px-3 text-slate-900 font-sans">Total Due</td>
+                      <td className="py-2 px-3 text-right text-slate-900">PKR {receiptModalData.totalDue.toLocaleString()}</td>
+                    </tr>
+                    {receiptModalData.amountPaid > 0 && (
+                      <>
+                        <tr className="bg-emerald-50 text-emerald-800 font-bold">
+                          <td className="py-1.5 px-3 font-sans">Amount Paid ({receiptModalData.payment?.payment_method?.toUpperCase() || 'PAID'})</td>
+                          <td className="py-1.5 px-3 text-right">PKR {receiptModalData.amountPaid.toLocaleString()}</td>
+                        </tr>
+                        <tr className="font-bold">
+                          <td className="py-1.5 px-3 text-slate-600 font-sans">Balance Remaining</td>
+                          <td className="py-1.5 px-3 text-right text-amber-700">
+                            PKR {Math.max(0, receiptModalData.totalDue - receiptModalData.amountPaid).toLocaleString()}
+                          </td>
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* WhatsApp Messaging Control */}
+            <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2 text-xs">
+              <label className="block text-[11px] font-bold text-emerald-900">
+                Send Fee Slip via WhatsApp:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={receiptWhatsappNumber}
+                  onChange={e => setReceiptWhatsappNumber(e.target.value)}
+                  placeholder="Guardian WhatsApp (e.g. 0300 1234567)"
+                  className="flex-1 px-3 py-1.5 bg-white border border-emerald-300 rounded-lg text-xs font-mono font-semibold"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cleanPhone = cleanPhoneForWhatsApp(receiptWhatsappNumber);
+                    const academyTitle = tenant?.name || 'Apex Academy';
+                    const lines = [
+                      `*${academyTitle.toUpperCase()}*`,
+                      `*OFFICIAL ADMISSION & FEE RECEIPT*`,
+                      ``,
+                      `Student: *${receiptModalData.student.full_name}*`,
+                      `Roll No: *${receiptModalData.student.roll_number}* | Admission No: *${receiptModalData.student.admission_number}*`,
+                      `Guardian: ${receiptModalData.student.guardian_name}`,
+                      `Date: ${receiptModalData.student.admission_date}`,
+                      ``,
+                      `*Fee Breakdown:*`,
+                      ...receiptModalData.items.map(i => `• ${i.name}: PKR ${i.amount.toLocaleString()}`),
+                      `---------------------------`,
+                      `Total Billed: PKR ${receiptModalData.totalDue.toLocaleString()}`,
+                      receiptModalData.amountPaid > 0 ? `Amount Received: PKR ${receiptModalData.amountPaid.toLocaleString()}` : `Payment Status: Due`,
+                      receiptModalData.amountPaid > 0 ? `Balance Due: PKR ${Math.max(0, receiptModalData.totalDue - receiptModalData.amountPaid).toLocaleString()}` : ``,
+                      receiptModalData.payment?.receipt_number ? `Receipt No: ${receiptModalData.payment.receipt_number}` : ``,
+                      ``,
+                      `Thank you. For any inquiries, please contact the academy administration.`
+                    ].filter(Boolean).join('\n');
+
+                    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(lines)}`;
+                    window.open(url, '_blank');
+                  }}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Send WhatsApp</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const academyTitle = tenant?.name || 'Apex Academy';
+                    const lines = [
+                      `*${academyTitle.toUpperCase()}*`,
+                      `*OFFICIAL ADMISSION & FEE RECEIPT*`,
+                      ``,
+                      `Student: *${receiptModalData.student.full_name}*`,
+                      `Roll No: *${receiptModalData.student.roll_number}* | Admission No: *${receiptModalData.student.admission_number}*`,
+                      `Guardian: ${receiptModalData.student.guardian_name}`,
+                      `Date: ${receiptModalData.student.admission_date}`,
+                      ``,
+                      `*Fee Breakdown:*`,
+                      ...receiptModalData.items.map(i => `• ${i.name}: PKR ${i.amount.toLocaleString()}`),
+                      `---------------------------`,
+                      `Total Billed: PKR ${receiptModalData.totalDue.toLocaleString()}`,
+                      receiptModalData.amountPaid > 0 ? `Amount Received: PKR ${receiptModalData.amountPaid.toLocaleString()}` : `Payment Status: Due`,
+                      receiptModalData.amountPaid > 0 ? `Balance Due: PKR ${Math.max(0, receiptModalData.totalDue - receiptModalData.amountPaid).toLocaleString()}` : ``,
+                      receiptModalData.payment?.receipt_number ? `Receipt No: ${receiptModalData.payment.receipt_number}` : ``,
+                      ``,
+                      `Thank you. For any inquiries, please contact the academy administration.`
+                    ].filter(Boolean).join('\n');
+                    navigator.clipboard.writeText(lines);
+                    setCopiedReceipt(true);
+                    setTimeout(() => setCopiedReceipt(false), 2000);
+                  }}
+                  className="px-2.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold rounded-lg flex items-center gap-1.5 transition-colors"
+                >
+                  {copiedReceipt ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedReceipt ? 'Copied' : 'Copy'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  window.print();
+                }}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Print Slip</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setReceiptModalData(null)}
+                className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ========================================================================= */}
+      {/* BULK CSV IMPORT MODAL                                                     */}
+      {/* ========================================================================= */}
+      {showBulkImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2 text-slate-900 font-black text-sm">
+                <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
+                <span>Bulk Student CSV Import</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBulkImportModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Import multiple student records in bulk. Guardians will be automatically provisioned with accounts using their CNIC numbers (default password: <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-[11px]">Parent@123</code>).
+            </p>
+
+            {/* Target Batch Selection */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Default Target Batch (for records without specific batch)
+              </label>
+              <select
+                value={bulkImportBatchId}
+                onChange={e => setBulkImportBatchId(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {batches.map(b => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.shift.toUpperCase()} • {b.current_enrollment}/{b.max_capacity})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Quick Actions / Template */}
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="font-semibold text-slate-600">CSV Data Format</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const sample = [
+                      'full_name,phone,guardian_name,guardian_phone,guardian_id_card,roll_number',
+                      'Muhammad Ali,0300-1112223,Tariq Mahmood,0300-4445556,35201-1234567-1,101',
+                      'Fatima Zahra,0321-7778889,Zahra Ahmed,0321-9990001,35202-7654321-2,102'
+                    ].join('\n');
+                    setBulkImportCsvText(sample);
+                  }}
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold transition-colors"
+                >
+                  Load Sample Template
+                </button>
+                <label className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold cursor-pointer transition-colors">
+                  <span>Upload .CSV File</span>
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = evt => {
+                        const content = evt.target?.result as string;
+                        if (content) setBulkImportCsvText(content);
+                      };
+                      reader.readAsText(file);
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* CSV Text Input Area */}
+            <div>
+              <textarea
+                rows={7}
+                value={bulkImportCsvText}
+                onChange={e => setBulkImportCsvText(e.target.value)}
+                placeholder="Paste CSV rows here with headers (e.g. full_name, phone, guardian_name, guardian_phone, guardian_id_card, roll_number)..."
+                className="w-full p-3 font-mono text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+              />
+              <div className="flex justify-between text-[11px] text-slate-400 mt-1">
+                <span>Required: full_name, guardian_name, guardian_phone, guardian_id_card</span>
+                <span>{bulkImportCsvText.trim() ? `${bulkImportCsvText.trim().split(/\r?\n/).length - 1} rows detected` : '0 rows'}</span>
+              </div>
+            </div>
+
+            {/* Import Results Banner */}
+            {bulkImportResult && (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                <div className="flex items-center gap-2 font-bold">
+                  {bulkImportResult.imported_count > 0 ? (
+                    <span className="text-emerald-700 flex items-center gap-1">
+                      <CheckCircle2 className="w-4 h-4" />
+                      Successfully imported {bulkImportResult.imported_count} student(s).
+                    </span>
+                  ) : null}
+                  {bulkImportResult.failed_count > 0 ? (
+                    <span className="text-rose-600 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {bulkImportResult.failed_count} row(s) failed validation.
+                    </span>
+                  ) : null}
+                </div>
+                {bulkImportResult.errors && bulkImportResult.errors.length > 0 && (
+                  <div className="max-h-24 overflow-y-auto space-y-1 text-[11px] text-rose-700 font-mono bg-rose-50 p-2 rounded border border-rose-200">
+                    {bulkImportResult.errors.map((err, idx) => (
+                      <div key={idx}>Row {err.row}: {err.error}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setShowBulkImportModal(false)}
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteBulkImport}
+                disabled={isBulkImporting || !bulkImportCsvText.trim()}
+                className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isBulkImporting ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Importing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3.5 h-3.5" />
+                    <span>Execute Import</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

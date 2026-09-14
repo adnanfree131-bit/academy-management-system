@@ -19,6 +19,8 @@ import {
 } from 'lucide-react';
 import { AccountHead, FinancialTransaction } from '@apex/shared-types';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
+import { PageHeading } from '../components/PageHeading';
+import { SectionInfo } from '../components/SectionInfo';
 
 export const IncomeExpenseDeskView: React.FC = () => {
   const { token, tenant } = useAuth();
@@ -45,7 +47,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
   // Voucher Form State
   const [voucherType, setVoucherType] = useState<'income' | 'expense'>('expense');
   const [voucherHeadId, setVoucherHeadId] = useState<string>('');
-  const [voucherAmount, setVoucherAmount] = useState<number>(0);
+  const [voucherAmount, setVoucherAmount] = useState<number | ''>('');
   const [voucherMethod, setVoucherMethod] = useState<'cash' | 'bank_transfer' | 'cheque' | 'online'>('cash');
   const [voucherPayee, setVoucherPayee] = useState<string>('');
   const [voucherRef, setVoucherRef] = useState<string>('');
@@ -168,7 +170,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
   // Create Voucher
   const handleCreateVoucher = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !voucherHeadId || voucherAmount <= 0) {
+    if (!token || !voucherHeadId || !voucherAmount || Number(voucherAmount) <= 0) {
       alert('Please select an account head and enter a valid amount.');
       return;
     }
@@ -198,7 +200,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
 
       setShowVoucherModal(false);
       // Reset form
-      setVoucherAmount(0);
+      setVoucherAmount('');
       setVoucherPayee('');
       setVoucherRef('');
       setVoucherDescription('');
@@ -294,51 +296,41 @@ export const IncomeExpenseDeskView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs">
-            <Wallet className="w-5 h-5 text-amber-400" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Income & Expenses</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Record daily transactions, manage account heads, and view profit & loss summary.
-            </p>
-          </div>
-        </div>
+      <PageHeading
+        title="Income & Expenses"
+        description="Record daily transactions, manage account heads, and view profit & loss summary."
+        icon={<Wallet className="w-4 h-4 text-slate-700" />}
+      >
+        <button
+          onClick={() => setShowHeadModal(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold shadow-xs transition-colors"
+        >
+          <Tag className="w-3.5 h-3.5 text-slate-500" />
+          <span>Add Head</span>
+        </button>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowHeadModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all"
-          >
-            <Tag className="w-4 h-4 text-indigo-600" />
-            <span>+ Add Account Head</span>
-          </button>
+        <button
+          onClick={() => {
+            setVoucherType('expense');
+            setShowVoucherModal(true);
+          }}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold shadow-xs transition-all"
+        >
+          <ArrowDownRight className="w-4 h-4" />
+          <span>Record Expense</span>
+        </button>
 
-          <button
-            onClick={() => {
-              setVoucherType('expense');
-              setShowVoucherModal(true);
-            }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold shadow-xs transition-all"
-          >
-            <ArrowDownRight className="w-4 h-4" />
-            <span>Record Expense</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setVoucherType('income');
-              setShowVoucherModal(true);
-            }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs transition-all"
-          >
-            <ArrowUpRight className="w-4 h-4" />
-            <span>Record Income</span>
-          </button>
-        </div>
-      </div>
+        <button
+          onClick={() => {
+            setVoucherType('income');
+            setShowVoucherModal(true);
+          }}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs transition-all"
+        >
+          <ArrowUpRight className="w-4 h-4" />
+          <span>Record Income</span>
+        </button>
+      </PageHeading>
 
       {/* KPI Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -399,7 +391,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
-          <span>Daily Cashbook Ledger</span>
+          <span>Cashbook</span>
         </button>
 
         <button
@@ -411,7 +403,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
           }`}
         >
           <Tag className="w-3.5 h-3.5" />
-          <span>Account Heads ({accountHeads.length})</span>
+          <span>Account Heads</span>
         </button>
 
         <button
@@ -423,7 +415,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
           }`}
         >
           <PieChart className="w-3.5 h-3.5" />
-          <span>Profit & Loss Statement</span>
+          <span>P&L Statement</span>
         </button>
       </div>
 
@@ -440,8 +432,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search payee, ref, head, remarks..."
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-900"
               />
             </div>
 
@@ -557,18 +548,16 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {activeTab === 'heads' && (
         <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div>
-              <h2 className="text-sm font-extrabold text-slate-900">Account Heads</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Add income and expense heads for this academy. Fee heads you create in Settings also appear as income.
-              </p>
-            </div>
+            <SectionInfo
+              title="Account Heads"
+              description="Add income and expense heads for this academy. Fee heads created in Settings also appear as income."
+            />
             <button
               onClick={() => setShowHeadModal(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Create Account Head</span>
+              <span>Add Head</span>
             </button>
           </div>
 
@@ -625,12 +614,10 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {activeTab === 'pl_report' && (
         <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs p-5 space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div>
-              <h2 className="text-sm font-extrabold text-slate-900">Institutional Income vs Expense Statement</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Monthly reconciled profit & loss statement for campus administration.
-              </p>
-            </div>
+            <SectionInfo
+              title="Income vs Expense Statement"
+              description="Monthly reconciled profit & loss statement for campus administration"
+            />
             <div className="flex items-center gap-2">
               <input
                 type="month"
@@ -733,14 +720,10 @@ export const IncomeExpenseDeskView: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-              <div className="flex items-center gap-2">
-                <span className={`p-1.5 rounded-lg text-white ${voucherType === 'income' ? 'bg-emerald-600' : 'bg-rose-600'}`}>
-                  {voucherType === 'income' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                </span>
-                <h2 className="text-sm font-extrabold text-slate-900">
-                  Record {voucherType === 'income' ? 'Income Receipt' : 'Expense Voucher'}
-                </h2>
-              </div>
+              <SectionInfo
+                title={`Record ${voucherType === 'income' ? 'Income' : 'Expense'}`}
+                description={`Create a new ${voucherType} voucher in the cashbook`}
+              />
               <button onClick={() => setShowVoucherModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
                 <X className="w-4 h-4" />
               </button>
@@ -834,9 +817,8 @@ export const IncomeExpenseDeskView: React.FC = () => {
                     type="number"
                     min="1"
                     step="1"
-                    value={voucherAmount || ''}
-                    onChange={e => setVoucherAmount(parseFloat(e.target.value) || 0)}
-                    placeholder="e.g. 15000"
+                    value={voucherAmount}
+                    onChange={e => setVoucherAmount(e.target.value === '' ? '' : Number(e.target.value))}
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-mono font-bold text-slate-900"
                     required
                   />
@@ -866,7 +848,6 @@ export const IncomeExpenseDeskView: React.FC = () => {
                     type="text"
                     value={voucherPayee}
                     onChange={e => setVoucherPayee(e.target.value)}
-                    placeholder={voucherType === 'income' ? 'e.g. Canteen Vendor' : 'e.g. LESCO Electricity'}
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-800"
                   />
                 </div>
@@ -877,7 +858,6 @@ export const IncomeExpenseDeskView: React.FC = () => {
                     type="text"
                     value={voucherRef}
                     onChange={e => setVoucherRef(e.target.value)}
-                    placeholder="e.g. CHQ-9912 or INV-44"
                     className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-mono text-slate-800"
                   />
                 </div>
@@ -888,7 +868,6 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 <textarea
                   value={voucherDescription}
                   onChange={e => setVoucherDescription(e.target.value)}
-                  placeholder="Additional context for auditor..."
                   rows={2}
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-800"
                 />
@@ -924,10 +903,10 @@ export const IncomeExpenseDeskView: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-              <div className="flex items-center gap-2">
-                <Tag className="w-4 h-4 text-indigo-600" />
-                <h2 className="text-sm font-extrabold text-slate-900">Create Dynamic Account Head</h2>
-              </div>
+              <SectionInfo
+                title="Create Account Head"
+                description="Define a new category for income or expense transactions"
+              />
               <button onClick={() => setShowHeadModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
                 <X className="w-4 h-4" />
               </button>
@@ -968,7 +947,6 @@ export const IncomeExpenseDeskView: React.FC = () => {
                   type="text"
                   value={newHeadName}
                   onChange={e => setNewHeadName(e.target.value)}
-                  placeholder={newHeadType === 'expense' ? 'e.g. Campus Electricity Bills, Chemistry Lab Consumables' : 'e.g. Uniform Sales, Prospectus Fees'}
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-bold"
                   required
                 />
@@ -979,7 +957,6 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 <textarea
                   value={newHeadDesc}
                   onChange={e => setNewHeadDesc(e.target.value)}
-                  placeholder="Optional explanatory note for accounting categorization..."
                   rows={3}
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-800"
                 />

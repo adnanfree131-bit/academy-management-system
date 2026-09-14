@@ -31,6 +31,8 @@ import {
   AcademicProgram
 } from '@apex/shared-types';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
+import { PageHeading } from '../components/PageHeading';
+import { SectionInfo } from '../components/SectionInfo';
 
 export const ExamDeskView: React.FC = () => {
   const { tenant, token } = useAuth();
@@ -471,37 +473,29 @@ export const ExamDeskView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Top Header & Fast Navigation */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2.5">
-            <GraduationCap className="w-7 h-7 text-indigo-600" />
-            Examinations & Grading
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Create exam papers, manage chapter question banks, grade student submissions, and publish report cards.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {loading && (
-            <span className="text-[11px] font-semibold text-slate-400 animate-pulse mr-2">
-              Syncing...
-            </span>
-          )}
-          <button
-            onClick={() => setShowCreateExamModal(true)}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-2 transition-all"
-          >
-            <Plus className="w-4 h-4" /> New Exam Setup
-          </button>
-          <button
-            onClick={() => setShowExcelImportModal(true)}
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-2 transition-all"
-          >
-            <FileSpreadsheet className="w-4 h-4" /> Excel Chapter Upload
-          </button>
-        </div>
-      </div>
+      <PageHeading
+        title="Examinations"
+        description="Create exam papers, manage chapter question banks, grade student submissions, and publish report cards."
+        icon={<GraduationCap className="w-4 h-4 text-slate-700" />}
+      >
+        {loading && (
+          <span className="text-[11px] font-semibold text-slate-400 animate-pulse mr-2">
+            Syncing...
+          </span>
+        )}
+        <button
+          onClick={() => setShowCreateExamModal(true)}
+          className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
+        >
+          <Plus className="w-4 h-4" /> New Exam
+        </button>
+        <button
+          onClick={() => setShowExcelImportModal(true)}
+          className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 flex items-center gap-1.5 transition-all"
+        >
+          <FileSpreadsheet className="w-4 h-4 text-emerald-600" /> Excel Upload
+        </button>
+      </PageHeading>
 
       {/* KPI Overview Strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -553,7 +547,7 @@ export const ExamDeskView: React.FC = () => {
           }`}
         >
           <FileCheck2 className="w-4 h-4" />
-          Scheduled Exams & Printable Papers
+          Exams
         </button>
 
         <button
@@ -565,7 +559,7 @@ export const ExamDeskView: React.FC = () => {
           }`}
         >
           <BookOpen className="w-4 h-4" />
-          Dual Question Bank & Excel Upload
+          Question Bank
         </button>
 
         <button
@@ -577,7 +571,7 @@ export const ExamDeskView: React.FC = () => {
           }`}
         >
           <PenTool className="w-4 h-4" />
-          Grading & Student Evaluation
+          Grading
         </button>
       </div>
 
@@ -585,10 +579,7 @@ export const ExamDeskView: React.FC = () => {
       {activeTab === 'exams' && (
         <div className="bg-white p-6 rounded-b-xl border-x border-b border-slate-200 shadow-xs space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-base font-bold text-slate-900">Scheduled Exams & Tests</h2>
-              <p className="text-xs text-slate-500">View upcoming exams, syllabus breakdown, and printable test papers.</p>
-            </div>
+            <SectionInfo title="Scheduled Exams" description="View upcoming exams, syllabus breakdown, and printable test papers." />
           </div>
 
           <div className="overflow-x-auto border border-slate-200 rounded-xl">
@@ -759,7 +750,6 @@ export const ExamDeskView: React.FC = () => {
                   <Search className="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search question text..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs"
@@ -1015,7 +1005,6 @@ export const ExamDeskView: React.FC = () => {
                         rows={2}
                         value={evalShortRemarks}
                         onChange={e => setEvalShortRemarks(e.target.value)}
-                        placeholder="e.g. Definitions were concise and accurate; review question 3 formula derivation."
                         className="w-full p-2.5 border border-slate-300 rounded-lg text-xs text-slate-800 leading-relaxed focus:ring-2 focus:ring-amber-500"
                       />
                     </div>
@@ -1065,7 +1054,6 @@ export const ExamDeskView: React.FC = () => {
                         rows={2}
                         value={evalLongRemarks}
                         onChange={e => setEvalLongRemarks(e.target.value)}
-                        placeholder="e.g. Good problem analysis; lost 2 marks on vector diagram labeling."
                         className="w-full p-2.5 border border-slate-300 rounded-lg text-xs text-slate-800 leading-relaxed focus:ring-2 focus:ring-purple-500"
                       />
                     </div>
@@ -1171,9 +1159,7 @@ export const ExamDeskView: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <Plus className="w-4 h-4 text-indigo-600" /> Create New Exam Setup
-              </h3>
+              <SectionInfo title="Create Exam" description="Configure exam details, batch, duration, and marks allocation" />
               <button onClick={() => setShowCreateExamModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
               </button>
@@ -1187,7 +1173,6 @@ export const ExamDeskView: React.FC = () => {
                   required
                   value={newExamTitle}
                   onChange={e => setNewExamTitle(e.target.value)}
-                  placeholder="e.g. Physics Grand Test - Chapter 1 to 3"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                 />
               </div>
@@ -1478,18 +1463,11 @@ export const ExamDeskView: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                In-Context Chapter Excel / CSV Upload (Flow A)
-              </h3>
+              <SectionInfo title="Excel Question Import" description="Paste rows copied directly from Excel. The system automatically creates chapter categories and imports MCQs, Short, and Long questions." />
               <button onClick={() => setShowExcelImportModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            <p className="text-xs text-slate-600">
-              Paste rows copied directly from Excel. The system automatically creates chapter categories and imports MCQs, Short, and Long questions.
-            </p>
 
             {importSuccessMsg && (
               <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-lg text-xs font-semibold flex items-center gap-2">
@@ -1538,7 +1516,6 @@ export const ExamDeskView: React.FC = () => {
                   required
                   value={excelTextRaw}
                   onChange={e => setExcelTextRaw(e.target.value)}
-                  placeholder={`1,Vectors & Equilibrium,MCQ,Unit vector has magnitude of:,1,Zero,Unity,Inf,Variable,B,Definition\n2,Force & Motion,SHORT,State Newton's second law in momentum form.,4,,,,,,dp/dt = F`}
                   className="w-full p-3 font-mono border border-slate-300 rounded-lg text-xs leading-relaxed"
                 />
               </div>
@@ -1568,9 +1545,7 @@ export const ExamDeskView: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <Plus className="w-4 h-4 text-indigo-600" /> Add Question to Bank
-              </h3>
+              <SectionInfo title="Add Question" description="Store item in subject question repository" />
               <button onClick={() => setShowAddQuestionModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
               </button>
@@ -1650,7 +1625,6 @@ export const ExamDeskView: React.FC = () => {
                   required
                   value={newQText}
                   onChange={e => setNewQText(e.target.value)}
-                  placeholder="Type full question statement here..."
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
                 />
               </div>
@@ -1660,10 +1634,22 @@ export const ExamDeskView: React.FC = () => {
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                   <span className="font-bold text-[11px] text-slate-700 block">MCQ Options:</span>
                   <div className="grid grid-cols-2 gap-2">
-                    <input type="text" placeholder="Option A" value={newQOptionA} onChange={e => setNewQOptionA(e.target.value)} className="px-2 py-1 border border-slate-300 rounded" />
-                    <input type="text" placeholder="Option B" value={newQOptionB} onChange={e => setNewQOptionB(e.target.value)} className="px-2 py-1 border border-slate-300 rounded" />
-                    <input type="text" placeholder="Option C" value={newQOptionC} onChange={e => setNewQOptionC(e.target.value)} className="px-2 py-1 border border-slate-300 rounded" />
-                    <input type="text" placeholder="Option D" value={newQOptionD} onChange={e => setNewQOptionD(e.target.value)} className="px-2 py-1 border border-slate-300 rounded" />
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-500 w-4">A:</span>
+                      <input type="text" value={newQOptionA} onChange={e => setNewQOptionA(e.target.value)} className="w-full px-2 py-1 border border-slate-300 rounded text-xs" />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-500 w-4">B:</span>
+                      <input type="text" value={newQOptionB} onChange={e => setNewQOptionB(e.target.value)} className="w-full px-2 py-1 border border-slate-300 rounded text-xs" />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-500 w-4">C:</span>
+                      <input type="text" value={newQOptionC} onChange={e => setNewQOptionC(e.target.value)} className="w-full px-2 py-1 border border-slate-300 rounded text-xs" />
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-slate-500 w-4">D:</span>
+                      <input type="text" value={newQOptionD} onChange={e => setNewQOptionD(e.target.value)} className="w-full px-2 py-1 border border-slate-300 rounded text-xs" />
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 pt-1">
                     <span className="text-[11px] font-bold text-slate-600">Correct Option:</span>
@@ -1688,7 +1674,6 @@ export const ExamDeskView: React.FC = () => {
                   type="text"
                   value={newQRubric}
                   onChange={e => setNewQRubric(e.target.value)}
-                  placeholder="e.g. Formula (2 marks), Derivation (2 marks)"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg"
                 />
               </div>

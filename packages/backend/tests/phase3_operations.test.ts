@@ -308,7 +308,7 @@ describe('Phase 3 Core ERP Operations & Collision Engine', () => {
         headers: { authorization: `Bearer ${token}` },
         payload: {
           status: 'on_time',
-          notes: 'Biometric device synchronization adjustment approved by Principal.',
+          notes: 'Official outdoor duty adjustment approved by Principal.',
         },
       });
 
@@ -316,7 +316,7 @@ describe('Phase 3 Core ERP Operations & Collision Engine', () => {
       const updated = adjustRes.json().data;
       expect(updated.status).toBe('on_time');
       expect(updated.admin_adjusted).toBe(true);
-      expect(updated.admin_adjustment_notes).toContain('Biometric device');
+      expect(updated.admin_adjustment_notes).toContain('Official outdoor duty');
     });
 
     it('successfully clocks out when within campus geofence and calculates duration', async () => {
@@ -349,8 +349,8 @@ describe('Phase 3 Core ERP Operations & Collision Engine', () => {
           status: 'on_time',
           clock_in_time: `${today}T08:00:00.000Z`,
           clock_out_time: `${today}T14:15:00.000Z`,
-          reason: 'Biometric thumb scanner device synchronization issue; manual verification by campus admin.',
-          verification_mode: 'biometric_sync',
+          reason: 'Official outdoor examination duty; manual verification by campus admin.',
+          verification_mode: 'official_duty',
         },
       });
 
@@ -358,7 +358,7 @@ describe('Phase 3 Core ERP Operations & Collision Engine', () => {
       const record = res.json().data;
       expect(record.staff_id).toBe('manual-staff-001');
       expect(record.status).toBe('on_time');
-      expect(record.verification_mode).toBe('biometric_sync');
+      expect(record.verification_mode).toBe('official_duty');
       expect(record.admin_adjusted).toBe(true);
       expect(record.work_duration_minutes).toBe(375); // 6 hrs 15 mins
     });
@@ -374,6 +374,156 @@ describe('Phase 3 Core ERP Operations & Collision Engine', () => {
       expect(res.statusCode).toBe(200);
       const roster = res.json().data;
       expect(Array.isArray(roster)).toBe(true);
+    });
+
+    it('retrieves monthly staff attendance summary for payroll preparation', async () => {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/v1/geofence/attendance/monthly-summary?month=${currentMonth}`,
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      if (body.data.length > 0) {
+        const item = body.data[0];
+        expect(item.staff_id).toBeDefined();
+        expect(item.total_working_days).toBeGreaterThan(0);
+        expect(item.present_days).toBeDefined();
+      }
+    });
+
+    it('retrieves staff attendance audit logs with regularization tracking', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/v1/geofence/attendance/audit-logs',
+        headers: { authorization: `Bearer ${token}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data.length).toBeGreaterThan(0);
+      const log = body.data[0];
+      expect(log.staff_id).toBeDefined();
+      expect(log.action).toBeDefined();
+      expect(log.adjusted_by).toBeDefined();
+    });
+
+    it('updates institutional attendance policy rules and custom heads', async () => {
+      const res = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/geofence/geofence/config',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          shift_start_time: '08:00:00',
+          shift_end_time: '14:30:00',
+          grace_period_minutes: 15,
+          late_threshold_minutes: 45,
+          half_day_hours: 4.5,
+          full_day_min_hours: 6.5,
+          early_departure_minutes: 25,
+          lates_for_leave_deduction: 3,
+          late_penalty_rule: 'deduct_casual_leave',
+          attendance_heads: [
+            { id: 'custom-1', name: 'Board Invigilation Duty', code: 'BID', is_paid: true, type: 'leave' }
+          ]
+        }
+      });
+
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.late_threshold_minutes).toBe(45);
+      expect(body.data.late_penalty_rule).toBe('deduct_casual_leave');
+      expect(body.data.attendance_heads.length).toBe(1);
+    });
+
+    it('supports multi-session punches for morning and evening shifts', async () => {
+      // 1. Initial Morning Punch In
+      const inRes1 = await app.inject({
+        method: 'POST',
+        url: '/api/v1/geofence/attendance/staff/clock-in',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { latitude: 31.5204, longitude: 74.3587 }
+      });
+      expect(inRes1.statusCode).toBe(201);
+      const inData1 = inRes1.json().data;
+      expect(inData1.sessions).toBeDefined();
+      expect(inData1.sessions.length).toBe(1);
+
+      // 2. Morning Departure Punch Out
+      const outRes1 = await app.inject({
+        method: 'POST',
+        url: '/api/v1/geofence/attendance/staff/clock-out',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { latitude: 31.5204, longitude: 74.3587 }
+      });
+      expect(outRes1.statusCode).toBe(200);
+      const outData1 = outRes1.json().data;
+      expect(outData1.clock_out_time).toBeTruthy();
+      expect(outData1.sessions.length).toBe(1);
+      expect(outData1.sessions[0].out).toBeTruthy();
+    });
+
+    it('allows faculty to submit regularization request and admin to approve it', async () => {
+      // 1. Submit request
+      const submitRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/geofence/attendance/regularization/requests',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          date: '2026-09-15',
+          clock_in_time: '08:15',
+          clock_out_time: '14:30',
+          reason_type: 'Official Academy Duty',
+          notes: 'Inter-school science olympiad accompaniment'
+        }
+      });
+      expect(submitRes.statusCode).toBe(201);
+      const reqData = submitRes.json().data;
+      expect(reqData.id).toBeTruthy();
+      expect(reqData.status).toBe('pending');
+      expect(reqData.reason_type).toBe('Official Academy Duty');
+
+      // 2. Fetch pending requests
+      const getRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/geofence/attendance/regularization/requests?status=pending',
+        headers: { authorization: `Bearer ${token}` }
+      });
+      expect(getRes.statusCode).toBe(200);
+      const list = getRes.json().data;
+      expect(list.some((r: any) => r.id === reqData.id)).toBe(true);
+
+      // 3. Admin Approves Request
+      const reviewRes = await app.inject({
+        method: 'POST',
+        url: `/api/v1/geofence/attendance/regularization/requests/${reqData.id}/review`,
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          action: 'approved',
+          review_notes: 'Verified by Principal office'
+        }
+      });
+      expect(reviewRes.statusCode).toBe(200);
+      const approved = reviewRes.json().data;
+      expect(approved.status).toBe('approved');
+      expect(approved.reviewed_by).toBeTruthy();
+
+      // 4. Verify audit log was created
+      const auditRes = await app.inject({
+        method: 'GET',
+        url: `/api/v1/geofence/attendance/audit-logs?date=2026-09-15`,
+        headers: { authorization: `Bearer ${token}` }
+      });
+      expect(auditRes.statusCode).toBe(200);
+      const auditLogs = auditRes.json().data;
+      expect(auditLogs.some((l: any) => l.reason_head.includes('Official Academy Duty'))).toBe(true);
     });
   });
 

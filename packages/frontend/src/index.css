@@ -9,12 +9,35 @@
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overscroll-behavior-y: none;
     -webkit-overflow-scrolling: touch;
+    margin: 0;
+    padding: 0;
+    touch-action: manipulation;
   }
 
   * {
-    touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
+
+  input, textarea, select {
+    touch-action: auto !important;
+  }
+
+  /* Prevent automatic iOS Safari zoom when focusing on form inputs */
+  @media screen and (max-width: 768px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Touch buttons responsive feedback */
+  button, a, [role="button"] {
+    touch-action: manipulation;
+  }
+}
+
+.backdrop-blur-xs {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .font-brand {
@@ -37,8 +60,85 @@
   padding-bottom: max(12px, env(safe-area-inset-bottom));
 }
 
+.safe-pb-nav {
+  padding-bottom: max(5rem, calc(4rem + env(safe-area-inset-bottom)));
+}
+
 .no-select {
   -webkit-user-select: none;
   user-select: none;
 }
 
+/* Hide scrollbars for native horizontal tab carousels while keeping kinetic scrolling */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Native tactile active state micro-animation */
+.touch-press:active {
+  transform: scale(0.97);
+  transition: transform 0.08s ease;
+}
+
+/* Ensure fixed full-screen modal overlays, backdrops, and drawers are never pushed down by parent sibling margins */
+.fixed.inset-0 {
+  margin: 0 !important;
+}
+
+/* Institutional Frosted White Blur Backdrop for All Modal Popups & Overlays */
+.fixed.inset-0[class*="bg-slate-900"],
+.fixed.inset-0[class*="bg-slate-950"],
+.fixed.inset-0[class*="bg-black"],
+.modal-backdrop-white {
+  background-color: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+/* Native Slide-Up Bottom Sheet Transformation on Mobile (< 768px) */
+@media screen and (max-width: 767px) {
+  /* Bottom sheet modal container positioning */
+  .fixed.inset-0.z-50,
+  .fixed.inset-0[class*="z-50"] {
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  /* Transform modal dialogue cards into bottom sheets */
+  .mobile-bottom-sheet,
+  .fixed.inset-0.z-50 > div[class*="bg-white"]:not(.no-sheet),
+  .fixed.inset-0[class*="z-50"] > div[class*="bg-white"]:not(.no-sheet) {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-top-left-radius: 1.5rem !important;
+    border-top-right-radius: 1.5rem !important;
+    max-height: 92vh !important;
+    margin-bottom: 0 !important;
+    box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.12), 0 -8px 10px -6px rgba(0, 0, 0, 0.08) !important;
+    animation: mobileSlideUpSheet 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  }
+
+  @keyframes mobileSlideUpSheet {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  /* Table horizontal scroll momentum */
+  .mobile-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+}

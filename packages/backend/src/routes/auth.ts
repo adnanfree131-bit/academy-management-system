@@ -78,7 +78,7 @@ export function authRoutes(
     // -------------------------------------------------------------------------
     fastify.post('/login', async (request, reply) => {
       const schema = z.object({
-        email: z.string().email('Please enter a valid institutional email address.'),
+        email: z.string().min(1, 'Please enter your email or Father/Guardian CNIC.'),
         password: z.string().min(1, 'Password is required.'),
         tenant_slug: z.string().optional(),
         tenant_id: z.string().optional(),
@@ -487,10 +487,14 @@ export function authRoutes(
     fastify.post('/change-password', {
       onRequest: [(fastify as any).authenticate],
     }, async (request: any, reply) => {
+      const isStudentOrParent = request.user?.role === 'student' || request.user?.role === 'parent';
+
       const schema = z.object({
         current_password: z.string().min(1, 'Current password is required'),
         new_password: z.string().min(6, 'New password must be at least 6 characters'),
-        otp: z.string().trim().length(6, 'Verification code must be 6 digits'),
+        otp: isStudentOrParent
+          ? z.string().trim().optional()
+          : z.string().trim().length(6, 'Verification code must be 6 digits'),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -517,6 +521,7 @@ export function authRoutes(
           currentPassword: current_password,
           newPassword: new_password,
           otp,
+          skipOTP: isStudentOrParent && !otp,
         });
 
         // Sign fresh 7-day JWT session

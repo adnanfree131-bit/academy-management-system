@@ -22,9 +22,9 @@ import {
   Layers,
   TrendingUp,
   Settings,
-  CreditCard,
   X 
 } from 'lucide-react';
+import { hapticSelection } from '../lib/haptics';
 
 interface SidebarProps {
   currentScreen: string;
@@ -45,6 +45,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const allow = (screen: string) => canOpenScreen(role, user?.permissions, screen);
   const [absenteePending, setAbsenteePending] = useState(0);
 
+  // Hardware/gesture Back button trap on mobile
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePopState = () => {
+      onClose();
+    };
+    window.history.pushState({ drawer: 'sidebar' }, '');
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isOpen, onClose]);
+
   useEffect(() => {
     if (!token || role === 'super_admin') return;
     fetch('/api/v1/absentee/kpi', { headers: { Authorization: `Bearer ${token}` } })
@@ -57,6 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [token, currentScreen, role]);
 
   const handleNavClick = (screenId: string) => {
+    hapticSelection();
     onSelectScreen(screenId);
     if (window.innerWidth < 768) {
       onClose();
@@ -70,17 +84,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {isOpen && (
         <div 
           onClick={onClose} 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-30 md:hidden"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 md:hidden animate-in fade-in duration-200"
         />
       )}
 
       {/* Floating Inset Card Sidebar Container */}
       <div 
-        className={`fixed md:sticky top-0 h-screen p-3 pr-0 flex flex-col justify-start z-40 transition-transform duration-300 ${
+        className={`fixed md:sticky top-0 h-screen p-2 sm:p-3 pr-0 flex flex-col justify-start z-50 md:z-40 transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <aside className="w-64 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex flex-col justify-between h-[calc(100vh-1.5rem)]">
+        <aside className="w-[84vw] max-w-[280px] sm:w-64 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xl flex flex-col justify-between h-[calc(100vh-1rem)] sm:h-[calc(100vh-1.5rem)] pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
           
           {/* Institutional Brand Header (Pinned Static Top) */}
           <div className="border-b border-slate-100 pb-3 shrink-0">
@@ -95,8 +109,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </p>
                 </div>
               )}
-              <button onClick={onClose} className="md:hidden text-slate-400 hover:text-slate-700 p-1">
-                <X className="w-4 h-4" />
+              <button 
+                onClick={onClose} 
+                className="md:hidden text-slate-400 hover:text-slate-700 p-2 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors"
+                aria-label="Close navigation"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -113,20 +131,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {role === 'teacher' && !managedStaff && (
                 <>
                   <div>
-                    <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-emerald-700 font-bold mb-1.5 flex items-center gap-1.5">
-                      <GraduationCap className="w-3.5 h-3.5" />
-                      Teaching Desk
+                    <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
+                      Teacher Portal
                     </p>
                     <div className="space-y-1">
                       <button 
                         onClick={() => handleNavClick('teacher')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'teacher'
-                            ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                            ? 'bg-slate-900 text-white font-bold shadow-xs'
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <LayoutDashboard className={`w-4 h-4 ${currentScreen === 'teacher' ? 'text-white' : 'text-emerald-600'}`} />
+                        <LayoutDashboard className={`w-4 h-4 ${currentScreen === 'teacher' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Faculty Overview</span>
                       </button>
 
@@ -138,7 +155,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-indigo-500'}`} />
+                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Class Schedule</span>
                       </button>
 
@@ -150,7 +167,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-white' : 'text-teal-500'}`} />
+                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Take Attendance</span>
                       </button>
 
@@ -162,7 +179,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-amber-500'}`} />
+                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Homework & Notebooks</span>
                       </button>
 
@@ -174,7 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Award className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-purple-500'}`} />
+                        <Award className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Grade Examinations</span>
                       </button>
 
@@ -186,7 +203,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <MapPin className={`w-4 h-4 ${currentScreen === 'geofence' ? 'text-white' : 'text-rose-500'}`} />
+                        <MapPin className={`w-4 h-4 ${currentScreen === 'geofence' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Staff Attendance</span>
                       </button>
                     </div>
@@ -205,7 +222,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-sky-500'}`} />
+                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Faculty Feedback</span>
                       </button>
                     </div>
@@ -216,24 +233,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* ============================================================
                   ROLE: STUDENT / PARENT
                   ============================================================ */}
-              {role === 'student' && (
+              {(role === 'student' || role === 'parent') && (
                 <>
                   <div>
-                    <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-sky-700 font-bold mb-1.5 flex items-center gap-1.5">
+                    <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5 flex items-center gap-1.5">
                       <UserCheck className="w-3.5 h-3.5" />
-                      Student Portal
+                      {role === 'parent' ? 'Parent Portal' : 'Student Portal'}
                     </p>
                     <div className="space-y-1">
                       <button 
                         onClick={() => handleNavClick('student_portal')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'student_portal'
-                            ? 'bg-sky-600 text-white font-bold shadow-xs'
+                            ? 'bg-slate-900 text-white font-bold shadow-xs'
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <UserCheck className={`w-4 h-4 ${currentScreen === 'student_portal' ? 'text-white' : 'text-sky-600'}`} />
-                        <span>Student Overview</span>
+                        <UserCheck className={`w-4 h-4 ${currentScreen === 'student_portal' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>{role === 'parent' ? 'Child Overview' : 'Overview'}</span>
                       </button>
 
                       <button 
@@ -244,8 +261,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-indigo-500'}`} />
+                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Class Timetable</span>
+                      </button>
+
+                      <button 
+                        onClick={() => handleNavClick('attendance')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
+                          currentScreen === 'attendance'
+                            ? 'bg-slate-900 text-white font-bold shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                        }`}
+                      >
+                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Attendance & Leaves</span>
                       </button>
 
                       <button 
@@ -256,8 +285,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-white' : 'text-emerald-500'}`} />
-                        <span>Fee Invoices & Payments</span>
+                        <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Fees & Payments</span>
                       </button>
 
                       <button 
@@ -268,7 +297,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-amber-500'}`} />
+                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Homework Diary</span>
                       </button>
 
@@ -280,17 +309,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Award className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-purple-500'}`} />
-                        <span>Report Cards</span>
+                        <Award className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Exams & Results</span>
                       </button>
-                    </div>
-                  </div>
 
-                  <div>
-                    <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
-                      Support
-                    </p>
-                    <div className="space-y-1">
                       <button 
                         onClick={() => handleNavClick('complaints')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
@@ -299,8 +321,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-slate-500'}`} />
-                        <span>Complaints & Requests</span>
+                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Help & Messages</span>
                       </button>
                     </div>
                   </div>
@@ -312,7 +334,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ============================================================ */}
               {role === 'super_admin' && (
                 <div>
-                  <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-purple-700 font-bold mb-1.5 flex items-center gap-1.5">
+                  <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5 flex items-center gap-1.5">
                     <ShieldAlert className="w-3.5 h-3.5" />
                     Platform Administration
                   </p>
@@ -321,11 +343,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onClick={() => handleNavClick('superadmin')}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                         currentScreen === 'superadmin'
-                          ? 'bg-purple-600 text-white font-bold shadow-xs'
+                          ? 'bg-slate-900 text-white font-bold shadow-xs'
                           : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                       }`}
                     >
-                      <ShieldAlert className={`w-4 h-4 ${currentScreen === 'superadmin' ? 'text-white' : 'text-purple-600'}`} />
+                      <ShieldAlert className={`w-4 h-4 ${currentScreen === 'superadmin' ? 'text-white' : 'text-slate-400'}`} />
                       <span>Academy Directory</span>
                     </button>
                   </div>
@@ -335,7 +357,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* ============================================================
                   ROLE: TENANT ADMIN (Principal / Director - Academy Administration)
                   ============================================================ */}
-              {(role === 'tenant_admin' || managedStaff || (!['teacher', 'student', 'super_admin'].includes(role))) && (
+              {(role === 'tenant_admin' || managedStaff || (!['teacher', 'student', 'parent', 'super_admin'].includes(role))) && (
                 <>
                   <div>
                     <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">
@@ -350,7 +372,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <LayoutDashboard className={`w-4 h-4 ${currentScreen === 'dashboard' ? 'text-white' : 'text-indigo-600'}`} />
+                        <LayoutDashboard className={`w-4 h-4 ${currentScreen === 'dashboard' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Dashboard</span>
                       </button>
                     </div>
@@ -369,20 +391,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <UserPlus className={`w-4 h-4 ${currentScreen === 'enrollment' ? 'text-white' : 'text-blue-500'}`} />
-                        <span>Student Admissions</span>
-                      </button>}
-
-                      {allow('id_cards') && <button 
-                        onClick={() => handleNavClick('id_cards')}
-                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
-                          currentScreen === 'id_cards'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
-                        }`}
-                      >
-                        <CreditCard className={`w-4 h-4 ${currentScreen === 'id_cards' ? 'text-white' : 'text-slate-500'}`} />
-                        <span>Student ID Cards</span>
+                        <UserPlus className={`w-4 h-4 ${currentScreen === 'enrollment' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Students</span>
                       </button>}
 
                       {allow('classes') && <button 
@@ -393,7 +403,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Layers className={`w-4 h-4 ${currentScreen === 'classes' ? 'text-white' : 'text-indigo-500'}`} />
+                        <Layers className={`w-4 h-4 ${currentScreen === 'classes' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Classes & Batches</span>
                       </button>}
 
@@ -405,8 +415,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-emerald-500'}`} />
-                        <span>Timetable & Scheduling</span>
+                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Timetables</span>
                       </button>}
                     </div>
                   </div>
@@ -424,8 +434,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-white' : 'text-teal-500'}`} />
-                        <span>Student Attendance</span>
+                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Attendance</span>
                       </button>}
 
                       {allow('absentee') && <button 
@@ -437,7 +447,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <PhoneForwarded className={`w-4 h-4 ${currentScreen === 'absentee' ? 'text-white' : 'text-rose-500'}`} />
+                          <PhoneForwarded className={`w-4 h-4 ${currentScreen === 'absentee' ? 'text-white' : 'text-slate-400'}`} />
                           <span>Absence Follow-Up</span>
                         </div>
                         {absenteePending > 0 && (
@@ -457,7 +467,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-amber-500'}`} />
+                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Homework & Notebooks</span>
                       </button>}
 
@@ -469,7 +479,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <MapPin className={`w-4 h-4 ${currentScreen === 'geofence' ? 'text-white' : 'text-indigo-500'}`} />
+                        <MapPin className={`w-4 h-4 ${currentScreen === 'geofence' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Staff Attendance</span>
                       </button>}
 
@@ -481,8 +491,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-slate-500'}`} />
-                        <span>Complaints & Feedback</span>
+                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Feedback</span>
                       </button>}
                     </div>
                   </div>
@@ -500,8 +510,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <GraduationCap className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-purple-500'}`} />
-                        <span>Exams & Results</span>
+                        <GraduationCap className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Examinations</span>
                       </button>}
                     </div>
                   </div>
@@ -519,8 +529,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-white' : 'text-emerald-500'}`} />
-                        <span>Fee Invoices & Vouchers</span>
+                        <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Fee Ledger</span>
                       </button>}
 
                       {allow('expenses') && <button 
@@ -531,7 +541,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <TrendingUp className={`w-4 h-4 ${currentScreen === 'expenses' ? 'text-white' : 'text-amber-500'}`} />
+                        <TrendingUp className={`w-4 h-4 ${currentScreen === 'expenses' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Income & Expenses</span>
                       </button>}
 
@@ -543,8 +553,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Wallet className={`w-4 h-4 ${currentScreen === 'payroll' ? 'text-white' : 'text-amber-500'}`} />
-                        <span>Staff Payroll</span>
+                        <Wallet className={`w-4 h-4 ${currentScreen === 'payroll' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Payroll</span>
                       </button>}
                     </div>
                   </div>
@@ -555,7 +565,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </p>
                     <div className="space-y-1">
                       {role === 'tenant_admin' && (
-                      <button
+                      <button 
                         onClick={() => handleNavClick('staff')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'staff'
@@ -563,12 +573,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Users className={`w-4 h-4 ${currentScreen === 'staff' ? 'text-white' : 'text-violet-500'}`} />
+                        <Users className={`w-4 h-4 ${currentScreen === 'staff' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Staff</span>
                       </button>
                       )}
                       {allow('settings') && (
-                      <button
+                      <button 
                         onClick={() => handleNavClick('settings')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'settings'
@@ -576,7 +586,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
                         }`}
                       >
-                        <Settings className={`w-4 h-4 ${currentScreen === 'settings' ? 'text-white' : 'text-slate-500'}`} />
+                        <Settings className={`w-4 h-4 ${currentScreen === 'settings' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Settings</span>
                       </button>
                       )}
@@ -595,6 +605,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <div className={`w-8 h-8 rounded-xl text-white font-mono text-xs font-bold flex items-center justify-center shadow-2xs flex-shrink-0 ${
                 role === 'teacher' ? 'bg-emerald-600' :
                 role === 'student' ? 'bg-sky-600' :
+                role === 'parent' ? 'bg-amber-600' :
                 role === 'super_admin' ? 'bg-purple-600' :
                 'bg-slate-900'
               }`}>
@@ -608,12 +619,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <span className={`w-1.5 h-1.5 rounded-full ${
                     role === 'teacher' ? 'bg-emerald-500' :
                     role === 'student' ? 'bg-sky-500' :
+                    role === 'parent' ? 'bg-amber-500' :
                     role === 'super_admin' ? 'bg-purple-500' :
                     'bg-indigo-500'
                   }`} />
                   {role === 'tenant_admin' ? 'Campus Administrator' :
                    role === 'teacher' ? 'Faculty Member' :
                    role === 'student' ? 'Enrolled Student' :
+                   role === 'parent' ? 'Parent / Guardian' :
                    'Platform Admin'}
                 </p>
               </div>

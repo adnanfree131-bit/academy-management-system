@@ -34,7 +34,7 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 print:p-0 print:bg-white print:static print:inset-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 print:p-0 print:bg-white print:static print:inset-auto">
       <style>{`
         @media print {
           body * {
@@ -62,9 +62,11 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
         }
       `}</style>
 
-      <div className="bg-white border border-slate-300 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col my-auto print:border-none print:shadow-none print:bg-white print:max-w-none">
+      <div className="bg-white border-t sm:border border-slate-300 rounded-t-3xl sm:rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-none print:border-none print:shadow-none print:bg-white print:max-w-none animate-in slide-in-from-bottom-5 sm:zoom-in-95 duration-200">
+        {/* Mobile Swipe Grab Handle Pill */}
+        <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto my-2.5 sm:hidden shrink-0 no-print" />
         {/* Header Toolbar */}
-        <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 no-print">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50 no-print">
           <div className="flex items-center gap-3">
             <span className="p-2 rounded-xl bg-slate-900 text-white shadow-xs">
               <CreditCard className="w-4 h-4" />

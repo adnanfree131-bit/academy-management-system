@@ -7,7 +7,6 @@ import {
   Plus, 
   Search, 
   Trash2, 
-  Building2, 
   Sun, 
   Moon, 
   CheckCircle2, 
@@ -20,9 +19,14 @@ import {
   ChevronRight, 
   ShieldCheck, 
   Check,
-  DollarSign 
+  DollarSign,
+  Pencil,
+  UserCheck,
+  ArrowRightLeft
 } from 'lucide-react';
 import { AcademicProgram, Batch, Subject, SubjectGroup, Student } from '@apex/shared-types';
+import { PageHeading } from '../components/PageHeading';
+import { SectionInfo } from '../components/SectionInfo';
 
 export const AcademicStructureView: React.FC = () => {
   const { token, tenant } = useAuth();
@@ -36,6 +40,7 @@ export const AcademicStructureView: React.FC = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectGroups, setSubjectGroups] = useState<SubjectGroup[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [staffMembers, setStaffMembers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -47,12 +52,34 @@ export const AcademicStructureView: React.FC = () => {
 
   // Modals
   const [showProgramModal, setShowProgramModal] = useState(false);
+  const [showEditProgramModal, setShowEditProgramModal] = useState(false);
   const [showCompulsoryModal, setShowCompulsoryModal] = useState(false);
   const [showElectiveTrackModal, setShowElectiveTrackModal] = useState(false);
   const [showBatchModal, setShowBatchModal] = useState(false);
+  const [showEditBatchModal, setShowEditBatchModal] = useState(false);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
 
-  // Forms
+  // Smart Deletion with Bulk Student Transfer
+  const [showDeleteBatchModal, setShowDeleteBatchModal] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState<Batch | null>(null);
+  const [transferTargetBatchId, setTransferTargetBatchId] = useState<string>('');
+
+  const [showDeleteProgramModal, setShowDeleteProgramModal] = useState(false);
+  const [programToDelete, setProgramToDelete] = useState<AcademicProgram | null>(null);
+  const [transferTargetProgramId, setTransferTargetProgramId] = useState<string>('');
+
+  // Dedicated Student Promotion / Section Transfer Modal
+  const [showPromoteModal, setShowPromoteModal] = useState(false);
+  const [promoteSourceBatchId, setPromoteSourceBatchId] = useState('');
+  const [promoteTargetProgramId, setPromoteTargetProgramId] = useState('');
+  const [promoteTargetBatchId, setPromoteTargetBatchId] = useState('');
+  const [promoteTargetSession, setPromoteTargetSession] = useState('');
+  const [promoteSelectedStudentIds, setPromoteSelectedStudentIds] = useState<string[]>([]);
+  const [promoteFeePolicy, setPromoteFeePolicy] = useState<'keep' | 'target_baseline' | 'percentage' | 'fixed'>('keep');
+  const [promoteFeeValue, setPromoteFeeValue] = useState<number>(10);
+  const [isPromoting, setIsPromoting] = useState(false);
+
+  // Forms: Program (Class)
   const [programForm, setProgramForm] = useState({
     name: '',
     code: '',
@@ -60,10 +87,14 @@ export const AcademicStructureView: React.FC = () => {
     sort_order: 1,
   });
 
-  const [programFeeSchedule, setProgramFeeSchedule] = useState({
-    tuition: 8000,
-    admission: 5000,
-    exam_lab: 1500
+  const [programFeeSchedule, setProgramFeeSchedule] = useState<{
+    tuition: number | '';
+    admission: number | '';
+    exam_lab: number | '';
+  }>({
+    tuition: '',
+    admission: '',
+    exam_lab: ''
   });
 
   const [compulsorySelectedSubjectIds, setCompulsorySelectedSubjectIds] = useState<string[]>([]);
@@ -73,19 +104,25 @@ export const AcademicStructureView: React.FC = () => {
     subject_ids: [] as string[],
   });
 
+  // Forms: Batch (Section)
   const [batchForm, setBatchForm] = useState({
     program_id: '',
     name: '',
     shift: 'morning' as 'morning' | 'evening',
     academic_session: tenant?.academic_session || '2026-2027',
-    max_capacity: 40,
+    max_capacity: 40 as number | '',
     room_number: '',
+    class_teacher_id: '',
   });
 
-  const [batchFeeSchedule, setBatchFeeSchedule] = useState({
-    tuition: 8000,
-    admission: 5000,
-    exam_lab: 1500
+  const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
+  const [editBatchForm, setEditBatchForm] = useState({
+    name: '',
+    shift: 'morning' as 'morning' | 'evening',
+    academic_session: tenant?.academic_session || '2026-2027',
+    max_capacity: 40 as number | '',
+    room_number: '',
+    class_teacher_id: '',
   });
 
   const [subjectForm, setSubjectForm] = useState({
@@ -105,12 +142,13 @@ export const AcademicStructureView: React.FC = () => {
     const headers = { Authorization: `Bearer ${token}` };
 
     try {
-      const [progRes, batchRes, subRes, groupRes, studRes] = await Promise.all([
+      const [progRes, batchRes, subRes, groupRes, studRes, staffRes] = await Promise.all([
         fetch('/api/v1/academic/programs', { headers }),
         fetch('/api/v1/academic/batches', { headers }),
         fetch('/api/v1/academic/subjects', { headers }),
         fetch('/api/v1/academic/groups', { headers }),
         fetch('/api/v1/sis/students', { headers }),
+        fetch('/api/v1/academic/staff', { headers }).catch(() => null),
       ]);
 
       const [progs, bts, subs, grps, studs] = await Promise.all([
@@ -131,6 +169,10 @@ export const AcademicStructureView: React.FC = () => {
       if (subs.success) setSubjects(subs.data);
       if (grps.success) setSubjectGroups(grps.data);
       if (studs.success) setStudents(studs.data);
+      if (staffRes && staffRes.ok) {
+        const staffJson = await staffRes.json();
+        if (staffJson.success) setStaffMembers(staffJson.data || []);
+      }
     } catch (err: any) {
       console.error('Error fetching academic data:', err);
       setError('Failed to fetch academic hierarchy from server.');
@@ -142,6 +184,11 @@ export const AcademicStructureView: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [token]);
+
+  // Active Teachers for Section Incharge assignment
+  const teachers = useMemo(() => {
+    return staffMembers.filter(s => s.status === 'active');
+  }, [staffMembers]);
 
   // Keep selected program valid
   useEffect(() => {
@@ -199,7 +246,7 @@ export const AcademicStructureView: React.FC = () => {
   const filteredCatalogSubjects = useMemo(() => {
     return subjects.filter(s => 
       s.name.toLowerCase().includes(searchCatalogQuery.toLowerCase()) ||
-      s.code.toLowerCase().includes(searchCatalogQuery.toLowerCase())
+      (s.code || '').toLowerCase().includes(searchCatalogQuery.toLowerCase())
     );
   }, [subjects, searchCatalogQuery]);
 
@@ -216,8 +263,10 @@ export const AcademicStructureView: React.FC = () => {
       ];
 
       const payload = {
-        ...programForm,
-        code: programForm.code.trim() ? programForm.code.trim() : undefined,
+        name: programForm.name.trim(),
+        code: programForm.code.trim() ? programForm.code.trim().toUpperCase() : undefined,
+        description: programForm.description.trim() || undefined,
+        sort_order: Number(programForm.sort_order) || 1,
         fee_schedule,
       };
 
@@ -231,9 +280,9 @@ export const AcademicStructureView: React.FC = () => {
       
       setShowProgramModal(false);
       setProgramForm({ name: '', code: '', description: '', sort_order: programs.length + 1 });
-      setProgramFeeSchedule({ tuition: 8000, admission: 5000, exam_lab: 1500 });
+      setProgramFeeSchedule({ tuition: '', admission: '', exam_lab: '' });
       setSelectedProgramId(data.data.id);
-      triggerSuccess(`Class "${data.data.name}" created with default fee baseline.`);
+      triggerSuccess(`Class "${data.data.name}" created.`);
       fetchData();
     } catch (err: any) {
       alert(err.message || 'Error creating class');
@@ -242,19 +291,97 @@ export const AcademicStructureView: React.FC = () => {
     }
   };
 
-  const handleDeleteProgram = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete class "${name}"? This will also remove associated tracks and batch links.`)) return;
+  const openEditProgramModal = (p: AcademicProgram) => {
+    setProgramForm({
+      name: p.name,
+      code: p.code || '',
+      description: p.description || '',
+      sort_order: p.sort_order || 1,
+    });
+    setProgramFeeSchedule({
+      tuition: p.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount ?? '',
+      admission: p.fee_schedule?.find(f => f.fee_type === 'admission')?.amount ?? '',
+      exam_lab: p.fee_schedule?.find(f => f.fee_type === 'exam_lab')?.amount ?? '',
+    });
+    setShowEditProgramModal(true);
+  };
+
+  const handleUpdateProgram = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !activeProgram || !programForm.name.trim()) return;
+    setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/v1/academic/programs/${id}`, {
+      const fee_schedule = [
+        { fee_head_id: 'tuition', head_name: 'Monthly Tuition Fee', fee_type: 'tuition', name: 'Monthly Tuition Fee', amount: Number(programFeeSchedule.tuition) || 0, is_monthly: true, is_recurring: true },
+        { fee_head_id: 'admission', head_name: 'Admission Fee', fee_type: 'admission', name: 'One-time Admission Fee', amount: Number(programFeeSchedule.admission) || 0, is_monthly: false, is_recurring: false },
+        { fee_head_id: 'exam_lab', head_name: 'Exam & Lab Charges', fee_type: 'exam_lab', name: 'Exam & Lab Charges', amount: Number(programFeeSchedule.exam_lab) || 0, is_monthly: false, is_recurring: false },
+      ];
+
+      const payload = {
+        name: programForm.name.trim(),
+        code: programForm.code.trim() ? programForm.code.trim().toUpperCase() : undefined,
+        description: programForm.description.trim() || undefined,
+        sort_order: Number(programForm.sort_order) || 1,
+        fee_schedule,
+      };
+
+      const res = await fetch(`/api/v1/academic/programs/${activeProgram.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error?.message || 'Failed to update class');
+
+      setShowEditProgramModal(false);
+      triggerSuccess(`Class "${data.data.name}" updated.`);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Error updating class');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const initiateDeleteProgram = (p: AcademicProgram) => {
+    const enrolledStudents = students.filter(s => s.program_id === p.id);
+    if (enrolledStudents.length === 0) {
+      if (confirm(`Are you sure you want to delete class "${p.name}"? This will also remove associated streams and section links.`)) {
+        executeDeleteProgram(p.id, p.name);
+      }
+      return;
+    }
+
+    setProgramToDelete(p);
+    const siblings = programs.filter(x => x.id !== p.id);
+    setTransferTargetProgramId(siblings[0]?.id || '');
+    setShowDeleteProgramModal(true);
+  };
+
+  const executeDeleteProgram = async (id: string, name: string, transferProgId?: string) => {
+    setIsSubmitting(true);
+    try {
+      const url = transferProgId
+        ? `/api/v1/academic/programs/${id}?transfer_to_program_id=${transferProgId}`
+        : `/api/v1/academic/programs/${id}`;
+      const res = await fetch(url, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        triggerSuccess(`Class "${name}" deleted.`);
+        setShowDeleteProgramModal(false);
+        setProgramToDelete(null);
+        triggerSuccess(`Class "${name}" deleted${transferProgId ? ' and students transferred' : ''}.`);
         fetchData();
+      } else {
+        const data = await res.json();
+        alert(data.error?.message || 'Failed to delete class');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(err.message || 'Error deleting class');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -358,17 +485,9 @@ export const AcademicStructureView: React.FC = () => {
     }
   };
 
-  // Handlers: Batches
+  // Handlers: Batches (Sections)
   const openAddBatchModal = () => {
     if (!activeProgram) return;
-    const defaultTuition = activeProgram.fee_schedule?.find((f: any) => f.fee_type === 'tuition')?.amount ?? 8000;
-    const defaultAdmission = activeProgram.fee_schedule?.find((f: any) => f.fee_type === 'admission')?.amount ?? 5000;
-    const defaultExam = activeProgram.fee_schedule?.find((f: any) => f.fee_type === 'exam_lab')?.amount ?? 1500;
-    setBatchFeeSchedule({
-      tuition: defaultTuition,
-      admission: defaultAdmission,
-      exam_lab: defaultExam,
-    });
     setBatchForm({
       program_id: activeProgram.id,
       name: '',
@@ -376,6 +495,7 @@ export const AcademicStructureView: React.FC = () => {
       academic_session: tenant?.academic_session || '2026-2027',
       max_capacity: 40,
       room_number: '',
+      class_teacher_id: '',
     });
     setShowBatchModal(true);
   };
@@ -385,25 +505,23 @@ export const AcademicStructureView: React.FC = () => {
     if (!token || !batchForm.program_id || !batchForm.name.trim()) return;
     setIsSubmitting(true);
     try {
-      const fee_schedule = [
-        { fee_head_id: 'tuition', head_name: 'Monthly Tuition Fee', fee_type: 'tuition', name: 'Monthly Tuition Fee', amount: Number(batchFeeSchedule.tuition) || 0, is_monthly: true, is_recurring: true },
-        { fee_head_id: 'admission', head_name: 'Admission Fee', fee_type: 'admission', name: 'One-time Admission Fee', amount: Number(batchFeeSchedule.admission) || 0, is_monthly: false, is_recurring: false },
-        { fee_head_id: 'exam_lab', head_name: 'Exam & Lab Charges', fee_type: 'exam_lab', name: 'Exam & Lab Charges', amount: Number(batchFeeSchedule.exam_lab) || 0, is_monthly: false, is_recurring: false },
-      ];
-
+      const teacher = teachers.find(t => t.id === batchForm.class_teacher_id);
       const res = await fetch('/api/v1/academic/batches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           ...batchForm,
-          fee_schedule,
+          max_capacity: Number(batchForm.max_capacity) || 40,
+          class_teacher_id: batchForm.class_teacher_id || undefined,
+          class_teacher_name: teacher ? teacher.full_name : undefined,
+          fee_schedule: activeProgram?.fee_schedule || [],
         }),
       });
       const data = await res.json();
-      if (!res.ok || !data.success) throw new Error(data.error?.message || 'Failed to create section/batch');
+      if (!res.ok || !data.success) throw new Error(data.error?.message || 'Failed to create section');
 
       setShowBatchModal(false);
-      triggerSuccess(`Section/Batch "${data.data.name}" allocated with fee schedule.`);
+      triggerSuccess(`Section "${data.data.name}" created successfully.`);
       fetchData();
     } catch (err: any) {
       alert(err.message || 'Error creating section');
@@ -412,32 +530,175 @@ export const AcademicStructureView: React.FC = () => {
     }
   };
 
-  const handleDeleteBatch = async (id: string, name: string) => {
-    if (!confirm(`Are you sure you want to delete section/batch "${name}"?`)) return;
+  const openEditBatchModal = (b: Batch) => {
+    setEditingBatch(b);
+    setEditBatchForm({
+      name: b.name,
+      shift: b.shift,
+      academic_session: b.academic_session || tenant?.academic_session || '2026-2027',
+      max_capacity: b.max_capacity || 40,
+      room_number: b.room_number || '',
+      class_teacher_id: b.class_teacher_id || '',
+    });
+    setShowEditBatchModal(true);
+  };
+
+  const handleUpdateBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !editingBatch || !editBatchForm.name.trim()) return;
+    setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/v1/academic/batches/${id}`, {
+      const teacher = teachers.find(t => t.id === editBatchForm.class_teacher_id);
+      const res = await fetch(`/api/v1/academic/batches/${editingBatch.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: editBatchForm.name.trim(),
+          shift: editBatchForm.shift,
+          academic_session: editBatchForm.academic_session,
+          max_capacity: Number(editBatchForm.max_capacity) || 40,
+          room_number: editBatchForm.room_number.trim() || null,
+          class_teacher_id: editBatchForm.class_teacher_id || null,
+          class_teacher_name: teacher ? teacher.full_name : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error?.message || 'Failed to update section');
+
+      setShowEditBatchModal(false);
+      setEditingBatch(null);
+      triggerSuccess(`Section "${data.data.name}" updated successfully.`);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Error updating section');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const initiateDeleteBatch = (b: Batch) => {
+    const enrolledStudents = students.filter(s => s.batch_id === b.id);
+    if (enrolledStudents.length === 0) {
+      if (confirm(`Are you sure you want to delete section "${b.name}"?`)) {
+        executeDeleteBatch(b.id, b.name);
+      }
+      return;
+    }
+
+    // Has students: open smart transfer modal
+    setBatchToDelete(b);
+    const siblings = batches.filter(x => x.program_id === b.program_id && x.id !== b.id);
+    setTransferTargetBatchId(siblings[0]?.id || '');
+    setShowDeleteBatchModal(true);
+  };
+
+  const executeDeleteBatch = async (batchId: string, batchName: string, transferBatchId?: string) => {
+    setIsSubmitting(true);
+    try {
+      const url = transferBatchId 
+        ? `/api/v1/academic/batches/${batchId}?transfer_to_batch_id=${transferBatchId}`
+        : `/api/v1/academic/batches/${batchId}`;
+      const res = await fetch(url, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        triggerSuccess(`Section "${name}" deleted.`);
+        setShowDeleteBatchModal(false);
+        setBatchToDelete(null);
+        triggerSuccess(`Section "${batchName}" deleted${transferBatchId ? ' and students transferred' : ''}.`);
         fetchData();
+      } else {
+        const data = await res.json();
+        alert(data.error?.message || 'Failed to delete section');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      alert(err.message || 'Error deleting section');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handlers: Student Promotion & Batch Transfer
+  const openPromoteModal = (sourceBatchId?: string) => {
+    const defaultSourceId = sourceBatchId || activeBatches[0]?.id || batches[0]?.id || '';
+    setPromoteSourceBatchId(defaultSourceId);
+
+    const batchStudents = students.filter(s => s.batch_id === defaultSourceId && s.status === 'active');
+    setPromoteSelectedStudentIds(batchStudents.map(s => s.id));
+
+    const currentBatch = batches.find(b => b.id === defaultSourceId);
+    const currentProgId = currentBatch?.program_id || activeProgram?.id || programs[0]?.id || '';
+    const otherProgs = programs.filter(p => p.id !== currentProgId);
+    const defaultTargetProg = otherProgs[0]?.id || currentProgId;
+    setPromoteTargetProgramId(defaultTargetProg);
+
+    const targetBatches = batches.filter(b => b.program_id === defaultTargetProg && b.id !== defaultSourceId);
+    setPromoteTargetBatchId(targetBatches[0]?.id || '');
+
+    setPromoteTargetSession(tenant?.academic_session || '2026-2027');
+    setPromoteFeePolicy('keep');
+    setPromoteFeeValue(10);
+    setShowPromoteModal(true);
+  };
+
+  const handleSourceBatchChange = (sourceId: string) => {
+    setPromoteSourceBatchId(sourceId);
+    const batchStudents = students.filter(s => s.batch_id === sourceId && s.status === 'active');
+    setPromoteSelectedStudentIds(batchStudents.map(s => s.id));
+  };
+
+  const handleTargetProgramChange = (progId: string) => {
+    setPromoteTargetProgramId(progId);
+    const targetBatches = batches.filter(b => b.program_id === progId && b.id !== promoteSourceBatchId);
+    setPromoteTargetBatchId(targetBatches[0]?.id || '');
+  };
+
+  const handleExecutePromotion = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || promoteSelectedStudentIds.length === 0 || !promoteTargetProgramId || !promoteTargetBatchId) return;
+
+    setIsPromoting(true);
+    try {
+      const res = await fetch('/api/v1/academic/students/promote', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          student_ids: promoteSelectedStudentIds,
+          target_program_id: promoteTargetProgramId,
+          target_batch_id: promoteTargetBatchId,
+          target_session: promoteTargetSession,
+          fee_adjustment_type: promoteFeePolicy,
+          fee_adjustment_value: promoteFeeValue,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Failed to promote students');
+
+      setShowPromoteModal(false);
+      triggerSuccess(`Successfully promoted ${data.data?.count || promoteSelectedStudentIds.length} students to new class/section.`);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsPromoting(false);
     }
   };
 
   // Handlers: Subject Catalog
   const handleCreateSubject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !subjectForm.name || !subjectForm.code) return;
+    if (!token || !subjectForm.name) return;
     setIsSubmitting(true);
     try {
       const res = await fetch('/api/v1/academic/subjects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(subjectForm),
+        body: JSON.stringify({ ...subjectForm, code: subjectForm.code.trim() }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error?.message || 'Failed to create subject');
@@ -473,71 +734,57 @@ export const AcademicStructureView: React.FC = () => {
     <div className="space-y-5">
       
       {/* Top Header Card */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs">
-            <Layers className="w-5 h-5 text-white" />
-          </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-slate-900">Academic Structure & Classes</h1>
-              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                Session {tenant?.academic_session || '2026-2027'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Manage classes, compulsory subjects, elective streams, and section batches.
-            </p>
-          </div>
-        </div>
+      <PageHeading
+        title="Academic Structure"
+        description="Manage classes, compulsory subjects, elective streams, and section batches."
+        icon={<Layers className="w-4 h-4 text-slate-700" />}
+        badge={`Session ${tenant?.academic_session || '2026-2027'}`}
+      >
+        <button 
+          onClick={fetchData} 
+          className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+          title="Refresh Data"
+        >
+          <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+        </button>
 
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={fetchData} 
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-            title="Refresh Data"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </button>
-
-          {/* Mode Switcher */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-xl text-xs font-bold">
-            <button
-              onClick={() => setViewMode('hierarchy')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                viewMode === 'hierarchy'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <Split className="w-3.5 h-3.5 text-indigo-600" />
-              <span>Class Hierarchy</span>
-            </button>
-            <button
-              onClick={() => setViewMode('catalog')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                viewMode === 'catalog'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-900'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Subject Catalog</span>
-              <span className="text-[10px] font-mono bg-slate-200 text-slate-700 px-1 py-0.2 rounded-full">
-                {subjects.length}
-              </span>
-            </button>
-          </div>
-
+        {/* Mode Switcher */}
+        <div className="flex items-center bg-slate-100 p-0.5 rounded-xl text-xs font-bold overflow-x-auto no-scrollbar whitespace-nowrap">
           <button
-            onClick={() => setShowProgramModal(true)}
-            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs"
+            onClick={() => setViewMode('hierarchy')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              viewMode === 'hierarchy'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
           >
-            <Plus className="w-4 h-4 text-white" />
-            <span>New Class</span>
+            <Split className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Class Hierarchy</span>
+          </button>
+          <button
+            onClick={() => setViewMode('catalog')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              viewMode === 'catalog'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Subject Catalog</span>
+            <span className="text-[10px] font-mono bg-slate-200 text-slate-700 px-1 py-0.2 rounded-full">
+              {subjects.length}
+            </span>
           </button>
         </div>
-      </div>
+
+        <button
+          onClick={() => setShowProgramModal(true)}
+          className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs"
+        >
+          <Plus className="w-4 h-4 text-white" />
+          <span>New Class</span>
+        </button>
+      </PageHeading>
 
       {/* Success / Error Alerts */}
       {successMessage && (
@@ -566,7 +813,7 @@ export const AcademicStructureView: React.FC = () => {
 
         <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 mb-1">
-            <span className="text-xs font-semibold">Elective Tracks</span>
+            <span className="text-xs font-semibold">Elective Streams</span>
             <Split className="w-4 h-4 text-purple-600" />
           </div>
           <p className="text-2xl font-black text-slate-900 font-mono">
@@ -577,7 +824,7 @@ export const AcademicStructureView: React.FC = () => {
 
         <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs">
           <div className="flex items-center justify-between text-slate-500 mb-1">
-            <span className="text-xs font-semibold">Batches / Sections</span>
+            <span className="text-xs font-semibold">Class Sections</span>
             <FolderTree className="w-4 h-4 text-emerald-600" />
           </div>
           <p className="text-2xl font-black text-slate-900 font-mono">{batches.length}</p>
@@ -626,10 +873,10 @@ export const AcademicStructureView: React.FC = () => {
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
               <input
                 type="text"
-                placeholder="Search class or code..."
                 value={searchClassQuery}
                 onChange={e => setSearchClassQuery(e.target.value)}
-                className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                placeholder="Search classes..."
+                className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
 
@@ -673,7 +920,7 @@ export const AcademicStructureView: React.FC = () => {
                         {hasCompulsory ? 'Core Set' : 'No Core'}
                       </span>
                       <span>•</span>
-                      <span>{classTracks.length} Tracks</span>
+                      <span>{classTracks.length} Streams</span>
                       <span>•</span>
                       <span>{classBatches.length} Sections</span>
                       <span>•</span>
@@ -722,6 +969,14 @@ export const AcademicStructureView: React.FC = () => {
 
                   <div className="flex items-center gap-2">
                     <button
+                      onClick={() => openEditProgramModal(activeProgram)}
+                      className="px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                      title="Edit Class Name, Code & Fee Baseline"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Edit Class</span>
+                    </button>
+                    <button
                       onClick={openAddBatchModal}
                       className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
                     >
@@ -729,7 +984,7 @@ export const AcademicStructureView: React.FC = () => {
                       <span>Add Section</span>
                     </button>
                     <button
-                      onClick={() => handleDeleteProgram(activeProgram.id, activeProgram.name)}
+                      onClick={() => initiateDeleteProgram(activeProgram)}
                       className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                       title="Delete Class"
                     >
@@ -747,10 +1002,10 @@ export const AcademicStructureView: React.FC = () => {
                       </span>
                       <div>
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                          Compulsory Subjects (Mandatory Core)
+                          Compulsory Subjects
                         </h3>
                         <p className="text-[11px] text-slate-500">
-                          Auto-enrolled for every student admitted to {activeProgram.name} with zero manual clicking.
+                          Core subjects automatically assigned to all students admitted to {activeProgram.name}.
                         </p>
                       </div>
                     </div>
@@ -759,7 +1014,7 @@ export const AcademicStructureView: React.FC = () => {
                       onClick={openManageCompulsoryModal}
                       className="px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition-all"
                     >
-                      {activeCompulsoryGroup ? 'Configure Core Subjects' : '+ Add Core Subjects'}
+                      {activeCompulsoryGroup ? 'Configure Subjects' : '+ Add Compulsory Subjects'}
                     </button>
                   </div>
 
@@ -782,12 +1037,12 @@ export const AcademicStructureView: React.FC = () => {
                     </div>
                   ) : (
                     <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                      No compulsory subjects attached to this class. Click "Configure Core Subjects" above to select mandatory courses from the catalog.
+                      No compulsory subjects attached to this class. Click "Configure Subjects" above to select courses from the catalog.
                     </div>
                   )}
                 </div>
 
-                {/* SECTION 2: Elective Tracks & Streams */}
+                {/* SECTION 2: Elective Groups */}
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
@@ -796,10 +1051,10 @@ export const AcademicStructureView: React.FC = () => {
                       </span>
                       <div>
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                          Elective Tracks & Academic Streams ({activeElectiveTracks.length})
+                          Elective Subject Groups ({activeElectiveTracks.length})
                         </h3>
                         <p className="text-[11px] text-slate-500">
-                          Academic majors (e.g. Pre-Med, Pre-Eng, ICS). Students choose one track during admission.
+                          Elective groups (e.g. Pre-Medical, Pre-Engineering, Computer Science). Students choose one group during admission.
                         </p>
                       </div>
                     </div>
@@ -809,7 +1064,7 @@ export const AcademicStructureView: React.FC = () => {
                       className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-all shadow-xs"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>Add Elective Track</span>
+                      <span>Add Elective Group</span>
                     </button>
                   </div>
 
@@ -830,7 +1085,7 @@ export const AcademicStructureView: React.FC = () => {
                               <button
                                 onClick={() => handleDeleteSubjectGroup(track.id, track.name)}
                                 className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"
-                                title="Delete Track"
+                                title="Delete Group"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -856,13 +1111,13 @@ export const AcademicStructureView: React.FC = () => {
 
                     {activeElectiveTracks.length === 0 && (
                       <div className="col-span-full p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                        No elective tracks configured for this class. (If this class has no electives, students will only be enrolled in Compulsory subjects).
+                        No elective groups configured for this class. (If this class has no electives, students will only be enrolled in Compulsory subjects).
                       </div>
                     )}
                   </div>
                 </div>
 
-                {/* SECTION 3: Sections & Batches with Track Roster Breakdown */}
+                {/* SECTION 3: Sections & Batches with Elective Breakdown */}
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
@@ -871,20 +1126,31 @@ export const AcademicStructureView: React.FC = () => {
                       </span>
                       <div>
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                          Class Sections & Cohorts ({activeBatches.length})
+                          Class Sections & Batches ({activeBatches.length})
                         </h3>
                         <p className="text-[11px] text-slate-500">
-                          Physical batch rooms, shifts, and track population breakdown.
+                          Section allocations, shift schedules, and elective breakdown.
                         </p>
                       </div>
                     </div>
 
-                    <button
-                      onClick={openAddBatchModal}
-                      className="px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition-all"
-                    >
-                      + Create Section
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => openPromoteModal()}
+                        className="px-3 py-1.5 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs"
+                        title="Promote or Transfer Students across classes or sections"
+                      >
+                        <Split className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Promote / Transfer</span>
+                      </button>
+
+                      <button
+                        onClick={openAddBatchModal}
+                        className="px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-bold transition-all"
+                      >
+                        + Create Section
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-3 pt-1">
@@ -898,7 +1164,7 @@ export const AcademicStructureView: React.FC = () => {
                         <div key={b.id} className="border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 transition-all">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-bold text-xs text-slate-900">{b.name}</span>
                                 {b.shift === 'morning' ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
@@ -911,30 +1177,34 @@ export const AcademicStructureView: React.FC = () => {
                                     Evening
                                   </span>
                                 )}
-                                {b.room_number && (
-                                  <span className="text-[11px] font-mono text-slate-500 flex items-center gap-1">
-                                    <Building2 className="w-3 h-3" />
-                                    {b.room_number}
+                                {b.class_teacher_name ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                    <UserCheck className="w-3 h-3 text-indigo-600" />
+                                    <span>Incharge: {b.class_teacher_name}</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] text-slate-400 italic">
+                                    No Incharge
                                   </span>
                                 )}
-                                {b.fee_schedule && b.fee_schedule.length > 0 && (
+                                {activeProgram.fee_schedule && activeProgram.fee_schedule.length > 0 && (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                     <DollarSign className="w-3 h-3 text-emerald-600" />
-                                    PKR {b.fee_schedule.find(f => f.fee_type === 'tuition')?.amount?.toLocaleString() || '0'}/mo
+                                    PKR {activeProgram.fee_schedule.find(f => f.fee_type === 'tuition')?.amount?.toLocaleString() || '0'}/mo
                                   </span>
                                 )}
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-4">
-                              <div className="text-right">
+                            <div className="flex items-center gap-2">
+                              <div className="text-right mr-2">
                                 <div className="text-[11px] font-mono">
                                   <strong>{enrolledCount}</strong> / {maxCap} seats ({percent}%)
                                 </div>
                                 <div className="w-28 bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden">
                                   <div 
                                     className={`h-1.5 rounded-full ${
-                                      percent > 90 ? 'bg-rose-500' : percent > 70 ? 'bg-amber-500' : 'bg-emerald-500'
+                                      percent >= 100 ? 'bg-rose-600' : percent > 85 ? 'bg-amber-500' : 'bg-emerald-500'
                                     }`}
                                     style={{ width: `${percent}%` }}
                                   ></div>
@@ -942,18 +1212,35 @@ export const AcademicStructureView: React.FC = () => {
                               </div>
 
                               <button
-                                onClick={() => handleDeleteBatch(b.id, b.name)}
-                                className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"
-                                title="Delete Batch"
+                                onClick={() => openPromoteModal(b.id)}
+                                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+                                title="Promote or Transfer Students from this Section"
+                              >
+                                <Split className="w-3 h-3 text-indigo-600" />
+                                <span>Promote</span>
+                              </button>
+
+                              <button
+                                onClick={() => openEditBatchModal(b)}
+                                className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                title="Edit Section"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+
+                              <button
+                                onClick={() => initiateDeleteBatch(b)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                title="Delete Section"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </div>
 
-                          {/* Track Population in this section */}
+                          {/* Elective Population in this section */}
                           <div className="mt-3 pt-2.5 border-t border-slate-100 flex flex-wrap items-center gap-2 text-[11px]">
-                            <span className="text-slate-400 font-medium">Track Breakdown:</span>
+                            <span className="text-slate-400 font-medium">Elective Breakdown:</span>
                             {activeElectiveTracks.map(t => {
                               const inTrackCount = batchStudents.filter(s => s.elective_group_id === t.id).length;
                               return (
@@ -963,7 +1250,7 @@ export const AcademicStructureView: React.FC = () => {
                               );
                             })}
                             {activeElectiveTracks.length === 0 && (
-                              <span className="text-slate-500 italic">All students taking Core curriculum</span>
+                              <span className="text-slate-500 italic">All students taking compulsory curriculum</span>
                             )}
                           </div>
                         </div>
@@ -972,7 +1259,7 @@ export const AcademicStructureView: React.FC = () => {
 
                     {activeBatches.length === 0 && (
                       <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                        No sections allocated for this class yet. Click "+ Create Section" to schedule morning or evening cohorts.
+                        No sections allocated for this class yet. Click "+ Create Section" to schedule morning or evening sections.
                       </div>
                     )}
                   </div>
@@ -1012,10 +1299,9 @@ export const AcademicStructureView: React.FC = () => {
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Search subject or code..."
                   value={searchCatalogQuery}
                   onChange={e => setSearchCatalogQuery(e.target.value)}
-                  className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 
@@ -1039,9 +1325,11 @@ export const AcademicStructureView: React.FC = () => {
                   <div>
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <span className="font-mono text-[10px] bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded">
-                          {s.code}
-                        </span>
+                        {s.code && (
+                          <span className="font-mono text-[10px] bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded">
+                            {s.code}
+                          </span>
+                        )}
                         <h4 className="text-xs font-bold text-slate-900 mt-1">{s.name}</h4>
                       </div>
                       <button
@@ -1084,8 +1372,7 @@ export const AcademicStructureView: React.FC = () => {
                   <GraduationCap className="w-4 h-4 text-white" />
                 </span>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">Add New Class / Grade</h2>
-                  <p className="text-[11px] text-slate-500">Configure a grade level or preparatory class</p>
+                  <SectionInfo title="Add Class" description="Configure a grade level or preparatory class" />
                 </div>
               </div>
               <button onClick={() => setShowProgramModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
@@ -1101,7 +1388,7 @@ export const AcademicStructureView: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. FSc Pre-Medical, Class 10 - Matric"
+                  placeholder="e.g. Class 10, F.Sc Pre-Medical"
                   value={programForm.name}
                   onChange={e => setProgramForm({ ...programForm, name: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1117,7 +1404,7 @@ export const AcademicStructureView: React.FC = () => {
                   </div>
                   <input
                     type="text"
-                    placeholder="Auto if blank (e.g. FSC-PM)"
+                    placeholder="e.g. C10, MED"
                     value={programForm.code}
                     onChange={e => setProgramForm({ ...programForm, code: e.target.value.toUpperCase() })}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1144,7 +1431,7 @@ export const AcademicStructureView: React.FC = () => {
                 <label className="block text-slate-700 font-bold mb-1">Description / Curriculum Scope</label>
                 <textarea
                   rows={2}
-                  placeholder="Brief curriculum notes..."
+                  placeholder="Optional brief notes or syllabus details"
                   value={programForm.description}
                   onChange={e => setProgramForm({ ...programForm, description: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1157,9 +1444,6 @@ export const AcademicStructureView: React.FC = () => {
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
                     <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
                     Default Class Fee Baseline
-                  </span>
-                  <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-bold">
-                    Est. First Month: PKR {(Number(programFeeSchedule.tuition) || 0) + (Number(programFeeSchedule.admission) || 0) + (Number(programFeeSchedule.exam_lab) || 0)}
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-500">
@@ -1221,6 +1505,143 @@ export const AcademicStructureView: React.FC = () => {
         </div>
       )}
 
+      {/* MODAL 1B: EDIT EXISTING CLASS */}
+      {showEditProgramModal && activeProgram && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-indigo-600 text-white">
+                  <Pencil className="w-4 h-4 text-white" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Edit Class - {activeProgram.name}</h3>
+                  <p className="text-[11px] text-slate-500">Update naming, display order, or fee baseline</p>
+                </div>
+              </div>
+              <button onClick={() => setShowEditProgramModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateProgram} className="space-y-4 mt-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Class / Grade Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={programForm.name}
+                  onChange={e => setProgramForm({ ...programForm, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-700 font-bold">Class Code</label>
+                  </div>
+                  <input
+                    type="text"
+                    value={programForm.code}
+                    onChange={e => setProgramForm({ ...programForm, code: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-700 font-bold">Display Order</label>
+                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    value={programForm.sort_order}
+                    onChange={e => setProgramForm({ ...programForm, sort_order: parseInt(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Description / Curriculum Scope</label>
+                <textarea
+                  rows={2}
+                  value={programForm.description}
+                  onChange={e => setProgramForm({ ...programForm, description: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Default Fee Schedule Baseline */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                    Default Class Fee Baseline
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  Batches in this class inherit these defaults automatically during enrollment & billing.
+                </p>
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div>
+                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Monthly Tuition (PKR)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={programFeeSchedule.tuition}
+                      onChange={e => setProgramFeeSchedule({ ...programFeeSchedule, tuition: Number(e.target.value) || 0 })}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Admission Fee (PKR)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={programFeeSchedule.admission}
+                      onChange={e => setProgramFeeSchedule({ ...programFeeSchedule, admission: Number(e.target.value) || 0 })}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Exam / Lab Fee (PKR)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={programFeeSchedule.exam_lab}
+                      onChange={e => setProgramFeeSchedule({ ...programFeeSchedule, exam_lab: Number(e.target.value) || 0 })}
+                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditProgramModal(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 2: MANAGE COMPULSORY SUBJECTS */}
       {showCompulsoryModal && activeProgram && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -1272,9 +1693,11 @@ export const AcademicStructureView: React.FC = () => {
                         />
                         <span>{s.name}</span>
                       </div>
-                      <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                        {s.code}
-                      </span>
+                      {s.code && (
+                        <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                          {s.code}
+                        </span>
+                      )}
                     </label>
                   );
                 })}
@@ -1318,7 +1741,7 @@ export const AcademicStructureView: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL 3: CREATE ELECTIVE TRACK */}
+      {/* MODAL 3: CREATE ELECTIVE STREAM */}
       {showElectiveTrackModal && activeProgram && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
@@ -1328,12 +1751,7 @@ export const AcademicStructureView: React.FC = () => {
                   <Split className="w-4 h-4 text-white" />
                 </span>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">
-                    Add Elective Track for {activeProgram.name}
-                  </h2>
-                  <p className="text-[11px] text-slate-500">
-                    Group elective subjects into an academic stream (e.g. Pre-Medical, Pre-Engineering, ICS).
-                  </p>
+                  <SectionInfo title={`Elective Group: ${activeProgram.name}`} description="Group elective subjects into a subject group (Pre-Medical, Pre-Engineering, Computer Science)." />
                 </div>
               </div>
               <button onClick={() => setShowElectiveTrackModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
@@ -1344,12 +1762,12 @@ export const AcademicStructureView: React.FC = () => {
             <form onSubmit={handleCreateElectiveTrack} className="space-y-4 mt-4 text-xs">
               <div>
                 <label className="block text-slate-700 font-bold mb-1">
-                  Track / Stream Name <span className="text-rose-500">*</span>
+                  Elective Group Name <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Pre-Medical Track, Pre-Engineering Track"
+                  placeholder="e.g. Pre-Medical, Pre-Engineering, Computer Science"
                   value={electiveTrackForm.name}
                   onChange={e => setElectiveTrackForm({ ...electiveTrackForm, name: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -1358,7 +1776,7 @@ export const AcademicStructureView: React.FC = () => {
 
               <div>
                 <label className="block text-slate-700 font-bold mb-1">
-                  Select Subjects in this Track <span className="text-rose-500">*</span>
+                  Select Subjects in this Elective Group <span className="text-rose-500">*</span>
                 </label>
                 <div className="max-h-64 overflow-y-auto space-y-1.5 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
                   {subjects.map(s => {
@@ -1393,9 +1811,11 @@ export const AcademicStructureView: React.FC = () => {
                           />
                           <span>{s.name}</span>
                         </div>
-                        <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                          {s.code}
-                        </span>
+                        {s.code && (
+                          <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
+                            {s.code}
+                          </span>
+                        )}
                       </label>
                     );
                   })}
@@ -1415,7 +1835,7 @@ export const AcademicStructureView: React.FC = () => {
                   disabled={isSubmitting}
                   className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Creating...' : 'Create Track'}
+                  {isSubmitting ? 'Saving...' : 'Create Elective Group'}
                 </button>
               </div>
             </form>
@@ -1433,10 +1853,7 @@ export const AcademicStructureView: React.FC = () => {
                   <FolderTree className="w-4 h-4 text-white" />
                 </span>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">
-                    Allocate Section for {activeProgram.name}
-                  </h2>
-                  <p className="text-[11px] text-slate-500">Define shift and room capacity limits</p>
+                  <SectionInfo title={`Allocate Section: ${activeProgram.name}`} description="Define shift, capacity, session, and section incharge" />
                 </div>
               </div>
               <button onClick={() => setShowBatchModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
@@ -1452,7 +1869,7 @@ export const AcademicStructureView: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Section Alpha - Morning"
+                  placeholder="e.g. Section A, Morning Med-1"
                   value={batchForm.name}
                   onChange={e => setBatchForm({ ...batchForm, name: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1489,76 +1906,46 @@ export const AcademicStructureView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Room / Hall Number</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Room 204"
-                    value={batchForm.room_number}
-                    onChange={e => setBatchForm({ ...batchForm, room_number: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Academic Session</label>
-                  <input
-                    type="text"
-                    value={batchForm.academic_session}
-                    onChange={e => setBatchForm({ ...batchForm, academic_session: e.target.value })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Academic Session</label>
+                <input
+                  type="text"
+                  value={batchForm.academic_session}
+                  onChange={e => setBatchForm({ ...batchForm, academic_session: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
 
-              {/* Batch Fee Schedule */}
-              <div className="p-3.5 bg-blue-50/50 border border-blue-100 rounded-xl space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                    <DollarSign className="w-3.5 h-3.5 text-blue-600" />
-                    Section Fee Schedule
-                  </span>
-                  <span className="text-[10px] font-mono text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-full font-bold">
-                    Monthly Tuition: PKR {batchFeeSchedule.tuition}
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-500">
-                  Inherited from class baseline. Can be customized for this specific section/cohort.
-                </p>
+              {/* Class Teacher / Incharge */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Class Teacher / Section Incharge <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <select
+                  value={batchForm.class_teacher_id}
+                  onChange={e => setBatchForm({ ...batchForm, class_teacher_id: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Unassigned (Select Staff) --</option>
+                  {teachers.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.full_name} {t.designation ? `(${t.designation})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                <div className="grid grid-cols-3 gap-2 pt-1">
-                  <div>
-                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Monthly Tuition (PKR)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={batchFeeSchedule.tuition}
-                      onChange={e => setBatchFeeSchedule({ ...batchFeeSchedule, tuition: Number(e.target.value) || 0 })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Admission Fee (PKR)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={batchFeeSchedule.admission}
-                      onChange={e => setBatchFeeSchedule({ ...batchFeeSchedule, admission: Number(e.target.value) || 0 })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Exam / Lab Fee (PKR)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={batchFeeSchedule.exam_lab}
-                      onChange={e => setBatchFeeSchedule({ ...batchFeeSchedule, exam_lab: Number(e.target.value) || 0 })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+              {/* Fee Notice: Inherits class fees without redundant form inputs */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+                <div>
+                  <span className="font-bold text-slate-800">Class Baseline Fee Applied</span>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Inherits Monthly Tuition (PKR {activeProgram.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount?.toLocaleString() || '0'}/mo) from {activeProgram.name}.
+                  </p>
                 </div>
+                <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 text-xs shrink-0">
+                  PKR {activeProgram.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount?.toLocaleString() || '0'}/mo
+                </span>
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
@@ -1574,10 +1961,568 @@ export const AcademicStructureView: React.FC = () => {
                   disabled={isSubmitting}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Allocating...' : 'Allocate Section'}
+                  {isSubmitting ? 'Saving...' : 'Create Section'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4B: EDIT EXISTING SECTION */}
+      {showEditBatchModal && editingBatch && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-indigo-600 text-white">
+                  <Pencil className="w-4 h-4 text-white" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Edit Section: {editingBatch.name}</h3>
+                  <p className="text-[11px] text-slate-500">Update capacity, shift, session, or assigned incharge</p>
+                </div>
+              </div>
+              <button onClick={() => setShowEditBatchModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateBatch} className="space-y-4 mt-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Section / Batch Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editBatchForm.name}
+                  onChange={e => setEditBatchForm({ ...editBatchForm, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Shift <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={editBatchForm.shift}
+                    onChange={e => setEditBatchForm({ ...editBatchForm, shift: e.target.value as 'morning' | 'evening' })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="morning">Morning Shift</option>
+                    <option value="evening">Evening Shift</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Max Capacity <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={editBatchForm.max_capacity}
+                    onChange={e => setEditBatchForm({ ...editBatchForm, max_capacity: parseInt(e.target.value) || 40 })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Academic Session</label>
+                <input
+                  type="text"
+                  value={editBatchForm.academic_session}
+                  onChange={e => setEditBatchForm({ ...editBatchForm, academic_session: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              {/* Class Teacher / Incharge */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Class Teacher / Section Incharge <span className="text-slate-400 font-normal">(Optional)</span>
+                </label>
+                <select
+                  value={editBatchForm.class_teacher_id}
+                  onChange={e => setEditBatchForm({ ...editBatchForm, class_teacher_id: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">-- Unassigned (Select Staff) --</option>
+                  {teachers.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.full_name} {t.designation ? `(${t.designation})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditBatchModal(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4C: SMART DELETE SECTION WITH BULK TRANSFER */}
+      {showDeleteBatchModal && batchToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
+                  <ArrowRightLeft className="w-4 h-4 text-amber-600" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Transfer Students & Delete Section</h3>
+                  <p className="text-[11px] text-slate-500">Section: {batchToDelete.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDeleteBatchModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 mt-4 text-xs">
+              <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 leading-relaxed">
+                <strong>{students.filter(s => s.batch_id === batchToDelete.id).length} active students</strong> are currently enrolled in <strong>{batchToDelete.name}</strong>.
+                To prevent broken fee ledgers or orphaned student profiles, select a destination section to transfer them to.
+              </div>
+
+              {batches.filter(x => x.program_id === batchToDelete.program_id && x.id !== batchToDelete.id).length > 0 ? (
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Select Destination Section <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={transferTargetBatchId}
+                    onChange={e => setTransferTargetBatchId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    {batches
+                      .filter(x => x.program_id === batchToDelete.program_id && x.id !== batchToDelete.id)
+                      .map(b => {
+                        const count = students.filter(s => s.batch_id === b.id).length;
+                        return (
+                          <option key={b.id} value={b.id}>
+                            {b.name} ({b.shift}) • {count}/{b.max_capacity} seats
+                          </option>
+                        );
+                      })}
+                  </select>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-600">
+                  There are no other sections in this class. Please create another section first or reassign the students before deleting this section.
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteBatchModal(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                >
+                  Cancel
+                </button>
+                {batches.filter(x => x.program_id === batchToDelete.program_id && x.id !== batchToDelete.id).length > 0 && (
+                  <button
+                    type="button"
+                    disabled={isSubmitting || !transferTargetBatchId}
+                    onClick={() => executeDeleteBatch(batchToDelete.id, batchToDelete.name, transferTargetBatchId)}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <ArrowRightLeft className="w-3.5 h-3.5" />
+                    <span>{isSubmitting ? 'Transferring...' : `Transfer ${students.filter(s => s.batch_id === batchToDelete.id).length} Students & Delete`}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4E: STUDENT CLASS PROMOTION & SECTION TRANSFER */}
+      {showPromoteModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92vh] flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200">
+                    <Split className="w-4 h-4 text-indigo-600" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">Promote / Transfer Students</h3>
+                    <p className="text-[11px] text-slate-500">
+                      End-of-session class promotion or cohort transfer with tuition fee adjustment
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setShowPromoteModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleExecutePromotion} id="promoteForm" className="space-y-4 mt-4 overflow-y-auto max-h-[62vh] pr-1">
+                {/* 1. Source & Target Batch Selector */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Source Section <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={promoteSourceBatchId}
+                      onChange={e => handleSourceBatchChange(e.target.value)}
+                      className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium"
+                      required
+                    >
+                      <option value="" disabled>Select Source Section</option>
+                      {batches.map(b => {
+                        const prog = programs.find(p => p.id === b.program_id);
+                        const count = students.filter(s => s.batch_id === b.id && s.status === 'active').length;
+                        return (
+                          <option key={b.id} value={b.id}>
+                            {prog?.name || 'Class'} — {b.name} ({count} students)
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Target Academic Class <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={promoteTargetProgramId}
+                      onChange={e => handleTargetProgramChange(e.target.value)}
+                      className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium"
+                      required
+                    >
+                      <option value="" disabled>Select Target Class</option>
+                      {programs.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Target Section / Batch <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={promoteTargetBatchId}
+                      onChange={e => setPromoteTargetBatchId(e.target.value)}
+                      className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium"
+                      required
+                    >
+                      <option value="" disabled>Select Target Section</option>
+                      {batches
+                        .filter(b => b.program_id === promoteTargetProgramId && b.id !== promoteSourceBatchId)
+                        .map(b => {
+                          const count = students.filter(s => s.batch_id === b.id && s.status === 'active').length;
+                          return (
+                            <option key={b.id} value={b.id}>
+                              {b.name} ({b.shift}) • {count}/{b.max_capacity} seats
+                            </option>
+                          );
+                        })}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Target Academic Session
+                    </label>
+                    <input
+                      type="text"
+                      value={promoteTargetSession}
+                      onChange={e => setPromoteTargetSession(e.target.value)}
+                      placeholder="e.g. 2026-2027"
+                      className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Student Selection Checklist */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">
+                      Select Students ({promoteSelectedStudentIds.length} of {students.filter(s => s.batch_id === promoteSourceBatchId && s.status === 'active').length} Selected)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const activeBatchStudents = students.filter(s => s.batch_id === promoteSourceBatchId && s.status === 'active');
+                        if (promoteSelectedStudentIds.length === activeBatchStudents.length) {
+                          setPromoteSelectedStudentIds([]);
+                        } else {
+                          setPromoteSelectedStudentIds(activeBatchStudents.map(s => s.id));
+                        }
+                      }}
+                      className="text-[11px] text-indigo-700 hover:text-indigo-900 font-bold"
+                    >
+                      {promoteSelectedStudentIds.length === students.filter(s => s.batch_id === promoteSourceBatchId && s.status === 'active').length
+                        ? 'Deselect All'
+                        : 'Select All'}
+                    </button>
+                  </div>
+
+                  <div className="max-h-36 overflow-y-auto divide-y divide-slate-100 p-1">
+                    {students
+                      .filter(s => s.batch_id === promoteSourceBatchId && s.status === 'active')
+                      .map(s => {
+                        const isChecked = promoteSelectedStudentIds.includes(s.id);
+                        const fee = s.fee_structure?.net_tuition ?? s.fee_structure?.base_tuition ?? 0;
+                        return (
+                          <label key={s.id} className="flex items-center justify-between px-3 py-1.5 hover:bg-slate-50 cursor-pointer text-xs rounded">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={e => {
+                                  if (e.target.checked) {
+                                    setPromoteSelectedStudentIds(prev => [...prev, s.id]);
+                                  } else {
+                                    setPromoteSelectedStudentIds(prev => prev.filter(id => id !== s.id));
+                                  }
+                                }}
+                                className="rounded text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <span className="font-mono text-slate-500 text-[11px]">{s.roll_number || '—'}</span>
+                              <span className="font-medium text-slate-800">{s.full_name}</span>
+                            </div>
+                            <span className="font-mono text-slate-500 text-[11px]">
+                              PKR {Number(fee).toLocaleString()}/mo
+                            </span>
+                          </label>
+                        );
+                      })}
+                    {students.filter(s => s.batch_id === promoteSourceBatchId && s.status === 'active').length === 0 && (
+                      <div className="p-4 text-center text-xs text-slate-400">
+                        No active students in selected section.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. Fee Adjustment Policy */}
+                <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/60 space-y-2.5">
+                  <span className="text-xs font-bold text-slate-800 block">Tuition Fee Adjustment Policy</span>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <label className={`p-2.5 rounded-lg border flex items-start gap-2 cursor-pointer transition-colors ${
+                      promoteFeePolicy === 'keep' ? 'bg-white border-indigo-600 text-slate-900 shadow-2xs' : 'border-slate-200 text-slate-700 bg-white'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="promoteFeePolicy"
+                        value="keep"
+                        checked={promoteFeePolicy === 'keep'}
+                        onChange={() => setPromoteFeePolicy('keep')}
+                        className="mt-0.5 text-indigo-600"
+                      />
+                      <div>
+                        <span className="font-bold block">Keep Current Fee</span>
+                        <span className="text-[11px] text-slate-500">Student tuition fee remains unchanged.</span>
+                      </div>
+                    </label>
+
+                    <label className={`p-2.5 rounded-lg border flex items-start gap-2 cursor-pointer transition-colors ${
+                      promoteFeePolicy === 'target_baseline' ? 'bg-white border-indigo-600 text-slate-900 shadow-2xs' : 'border-slate-200 text-slate-700 bg-white'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="promoteFeePolicy"
+                        value="target_baseline"
+                        checked={promoteFeePolicy === 'target_baseline'}
+                        onChange={() => setPromoteFeePolicy('target_baseline')}
+                        className="mt-0.5 text-indigo-600"
+                      />
+                      <div>
+                        <span className="font-bold block">Target Class Baseline</span>
+                        <span className="text-[11px] text-slate-500">Adopt target class standard tuition fee.</span>
+                      </div>
+                    </label>
+
+                    <label className={`p-2.5 rounded-lg border flex items-start gap-2 cursor-pointer transition-colors ${
+                      promoteFeePolicy === 'percentage' ? 'bg-white border-indigo-600 text-slate-900 shadow-2xs' : 'border-slate-200 text-slate-700 bg-white'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="promoteFeePolicy"
+                        value="percentage"
+                        checked={promoteFeePolicy === 'percentage'}
+                        onChange={() => setPromoteFeePolicy('percentage')}
+                        className="mt-0.5 text-indigo-600"
+                      />
+                      <div className="flex-1">
+                        <span className="font-bold block">Percentage Hike (+%)</span>
+                        <div className="flex items-center gap-1 mt-1">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={promoteFeeValue}
+                            onChange={e => setPromoteFeeValue(parseFloat(e.target.value) || 0)}
+                            className="w-16 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded font-mono text-xs"
+                            disabled={promoteFeePolicy !== 'percentage'}
+                          />
+                          <span className="text-slate-500 text-[11px]">% annual hike</span>
+                        </div>
+                      </div>
+                    </label>
+
+                    <label className={`p-2.5 rounded-lg border flex items-start gap-2 cursor-pointer transition-colors ${
+                      promoteFeePolicy === 'fixed' ? 'bg-white border-indigo-600 text-slate-900 shadow-2xs' : 'border-slate-200 text-slate-700 bg-white'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="promoteFeePolicy"
+                        value="fixed"
+                        checked={promoteFeePolicy === 'fixed'}
+                        onChange={() => setPromoteFeePolicy('fixed')}
+                        className="mt-0.5 text-indigo-600"
+                      />
+                      <div className="flex-1">
+                        <span className="font-bold block">Fixed Amount (+PKR)</span>
+                        <div className="flex items-center gap-1 mt-1">
+                          <input
+                            type="number"
+                            min={0}
+                            step={50}
+                            value={promoteFeeValue}
+                            onChange={e => setPromoteFeeValue(parseFloat(e.target.value) || 0)}
+                            className="w-20 px-1.5 py-0.5 bg-slate-50 border border-slate-200 rounded font-mono text-xs"
+                            disabled={promoteFeePolicy !== 'fixed'}
+                          />
+                          <span className="text-slate-500 text-[11px]">PKR increment</span>
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setShowPromoteModal(false)}
+                className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="promoteForm"
+                disabled={isPromoting || promoteSelectedStudentIds.length === 0 || !promoteTargetBatchId}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
+              >
+                <Split className="w-3.5 h-3.5" />
+                <span>
+                  {isPromoting ? 'Promoting Cohort...' : `Promote & Transfer (${promoteSelectedStudentIds.length} Students)`}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4D: SMART DELETE CLASS WITH BULK TRANSFER */}
+      {showDeleteProgramModal && programToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
+                  <ArrowRightLeft className="w-4 h-4 text-rose-600" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Transfer Students & Delete Class</h3>
+                  <p className="text-[11px] text-slate-500">Class: {programToDelete.name}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDeleteProgramModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 mt-4 text-xs">
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 leading-relaxed">
+                <strong>{students.filter(s => s.program_id === programToDelete.id).length} active students</strong> are currently enrolled in <strong>{programToDelete.name}</strong>.
+                Select a destination class to transfer them to before deleting.
+              </div>
+
+              {programs.filter(x => x.id !== programToDelete.id).length > 0 ? (
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Select Destination Class <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={transferTargetProgramId}
+                    onChange={e => setTransferTargetProgramId(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  >
+                    {programs
+                      .filter(x => x.id !== programToDelete.id)
+                      .map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.code || 'CLS'}) • {students.filter(s => s.program_id === p.id).length} Students
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="p-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-600">
+                  There are no other classes in the institution. Reassign or graduate students before deleting this class.
+                </div>
+              )}
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteProgramModal(false)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                >
+                  Cancel
+                </button>
+                {programs.filter(x => x.id !== programToDelete.id).length > 0 && (
+                  <button
+                    type="button"
+                    disabled={isSubmitting || !transferTargetProgramId}
+                    onClick={() => executeDeleteProgram(programToDelete.id, programToDelete.name, transferTargetProgramId)}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <ArrowRightLeft className="w-3.5 h-3.5" />
+                    <span>{isSubmitting ? 'Transferring...' : `Transfer ${students.filter(s => s.program_id === programToDelete.id).length} Students & Delete`}</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1592,8 +2537,7 @@ export const AcademicStructureView: React.FC = () => {
                   <BookOpen className="w-4 h-4 text-emerald-400" />
                 </span>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">Add Subject to Catalog</h2>
-                  <p className="text-[11px] text-slate-500">Define course code and title in master repository</p>
+                  <SectionInfo title="Add Subject" description="Define course code and title in master repository" />
                 </div>
               </div>
               <button onClick={() => setShowSubjectModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
@@ -1609,7 +2553,6 @@ export const AcademicStructureView: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Mathematics, Advanced Physics"
                   value={subjectForm.name}
                   onChange={e => setSubjectForm({ ...subjectForm, name: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -1618,12 +2561,10 @@ export const AcademicStructureView: React.FC = () => {
 
               <div>
                 <label className="block text-slate-700 font-bold mb-1">
-                  Subject Code <span className="text-rose-500">*</span>
+                  Subject Code <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
                 </label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. MATH-101, PHY-201"
                   value={subjectForm.code}
                   onChange={e => setSubjectForm({ ...subjectForm, code: e.target.value.toUpperCase() })}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"

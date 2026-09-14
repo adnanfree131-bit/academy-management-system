@@ -8,6 +8,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { Student, Batch, AcademicProgram } from '@apex/shared-types';
+import { SectionInfo } from '../components/SectionInfo';
 import { StudentIDCardItem } from '../components/StudentIDCardItem';
 import { buildStudentIdCardPdf, fetchLogoBytes } from '../lib/idCardPdf';
 
@@ -218,16 +219,16 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
       <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs space-y-3 no-print">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-slate-900 text-white shadow-xs">
-              <CreditCard className="w-4 h-4" />
+            <span className="p-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 shrink-0 flex items-center justify-center">
+              <CreditCard className="w-4 h-4 text-slate-700" />
             </span>
             <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Student ID Card Generator & Printing Desk
-              </h3>
-              <p className="text-xs text-slate-500">
-                Generate ISO/IEC 7810 ID-1 standard CR-80 cards with institutional credentials and verification QR codes.
-              </p>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900">
+                  Student ID Cards
+                </h3>
+                <SectionInfo text="Generate ISO/IEC 7810 ID-1 standard CR-80 cards with institutional credentials and verification QR codes." />
+              </div>
             </div>
           </div>
 
@@ -264,7 +265,6 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search student, roll #, admission #..."
                 className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white font-sans"
               />
             </div>
@@ -417,9 +417,11 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
                       </div>
                     </div>
 
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-                      {student.blood_group || 'O+'}
-                    </span>
+                    {student.blood_group ? (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                        {student.blood_group}
+                      </span>
+                    ) : null}
                   </div>
                 );
               })}

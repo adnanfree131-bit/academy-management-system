@@ -18,6 +18,8 @@ import {
   NotebookCheckRecord, 
   NotebookStatus 
 } from '@apex/shared-types';
+import { PageHeading } from '../components/PageHeading';
+import { SectionInfo } from '../components/SectionInfo';
 
 export const HomeworkDesk: React.FC = () => {
   const { token } = useAuth();
@@ -249,34 +251,26 @@ export const HomeworkDesk: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs">
-            <BookOpen className="w-5 h-5 text-white" />
-          </span>
-          <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Homework & Notebook Checking</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Assign homework topics, track due dates, and record notebook completion status.
-            </p>
-          </div>
-        </div>
-
+      <PageHeading
+        title="Homework"
+        description="Assign homework topics, track due dates, and record notebook completion status."
+        icon={<BookOpen className="w-4 h-4 text-slate-700" />}
+      >
         <button
           onClick={() => setShowNewHwModal(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all"
         >
           <Plus className="w-4 h-4" />
           <span>Assign Homework</span>
         </button>
-      </div>
+      </PageHeading>
 
       {/* Main Grid: Left col Assignments, Right col Notebook Inspection */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Left Column: Assignments List */}
         <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h2 className="text-sm font-extrabold text-slate-900">Homework Assignments</h2>
+            <SectionInfo title="Assignments" description="Class homework topics and due dates" />
             <select
               value={selectedBatchId}
               onChange={e => setSelectedBatchId(e.target.value)}
@@ -337,16 +331,12 @@ export const HomeworkDesk: React.FC = () => {
           {selectedAssignment ? (
             <>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <FileCheck className="w-4 h-4 text-emerald-600" />
-                    <h2 className="text-sm font-extrabold text-slate-900">
-                      Physical Inspection Roster: {selectedAssignment.title}
-                    </h2>
-                  </div>
-                  <p className="text-xs text-slate-500 font-mono mt-0.5">
-                    Assigned by {selectedAssignment.teacher_name || 'Faculty'} • Due {selectedAssignment.due_date}
-                  </p>
+                <div className="flex items-center gap-2">
+                  <FileCheck className="w-4 h-4 text-emerald-600" />
+                  <SectionInfo
+                    title={`Inspection: ${selectedAssignment.title}`}
+                    description={`Assigned by ${selectedAssignment.teacher_name || 'Faculty'} • Due ${selectedAssignment.due_date}`}
+                  />
                 </div>
 
                 <button
@@ -471,8 +461,7 @@ export const HomeworkDesk: React.FC = () => {
                                       [student.id]: { ...prev[student.id], remarks: val },
                                     }));
                                   }}
-                                  placeholder="e.g. Page 42 problem 3 omitted..."
-                                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 placeholder:text-slate-400 focus:outline-none"
+                                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 focus:outline-none"
                                 />
                               </td>
                             </tr>
@@ -499,7 +488,7 @@ export const HomeworkDesk: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-              <h2 className="text-sm font-extrabold text-slate-900">Assign Institutional Homework</h2>
+              <SectionInfo title="Assign Homework" description="Create a new homework topic for class section" />
               <button onClick={() => setShowNewHwModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
                 <X className="w-4 h-4" />
               </button>
@@ -542,7 +531,6 @@ export const HomeworkDesk: React.FC = () => {
                   type="text"
                   value={newHwForm.title}
                   onChange={e => setNewHwForm(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="e.g. Chapter 4 Thermodynamics Practice Problems"
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
                   required
                 />
@@ -553,7 +541,6 @@ export const HomeworkDesk: React.FC = () => {
                 <textarea
                   value={newHwForm.description}
                   onChange={e => setNewHwForm(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Instructions for notebook preparation, pages, and problems..."
                   rows={3}
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
                   required

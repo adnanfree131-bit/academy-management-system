@@ -14,7 +14,6 @@ import {
   ChevronLeft,
   X,
   FileCheck,
-  FileText,
   AlertTriangle,
   CheckCheck
 } from 'lucide-react';
@@ -29,6 +28,8 @@ import {
   AbsenteeReasonCategory,
   Batch
 } from '@apex/shared-types';
+import { PageHeading } from '../components/PageHeading';
+import { SectionInfo } from '../components/SectionInfo';
 
 export const AbsenteeRetentionDeskView: React.FC = () => {
   const { token, tenant } = useAuth();
@@ -183,15 +184,15 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
       batch_name: item.batch_name,
       guardian_name: item.guardian_name,
       current_date: item.date,
-      academy_name: tenant?.name || 'Academy',
-      academy_phone: '+92 42 35870000',
-      due_amount: '8,000',
-      due_date: '2026-09-20',
-      exam_title: 'MDCAT Physics Mid-Term Assessment',
-      obtained_marks: '27.5',
-      total_marks: '30',
-      percentage: '91.67',
-      teacher_remarks: 'Superb conceptual clarity in equilibrium derivations.'
+      academy_name: tenant?.name || 'Academy Administration',
+      academy_phone: tenant?.phone || 'Academy Office',
+      due_amount: '0',
+      due_date: item.date,
+      exam_title: 'Term Assessment',
+      obtained_marks: '—',
+      total_marks: '—',
+      percentage: '—',
+      teacher_remarks: 'Uninformed absence recorded today. Kindly contact the administration office.'
     };
 
     for (const [key, val] of Object.entries(data)) {
@@ -372,49 +373,35 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
   return (
     <div className="space-y-5">
-      {/* Top Banner & Header */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-xs">
-                <PhoneForwarded className="w-5 h-5" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                  Absence Follow-Up & Parent Notifications
-                </h1>
-                <p className="text-xs text-slate-500">
-                  Daily morning follow-up roster, parent communications, leave conversion, and student attendance tracking.
-                </p>
-              </div>
-            </div>
-          </div>
+      {/* Header */}
+      <PageHeading
+        title="Absentee Follow-Up"
+        description="Daily morning follow-up roster, parent communications, leave conversion, and student attendance tracking."
+        icon={<PhoneForwarded className="w-4 h-4 text-slate-700" />}
+      >
+        <button
+          onClick={() => {
+            setRapidQueueIndex(0);
+            setRapidQueueOpen(true);
+          }}
+          disabled={followups.length === 0}
+          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5 transition-all"
+        >
+          <Zap className="w-3.5 h-3.5" />
+          <span>Start Follow-Up</span>
+        </button>
+        <button
+          onClick={handleSyncAttendance}
+          className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-lg border border-slate-200 shadow-xs flex items-center gap-1.5 transition-all"
+        >
+          <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+          <span>Sync Today</span>
+        </button>
+      </PageHeading>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                setRapidQueueIndex(0);
-                setRapidQueueOpen(true);
-              }}
-              disabled={followups.length === 0}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
-            >
-              <Zap className="w-4 h-4" />
-              Start WhatsApp Follow-Up
-            </button>
-            <button
-              onClick={handleSyncAttendance}
-              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 flex items-center gap-1.5 transition-all"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Sync Today
-            </button>
-          </div>
-        </div>
-
-        {/* Director Live Follow-Up Accountability Progress Bar */}
-        <div className="mt-5 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-5 gap-3">
+      {/* Stats Bar */}
+      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
             <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Absentees</div>
             <div className="text-2xl font-black text-slate-900 mt-1">{kpi.total_absentees}</div>
@@ -471,7 +458,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           }`}
         >
           <PhoneForwarded className="w-4 h-4" />
-          Daily Morning Absentee Desk ({followups.length})
+          <span>Absentee Roster</span>
         </button>
 
         <button
@@ -483,7 +470,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           }`}
         >
           <UserCheck className="w-4 h-4" />
-          Chronic Absenteeism & Retention Cases ({retentionCases.length})
+          <span>Retention Cases</span>
         </button>
 
         <button
@@ -495,7 +482,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           }`}
         >
           <MessageCircle className="w-4 h-4" />
-          WhatsApp Templates & Dispatch Audit ({templates.length})
+          <span>WhatsApp Templates</span>
         </button>
       </div>
 
@@ -1043,12 +1030,12 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <FileCheck className="w-4 h-4 text-indigo-600" />
-                Log Call Outcome & Medical Leave
-              </h3>
+              <SectionInfo
+                title="Log Call Outcome"
+                description="Record parent communication and optional medical leave conversion"
+              />
               <button onClick={() => setActiveLogFollowup(null)} className="text-slate-400 hover:text-slate-600 p-1">
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1094,7 +1081,6 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   rows={2}
                   value={logParentRemarks}
                   onChange={e => setLogParentRemarks(e.target.value)}
-                  placeholder="e.g. High fever, doctor advised 3 days complete rest."
                   className="w-full p-2.5 border border-slate-300 rounded-lg"
                 />
               </div>
@@ -1258,10 +1244,10 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-indigo-600" />
-                Schedule Parent Counseling Meeting
-              </h3>
+              <SectionInfo
+                title="Parent Counseling"
+                description="Schedule director/counselor meeting with parent"
+              />
               <button onClick={() => setActiveRetentionCase(null)} className="text-slate-400 hover:text-slate-600 p-1">
                 <X className="w-5 h-5" />
               </button>
@@ -1294,7 +1280,6 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   required
                   value={meetingNotes}
                   onChange={e => setMeetingNotes(e.target.value)}
-                  placeholder="e.g. Discuss repeated weekday absences and formulate academic recovery plan with father."
                   className="w-full p-2.5 border border-slate-300 rounded-lg text-xs"
                 />
               </div>
@@ -1326,12 +1311,12 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <FileText className="w-4 h-4 text-emerald-600" />
-                Create WhatsApp Message Template
-              </h3>
+              <SectionInfo
+                title="WhatsApp Template"
+                description="Create a message template with dynamic placeholders"
+              />
               <button onClick={() => setShowCreateTemplateModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1341,7 +1326,6 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Mid-Term Absence Follow-Up"
                   value={newTmplTitle}
                   onChange={e => setNewTmplTitle(e.target.value)}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
@@ -1369,7 +1353,6 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   required
                   value={newTmplBody}
                   onChange={e => setNewTmplBody(e.target.value)}
-                  placeholder="Dear {guardian_name}, this is an update regarding {student_name} (Roll: {roll_number}) in batch {batch_name}."
                   className="w-full p-3 font-mono border border-slate-300 rounded-lg text-xs"
                 />
                 <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg mt-1 text-[10px] text-slate-500 font-mono">

@@ -89,9 +89,11 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
               </div>
             )}
           </div>
-          <div className="mt-1 text-[7.5px] font-bold text-slate-600 tracking-tight">
-            BLOOD: <span className="font-mono font-extrabold text-red-700">{student.blood_group || '—'}</span>
-          </div>
+          {student.blood_group ? (
+            <div className="mt-1 text-[7.5px] font-bold text-slate-600 tracking-tight">
+              BLOOD: <span className="font-mono font-extrabold text-red-700">{student.blood_group}</span>
+            </div>
+          ) : null}
         </div>
 
         {/* Tabular Student Particulars */}

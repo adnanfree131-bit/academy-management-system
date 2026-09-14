@@ -11,7 +11,6 @@ import {
   Printer,
   Download,
   FileText,
-  CreditCard,
   X,
   RefreshCw
 } from 'lucide-react';
@@ -20,9 +19,12 @@ import {
   StaffPayslip,
   PayrollEarningHead,
   PayrollDeductionHead,
-  PaymentMethod
+  PaymentMethod,
+  StaffMonthlyAttendanceSummary
 } from '@apex/shared-types';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
+import { PageHeading } from '../components/PageHeading';
+import { SectionInfo } from '../components/SectionInfo';
 
 export const PayrollDeskView: React.FC = () => {
   const { token, tenant } = useAuth();
@@ -48,16 +50,34 @@ export const PayrollDeskView: React.FC = () => {
   // Print Payslip Modal
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [printPayslip, setPrintPayslip] = useState<StaffPayslip | null>(null);
+  const [attSummaries, setAttSummaries] = useState<StaffMonthlyAttendanceSummary[]>([]);
+
+  const getIsoMonth = (mStr: string) => {
+    const months: Record<string, string> = {
+      'January': '01', 'February': '02', 'March': '03', 'April': '04',
+      'May': '05', 'June': '06', 'July': '07', 'August': '08',
+      'September': '09', 'October': '10', 'November': '11', 'December': '12'
+    };
+    const [mName, yStr] = mStr.split(' ');
+    if (months[mName] && yStr) {
+      return `${yStr}-${months[mName]}`;
+    }
+    return new Date().toISOString().slice(0, 7);
+  };
 
   const fetchPayrollData = async () => {
     if (!token) return;
     setLoading(true);
     try {
-      const [profRes, payRes] = await Promise.all([
+      const isoMonth = getIsoMonth(selectedMonth);
+      const [profRes, payRes, attRes] = await Promise.all([
         fetch('/api/v1/payroll/profiles', { headers: { authorization: `Bearer ${token}` } }),
         fetch(`/api/v1/payroll/payslips?payroll_month=${encodeURIComponent(selectedMonth)}`, {
           headers: { authorization: `Bearer ${token}` }
         }),
+        fetch(`/api/v1/geofence/attendance/monthly-summary?month=${encodeURIComponent(isoMonth)}`, {
+          headers: { authorization: `Bearer ${token}` }
+        }).catch(() => null),
       ]);
 
       if (profRes.ok) {
@@ -69,6 +89,10 @@ export const PayrollDeskView: React.FC = () => {
       }
       if (payRes.ok) {
         setPayslips((await payRes.json()).data || []);
+      }
+      if (attRes && attRes.ok) {
+        const aData = await attRes.json();
+        setAttSummaries(aData.data || []);
       }
     } catch (err) {
       console.error('Failed to load payroll data:', err);
@@ -199,41 +223,33 @@ export const PayrollDeskView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2.5">
-            <Wallet className="w-5 h-5 text-indigo-600" />
-            Staff Payroll & Salaries
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Calculate monthly staff salaries, record deductions and allowances, and generate payslips.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-            <Calendar className="w-4 h-4 text-slate-500" />
-            <span className="text-xs text-slate-500 font-medium">Payroll Month:</span>
-            <select
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none"
-            >
-              <option value="August 2026">August 2026</option>
-              <option value="September 2026">September 2026</option>
-              <option value="October 2026">October 2026</option>
-            </select>
-          </div>
-
-          <button
-            onClick={fetchPayrollData}
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
-            title="Refresh"
+      <PageHeading
+        title="Payroll"
+        description="Calculate monthly staff salaries, record deductions and allowances, and generate payslips."
+        icon={<Wallet className="w-4 h-4 text-slate-700" />}
+      >
+        <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+          <Calendar className="w-4 h-4 text-slate-500" />
+          <span className="text-xs text-slate-500 font-medium">Month:</span>
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none"
           >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+            <option value="August 2026">August 2026</option>
+            <option value="September 2026">September 2026</option>
+            <option value="October 2026">October 2026</option>
+          </select>
         </div>
-      </div>
+
+        <button
+          onClick={fetchPayrollData}
+          className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+          title="Refresh"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
+      </PageHeading>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
@@ -281,49 +297,65 @@ export const PayrollDeskView: React.FC = () => {
           </div>
 
           {/* Module 13 Attendance Summary Box */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-              <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-indigo-600" />
-                Attendance & Clock-In Summary
-              </h3>
-              <span className="text-[10px] font-mono text-slate-400">Month: {selectedMonth}</span>
-            </div>
+          {(() => {
+            const staffAtt = attSummaries.find(s => s.staff_id === selectedStaffId);
+            const workingDays = staffAtt ? staffAtt.total_working_days : 26;
+            const presentDays = staffAtt ? staffAtt.present_days : 0;
+            const lateDays = staffAtt ? staffAtt.late_days : 0;
+            const leaveDays = staffAtt ? staffAtt.leave_days : 0;
+            const absentDays = staffAtt ? staffAtt.absent_days : 0;
+            const halfDays = staffAtt ? staffAtt.half_days : 0;
+            const totalPunches = presentDays + lateDays + halfDays;
+            const geofencePct = totalPunches > 0 && staffAtt 
+              ? Math.round((staffAtt.geofence_verified_count / totalPunches) * 100) 
+              : 100;
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                <span className="text-[10px] text-slate-400 block font-mono">Working Days</span>
-                <span className="text-sm font-bold text-slate-800">26 Days</span>
-              </div>
-              <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-100">
-                <span className="text-[10px] text-emerald-600 block font-mono">Present Days</span>
-                <span className="text-sm font-bold text-emerald-700">25 Days</span>
-              </div>
-              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-100">
-                <span className="text-[10px] text-amber-600 block font-mono">Late Arrivals</span>
-                <span className="text-sm font-bold text-amber-700">1 Arrival</span>
-              </div>
-              <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-100">
-                <span className="text-[10px] text-blue-600 block font-mono">Approved Leaves</span>
-                <span className="text-sm font-bold text-blue-700">1 Leave</span>
-              </div>
-            </div>
+            return (
+              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3">
+                <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                  <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-indigo-600" />
+                    Attendance & Geofence Summary
+                  </h3>
+                  <span className="text-[10px] font-mono text-slate-400">Month: {selectedMonth}</span>
+                </div>
 
-            <div className="p-3 bg-slate-50 rounded-lg text-xs space-y-1">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Unexcused Absents:</span>
-                <span className="font-bold text-slate-700 font-mono">0 Days</span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                    <span className="text-[10px] text-slate-400 block font-mono">Working Days</span>
+                    <span className="text-sm font-bold text-slate-800 font-mono">{workingDays} Days</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-100">
+                    <span className="text-[10px] text-emerald-600 block font-mono">Present Days</span>
+                    <span className="text-sm font-bold text-emerald-700 font-mono">{presentDays} Days</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-100">
+                    <span className="text-[10px] text-amber-600 block font-mono">Late Arrivals</span>
+                    <span className="text-sm font-bold text-amber-700 font-mono">{lateDays} Arrivals</span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-100">
+                    <span className="text-[10px] text-blue-600 block font-mono">Approved Leaves</span>
+                    <span className="text-sm font-bold text-blue-700 font-mono">{leaveDays} Leaves</span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-lg text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Unexcused Absents:</span>
+                    <span className="font-bold text-slate-700 font-mono">{absentDays} Days</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Half-Day Shifts:</span>
+                    <span className="font-bold text-orange-700 font-mono">{halfDays} Shifts</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">GPS Proximity Verification:</span>
+                    <span className="font-bold text-emerald-600 font-mono">{geofencePct}% Verified</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Lectures Delivered:</span>
-                <span className="font-bold text-slate-700 font-mono">48 Periods</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">GPS Accuracy:</span>
-                <span className="font-bold text-emerald-600 font-mono">100% Geofenced</span>
-              </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
 
         {/* Right 8 Cols: Interactive Compensation Form */}
@@ -366,7 +398,6 @@ export const PayrollDeskView: React.FC = () => {
                         type="text"
                         value={e.name}
                         onChange={ev => handleUpdateEarning(e.id, 'name', ev.target.value)}
-                        placeholder="Earning description"
                         className="flex-1 px-2.5 py-1 bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600"
                         required
                       />
@@ -430,7 +461,6 @@ export const PayrollDeskView: React.FC = () => {
                         type="text"
                         value={d.name}
                         onChange={ev => handleUpdateDeduction(d.id, 'name', ev.target.value)}
-                        placeholder="Deduction description"
                         className="flex-1 px-2.5 py-1 bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600"
                         required
                       />
@@ -600,10 +630,10 @@ export const PayrollDeskView: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-emerald-600" />
-                Confirm Salary Disbursement
-              </h3>
+              <SectionInfo
+                title="Salary Disbursement"
+                description="Confirm staff payout details and record reference number"
+              />
               <button onClick={() => setShowDisburseModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-4 h-4" />
               </button>
@@ -635,7 +665,6 @@ export const PayrollDeskView: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-700 mb-1">Transaction Ref / Cheque #</label>
                 <input
                   type="text"
-                  placeholder="e.g. HBL-FT-8899201"
                   value={disburseRef}
                   onChange={e => setDisburseRef(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"

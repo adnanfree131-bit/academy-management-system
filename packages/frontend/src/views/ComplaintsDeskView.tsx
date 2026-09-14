@@ -14,9 +14,12 @@ import {
   ComplaintPriority, 
   ComplaintStatus 
 } from '@apex/shared-types';
+import { PageHeading } from '../components/PageHeading';
+import { SectionInfo } from '../components/SectionInfo';
 
 export const ComplaintsDeskView: React.FC = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isStaff = user?.role ? !['student', 'parent'].includes(user.role) : false;
 
   // State
   const [tickets, setTickets] = useState<ComplaintTicket[]>([]);
@@ -141,37 +144,27 @@ export const ComplaintsDeskView: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs">
-            <MessageSquare className="w-5 h-5 text-white" />
-          </span>
-          <div>
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">Complaints & Feedback</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Submit and track campus facility requests, academic inquiries, and student feedback.
-            </p>
-          </div>
-        </div>
+      <PageHeading
+        title="Complaints"
+        description="Submit and track campus facility requests, academic inquiries, and student feedback."
+        icon={<MessageSquare className="w-4 h-4 text-slate-700" />}
+      >
+        <button
+          onClick={fetchTickets}
+          className="p-2 text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
+          title="Refresh"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={fetchTickets}
-            className="p-2 text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
-            title="Refresh Tickets"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-
-          <button
-            onClick={() => setShowNewModal(true)}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Submit Ticket</span>
-          </button>
-        </div>
-      </div>
+        <button
+          onClick={() => setShowNewModal(true)}
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all"
+        >
+          <Plus className="w-4 h-4" />
+          <span>New Ticket</span>
+        </button>
+      </PageHeading>
 
       {/* Control Bar: Filters */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
@@ -287,15 +280,16 @@ export const ComplaintsDeskView: React.FC = () => {
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
                 <button
+                  type="button"
                   onClick={() => {
                     setSelectedTicket(ticket);
                     setTargetStatus(ticket.status);
                     setResolutionReply(ticket.resolution_reply || '');
                     setInternalNotes(ticket.internal_notes || '');
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all"
+                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all cursor-pointer"
                 >
-                  {ticket.status === 'resolved' ? 'View Resolution' : 'Update & Resolve'}
+                  {isStaff ? (ticket.status === 'resolved' ? 'View Resolution' : 'Update & Resolve') : (ticket.status === 'resolved' ? 'View Resolution' : 'View Ticket')}
                 </button>
               </div>
             </div>
@@ -308,7 +302,10 @@ export const ComplaintsDeskView: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-              <h2 className="text-sm font-extrabold text-slate-900">Submit Institutional Feedback</h2>
+              <SectionInfo
+                title="Submit Ticket"
+                description="Report facility, academic, or administrative feedback"
+              />
               <button onClick={() => setShowNewModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
                 <X className="w-4 h-4" />
               </button>
@@ -351,7 +348,6 @@ export const ComplaintsDeskView: React.FC = () => {
                   type="text"
                   value={newForm.subject}
                   onChange={e => setNewForm(prev => ({ ...prev, subject: e.target.value }))}
-                  placeholder="Summary of issue..."
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
                   required
                 />
@@ -362,7 +358,6 @@ export const ComplaintsDeskView: React.FC = () => {
                 <textarea
                   value={newForm.description}
                   onChange={e => setNewForm(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Describe details, room, date, and impact..."
                   rows={3}
                   className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
                   required
@@ -395,71 +390,126 @@ export const ComplaintsDeskView: React.FC = () => {
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
-              <h2 className="text-sm font-extrabold text-slate-900">Manage Complaint Resolution</h2>
-              <button onClick={() => setSelectedTicket(null)} className="text-slate-400 hover:text-slate-700 p-1">
+              <SectionInfo
+                title={isStaff ? 'Manage Resolution' : 'Ticket Details & Resolution'}
+                description={isStaff ? 'Update ticket status and provide official resolution notes' : 'View ticket status and official administration reply'}
+              />
+              <button onClick={() => setSelectedTicket(null)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleUpdateStatus} className="p-5 space-y-4">
-              <div className="bg-slate-50 border border-slate-200/70 p-3 rounded-xl text-xs space-y-1">
-                <p className="font-bold text-slate-900">{selectedTicket.subject}</p>
-                <p className="text-slate-600 text-[11px]">{selectedTicket.description}</p>
-              </div>
+            {isStaff ? (
+              <form onSubmit={handleUpdateStatus} className="p-5 space-y-4">
+                <div className="bg-slate-50 border border-slate-200/70 p-3 rounded-xl text-xs space-y-1">
+                  <p className="font-bold text-slate-900">{selectedTicket.subject}</p>
+                  <p className="text-slate-600 text-[11px]">{selectedTicket.description}</p>
+                </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Update Status</label>
-                <select
-                  value={targetStatus}
-                  onChange={e => setTargetStatus(e.target.value as ComplaintStatus)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-800 capitalize"
-                >
-                  <option value="open">Open</option>
-                  <option value="under_investigation">Under Investigation</option>
-                  <option value="action_taken">Action Taken</option>
-                  <option value="resolved">Resolved</option>
-                </select>
-              </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Update Status</label>
+                  <select
+                    value={targetStatus}
+                    onChange={e => setTargetStatus(e.target.value as ComplaintStatus)}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-800 capitalize"
+                  >
+                    <option value="open">Open</option>
+                    <option value="under_investigation">Under Investigation</option>
+                    <option value="action_taken">Action Taken</option>
+                    <option value="resolved">Resolved</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Official Resolution Reply</label>
-                <textarea
-                  value={resolutionReply}
-                  onChange={e => setResolutionReply(e.target.value)}
-                  placeholder="Message visible to student/guardian upon resolution..."
-                  rows={3}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
-                />
-              </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Official Resolution Reply</label>
+                  <textarea
+                    value={resolutionReply}
+                    onChange={e => setResolutionReply(e.target.value)}
+                    rows={3}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Internal Administrative Notes</label>
-                <input
-                  type="text"
-                  value={internalNotes}
-                  onChange={e => setInternalNotes(e.target.value)}
-                  placeholder="Confidential notes for staff log..."
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
-                />
-              </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Internal Administrative Notes</label>
+                  <input
+                    type="text"
+                    value={internalNotes}
+                    onChange={e => setInternalNotes(e.target.value)}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                  />
+                </div>
 
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedTicket(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isUpdating}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs"
-                >
-                  {isUpdating ? 'Saving...' : 'Save Resolution'}
-                </button>
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTicket(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isUpdating}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs cursor-pointer"
+                  >
+                    {isUpdating ? 'Saving...' : 'Save Resolution'}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="p-5 space-y-4">
+                <div className="bg-slate-50 border border-slate-200/70 p-4 rounded-xl text-xs space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white border border-slate-200 font-bold uppercase text-slate-700">
+                      {selectedTicket.category.replace('_', ' ')}
+                    </span>
+                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md uppercase ${
+                      selectedTicket.status === 'resolved'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : selectedTicket.status === 'action_taken'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                        : selectedTicket.status === 'under_investigation'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-slate-100 text-slate-700'
+                    }`}>
+                      {selectedTicket.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <h4 className="font-extrabold text-slate-900 text-sm">{selectedTicket.subject}</h4>
+                  <p className="text-slate-600 text-xs leading-relaxed">{selectedTicket.description}</p>
+                  <div className="pt-2 border-t border-slate-200/60 text-[10px] text-slate-400 font-mono">
+                    Submitted on: {new Date(selectedTicket.created_at).toLocaleString()}
+                  </div>
+                </div>
+
+                {selectedTicket.resolution_reply ? (
+                  <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Official Resolution Reply:</span>
+                    </div>
+                    <p className="text-emerald-950 text-xs leading-relaxed">
+                      {selectedTicket.resolution_reply}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl text-xs text-slate-500 text-center">
+                    This ticket is currently under administrative review. Official resolution remarks will be published here once investigated.
+                  </div>
+                )}
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTicket(null)}
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white cursor-pointer shadow-xs"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
-            </form>
+            )}
           </div>
         </div>
       )}

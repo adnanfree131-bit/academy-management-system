@@ -5,8 +5,10 @@ import {
   CalendarCheck,
   GraduationCap,
   ChevronRight,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { PageHeading } from '../components/PageHeading';
 import {
   Batch,
   AcademicProgram,
@@ -37,14 +39,13 @@ function StatCard({
   value,
   hint,
   icon: Icon,
-  tone,
   onClick,
 }: {
   label: string;
   value: string | number;
   hint: string;
   icon: React.ComponentType<{ className?: string }>;
-  tone: string;
+  tone?: string;
   onClick: () => void;
 }) {
   return (
@@ -54,9 +55,9 @@ function StatCard({
       className="bg-white border border-slate-200 rounded-2xl p-4 text-left hover:border-slate-300 transition-colors"
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-slate-500">{label}</p>
-        <span className={`w-9 h-9 rounded-xl ${tone} text-white flex items-center justify-center shrink-0`}>
-          <Icon className="w-4 h-4" />
+        <p className="text-sm text-slate-500 font-medium">{label}</p>
+        <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center shrink-0">
+          <Icon className="w-4 h-4 text-slate-700" />
         </span>
       </div>
       <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">{value}</p>
@@ -69,20 +70,23 @@ function AttendanceRing({
   present,
   late,
   absent,
+  excused,
   marked,
 }: {
   present: number;
   late: number;
   absent: number;
+  excused: number;
   marked: number;
 }) {
   const total = marked || 1;
   const p = (present / total) * 100;
   const l = (late / total) * 100;
   const a = (absent / total) * 100;
-  const pct = marked > 0 ? Math.round((present / marked) * 100) : null;
+  const e = (excused / total) * 100;
+  const pct = marked > 0 ? Math.round(((present + late + excused) / marked) * 100) : null;
   const gradient = marked
-    ? `conic-gradient(#10b981 0 ${p}%, #f59e0b ${p}% ${p + l}%, #f43f5e ${p + l}% ${p + l + a}%, #e2e8f0 ${p + l + a}% 100%)`
+    ? `conic-gradient(#10b981 0 ${p}%, #f59e0b ${p}% ${p + l}%, #f43f5e ${p + l}% ${p + l + a}%, #6366f1 ${p + l + a}% ${p + l + a + e}%, #e2e8f0 ${p + l + a + e}% 100%)`
     : 'conic-gradient(#e2e8f0 0 100%)';
 
   return (
@@ -92,7 +96,7 @@ function AttendanceRing({
         <span className="text-2xl font-semibold tabular-nums text-slate-900">
           {pct === null ? '—' : `${pct}%`}
         </span>
-        <span className="text-[11px] text-slate-500">{marked ? 'present' : 'not marked'}</span>
+        <span className="text-[11px] text-slate-500">{marked ? 'attendance rate' : 'not marked'}</span>
       </div>
     </div>
   );
@@ -116,7 +120,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     presentToday: 0,
     absentToday: 0,
     lateToday: 0,
+    excusedToday: 0,
     markedToday: 0,
+    markedBatchesCount: 0,
     pendingAbsentees: 0,
     openComplaints: 0,
     homeworkOpen: 0,
@@ -157,7 +163,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           fetch('/api/v1/absentee/kpi', { headers }).catch(() => null),
           fetch('/api/v1/exams', { headers }).catch(() => null),
           fetch('/api/v1/homework', { headers }).catch(() => null),
-          fetch(`/api/v1/geofence/staff?date=${today}`, { headers }).catch(() => null),
+          fetch(`/api/v1/geofence/attendance/staff?date=${today}`, { headers }).catch(() => null),
           fetch('/api/v1/sis/inquiries', { headers }).catch(() => null),
           fetch('/api/v1/complaints', { headers }).catch(() => null),
           fetch('/api/v1/payroll/profiles', { headers }).catch(() => null),
@@ -211,12 +217,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         const staffList = Array.isArray(staff) ? staff : [];
         const inqList = Array.isArray(inquiries) ? inquiries : [];
         const cmpList = Array.isArray(complaints) ? complaints : [];
+        const markedBatchIds = new Set(attRows.map((r: any) => r.batch_id).filter(Boolean));
+        const batchList = Array.isArray(batch) ? batch : [];
 
         setLive({
           presentToday: attRows.filter((r: { status?: string }) => r.status === 'present').length,
           absentToday: attRows.filter((r: { status?: string }) => r.status === 'absent').length,
           lateToday: attRows.filter((r: { status?: string }) => r.status === 'late').length,
+          excusedToday: attRows.filter((r: { status?: string }) => r.status === 'excused').length,
           markedToday: attRows.length,
+          markedBatchesCount: batchList.filter(b => markedBatchIds.has(b.id)).length,
           pendingAbsentees: Number(absKpi?.pending_count || absKpi?.pending || 0),
           openComplaints: cmpList.filter((c: { status?: string }) => c.status !== 'resolved' && c.status !== 'closed').length,
           homeworkOpen: hwList.length,
@@ -238,7 +248,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
   const activeStudents = students.filter(s => s.status === 'active').length;
   const waitlisted = students.filter(s => s.status === 'waitlisted').length;
-  const attendancePct = live.markedToday > 0 ? Math.round((live.presentToday / live.markedToday) * 100) : null;
+  const attendancePct = live.markedToday > 0 ? Math.round(((live.presentToday + live.lateToday + live.excusedToday) / live.markedToday) * 100) : null;
   const collectedPct = feeStats.totalBilled > 0
     ? Math.round((feeStats.totalCollected / feeStats.totalBilled) * 100)
     : 0;
@@ -302,15 +312,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Overview</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {todayLabel}
-            {tenant?.academic_session ? ` · ${tenant.academic_session}` : ''}
-          </p>
-        </div>
-      </div>
+      <PageHeading
+        title="Dashboard"
+        description="Executive campus snapshot, operational KPI metrics, fee collections, and urgent items."
+        icon={<LayoutDashboard className="w-4 h-4 text-slate-700" />}
+        badge={todayLabel + (tenant?.academic_session ? ` • ${tenant.academic_session}` : '')}
+      />
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
@@ -373,42 +380,76 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-900">Today’s attendance</h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {live.markedToday ? `${live.markedToday} students marked` : 'No register saved today'}
-              </p>
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between">
+          <div>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Today’s Attendance</h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {live.markedToday > 0
+                    ? `${live.markedToday} of ${activeStudents} students recorded (${live.markedBatchesCount} of ${batches.length} batches submitted)`
+                    : `0 of ${activeStudents} students recorded • Registers pending`}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigate('attendance')}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+              >
+                Open Register
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('attendance')}
-              className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
-            >
-              Open
-            </button>
+
+            <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-6">
+              <AttendanceRing
+                present={live.presentToday}
+                late={live.lateToday}
+                absent={live.absentToday}
+                excused={live.excusedToday}
+                marked={live.markedToday}
+              />
+              <div className="flex-1 space-y-2.5 w-full">
+                {[
+                  { label: 'Present', value: live.presentToday, color: 'bg-emerald-500' },
+                  { label: 'Late', value: live.lateToday, color: 'bg-amber-400' },
+                  { label: 'Absent', value: live.absentToday, color: 'bg-rose-500' },
+                  { label: 'Approved Excused', value: live.excusedToday, color: 'bg-indigo-500' },
+                ].map(row => (
+                  <div key={row.label} className="flex items-center gap-3 text-sm">
+                    <span className={`w-2.5 h-2.5 rounded-full ${row.color}`} />
+                    <span className="flex-1 text-slate-600">{row.label}</span>
+                    <span className="tabular-nums font-medium text-slate-900">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-6">
-            <AttendanceRing
-              present={live.presentToday}
-              late={live.lateToday}
-              absent={live.absentToday}
-              marked={live.markedToday}
-            />
-            <div className="flex-1 space-y-3 w-full">
-              {[
-                { label: 'Present', value: live.presentToday, color: 'bg-emerald-500' },
-                { label: 'Late', value: live.lateToday, color: 'bg-amber-400' },
-                { label: 'Absent', value: live.absentToday, color: 'bg-rose-500' },
-              ].map(row => (
-                <div key={row.label} className="flex items-center gap-3 text-sm">
-                  <span className={`w-2.5 h-2.5 rounded-full ${row.color}`} />
-                  <span className="flex-1 text-slate-600">{row.label}</span>
-                  <span className="tabular-nums font-medium text-slate-900">{row.value}</span>
+          <div className="mt-4 pt-3 border-t border-slate-100 space-y-2.5">
+            {live.pendingAbsentees > 0 && (
+              <div className="flex items-center justify-between bg-amber-50/70 border border-amber-200/80 rounded-xl px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                  <span className="text-xs font-medium text-amber-900">
+                    {live.pendingAbsentees} unexcused absentee{live.pendingAbsentees === 1 ? '' : 's'} pending follow-up
+                  </span>
                 </div>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => onNavigate('absentee')}
+                  className="text-xs font-bold text-amber-800 hover:text-amber-950 flex items-center gap-1 shrink-0 ml-2"
+                >
+                  <span>Resolve</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between text-xs text-slate-600 px-1">
+              <span>Faculty / Staff On Duty:</span>
+              <span className="font-mono font-medium text-slate-800">
+                {live.staffIn} / {staffCount || '—'} on campus today
+              </span>
             </div>
           </div>
         </div>

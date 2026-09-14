@@ -98,6 +98,9 @@ export function sisRoutes(store: IDataStore) {
         batch_id: z.string().min(1),
         elective_group_id: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         subjects: z.array(z.string()).optional(),
+        fee_structure: z.any().optional(),
+        custom_field_values: z.record(z.any()).optional(),
+        guardian_id_card: z.string().optional(),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -115,7 +118,10 @@ export function sisRoutes(store: IDataStore) {
           id,
           parseResult.data.batch_id,
           parseResult.data.elective_group_id,
-          parseResult.data.subjects
+          parseResult.data.subjects,
+          parseResult.data.fee_structure,
+          parseResult.data.custom_field_values,
+          parseResult.data.guardian_id_card
         );
         return reply.status(201).send({ success: true, data: student, timestamp: new Date().toISOString() });
       } catch (err: any) {
@@ -135,6 +141,35 @@ export function sisRoutes(store: IDataStore) {
       return reply.send({ success: true, data: students, timestamp: new Date().toISOString() });
     });
 
+    fastify.get('/students/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      const { id } = request.params as { id: string };
+      const student = await store.getStudentById(user.tenant_id, id);
+      if (!student) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Student not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({ success: true, data: student, timestamp: new Date().toISOString() });
+    });
+
+    fastify.get('/students/:id/academic-summary', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      const { id } = request.params as { id: string };
+      try {
+        const summary = await store.getStudentAcademicSummary(user.tenant_id, id);
+        return reply.send({ success: true, data: summary, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: err.message || 'Student not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
     fastify.post('/students', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin', 'academic_head', 'admissions_counselor'], reply)) return;
@@ -148,6 +183,11 @@ export function sisRoutes(store: IDataStore) {
         email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
         guardian_name: z.string().min(1),
         guardian_phone: z.string().min(1),
+        guardian_email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
+        guardian_id_card: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        guardian_whatsapp: z.string().optional(),
+        guardian_relation: z.string().optional(),
+        photo_url: z.string().optional(),
         program_id: z.string().min(1),
         batch_id: z.string().min(1),
         elective_group_id: z.string().optional().or(z.literal('')).transform(v => v || undefined),
@@ -204,6 +244,72 @@ export function sisRoutes(store: IDataStore) {
       return reply.status(201).send({ success: true, data: student, timestamp: new Date().toISOString() });
     });
 
+    fastify.post('/students/bulk-import', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head', 'admissions_counselor'], reply)) return;
+
+      const studentRowSchema = z.object({
+        full_name: z.string().min(1),
+        phone: z.string().optional(),
+        email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
+        guardian_name: z.string().min(1),
+        guardian_phone: z.string().min(1),
+        guardian_email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
+        guardian_id_card: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        guardian_relation: z.string().optional(),
+        gender: z.string().optional(),
+        blood_group: z.string().optional(),
+        batch_id: z.string().optional(),
+        roll_number: z.string().optional(),
+        base_tuition: z.number().nonnegative().optional(),
+        admission_fee: z.number().nonnegative().optional(),
+      });
+
+      const schema = z.object({
+        batch_id: z.string().optional(),
+        rows: z.array(studentRowSchema).optional(),
+        students: z.array(studentRowSchema).optional(),
+        generate_invoices: z.boolean().default(true),
+      }).refine(data => (data.rows && data.rows.length > 0) || (data.students && data.students.length > 0), {
+        message: 'Must provide either rows or students array with at least one record',
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid bulk import payload', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const rows = parseResult.data.students || parseResult.data.rows || [];
+      const defaultBatchId = parseResult.data.batch_id;
+
+      try {
+        const result = await store.bulkImportStudents(
+          user.tenant_id,
+          defaultBatchId,
+          rows,
+          parseResult.data.generate_invoices
+        );
+        return reply.status(201).send({ success: true, data: result, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'IMPORT_FAILED', message: err.message || 'Bulk student import failed' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    fastify.get('/students/:id/audit-logs', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      const { id } = request.params as { id: string };
+      const logs = await store.getStudentProfileAuditLogs(user.tenant_id, id);
+      return reply.send({ success: true, data: logs, timestamp: new Date().toISOString() });
+    });
+
     fastify.patch('/students/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin', 'academic_head', 'admissions_counselor'], reply)) return;
@@ -215,10 +321,17 @@ export function sisRoutes(store: IDataStore) {
         email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
         guardian_name: z.string().optional(),
         guardian_phone: z.string().optional(),
+        guardian_email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
+        guardian_id_card: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        guardian_whatsapp: z.string().optional(),
+        guardian_relation: z.string().optional(),
+        blood_group: z.string().optional(),
+        photo_url: z.string().optional(),
         status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted']).optional(),
         subjects: z.array(z.string()).optional(),
         fee_structure: z.any().optional(),
         custom_field_values: z.record(z.any()).optional(),
+        audit_reason: z.string().optional(),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -227,6 +340,44 @@ export function sisRoutes(store: IDataStore) {
           success: false,
           error: { code: 'VALIDATION_ERROR', message: 'Invalid update payload', details: parseResult.error.flatten() },
           timestamp: new Date().toISOString(),
+        });
+      }
+
+      const existing = await store.getStudentById(user.tenant_id, id);
+      if (!existing) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Student not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Track audit logs for modified fields
+      const auditReason = parseResult.data.audit_reason || 'Administrative profile update';
+      const fieldsToTrack: (keyof typeof parseResult.data)[] = [
+        'full_name', 'phone', 'email', 'guardian_name', 'guardian_phone', 
+        'guardian_email', 'guardian_id_card', 'blood_group', 'fee_structure'
+      ];
+
+      const changes: Record<string, { old: any; new: any }> = {};
+      for (const field of fieldsToTrack) {
+        if (parseResult.data[field] !== undefined) {
+          const oldVal = (existing as any)[field] ?? null;
+          const newVal = parseResult.data[field] ?? null;
+          if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+            changes[field] = { old: oldVal, new: newVal };
+          }
+        }
+      }
+
+      if (Object.keys(changes).length > 0) {
+        await store.logStudentProfileChange(user.tenant_id, {
+          student_id: id,
+          action: 'UPDATE_PARTICULARS',
+          changed_by_user_id: user.sub,
+          changed_by_name: user.email || 'Administrator',
+          changes,
+          reason: auditReason,
         });
       }
 
@@ -240,6 +391,57 @@ export function sisRoutes(store: IDataStore) {
       }
 
       return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+    });
+
+    // Administrative Student Portal Password Reset
+    fastify.post('/students/:id/reset-password', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      const { id } = request.params as { id: string };
+
+      const schema = z.object({
+        new_password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')).transform(v => v || undefined),
+        reason: z.string().min(2, 'Administrative reason is required'),
+        guardian_id_card: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const result = await store.resetStudentPassword(user.tenant_id, id, {
+          newPassword: parseResult.data.new_password,
+          reason: parseResult.data.reason,
+          adminName: user.email || 'Administrator',
+          adminUserId: user.sub,
+          guardianIdCard: parseResult.data.guardian_id_card,
+        });
+
+        return reply.send({
+          success: true,
+          data: {
+            username: result.student.guardian_id_card || result.student.admission_number,
+            default_password: result.default_password,
+            student_name: result.student.full_name,
+            roll_number: result.student.roll_number,
+            guardian_id_card: result.student.guardian_id_card,
+          },
+          message: 'Student portal password reset successfully.',
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'RESET_FAILED', message: err.message || 'Failed to reset student password' },
+          timestamp: new Date().toISOString(),
+        });
+      }
     });
 
     // Administrative Student Status Transition & Exit Regularization
@@ -279,6 +481,15 @@ export function sisRoutes(store: IDataStore) {
           timestamp: new Date().toISOString(),
         });
       }
+
+      await store.logStudentProfileChange(user.tenant_id, {
+        student_id: id,
+        action: 'STATUS_CHANGE',
+        changed_by_user_id: user.sub,
+        changed_by_name: user.email || 'Administrator',
+        changes: { status: { new: parseResult.data.status } },
+        reason: parseResult.data.reason,
+      });
 
       return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
     });

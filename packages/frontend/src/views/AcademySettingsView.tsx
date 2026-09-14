@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
-  DollarSign,
   GraduationCap,
   UploadCloud,
   X,
@@ -17,20 +16,30 @@ import {
   Lock,
   Eye,
   EyeOff,
+  Users,
+  Plus,
 } from 'lucide-react';
 import { TenantSettings } from '@apex/shared-types';
 import { compressImageFile } from '../components/LoginModal';
+import { PageHeading } from '../components/PageHeading';
+import { SectionInfo } from '../components/SectionInfo';
 
 export const AcademySettingsView: React.FC = () => {
   const { token, tenant, user, applySession, refreshSession } = useAuth();
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'profile' | 'challan' | 'shifts' | 'security'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'departments' | 'challan' | 'shifts' | 'security'>('profile');
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Departments State
+  const [departments, setDepartments] = useState<string[]>([
+    'Science', 'Mathematics', 'Humanities', 'Languages', 'Commerce', 'Administration', 'Accounts'
+  ]);
+  const [newDeptInput, setNewDeptInput] = useState<string>('');
 
   // Director Password Change State
   const [currentPassword, setCurrentPassword] = useState<string>('');
@@ -64,7 +73,7 @@ export const AcademySettingsView: React.FC = () => {
   const [accountTitle, setAccountTitle] = useState<string>('');
   const [accountNumber, setAccountNumber] = useState<string>('');
   const [iban, setIban] = useState<string>('');
-  const [branchCode, setBranchCode] = useState<string>('');
+  const [raastId, setRaastId] = useState<string>('');
 
   const [dueDay, setDueDay] = useState<number>(10);
   const [graceDays, setGraceDays] = useState<number>(5);
@@ -111,12 +120,11 @@ export const AcademySettingsView: React.FC = () => {
         if (s.subdomain || t.slug) setSubdomain(s.subdomain || t.slug);
         if (s.domain || t.domain) setDomain(s.domain || t.domain);
 
-        const dummyBank = !s.bank_name || s.bank_name === 'Meezan Bank Limited';
-        setBankName(dummyBank ? '' : s.bank_name);
-        setAccountTitle(!s.account_title || s.account_title === 'Academy Collection Account' ? '' : s.account_title);
-        setAccountNumber(!s.account_number || s.account_number === '0102-0104882910' ? '' : s.account_number);
-        setIban(!s.iban || s.iban === 'PK36MEZN0001020104882910' ? '' : s.iban);
-        setBranchCode(!s.branch_code || s.branch_code.includes('Main Branch (0101)') ? '' : s.branch_code);
+        setBankName(s.bank_name || '');
+        setAccountTitle(s.account_title || '');
+        setAccountNumber(s.account_number || '');
+        setIban(s.iban || '');
+        setRaastId(s.raast_id || (s as any).payment_settings?.raast_id || '');
 
         if (s.liquidation_rules) {
           if (s.liquidation_rules.due_day) setDueDay(s.liquidation_rules.due_day);
@@ -132,6 +140,9 @@ export const AcademySettingsView: React.FC = () => {
             setEveningStart(s.shifts.evening.start || '15:00');
             setEveningEnd(s.shifts.evening.end || '19:30');
           }
+        }
+        if (s.departments && Array.isArray(s.departments) && s.departments.length > 0) {
+          setDepartments(s.departments);
         }
       }
 
@@ -399,7 +410,7 @@ export const AcademySettingsView: React.FC = () => {
       account_title: accountTitle,
       account_number: accountNumber,
       iban,
-      branch_code: branchCode,
+      raast_id: raastId,
       liquidation_rules: {
         due_day: dueDay,
         grace_days: graceDays,
@@ -410,6 +421,7 @@ export const AcademySettingsView: React.FC = () => {
         morning: { start: morningStart, end: morningEnd },
         evening: { start: eveningStart, end: eveningEnd },
       },
+      departments: departments,
     };
 
     try {
@@ -440,27 +452,19 @@ export const AcademySettingsView: React.FC = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-slate-900 text-white shadow-xs">
-            <Building2 className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Academy Settings</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Manage campus profile, bank accounts for fee challans, shift timings, and fee payment rules.
-            </p>
-          </div>
-        </div>
-
+      <PageHeading
+        title="Settings"
+        description="Manage campus profile, bank accounts for fee challans, shift timings, and fee payment rules."
+        icon={<Building2 className="w-4 h-4 text-slate-700" />}
+      >
         <button
           onClick={fetchSettings}
           className="p-2 text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
-          title="Reload Settings"
+          title="Reload"
         >
           <RefreshCw className="w-4 h-4" />
         </button>
-      </div>
+      </PageHeading>
 
       {successMsg && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs flex items-center gap-2">
@@ -500,6 +504,19 @@ export const AcademySettingsView: React.FC = () => {
 
             <button
               type="button"
+              onClick={() => { setActiveTab('departments'); setSuccessMsg(null); setErrorMsg(null); }}
+              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+                activeTab === 'departments'
+                  ? 'border-indigo-600 text-slate-900 bg-slate-50 font-bold'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+              }`}
+            >
+              <Users className="w-4 h-4 text-sky-600" />
+              <span>Departments</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => { setActiveTab('challan'); setSuccessMsg(null); setErrorMsg(null); }}
               className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
                 activeTab === 'challan'
@@ -508,7 +525,7 @@ export const AcademySettingsView: React.FC = () => {
               }`}
             >
               <Landmark className="w-4 h-4 text-emerald-600" />
-              <span>Challan & Bank Accounts</span>
+              <span>Bank & Challan</span>
             </button>
 
             <button
@@ -534,7 +551,7 @@ export const AcademySettingsView: React.FC = () => {
               }`}
             >
               <ShieldCheck className="w-4 h-4 text-amber-600" />
-              <span>Account Security</span>
+              <span>Security</span>
             </button>
 
           </div>
@@ -544,9 +561,11 @@ export const AcademySettingsView: React.FC = () => {
               {/* SECTION 1: INSTITUTION PROFILE */}
               {activeTab === 'profile' && (
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
-                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                    <Building2 className="w-4 h-4 text-indigo-600" />
-                    <h2 className="text-sm font-extrabold text-slate-900">Institution Identity & Profile</h2>
+                  <div className="border-b border-slate-100 pb-3">
+                    <SectionInfo
+                      title="Campus Profile"
+                      description="Institutional details, brand logo, and campus contact information"
+                    />
                   </div>
 
                   {/* Academy Logo Card */}
@@ -630,7 +649,6 @@ export const AcademySettingsView: React.FC = () => {
                         type="text"
                         value={campusName}
                         onChange={e => setCampusName(e.target.value)}
-                        placeholder="e.g. Gulberg III Campus"
                         className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
                         required
                       />
@@ -642,7 +660,6 @@ export const AcademySettingsView: React.FC = () => {
                         type="text"
                         value={city}
                         onChange={e => setCity(e.target.value)}
-                        placeholder="e.g. Lahore"
                         className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
                       />
                     </div>
@@ -653,7 +670,6 @@ export const AcademySettingsView: React.FC = () => {
                         type="text"
                         value={academicSession}
                         onChange={e => setAcademicSession(e.target.value)}
-                        placeholder="e.g. 2026-2027"
                         className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
                         required
                       />
@@ -665,7 +681,6 @@ export const AcademySettingsView: React.FC = () => {
                         type="text"
                         value={affiliationNo}
                         onChange={e => setAffiliationNo(e.target.value)}
-                        placeholder="e.g. BISE/LHR-2026/9941"
                         className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
                       />
                     </div>
@@ -676,7 +691,6 @@ export const AcademySettingsView: React.FC = () => {
                         type="text"
                         value={phone}
                         onChange={e => setPhone(e.target.value)}
-                        placeholder="+92 300 1234567"
                         className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
                       />
                     </div>
@@ -697,10 +711,95 @@ export const AcademySettingsView: React.FC = () => {
                         type="text"
                         value={address}
                         onChange={e => setAddress(e.target.value)}
-                        placeholder="e.g. 42-B, Main Boulevard, Gulberg III, Lahore, Punjab, Pakistan"
                         className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
                       />
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SECTION: STAFF & ACADEMIC DEPARTMENTS */}
+              {activeTab === 'departments' && (
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-5">
+                  <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                    <SectionInfo
+                      title="Staff & Academic Departments"
+                      description="Configure institutional departments for your faculty and administration. These departments populate staff onboarding, registers, and analytics."
+                    />
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 font-bold">
+                      {departments.length} Departments
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="text"
+                      value={newDeptInput}
+                      onChange={e => setNewDeptInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const trimmed = newDeptInput.trim();
+                          if (trimmed && !departments.includes(trimmed)) {
+                            setDepartments([...departments, trimmed]);
+                            setNewDeptInput('');
+                          }
+                        }
+                      }}
+                      placeholder="Enter department name (e.g., Computer Science, Accounts, Physical Education)..."
+                      className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const trimmed = newDeptInput.trim();
+                        if (trimmed && !departments.includes(trimmed)) {
+                          setDepartments([...departments, trimmed]);
+                          setNewDeptInput('');
+                        }
+                      }}
+                      className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Department</span>
+                    </button>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-3">
+                      Active Department Roster
+                    </label>
+                    {departments.length === 0 ? (
+                      <div className="text-center py-8 text-slate-400">
+                        <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                        <p className="text-xs font-medium">No departments registered yet.</p>
+                        <p className="text-[11px] text-slate-400">Add departments above to organize staff members.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                        {departments.map((dept, idx) => (
+                          <div
+                            key={dept}
+                            className="flex items-center justify-between px-3 py-2 bg-white border border-slate-200 rounded-xl shadow-xs group hover:border-slate-300 transition-all"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-mono font-bold flex items-center justify-center shrink-0">
+                                {idx + 1}
+                              </span>
+                              <span className="text-xs font-semibold text-slate-800 truncate">{dept}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setDepartments(departments.filter(d => d !== dept))}
+                              className="text-slate-400 hover:text-rose-600 p-1 rounded-lg hover:bg-rose-50 transition-all cursor-pointer"
+                              title={`Remove ${dept}`}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -710,15 +809,10 @@ export const AcademySettingsView: React.FC = () => {
                 <>
                   <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                      <div className="flex items-center gap-2">
-                        <Landmark className="w-4 h-4 text-emerald-600" />
-                        <div>
-                          <h2 className="text-sm font-extrabold text-slate-900">Fee Challan Bank Accounts</h2>
-                          <p className="text-[11px] text-slate-500">
-                            These banking details are automatically rendered on all 3-Part Fee Challans (Bank, Academy, Student copies).
-                          </p>
-                        </div>
-                      </div>
+                      <SectionInfo
+                        title="Fee Challan Bank Accounts"
+                        description="Banking details rendered on all 3-part fee challans (Bank, Academy, Student copies)"
+                      />
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
                         Printed on Challans
                       </span>
@@ -731,7 +825,6 @@ export const AcademySettingsView: React.FC = () => {
                           type="text"
                           value={bankName}
                           onChange={e => setBankName(e.target.value)}
-                          placeholder="Bank name"
                           className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-900 font-bold"
                         />
                       </div>
@@ -742,7 +835,6 @@ export const AcademySettingsView: React.FC = () => {
                           type="text"
                           value={accountTitle}
                           onChange={e => setAccountTitle(e.target.value)}
-                          placeholder="Account title as printed on the challan"
                           className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
                         />
                       </div>
@@ -753,7 +845,6 @@ export const AcademySettingsView: React.FC = () => {
                           type="text"
                           value={accountNumber}
                           onChange={e => setAccountNumber(e.target.value)}
-                          placeholder="Bank account number"
                           className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
                         />
                       </div>
@@ -764,33 +855,31 @@ export const AcademySettingsView: React.FC = () => {
                           type="text"
                           value={iban}
                           onChange={e => setIban(e.target.value)}
-                          placeholder="PK followed by 22 characters"
                           className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800 font-bold"
                         />
                       </div>
 
                       <div className="md:col-span-2">
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Branch Name & Code</label>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Raast ID <span className="text-slate-400 font-normal">(Optional — Registered mobile number or Raast ID for instant fee transfers)</span>
+                        </label>
                         <input
                           type="text"
-                          value={branchCode}
-                          onChange={e => setBranchCode(e.target.value)}
-                          placeholder="e.g. Main Boulevard Branch (Code: 0102)"
-                          className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                          value={raastId}
+                          onChange={e => setRaastId(e.target.value)}
+                          placeholder="e.g. 03001234567 or Raast ID (leave blank if not applicable)"
+                          className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
                         />
                       </div>
                     </div>
                   </div>
 
                   <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
-                    <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                      <DollarSign className="w-4 h-4 text-amber-500" />
-                      <div>
-                        <h2 className="text-sm font-bold text-slate-900">Fee Invoicing & Payment Allocation</h2>
-                        <p className="text-[11px] text-slate-500">
-                          Set the due day and the order used when a parent pays part of a bill.
-                        </p>
-                      </div>
+                    <div className="border-b border-slate-100 pb-3">
+                      <SectionInfo
+                        title="Fee Invoicing & Payment Allocation"
+                        description="Set the due day and the order used when a parent pays part of a bill"
+                      />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -838,7 +927,6 @@ export const AcademySettingsView: React.FC = () => {
                           <input
                             value={newHeadName}
                             onChange={e => setNewHeadName(e.target.value)}
-                            placeholder="e.g. Annual charges"
                             className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5"
                           />
                           <button type="button" onClick={handleAddFeeHead} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white">
@@ -925,9 +1013,11 @@ export const AcademySettingsView: React.FC = () => {
               {/* SECTION 4: CAMPUS SHIFTS */}
               {activeTab === 'shifts' && (
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
-                  <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                    <Clock className="w-4 h-4 text-purple-600" />
-                    <h2 className="text-sm font-extrabold text-slate-900">Campus Shift Operating Hours</h2>
+                  <div className="border-b border-slate-100 pb-3">
+                    <SectionInfo
+                      title="Shift Operating Hours"
+                      description="Configure morning and evening shift operational schedules"
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -998,18 +1088,11 @@ export const AcademySettingsView: React.FC = () => {
             /* ISOLATED FORM FOR ACCOUNT SECURITY: NO NESTED FORMS */
             <form onSubmit={handlePasswordChange} className="space-y-6">
               <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-6">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">
-                      <ShieldCheck className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h2 className="text-sm font-extrabold text-slate-900">Change your password</h2>
-                      <p className="text-[11px] text-slate-500">
-                        Enter the current password and a new one. A code will be emailed to confirm.
-                      </p>
-                    </div>
-                  </div>
+                <div className="border-b border-slate-100 pb-4">
+                  <SectionInfo
+                    title="Change Password"
+                    description="Enter current and new password. A confirmation code will be emailed to you."
+                  />
                 </div>
 
                 {securitySuccess && (
@@ -1039,7 +1122,6 @@ export const AcademySettingsView: React.FC = () => {
                         type={showCurrentPassword ? 'text' : 'password'}
                         value={currentPassword}
                         onChange={e => setCurrentPassword(e.target.value)}
-                        placeholder="Enter your current password"
                         className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 text-slate-900"
                         required
                       />
@@ -1064,7 +1146,6 @@ export const AcademySettingsView: React.FC = () => {
                         type={showNewPassword ? 'text' : 'password'}
                         value={newPassword}
                         onChange={e => setNewPassword(e.target.value)}
-                        placeholder="Enter new strong password"
                         className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-10 py-2.5 text-slate-900"
                         required
                         minLength={6}
@@ -1090,7 +1171,6 @@ export const AcademySettingsView: React.FC = () => {
                         type="password"
                         value={confirmPassword}
                         onChange={e => setConfirmPassword(e.target.value)}
-                        placeholder="Re-enter new password"
                         className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-slate-900"
                         required
                         minLength={6}
@@ -1137,14 +1217,12 @@ export const AcademySettingsView: React.FC = () => {
                   type="password"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
-                  placeholder="New password"
                   className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2"
                 />
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
                   className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2"
                 />
               </div>
@@ -1153,7 +1231,6 @@ export const AcademySettingsView: React.FC = () => {
               autoFocus
               value={otpCode}
               onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-              placeholder="••••••"
               className="mt-4 w-full text-center text-lg font-mono tracking-[0.4em] border border-slate-200 rounded-xl py-2.5"
             />
             {securityError && <p className="text-xs text-rose-600 mt-2">{securityError}</p>}

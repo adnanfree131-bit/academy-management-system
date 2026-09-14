@@ -31,6 +31,8 @@ import {
   Calendar,
   FileText
 } from 'lucide-react';
+import { PageHeading } from '../components/PageHeading';
+import { SectionInfo } from '../components/SectionInfo';
 
 export const SuperAdminControlPlaneView: React.FC = () => {
   const { token } = useAuth();
@@ -843,33 +845,25 @@ export const SuperAdminControlPlaneView: React.FC = () => {
   return (
     <div className="space-y-5">
       
-      {/* Institutional Document-Grade Header */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
-          <div>
-            <div className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-slate-700" />
-              <h1 className="text-lg font-bold text-slate-900 tracking-tight">Platform Administration</h1>
-              <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-300 text-[10px] font-mono uppercase font-semibold rounded">
-                Super Admin
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Academy directory, individualized billing parameters, subscription ledgers, and broadcast notices.
-            </p>
-          </div>
+      {/* 1. Header */}
+      <PageHeading
+        title="Platform Administration"
+        description="Academy directory, individualized billing parameters, subscription ledgers, and broadcast notices."
+        icon={<Shield className="w-4 h-4 text-slate-700" />}
+        badge="Super Admin"
+      >
+        <button
+          onClick={() => { fetchOverview(); fetchAnnouncements(); }}
+          className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-lg border border-slate-300 flex items-center gap-1.5 transition-colors shadow-xs"
+        >
+          <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
+          <span>Refresh Data</span>
+        </button>
+      </PageHeading>
 
-          <button
-            onClick={() => { fetchOverview(); fetchAnnouncements(); }}
-            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded border border-slate-300 flex items-center gap-1.5 transition-colors self-start sm:self-auto shadow-xs"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
-            <span>Refresh Data</span>
-          </button>
-        </div>
-
-        {/* High-Density Tabular Metrics Strip */}
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 border border-slate-200 rounded bg-slate-50/50 divide-x divide-y lg:divide-y-0 divide-slate-200 text-xs">
+      {/* High-Density Tabular Metrics Strip */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 border border-slate-200 rounded-lg bg-slate-50/50 divide-x divide-y lg:divide-y-0 divide-slate-200 text-xs">
           <div className="p-3">
             <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Total Academies</span>
             <span className="text-xl font-bold text-slate-900 font-mono mt-0.5 block">{overview?.total_tenants || 0}</span>
@@ -920,7 +914,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
         </div>
       )}
 
-      {/* Standard Institutional Navigation Tabs */}
+      {/* Navigation Tabs */}
       <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 text-xs font-semibold">
         <button
           onClick={() => setActiveTab('academies')}
@@ -931,7 +925,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           }`}
         >
           <Building2 className="w-3.5 h-3.5" />
-          <span>Academy Directory ({tenants.length})</span>
+          <span>Academies ({tenants.length})</span>
         </button>
 
         <button
@@ -943,7 +937,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           }`}
         >
           <CreditCard className="w-3.5 h-3.5" />
-          <span>Subscription Receipts ({receipts.filter(r => r.status === 'PENDING').length} Pending)</span>
+          <span>Receipts ({receipts.filter(r => r.status === 'PENDING').length} Pending)</span>
         </button>
 
         <button
@@ -955,7 +949,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           }`}
         >
           <Settings2 className="w-3.5 h-3.5" />
-          <span>Global Settings</span>
+          <span>Settings</span>
         </button>
 
         <button
@@ -967,7 +961,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           }`}
         >
           <Bell className="w-3.5 h-3.5" />
-          <span>Broadcast Notices ({announcements.filter(a => a.is_active).length} Active)</span>
+          <span>Notices ({announcements.filter(a => a.is_active).length} Active)</span>
         </button>
 
         <button
@@ -989,13 +983,11 @@ export const SuperAdminControlPlaneView: React.FC = () => {
       {activeTab === 'academies' && (
         <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
           <div className="p-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-            <div>
+            <div className="flex items-center gap-2">
               <h2 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
-                Academy Directory & Subscription Register
+                Academies
               </h2>
-              <p className="text-[11px] text-slate-500">
-                Individual billing rates, anchored due dates, financial balance, and management actions.
-              </p>
+              <SectionInfo text="Individual billing rates, anchored due dates, financial balance, and management actions." />
             </div>
             <span className="text-xs text-slate-500 font-mono">Total: {tenants.length}</span>
           </div>
@@ -1166,10 +1158,13 @@ export const SuperAdminControlPlaneView: React.FC = () => {
       {activeTab === 'receipts' && (
         <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
           <div className="p-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-            <h2 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
-              Subscription Payment Receipts Register
-            </h2>
-            <span className="text-xs text-slate-500">Offline Bank Transfer Receipts</span>
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-slate-800 text-xs uppercase tracking-wider">
+                Receipts
+              </h2>
+              <SectionInfo text="Offline bank transfer and digital wallet receipts submitted by academy directors." />
+            </div>
+            <span className="text-xs text-slate-500 font-mono">Total: {receipts.length}</span>
           </div>
 
           <div className="overflow-x-auto">
@@ -1256,13 +1251,11 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           ===================================================================== */}
       {activeTab === 'config' && (
         <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-xs max-w-3xl space-y-6">
-          <div className="border-b border-slate-200 pb-3">
+          <div className="border-b border-slate-200 pb-3 flex items-center gap-2">
             <h2 className="font-bold text-slate-900 text-sm uppercase tracking-wider">
-              Platform Configuration & Policy Parameters
+              Platform Configuration
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Default baseline trial terms and settlement bank details for unregistered/new academies.
-            </p>
+            <SectionInfo text="Default baseline trial terms and settlement bank details for unregistered/new academies." />
           </div>
 
           <form onSubmit={handleSavePlatformConfig} className="space-y-5 text-xs">
@@ -1435,13 +1428,11 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           
           {/* Create Broadcast Notice Form */}
           <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-xs max-w-3xl space-y-4">
-            <div className="border-b border-slate-200 pb-3">
+            <div className="border-b border-slate-200 pb-3 flex items-center gap-2">
               <h2 className="font-bold text-slate-900 text-sm uppercase tracking-wider">
-                Publish Broadcast Notice
+                Broadcast Notice
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Issue operational advisories or billing reminders to academy directors upon login.
-              </p>
+              <SectionInfo text="Issue operational advisories or billing reminders to academy directors upon login." />
             </div>
 
             <form onSubmit={handleCreateAnnouncement} className="space-y-4 text-xs">
@@ -1450,7 +1441,6 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Scheduled Maintenance Advisory"
                   value={newTitle}
                   onChange={e => setNewTitle(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs font-medium"
@@ -1462,7 +1452,6 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                 <textarea
                   rows={3}
                   required
-                  placeholder="Provide precise institutional details or instructions..."
                   value={newMessage}
                   onChange={e => setNewMessage(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs leading-relaxed"
@@ -1516,7 +1505,6 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Action Button Text (Optional)</label>
                   <input
                     type="text"
-                    placeholder="e.g. View Billing Ledger"
                     value={newActionLabel}
                     onChange={e => setNewActionLabel(e.target.value)}
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs"
@@ -1527,7 +1515,6 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Action URL (Optional)</label>
                   <input
                     type="url"
-                    placeholder="https://app.kampus.pk/billing"
                     value={newActionUrl}
                     onChange={e => setNewActionUrl(e.target.value)}
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs"
@@ -1650,12 +1637,9 @@ export const SuperAdminControlPlaneView: React.FC = () => {
       {activeTab === 'backups' && (
         <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
           <div className="p-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Academy data backups</h2>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Daily copies in the database (14 days), plus a file on your computer and a nightly GitHub backup.
-                Download a file before you start development. Restore from a file or from the list (type RESTORE).
-              </p>
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Backups</h2>
+              <SectionInfo text="Daily copies in the database (14 days), plus local file export and nightly backups. Restore from a file or from the list." />
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -2083,7 +2067,6 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">Reference / TRX #</label>
                   <input
                     type="text"
-                    placeholder="e.g. MZ-84920482"
                     value={advanceReferenceNumber}
                     onChange={e => setAdvanceReferenceNumber(e.target.value)}
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded font-mono text-xs"
@@ -2095,7 +2078,6 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">Internal Billing Note</label>
                 <input
                   type="text"
-                  placeholder="e.g. 3-month advance settlement received via IBFT"
                   value={advanceNotes}
                   onChange={e => setAdvanceNotes(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs"
@@ -2161,7 +2143,6 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder={selectedTenantForHardDelete.slug}
                   value={hardDeleteConfirmSlug}
                   onChange={e => setHardDeleteConfirmSlug(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-rose-300 rounded font-mono font-semibold text-xs text-rose-900"
@@ -2355,7 +2336,6 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                     value={newSubdomainSlug}
                     onChange={e => setNewSubdomainSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                     className="flex-1 px-3 py-2 bg-white border border-slate-300 rounded-l font-mono text-xs font-semibold"
-                    placeholder="new-subdomain"
                   />
                   <span className="px-3 py-2 bg-slate-100 border border-l-0 border-slate-300 rounded-r font-mono text-xs text-slate-500">
                     .kampus.pk
@@ -2431,7 +2411,6 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                   value={suspendReason}
                   onChange={e => setSuspendReason(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-xs leading-relaxed"
-                  placeholder="Additional notes for suspension record..."
                 />
               </div>
 

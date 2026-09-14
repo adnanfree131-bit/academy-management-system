@@ -38,7 +38,8 @@ export function financeRoutes(store: IDataStore) {
         code: z.string().min(1).toUpperCase(),
         is_system_default: z.boolean().default(false),
         default_amount: z.number().min(0).default(0),
-        priority_order: z.number().int().min(1).default(1)
+        priority_order: z.number().int().min(1).default(1),
+        show_at_admission: z.boolean().default(false),
       });
 
       const parse = schema.safeParse(request.body);
@@ -68,6 +69,7 @@ export function financeRoutes(store: IDataStore) {
         code: z.string().min(1).toUpperCase().optional(),
         default_amount: z.number().min(0).optional(),
         priority_order: z.number().int().min(1).optional(),
+        show_at_admission: z.boolean().optional(),
       });
       const parse = schema.safeParse(request.body);
       if (!parse.success) {
@@ -185,21 +187,60 @@ export function financeRoutes(store: IDataStore) {
     fastify.post('/finance/structures', saveStructureHandler);
 
     // =========================================================================
+    // 3.5 BULK FEE REVISION
+    // =========================================================================
+    const bulkFeeRevisionHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
+
+      const schema = z.object({
+        scope: z.enum(['all', 'program', 'batch']),
+        program_id: z.string().optional(),
+        batch_id: z.string().optional(),
+        increment_type: z.enum(['percentage', 'fixed']),
+        increment_value: z.number().min(0),
+        rounding: z.enum(['none', 'nearest_50', 'nearest_100']).optional().default('none'),
+        reason: z.string().optional(),
+      });
+
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid bulk fee revision parameters', details: parse.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const result = await store.bulkFeeRevision(user.tenant_id, parse.data, user.sub || user.email);
+        return reply.status(200).send({ success: true, data: result, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'BULK_REVISION_FAILED', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+    fastify.post('/fees/bulk-increment', bulkFeeRevisionHandler);
+    fastify.post('/finance/fees/bulk-increment', bulkFeeRevisionHandler);
+
+    // =========================================================================
     // 4. STUDENT INVOICES / CHALLANS
     // =========================================================================
     const getInvoicesHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      const { student_id, batch_id, billing_month, status } = request.query as {
-        student_id?: string;
-        batch_id?: string;
-        billing_month?: string;
-        status?: InvoiceStatus;
-      };
+      const q = (request.query || {}) as any;
+      const student_id = q.student_id || q.studentId;
+      const batch_id = q.batch_id || q.batchId;
+      const billing_month = q.billing_month || q.billingMonth;
+      const status = q.status as InvoiceStatus;
 
       const invoices = await store.getInvoices(user.tenant_id, {
-        studentId: student_id,
-        batchId: batch_id,
-        billingMonth: billing_month,
+        student_id,
+        batch_id,
+        billing_month,
         status
       });
       return reply.send({ success: true, data: invoices, timestamp: new Date().toISOString() });

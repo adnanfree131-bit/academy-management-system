@@ -319,7 +319,6 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
                     <input
                       type="text"
                       required
-                      placeholder="e.g. ALF-9948210"
                       value={referenceNumber}
                       onChange={e => setReferenceNumber(e.target.value)}
                       className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono uppercase"
@@ -331,7 +330,6 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">Screenshot / Receipt Image URL:</label>
                   <input
                     type="text"
-                    placeholder="https://... receipt image or upload URL"
                     value={receiptUrl}
                     onChange={e => setReceiptUrl(e.target.value)}
                     className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
@@ -343,7 +341,6 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">Additional Notes / Branch info:</label>
                   <textarea
                     rows={2}
-                    placeholder="e.g. Transferred from Meezan Bank via Raast to Bank Alfalah at 10:15 AM."
                     value={notes}
                     onChange={e => setNotes(e.target.value)}
                     className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs"

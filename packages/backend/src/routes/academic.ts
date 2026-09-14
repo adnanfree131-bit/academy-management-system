@@ -69,11 +69,54 @@ export function academicRoutes(store: IDataStore) {
       return reply.status(201).send({ success: true, data: program, timestamp: new Date().toISOString() });
     });
 
+    fastify.put('/programs/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      const { id } = request.params as { id: string };
+
+      const schema = z.object({
+        name: z.string().min(1).optional(),
+        code: z.string().optional().nullable(),
+        description: z.string().optional().nullable(),
+        sort_order: z.coerce.number().int().optional(),
+        fee_schedule: z.array(z.object({
+          fee_head_id: z.string().optional(),
+          head_name: z.string().optional(),
+          fee_type: z.string().optional(),
+          name: z.string().optional(),
+          amount: z.coerce.number().min(0),
+          is_monthly: z.boolean().optional(),
+          is_recurring: z.boolean().optional(),
+        })).optional(),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid program update data', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const updated = await store.updateProgram(user.tenant_id, id, parseResult.data);
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Program not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+    });
+
     fastify.delete('/programs/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const { id } = request.params as { id: string };
-      const deleted = await store.deleteProgram(user.tenant_id, id);
+      const { transfer_to_program_id } = (request.query || {}) as { transfer_to_program_id?: string };
+      const deleted = await store.deleteProgram(user.tenant_id, id, transfer_to_program_id);
       if (!deleted) {
         return reply.status(404).send({
           success: false,
@@ -96,7 +139,7 @@ export function academicRoutes(store: IDataStore) {
       if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const schema = z.object({
         name: z.string().min(1),
-        code: z.string().min(1),
+        code: z.string().optional().default(''),
         is_core: z.boolean().default(true),
       });
 
@@ -198,8 +241,11 @@ export function academicRoutes(store: IDataStore) {
         name: z.string().min(1),
         shift: z.enum(['morning', 'evening']),
         academic_session: z.string().min(1).default('2026-2027'),
-        max_capacity: z.number().int().min(1).default(40),
-        room_number: z.string().optional(),
+        max_capacity: z.coerce.number().int().min(1).default(40),
+        room_number: z.string().optional().nullable(),
+        class_teacher_id: z.string().optional().nullable(),
+        class_teacher_name: z.string().optional().nullable(),
+        status: z.enum(['active', 'archived']).default('active'),
         fee_schedule: z.array(z.object({
           fee_head_id: z.string().optional(),
           head_name: z.string().optional(),
@@ -228,11 +274,58 @@ export function academicRoutes(store: IDataStore) {
       return reply.status(201).send({ success: true, data: batch, timestamp: new Date().toISOString() });
     });
 
+    fastify.put('/batches/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      const { id } = request.params as { id: string };
+
+      const schema = z.object({
+        name: z.string().min(1).optional(),
+        shift: z.enum(['morning', 'evening']).optional(),
+        academic_session: z.string().optional(),
+        max_capacity: z.coerce.number().int().min(1).optional(),
+        room_number: z.string().optional().nullable(),
+        class_teacher_id: z.string().optional().nullable(),
+        class_teacher_name: z.string().optional().nullable(),
+        status: z.enum(['active', 'archived']).optional(),
+        fee_schedule: z.array(z.object({
+          fee_head_id: z.string().optional(),
+          head_name: z.string().optional(),
+          fee_type: z.string().optional(),
+          name: z.string().optional(),
+          amount: z.coerce.number().min(0),
+          is_monthly: z.boolean().optional(),
+          is_recurring: z.boolean().optional(),
+        })).optional(),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid batch update data', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const updated = await store.updateBatch(user.tenant_id, id, parseResult.data);
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Batch not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+    });
+
     fastify.delete('/batches/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const { id } = request.params as { id: string };
-      const deleted = await store.deleteBatch(user.tenant_id, id);
+      const { transfer_to_batch_id } = (request.query || {}) as { transfer_to_batch_id?: string };
+      const deleted = await store.deleteBatch(user.tenant_id, id, transfer_to_batch_id);
       if (!deleted) {
         return reply.status(404).send({
           success: false,
@@ -241,6 +334,41 @@ export function academicRoutes(store: IDataStore) {
         });
       }
       return reply.send({ success: true, message: 'Batch deleted successfully', timestamp: new Date().toISOString() });
+    });
+
+    // Student Class Promotion & Section Transfer
+    fastify.post('/students/promote', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+
+      const schema = z.object({
+        student_ids: z.array(z.string().min(1)).min(1, 'At least one student must be selected'),
+        target_program_id: z.string().min(1, 'Target program/class is required'),
+        target_batch_id: z.string().min(1, 'Target batch/section is required'),
+        target_session: z.string().optional(),
+        fee_adjustment_type: z.enum(['keep', 'target_baseline', 'percentage', 'fixed']).default('keep'),
+        fee_adjustment_value: z.coerce.number().optional().default(0),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid student promotion payload', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const result = await store.promoteStudents(user.tenant_id, parseResult.data, user.sub || user.email);
+        return reply.send({ success: true, data: result, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'PROMOTION_FAILED', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
     });
 
     // --- Custom Fields ---

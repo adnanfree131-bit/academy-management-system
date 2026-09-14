@@ -10,7 +10,11 @@ export function complaintsRoutes(store: IDataStore) {
     // List complaints
     const getComplaintsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      const tickets = await store.getComplaints(user.tenant_id);
+      let tickets = await store.getComplaints(user.tenant_id);
+      if (user.role === 'student' || user.role === 'parent') {
+        const userId = user.sub || (user as any).user_id;
+        tickets = tickets.filter(t => t.user_id === userId);
+      }
       return reply.send({ success: true, data: tickets, timestamp: new Date().toISOString() });
     };
     fastify.get('/', getComplaintsHandler);
@@ -50,6 +54,13 @@ export function complaintsRoutes(store: IDataStore) {
     // Update status or reply to complaint
     const updateStatusHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (user.role === 'student' || user.role === 'parent') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Only administrative staff may update or resolve complaints.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const { id } = request.params as { id: string };
       const schema = z.object({
         status: z.enum(['open', 'under_investigation', 'action_taken', 'resolved']),

@@ -22,7 +22,7 @@ export function attendanceRoutes(store: IDataStore) {
     // --- Student Attendance ---
     const getStudentAttendanceHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      const { batch_id, date, student_id } = request.query as { batch_id?: string; date?: string; student_id?: string };
+      const { batch_id, date, student_id, month } = request.query as { batch_id?: string; date?: string; student_id?: string; month?: string };
       const studentId = (request.params as any)?.studentId || student_id;
 
       if (studentId) {
@@ -30,15 +30,10 @@ export function attendanceRoutes(store: IDataStore) {
         return reply.send({ success: true, data: records, timestamp: new Date().toISOString() });
       }
 
-      if (!batch_id || !date) {
-        return reply.status(400).send({
-          success: false,
-          error: { code: 'VALIDATION_ERROR', message: 'batch_id and date query params are required when student_id is not specified' },
-          timestamp: new Date().toISOString(),
-        });
+      let records = await store.getStudentAttendance(user.tenant_id, batch_id, date);
+      if (month) {
+        records = records.filter(r => r.date.startsWith(month));
       }
-
-      const records = await store.getStudentAttendance(user.tenant_id, batch_id, date);
       return reply.send({ success: true, data: records, timestamp: new Date().toISOString() });
     };
     fastify.get('/students', getStudentAttendanceHandler);
@@ -86,6 +81,57 @@ export function attendanceRoutes(store: IDataStore) {
     const getLeavesHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       const { student_id } = request.query as { student_id?: string };
+
+      if (user.role === 'student') {
+        const allStudents = await store.getStudents(user.tenant_id);
+        const myStudent = allStudents.find(s => s.user_id === user.sub || (s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase()));
+        if (!myStudent) {
+          return reply.send({ success: true, data: [], timestamp: new Date().toISOString() });
+        }
+        const leaves = await store.getLeaveApplications(user.tenant_id, myStudent.id);
+        return reply.send({ success: true, data: leaves, timestamp: new Date().toISOString() });
+      }
+
+      if (user.role === 'parent') {
+        const allStudents = await store.getStudents(user.tenant_id);
+        const tenantUsers = await store.getTenantUsers(user.tenant_id);
+        const me = tenantUsers.find(u => u.id === user.sub || (user.email && u.email === user.email));
+        const parentCnic = (me?.metadata as any)?.guardian_id_card || (me?.metadata as any)?.clean_guardian_id_card;
+        const cleanParentCnic = parentCnic ? String(parentCnic).replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+
+        const children = allStudents.filter(s => {
+          if (s.guardian_id_card && cleanParentCnic) {
+            const cleanStdCnic = s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
+            if (cleanStdCnic === cleanParentCnic) return true;
+          }
+          if (s.guardian_email && user.email && s.guardian_email.toLowerCase() === user.email.toLowerCase()) return true;
+          if (s.guardian_phone && (me as any)?.phone && s.guardian_phone === (me as any)?.phone) return true;
+          return false;
+        });
+
+        if (children.length === 0) {
+          return reply.send({ success: true, data: [], timestamp: new Date().toISOString() });
+        }
+
+        if (student_id) {
+          const isChild = children.some(c => c.id === student_id);
+          if (!isChild) {
+            return reply.status(403).send({
+              success: false,
+              error: { code: 'UNAUTHORIZED_PARENT_ACCESS', message: 'You are not authorized to view leaves for this student.' },
+              timestamp: new Date().toISOString(),
+            });
+          }
+          const leaves = await store.getLeaveApplications(user.tenant_id, student_id);
+          return reply.send({ success: true, data: leaves, timestamp: new Date().toISOString() });
+        } else {
+          const childIds = new Set(children.map(c => c.id));
+          const allLeaves = await store.getLeaveApplications(user.tenant_id);
+          const parentLeaves = allLeaves.filter(l => childIds.has(l.student_id));
+          return reply.send({ success: true, data: parentLeaves, timestamp: new Date().toISOString() });
+        }
+      }
+
       const leaves = await store.getLeaveApplications(user.tenant_id, student_id);
       return reply.send({ success: true, data: leaves, timestamp: new Date().toISOString() });
     };
@@ -108,6 +154,52 @@ export function attendanceRoutes(store: IDataStore) {
           error: { code: 'VALIDATION_ERROR', message: 'Invalid leave application data', details: parse.error.flatten() },
           timestamp: new Date().toISOString(),
         });
+      }
+
+      if (parse.data.end_date < parse.data.start_date) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'INVALID_DATE_RANGE', message: 'Leave end date cannot precede start date.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      // Prevent IDOR: Ensure authenticated student or parent is authorized for this student_id
+      if (user.role === 'student') {
+        const allStudents = await store.getStudents(user.tenant_id);
+        const myStudent = allStudents.find(s => s.user_id === user.sub || (s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase()));
+        if (!myStudent || myStudent.id !== parse.data.student_id) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'UNAUTHORIZED_LEAVE_SUBMISSION', message: 'You are not authorized to submit leave for another student.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } else if (user.role === 'parent') {
+        const allStudents = await store.getStudents(user.tenant_id);
+        const tenantUsers = await store.getTenantUsers(user.tenant_id);
+        const me = tenantUsers.find(u => u.id === user.sub || (user.email && u.email === user.email));
+        const parentCnic = (me?.metadata as any)?.guardian_id_card || (me?.metadata as any)?.clean_guardian_id_card;
+        const cleanParentCnic = parentCnic ? String(parentCnic).replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+
+        const children = allStudents.filter(s => {
+          if (s.guardian_id_card && cleanParentCnic) {
+            const cleanStdCnic = s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
+            if (cleanStdCnic === cleanParentCnic) return true;
+          }
+          if (s.guardian_email && user.email && s.guardian_email.toLowerCase() === user.email.toLowerCase()) return true;
+          if (s.guardian_phone && (me as any)?.phone && s.guardian_phone === (me as any)?.phone) return true;
+          return false;
+        });
+
+        const isChild = children.some(c => c.id === parse.data.student_id);
+        if (!isChild) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'UNAUTHORIZED_LEAVE_SUBMISSION', message: 'You are not authorized to submit leave for this student.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
 
       const leave = await store.submitLeaveApplication({

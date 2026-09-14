@@ -170,8 +170,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
                 choose(items[activeIndex]);
               }
             }}
-            placeholder="Search students, fees, pages…"
-            className="flex-1 text-sm text-slate-900 placeholder:text-slate-400 outline-none bg-transparent py-1"
+            className="flex-1 text-sm text-slate-900 outline-none bg-transparent py-1"
           />
           <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700">
             <X className="w-4 h-4" />
