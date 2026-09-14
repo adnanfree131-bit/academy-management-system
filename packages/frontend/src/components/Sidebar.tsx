@@ -88,13 +88,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Floating Inset Card Sidebar Container */}
+      {/* Native Mobile App Drawer & Desktop Sticky Sidebar Container */}
       <div 
-        className={`fixed md:sticky top-0 h-screen p-2 sm:p-3 pr-0 flex flex-col justify-start z-50 md:z-40 transition-transform duration-300 ${
+        className={`fixed md:sticky top-0 h-screen p-0 md:p-3 md:pr-0 flex flex-col justify-start z-50 md:z-40 transition-transform duration-300 ease-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <aside className="w-[84vw] max-w-[280px] sm:w-64 bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xl flex flex-col justify-between h-[calc(100vh-1rem)] sm:h-[calc(100vh-1.5rem)] pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <aside className="w-[84vw] max-w-[320px] md:w-64 bg-white border-r md:border border-slate-200/90 rounded-r-3xl md:rounded-2xl p-4 shadow-2xl md:shadow-xl flex flex-col justify-between h-full md:h-[calc(100vh-1.5rem)] pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           
           {/* Institutional Brand Header (Pinned Static Top) */}
           <div className="border-b border-slate-100 pb-3 shrink-0">

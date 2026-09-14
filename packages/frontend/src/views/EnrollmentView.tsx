@@ -792,61 +792,61 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   }, [admitInquiryModal, admitBatchId, admitElectiveGroupId, batches, subjectGroups]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header & Navigation */}
       <PageHeading 
         title="Students" 
         description="Student directory records, inquiry pipeline, and admissions." 
         icon={<Users className="w-4 h-4 text-slate-700" />}
-      >
-        {/* Tab Switcher */}
-        <div className="flex items-center overflow-x-auto no-scrollbar max-w-full whitespace-nowrap bg-slate-100/90 p-1 rounded-lg border border-slate-200 text-xs font-semibold">
-          <button
-            onClick={() => setActiveTab('directory')}
-            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
-              activeTab === 'directory' 
-                ? 'bg-white text-slate-900 shadow-xs font-bold' 
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5 text-slate-500" />
-            <span>Directory ({students.length})</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('inquiries')}
-            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
-              activeTab === 'inquiries' 
-                ? 'bg-white text-slate-900 shadow-xs font-bold' 
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
-            <span>Inquiries ({inquiries.length})</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('new_admission')}
-            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
-              activeTab === 'new_admission' 
-                ? 'bg-white text-slate-900 shadow-xs font-bold' 
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <UserPlus className="w-3.5 h-3.5 text-slate-500" />
-            <span>Admission Form</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('id_cards')}
-            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-all ${
-              activeTab === 'id_cards' 
-                ? 'bg-white text-slate-900 shadow-xs font-bold' 
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-            <span>ID Cards</span>
-          </button>
-        </div>
-      </PageHeading>
+      />
+
+      {/* Tab Switcher - Native Segmented Control */}
+      <div className="flex items-center overflow-x-auto no-scrollbar max-w-full whitespace-nowrap bg-slate-100/90 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+        <button
+          onClick={() => setActiveTab('directory')}
+          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all touch-press ${
+            activeTab === 'directory' 
+              ? 'bg-white text-slate-900 shadow-xs font-bold' 
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5 text-slate-500" />
+          <span>Directory ({students.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('inquiries')}
+          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all touch-press ${
+            activeTab === 'inquiries' 
+              ? 'bg-white text-slate-900 shadow-xs font-bold' 
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
+          <span>Inquiries ({inquiries.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('new_admission')}
+          className={`flex-1 min-w-[110px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all touch-press ${
+            activeTab === 'new_admission' 
+              ? 'bg-white text-slate-900 shadow-xs font-bold' 
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <UserPlus className="w-3.5 h-3.5 text-slate-500" />
+          <span>Admission Form</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('id_cards')}
+          className={`flex-1 min-w-[80px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all touch-press ${
+            activeTab === 'id_cards' 
+              ? 'bg-white text-slate-900 shadow-xs font-bold' 
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+          <span>ID Cards</span>
+        </button>
+      </div>
 
       {/* Error state */}
       {error && (
@@ -868,20 +868,50 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       {/* TAB 1: STUDENT DIRECTORY & STUDENT PROFILE                                 */}
       {/* ========================================================================= */}
       {activeTab === 'directory' && (
+        <>
         <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
           {/* Controls Toolbar */}
-          <div className="p-3 bg-white border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="p-3 bg-white border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2.5">
             <div className="relative w-full sm:w-80">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
               <input
                 type="text"
+                placeholder="Search students..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors font-sans text-slate-900"
               />
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
+            {/* Mobile Filter Chips Row */}
+            <div className="flex sm:hidden items-center gap-2 w-full overflow-x-auto no-scrollbar py-0.5">
+              <select
+                value={selectedBatchFilter}
+                onChange={e => setSelectedBatchFilter(e.target.value)}
+                className="flex-1 min-w-[130px] px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+              >
+                <option value="all">All Batches ({batches.length})</option>
+                {batches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="flex-1 min-w-[110px] px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+              >
+                <option value="all">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="withdrawn">Withdrawn</option>
+                <option value="suspended">Suspended</option>
+                <option value="on_leave">On Leave</option>
+                <option value="alumni">Alumni</option>
+              </select>
+            </div>
+
+            {/* Desktop Filters & Actions */}
+            <div className="hidden sm:flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
               <div className="flex items-center gap-1.5 text-xs text-slate-600">
                 <Filter className="w-3.5 h-3.5 text-slate-400" />
                 <span className="text-[11px] font-medium text-slate-500">Batch:</span>
@@ -967,8 +997,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </div>
             </div>
           )}
-          {/* Directory Table */}
-          <div className="overflow-x-auto">
+          {/* Desktop Directory Table (>= 768px) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[11px]">
@@ -1129,7 +1159,152 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 </tbody>
               </table>
             </div>
+
+          {/* Mobile Native Cards List (< 768px) */}
+          <div className="md:hidden divide-y divide-slate-100 bg-white">
+            {isLoading ? (
+              <div className="py-12 text-center text-slate-400">
+                <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                <span className="text-xs font-mono">Loading student records...</span>
+              </div>
+            ) : filteredStudents.length === 0 ? (
+              <div className="py-12 text-center text-slate-400">
+                <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <p className="text-xs font-semibold text-slate-600">No students found matching current filters.</p>
+              </div>
+            ) : (
+              filteredStudents.map(student => (
+                <div
+                  key={student.id}
+                  onClick={() => setSelectedStudent(student)}
+                  className="p-3.5 active:bg-slate-50 transition-colors flex flex-col gap-2.5 cursor-pointer touch-press"
+                >
+                  {/* Top Row: Selection + Avatar + Name + Status */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          toggleDirectoryStudent(student.id);
+                        }}
+                        className="p-1 text-slate-400 active:text-slate-900 shrink-0"
+                      >
+                        {selectedDirectoryStudentIds.has(student.id) ? (
+                          <CheckSquare className="w-4 h-4 text-slate-900" />
+                        ) : (
+                          <Square className="w-4 h-4 text-slate-300" />
+                        )}
+                      </button>
+                      <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 overflow-hidden">
+                        {student.photo_url ? (
+                          <img src={student.photo_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          student.full_name.charAt(0)
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 text-sm truncate">
+                          {student.full_name}
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5">
+                          <span className="font-semibold text-slate-700">Roll {student.roll_number}</span>
+                          <span>•</span>
+                          <span className="text-slate-400">{student.admission_number}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize shrink-0 ${
+                      student.status === 'active'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : student.status === 'withdrawn'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : student.status === 'suspended'
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : student.status === 'on_leave'
+                        ? 'bg-blue-50 text-blue-700 border-blue-200'
+                        : 'bg-slate-100 text-slate-700 border-slate-200'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        student.status === 'active' ? 'bg-emerald-500' :
+                        student.status === 'withdrawn' ? 'bg-rose-500' :
+                        student.status === 'suspended' ? 'bg-amber-500' :
+                        student.status === 'on_leave' ? 'bg-blue-500' : 'bg-slate-400'
+                      }`}></span>
+                      {student.status ? student.status.replace('_', ' ') : 'Active'}
+                    </span>
+                  </div>
+
+                  {/* Middle Row: Batch & Guardian Details */}
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50/80 p-2.5 rounded-lg border border-slate-100">
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">Class & Batch</span>
+                      <span className="font-medium text-slate-800 truncate block text-[11px]">
+                        {getProgramName(student.program_id)} • {getBatchName(student.batch_id)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">Guardian</span>
+                      <span className="font-medium text-slate-800 truncate block text-[11px]">
+                        {student.guardian_name || '—'} {student.guardian_relation ? `(${student.guardian_relation})` : ''}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Bottom Row: Actions Bar */}
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100/70 text-xs">
+                    <div className="flex items-center gap-1">
+                      {student.guardian_phone && (
+                        <a
+                          href={`tel:${student.guardian_phone}`}
+                          onClick={e => e.stopPropagation()}
+                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[11px] font-semibold flex items-center gap-1"
+                        >
+                          <Phone className="w-3 h-3 text-slate-500" />
+                          <span>Call</span>
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          setContactStudentModal(student);
+                        }}
+                        className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md text-[11px] font-semibold flex items-center gap-1 border border-emerald-200/50"
+                      >
+                        <MessageSquare className="w-3 h-3" />
+                        <span>WhatsApp</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStudent(student)}
+                        className="px-2.5 py-1 bg-slate-900 text-white hover:bg-slate-800 rounded-md text-[11px] font-bold flex items-center gap-1"
+                      >
+                        <span>Profile 360</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
+        </div>
+
+        {/* Mobile Floating Action Button (FAB) for New Admission */}
+        <button
+          type="button"
+          onClick={() => setActiveTab('new_admission')}
+          className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 bg-slate-900 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-transform"
+          title="New Student Admission"
+        >
+          <Plus className="w-6 h-6" />
+        </button>
+        </>
       )}
 
       {/* ========================================================================= */}

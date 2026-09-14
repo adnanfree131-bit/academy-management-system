@@ -336,10 +336,10 @@ export const TimetableDesk: React.FC = () => {
           </div>
 
           {/* Day Tabs */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto max-w-full no-scrollbar">
             <button
               onClick={() => setSelectedDay('all')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                 selectedDay === 'all'
                   ? 'bg-white text-slate-900 shadow-2xs'
                   : 'text-slate-600 hover:text-slate-900'
@@ -351,7 +351,7 @@ export const TimetableDesk: React.FC = () => {
               <button
                 key={d.id}
                 onClick={() => setSelectedDay(d.id)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all shrink-0 ${
                   selectedDay === d.id
                     ? 'bg-white text-slate-900 shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -395,7 +395,7 @@ export const TimetableDesk: React.FC = () => {
               key={slot.id}
               className={`bg-white border rounded-2xl p-4 shadow-xs flex flex-col justify-between transition-all hover:border-slate-300 ${
                 slot.substitute_teacher_id
-                  ? 'border-amber-200 bg-gradient-to-br from-white to-amber-50/20'
+                  ? 'border-amber-200 bg-amber-50/40'
                   : 'border-slate-200/90'
               }`}
             >
@@ -463,6 +463,16 @@ export const TimetableDesk: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* Mobile Floating Action Button (FAB) for Scheduling */}
+      <button
+        type="button"
+        onClick={() => setShowScheduleModal(true)}
+        className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 bg-slate-900 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-transform"
+        title="Schedule Class"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
 
       {/* Schedule Class Modal with Live Collision Prevention */}
       {showScheduleModal && (

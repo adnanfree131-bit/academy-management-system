@@ -582,7 +582,8 @@ export const ExamDeskView: React.FC = () => {
             <SectionInfo title="Scheduled Exams" description="View upcoming exams, syllabus breakdown, and printable test papers." />
           </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+          {/* Desktop Table (>= 768px) */}
+          <div className="hidden md:block overflow-x-auto border border-slate-200 rounded-xl">
             <table className="w-full text-left text-xs text-slate-700">
               <thead className="bg-slate-50 border-b border-slate-200 uppercase text-[10px] font-bold text-slate-500">
                 <tr>
@@ -655,6 +656,82 @@ export const ExamDeskView: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Native Exam Cards (< 768px) */}
+          <div className="md:hidden divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
+            {exams.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-xs">No scheduled exams found.</div>
+            ) : (
+              exams.map(exam => (
+                <div key={exam.id} className="p-3.5 space-y-2.5 active:bg-slate-50 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">{exam.title}</h4>
+                      <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        <span className="text-indigo-700 font-semibold">{exam.subject_name || 'General'}</span> • {exam.batch_name || 'Batch'}
+                      </p>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase shrink-0 ${
+                      exam.status === 'GRADED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                      exam.status === 'PUBLISHED' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                      'bg-slate-100 text-slate-700 border border-slate-200'
+                    }`}>
+                      {exam.status}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    <span className="font-mono text-slate-600">{exam.exam_date} • {exam.duration_minutes}m</span>
+                    <span className="font-mono font-bold text-slate-900">{exam.total_marks} Marks</span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                    <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
+                      <span>M:{exam.mcq_total_marks || (exam.mcq_count * exam.mcq_marks_per_q)}</span>
+                      <span>•</span>
+                      <span>S:{exam.short_total_marks}</span>
+                      <span>•</span>
+                      <span>L:{exam.long_total_marks}</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedExamForPaper(exam);
+                          setShowPrintPaperModal(true);
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-200"
+                        title="Print Exam Test Paper"
+                      >
+                        <Printer className="w-3 h-3" />
+                        <span>Paper</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEvalSelectedExamId(exam.id);
+                          setActiveTab('evaluate');
+                        }}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs"
+                      >
+                        <PenTool className="w-3 h-3" />
+                        <span>Grade</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Mobile Floating Action Button (FAB) for New Exam */}
+          <button
+            type="button"
+            onClick={() => setShowCreateExamModal(true)}
+            className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 bg-slate-900 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-transform"
+            title="Create Exam"
+          >
+            <Plus className="w-6 h-6" />
+          </button>
         </div>
       )}
 

@@ -5,7 +5,6 @@ import {
   Phone,
   CheckCircle2,
   Calendar,
-  UserCheck,
   Send,
   Plus,
   RefreshCw,
@@ -15,7 +14,8 @@ import {
   X,
   FileCheck,
   AlertTriangle,
-  CheckCheck
+  CheckCheck,
+  Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -399,8 +399,24 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         </button>
       </PageHeading>
 
-      {/* Stats Bar */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
+      {/* Mobile Native 3-Stat Compact Strip (< 640px) */}
+      <div className="sm:hidden bg-white border border-slate-200 rounded-2xl p-3 shadow-xs grid grid-cols-3 divide-x divide-slate-100 text-center">
+        <div className="px-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Absentees</span>
+          <span className="text-sm font-bold font-mono text-slate-900 truncate block mt-0.5">{kpi.total_absentees}</span>
+        </div>
+        <div className="px-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Contacted</span>
+          <span className="text-sm font-bold font-mono text-emerald-600 truncate block mt-0.5">{kpi.contacted_percentage}%</span>
+        </div>
+        <div className="px-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pending</span>
+          <span className="text-sm font-bold font-mono text-blue-600 truncate block mt-0.5">{kpi.pending_count}</span>
+        </div>
+      </div>
+
+      {/* Desktop Stats Bar (>= 640px) */}
+      <div className="hidden sm:block bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
             <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Absentees</div>
@@ -447,41 +463,41 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         )}
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex border-b border-slate-200 gap-6 text-sm font-semibold text-slate-500">
+      {/* Tabs Navigation - Native Segmented Control */}
+      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold overflow-x-auto no-scrollbar whitespace-nowrap">
         <button
           onClick={() => setActiveTab('roster')}
-          className={`pb-2.5 flex items-center gap-2 transition-all ${
+          className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
             activeTab === 'roster'
-              ? 'border-b-2 border-rose-600 text-rose-600 font-bold'
-              : 'hover:text-slate-900'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <PhoneForwarded className="w-4 h-4" />
+          <PhoneForwarded className="w-3.5 h-3.5" />
           <span>Absentee Roster</span>
         </button>
 
         <button
           onClick={() => setActiveTab('retention')}
-          className={`pb-2.5 flex items-center gap-2 transition-all ${
+          className={`flex-1 min-w-[110px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
             activeTab === 'retention'
-              ? 'border-b-2 border-rose-600 text-rose-600 font-bold'
-              : 'hover:text-slate-900'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <UserCheck className="w-4 h-4" />
+          <Users className="w-3.5 h-3.5" />
           <span>Retention Cases</span>
         </button>
 
         <button
           onClick={() => setActiveTab('templates')}
-          className={`pb-2.5 flex items-center gap-2 transition-all ${
+          className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
             activeTab === 'templates'
-              ? 'border-b-2 border-rose-600 text-rose-600 font-bold'
-              : 'hover:text-slate-900'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <MessageCircle className="w-4 h-4" />
+          <MessageCircle className="w-3.5 h-3.5" />
           <span>WhatsApp Templates</span>
         </button>
       </div>
@@ -542,7 +558,8 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
           {/* Absentee Follow-Up Table */}
           <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+            {/* Desktop Absentee Follow-Up Table (>= 768px) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
@@ -721,6 +738,89 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Native Absentee Follow-Up Cards (< 768px) */}
+            <div className="md:hidden divide-y divide-slate-100 bg-white">
+              {followups.map(item => {
+                const currentPhoneChoice = phoneSelectionMap[item.id] || 'PRIMARY';
+                const hasBackup = !!item.backup_phone;
+                const activePhone = currentPhoneChoice === 'BACKUP' && hasBackup ? item.backup_phone : item.guardian_phone;
+
+                return (
+                  <div key={item.id} className="p-3.5 flex flex-col gap-2.5">
+                    {/* Top: Student & Consecutive Days */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-sm leading-tight">{item.student_name}</h4>
+                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                          Roll: {item.roll_number} • {item.batch_name}
+                        </p>
+                      </div>
+                      {item.consecutive_days >= 3 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+                          <AlertTriangle className="w-3 h-3 text-rose-600" />
+                          Day {item.consecutive_days} (Critical)
+                        </span>
+                      ) : item.consecutive_days === 2 ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                          Day 2 Absent
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                          Day 1 Absent
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Guardian Contact Info */}
+                    <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-semibold uppercase block">Guardian</span>
+                        <span className="font-semibold text-slate-800">{item.guardian_name || 'Parent / Guardian'}</span>
+                        <span className="text-[11px] font-mono text-slate-500 block">{activePhone || 'No Phone'}</span>
+                      </div>
+                      {hasBackup && (
+                        <select
+                          value={currentPhoneChoice}
+                          onChange={e => setPhoneSelectionMap(prev => ({ ...prev, [item.id]: e.target.value as 'PRIMARY' | 'BACKUP' }))}
+                          className="text-[10px] bg-white border border-slate-200 rounded px-1.5 py-1 text-slate-700"
+                        >
+                          <option value="PRIMARY">Primary</option>
+                          <option value="BACKUP">Backup</option>
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Action Triggers: 1-Tap WhatsApp, 1-Tap Call, Log Outcome */}
+                    <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenWhatsAppModal(item)}
+                        className="py-2 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all touch-press"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>WhatsApp</span>
+                      </button>
+                      <a
+                        href={`tel:${activePhone}`}
+                        className="py-2 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all touch-press"
+                      >
+                        <Phone className="w-3.5 h-3.5" />
+                        <span>Call</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenLogModal(item)}
+                        className="py-2 px-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all touch-press shadow-xs"
+                      >
+                        <FileCheck className="w-3.5 h-3.5" />
+                        <span>Log</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

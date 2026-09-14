@@ -430,6 +430,8 @@ const MainLayout: React.FC = () => {
                   activeScreen={currentScreen}
                   onNavigate={handleSwitchScreen} 
                 />
+              ) : currentScreen === 'teacher' ? (
+                <TeacherPortalView onNavigate={handleSwitchScreen} />
               ) : (
                 <GenericModuleView moduleId={currentScreen} />
               )

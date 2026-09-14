@@ -332,8 +332,26 @@ export const IncomeExpenseDeskView: React.FC = () => {
         </button>
       </PageHeading>
 
-      {/* KPI Stats Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Mobile Native 3-Stat Compact Strip (< 640px) */}
+      <div className="sm:hidden bg-white border border-slate-200 rounded-2xl p-3 shadow-xs grid grid-cols-3 divide-x divide-slate-100 text-center">
+        <div className="px-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Income</span>
+          <span className="text-xs font-bold font-mono text-emerald-600 truncate block mt-0.5">+{totalIncome.toLocaleString()}</span>
+        </div>
+        <div className="px-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Expense</span>
+          <span className="text-xs font-bold font-mono text-rose-600 truncate block mt-0.5">-{totalExpense.toLocaleString()}</span>
+        </div>
+        <div className="px-1">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Net</span>
+          <span className={`text-xs font-bold font-mono truncate block mt-0.5 ${netBalance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+            {netBalance >= 0 ? `+${netBalance.toLocaleString()}` : netBalance.toLocaleString()}
+          </span>
+        </div>
+      </div>
+
+      {/* Desktop KPI Stats Overview (>= 640px) */}
+      <div className="hidden sm:grid grid-cols-3 gap-4">
         <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Total Income</span>
@@ -380,14 +398,14 @@ export const IncomeExpenseDeskView: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+      {/* Tabs Navigation - Native Segmented Control */}
+      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold overflow-x-auto no-scrollbar whitespace-nowrap">
         <button
           onClick={() => setActiveTab('cashbook')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+          className={`flex-1 min-w-[90px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
             activeTab === 'cashbook'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
@@ -396,10 +414,10 @@ export const IncomeExpenseDeskView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('heads')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+          className={`flex-1 min-w-[110px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
             activeTab === 'heads'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <Tag className="w-3.5 h-3.5" />
@@ -408,10 +426,10 @@ export const IncomeExpenseDeskView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('pl_report')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+          className={`flex-1 min-w-[100px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
             activeTab === 'pl_report'
-              ? 'bg-slate-900 text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-white text-slate-900 shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
           <PieChart className="w-3.5 h-3.5" />
@@ -487,7 +505,9 @@ export const IncomeExpenseDeskView: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto border border-slate-100 rounded-xl">
+            <>
+            {/* Desktop Table (>= 768px) */}
+            <div className="hidden md:block overflow-x-auto border border-slate-100 rounded-xl">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 font-mono text-[11px] uppercase tracking-wider">
@@ -538,6 +558,72 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Native Transaction Feed (< 768px) */}
+            <div className="md:hidden divide-y divide-slate-100 bg-white rounded-xl border border-slate-100 overflow-hidden">
+              {filteredTransactions.map(t => {
+                const isIncome = t.type === 'income';
+                return (
+                  <div key={t.id} className="p-3.5 flex items-center justify-between gap-3 active:bg-slate-50 transition-colors">
+                    {/* Left: Icon + Head Name + Payee + Date */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                        isIncome ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-rose-50 text-rose-600 border border-rose-200'
+                      }`}>
+                        {isIncome ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900 text-sm truncate">
+                          {t.head_name || (isIncome ? 'Income Voucher' : 'Operational Expense')}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                          {t.payee_payer || t.description || 'Direct Entry'}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">
+                          <span>{t.date}</span>
+                          <span>•</span>
+                          <span className="capitalize">{t.payment_method.replace('_', ' ')}</span>
+                          {t.reference_number && (
+                            <>
+                              <span>•</span>
+                              <span>Ref: {t.reference_number}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Amount */}
+                    <div className="text-right shrink-0">
+                      <p className={`text-sm font-bold font-mono ${
+                        isIncome ? 'text-emerald-600' : 'text-rose-600'
+                      }`}>
+                        {isIncome ? '+' : '-'}PKR {Number(t.amount).toLocaleString()}
+                      </p>
+                      <span className={`inline-block mt-0.5 px-1.5 py-0.2 text-[9px] font-bold rounded uppercase ${
+                        isIncome ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                      }`}>
+                        {t.type}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Mobile Floating Action Button (FAB) for Voucher */}
+            <button
+              type="button"
+              onClick={() => {
+                setVoucherType('expense');
+                setShowVoucherModal(true);
+              }}
+              className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 bg-slate-900 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-transform"
+              title="Add Voucher"
+            >
+              <Plus className="w-6 h-6" />
+            </button>
+            </>
           )}
         </div>
       )}

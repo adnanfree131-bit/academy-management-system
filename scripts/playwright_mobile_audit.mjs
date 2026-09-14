@@ -275,7 +275,7 @@ async function runMobileAudit() {
     // Test Cashier Tab
     const cashierTab = await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('button'));
-      const cashier = btns.find(b => b.textContent && b.textContent.includes('Cashier Collection'));
+      const cashier = btns.find(b => b.textContent && b.textContent.toLowerCase().includes('cashier'));
       if (cashier) {
         cashier.click();
         return true;

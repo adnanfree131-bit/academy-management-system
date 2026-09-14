@@ -34,6 +34,9 @@ import {
   FileText,
   AlertTriangle,
   MoreVertical,
+  Phone,
+  MessageSquare,
+  ChevronRight,
 } from 'lucide-react';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
@@ -776,7 +779,9 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
             </p>
           </div>
         ) : (
-          <table className="w-full text-left text-xs border-collapse">
+          <>
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
             <thead>
               <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
                 <th className="px-3.5 py-2.5">Employee</th>
@@ -1060,7 +1065,91 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               })}
             </tbody>
           </table>
-        )}
+        </div>
+
+        {/* Mobile Native Staff Cards (< 768px) */}
+        <div className="md:hidden divide-y divide-slate-100 bg-white">
+          {filteredRows.map(row => (
+            <div
+              key={row.id}
+              onClick={() => openEditModal(row)}
+              className="p-3.5 active:bg-slate-50 transition-colors flex flex-col gap-2.5 cursor-pointer touch-press"
+            >
+              {/* Top: Photo + Code + Name + Status */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-12 rounded bg-slate-100 border border-slate-300 overflow-hidden flex items-center justify-center shrink-0 font-bold text-slate-700 text-xs">
+                    {row.avatar_url ? (
+                      <img src={row.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      row.full_name.charAt(0)
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                        {row.employee_code}
+                      </span>
+                      <h4 className="font-bold text-slate-900 text-sm truncate">{row.full_name}</h4>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">
+                      {row.designation} • <span className="text-indigo-600 font-semibold">{row.department}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize shrink-0 ${
+                  row.status === 'active'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : row.status === 'on_leave'
+                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                }`}>
+                  {row.status}
+                </span>
+              </div>
+
+              {/* Contact & Actions Row */}
+              <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                <div className="flex items-center gap-2">
+                  {row.phone && (
+                    <a
+                      href={`tel:${row.phone}`}
+                      onClick={e => e.stopPropagation()}
+                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-semibold flex items-center gap-1"
+                    >
+                      <Phone className="w-3 h-3 text-slate-500" />
+                      <span>Call</span>
+                    </a>
+                  )}
+                  {row.whatsapp && (
+                    <a
+                      href={`https://wa.me/${row.whatsapp.replace(/[^0-9]/g, '')}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[11px] font-semibold flex items-center gap-1 border border-emerald-200"
+                    >
+                      <MessageSquare className="w-3 h-3" />
+                      <span>WhatsApp</span>
+                    </a>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => openEditModal(row)}
+                  className="px-2.5 py-1 bg-slate-900 text-white rounded text-[11px] font-bold flex items-center gap-1"
+                >
+                  <span>Dossier</span>
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        </>
+      )}
       </div>
 
       {/* ========================================================================= */}

@@ -1359,7 +1359,8 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 Fee Invoices & Bank Challans ({invoices.length})
               </h3>
             </div>
-            <div className="overflow-x-auto">
+            {/* Desktop Table (>= 768px) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
@@ -1411,6 +1412,54 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Native Fee Cards (< 768px) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {invoices.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 text-xs">No invoices on file.</div>
+              ) : (
+                invoices.map(inv => {
+                  const balance = inv.balance_due ?? (inv as any).balance_amount ?? 0;
+                  return (
+                    <div key={inv.id} className="p-3.5 space-y-2 active:bg-slate-50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900 text-sm">{inv.billing_month}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          inv.status === 'paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}>
+                          {inv.status}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg font-mono">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block">Total Billed</span>
+                          <span className="font-bold text-slate-800">PKR {inv.net_amount.toLocaleString()}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block">Due / Balance</span>
+                          <span className={`font-bold ${balance > 0 ? 'text-rose-600' : 'text-slate-600'}`}>
+                            PKR {balance.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-1 text-xs">
+                        <span className="text-[11px] font-mono text-slate-500">Due: {inv.due_date}</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedChallanInvoice(inv)}
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors border border-slate-200"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-slate-600" />
+                          <span>Challan</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
 
           {/* Payment History Receipts */}
@@ -1420,7 +1469,8 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 Payment History ({payments.length})
               </h3>
             </div>
-            <div className="overflow-x-auto">
+            {/* Desktop Table (>= 768px) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[10px]">
@@ -1447,6 +1497,25 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Native Payment Cards (< 768px) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {payments.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 text-xs">No payment receipts recorded yet.</div>
+              ) : (
+                payments.map(p => (
+                  <div key={p.id} className="p-3.5 flex items-center justify-between gap-3 active:bg-slate-50 transition-colors">
+                    <div>
+                      <span className="font-mono font-bold text-xs text-slate-900 block">{p.receipt_number}</span>
+                      <span className="text-[11px] font-mono text-slate-500 block mt-0.5">{p.payment_date} • <span className="uppercase text-slate-700 font-semibold">{p.payment_method}</span></span>
+                    </div>
+                    <span className="font-mono font-bold text-emerald-700 text-sm">
+                      PKR {p.amount_paid.toLocaleString()}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 

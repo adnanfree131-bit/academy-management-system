@@ -6,9 +6,13 @@ import {
   GraduationCap,
   ChevronRight,
   LayoutDashboard,
+  CheckSquare,
+  UserPlus,
+  Receipt,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { PageHeading } from '../components/PageHeading';
+import { hapticSelection } from '../lib/haptics';
 import {
   Batch,
   AcademicProgram,
@@ -52,16 +56,16 @@ function StatCard({
     <button
       type="button"
       onClick={onClick}
-      className="bg-white border border-slate-200 rounded-2xl p-4 text-left hover:border-slate-300 transition-colors"
+      className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 text-left hover:border-slate-300 active:bg-slate-50 transition-colors"
     >
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-slate-500 font-medium">{label}</p>
-        <span className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center shrink-0">
-          <Icon className="w-4 h-4 text-slate-700" />
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs sm:text-sm text-slate-500 font-medium">{label}</p>
+        <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center shrink-0">
+          <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-700" />
         </span>
       </div>
-      <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">{value}</p>
-      <p className="mt-1 text-xs text-slate-500">{hint}</p>
+      <p className="mt-2 sm:mt-3 text-xl sm:text-2xl font-semibold tracking-tight text-slate-900 tabular-nums">{value}</p>
+      <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-slate-500 truncate">{hint}</p>
     </button>
   );
 }
@@ -319,7 +323,66 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         badge={todayLabel + (tenant?.academic_session ? ` • ${tenant.academic_session}` : '')}
       />
 
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+      {/* Mobile-Native Quick Action Strip */}
+      <div className="grid grid-cols-4 gap-2 md:hidden">
+        <button
+          type="button"
+          onClick={() => {
+            hapticSelection();
+            onNavigate('attendance');
+          }}
+          className="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-200 rounded-xl active:bg-slate-100 transition-colors shadow-2xs"
+        >
+          <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center mb-1">
+            <CheckSquare className="w-4 h-4" />
+          </span>
+          <span className="text-[10px] font-bold text-slate-800 tracking-tight">Attendance</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            hapticSelection();
+            onNavigate('voucher');
+          }}
+          className="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-200 rounded-xl active:bg-slate-100 transition-colors shadow-2xs"
+        >
+          <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100 flex items-center justify-center mb-1">
+            <CreditCard className="w-4 h-4" />
+          </span>
+          <span className="text-[10px] font-bold text-slate-800 tracking-tight">Collect Fee</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            hapticSelection();
+            onNavigate('enrollment');
+          }}
+          className="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-200 rounded-xl active:bg-slate-100 transition-colors shadow-2xs"
+        >
+          <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center mb-1">
+            <UserPlus className="w-4 h-4" />
+          </span>
+          <span className="text-[10px] font-bold text-slate-800 tracking-tight">+ Student</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            hapticSelection();
+            onNavigate('expenses');
+          }}
+          className="flex flex-col items-center justify-center p-2.5 bg-white border border-slate-200 rounded-xl active:bg-slate-100 transition-colors shadow-2xs"
+        >
+          <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center mb-1">
+            <Receipt className="w-4 h-4" />
+          </span>
+          <span className="text-[10px] font-bold text-slate-800 tracking-tight">+ Voucher</span>
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-4">
         <StatCard
           label="Students"
           value={n(activeStudents)}

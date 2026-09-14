@@ -549,7 +549,8 @@ export const PayrollDeskView: React.FC = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop 9-Column Master Register (>= 768px) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[11px] uppercase">
               <tr>
@@ -622,6 +623,86 @@ export const PayrollDeskView: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Native Payslip Cards (< 768px) */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {loading ? (
+            <div className="py-6 text-center text-slate-400 text-xs font-mono">Loading payroll records...</div>
+          ) : payslips.length === 0 ? (
+            <div className="py-6 text-center text-slate-400 text-xs">No payslips processed for {selectedMonth}.</div>
+          ) : (
+            payslips.map(slip => (
+              <div key={slip.id} className="p-3.5 space-y-2.5 active:bg-slate-50 transition-colors">
+                {/* Header: Slip # + Status Pill */}
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-xs text-indigo-700">{slip.slip_number}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase ${
+                    slip.status === 'paid'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      : 'bg-amber-50 text-amber-700 border border-amber-200'
+                  }`}>
+                    {slip.status}
+                  </span>
+                </div>
+
+                {/* Staff Name & Role */}
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">{slip.staff_name}</h4>
+                  <p className="text-xs text-slate-500">{slip.designation}</p>
+                </div>
+
+                {/* Financial 3-Pillar Breakdown */}
+                <div className="grid grid-cols-3 gap-2 p-2 bg-slate-50 rounded-xl border border-slate-100 text-center font-mono">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">Base</span>
+                    <span className="text-xs font-bold text-slate-700">{slip.base_salary.toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-emerald-600 block">+Add</span>
+                    <span className="text-xs font-bold text-emerald-700">+{slip.total_earnings.toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-rose-600 block">-Ded</span>
+                    <span className="text-xs font-bold text-rose-700">-{slip.total_deductions.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Net Amount & Action Buttons */}
+                <div className="flex items-center justify-between pt-1">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-mono">Net Payable</span>
+                    <span className="text-sm font-bold font-mono text-slate-900">{slip.net_salary.toLocaleString()} PKR</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {slip.status !== 'paid' && (
+                      <button
+                        onClick={() => {
+                          setActivePayslip(slip);
+                          setShowDisburseModal(true);
+                        }}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-colors shadow-2xs"
+                      >
+                        Disburse
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setPrintPayslip(slip);
+                        setShowPrintModal(true);
+                      }}
+                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-200"
+                      title="Print Official Payslip"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      <span>Slip</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

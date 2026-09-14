@@ -21,36 +21,39 @@ export const PageHeading: React.FC<PageHeadingProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 pb-1 ${className}`}>
-      <div className="flex items-center gap-2.5 min-w-0">
-        {icon && (
-          <span className="p-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 shrink-0 flex items-center justify-center">
-            {icon}
-          </span>
-        )}
-        <div className="min-w-0 flex items-center gap-2 flex-wrap">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 truncate">
-            {title}
-          </h1>
-          
-          {description && (
-            <SectionInfo text={description} />
-          )}
-
-          {badge && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-              {badgeIcon}
-              <span>{badge}</span>
+    <div className={`hidden sm:block pb-1 ${className}`}>
+      {/* Desktop Heading */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {icon && (
+            <span className="p-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 shrink-0 flex items-center justify-center">
+              {icon}
             </span>
           )}
-        </div>
-      </div>
+          <div className="min-w-0 flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 truncate">
+              {title}
+            </h1>
+            
+            {description && (
+              <SectionInfo text={description} />
+            )}
 
-      {children && (
-        <div className="flex items-center gap-2 overflow-x-auto shrink-0 flex-wrap sm:flex-nowrap">
-          {children}
+            {badge && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                {badgeIcon}
+                <span>{badge}</span>
+              </span>
+            )}
+          </div>
         </div>
-      )}
+
+        {children && (
+          <div className="flex items-center gap-2 shrink-0">
+            {children}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

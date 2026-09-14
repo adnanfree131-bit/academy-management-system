@@ -487,73 +487,72 @@ export const AcademySettingsView: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Institutional Unnumbered Navigation Tabs */}
-          <div className="flex border-b border-slate-200 bg-white rounded-2xl px-3 pt-2 gap-1 overflow-x-auto shadow-xs">
+          {/* Institutional Navigation Tabs - Native Segmented Control */}
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold overflow-x-auto no-scrollbar whitespace-nowrap">
             <button
               type="button"
               onClick={() => { setActiveTab('profile'); setSuccessMsg(null); setErrorMsg(null); }}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+              className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
                 activeTab === 'profile'
-                  ? 'border-indigo-600 text-slate-900 bg-slate-50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Building2 className="w-4 h-4 text-indigo-600" />
+              <Building2 className="w-3.5 h-3.5 text-indigo-600" />
               <span>Campus Profile</span>
             </button>
 
             <button
               type="button"
               onClick={() => { setActiveTab('departments'); setSuccessMsg(null); setErrorMsg(null); }}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+              className={`flex-1 min-w-[110px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
                 activeTab === 'departments'
-                  ? 'border-indigo-600 text-slate-900 bg-slate-50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Users className="w-4 h-4 text-sky-600" />
+              <Users className="w-3.5 h-3.5 text-sky-600" />
               <span>Departments</span>
             </button>
 
             <button
               type="button"
               onClick={() => { setActiveTab('challan'); setSuccessMsg(null); setErrorMsg(null); }}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+              className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
                 activeTab === 'challan'
-                  ? 'border-indigo-600 text-slate-900 bg-slate-50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Landmark className="w-4 h-4 text-emerald-600" />
+              <Landmark className="w-3.5 h-3.5 text-emerald-600" />
               <span>Bank & Challan</span>
             </button>
 
             <button
               type="button"
               onClick={() => { setActiveTab('shifts'); setSuccessMsg(null); setErrorMsg(null); }}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+              className={`flex-1 min-w-[110px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
                 activeTab === 'shifts'
-                  ? 'border-indigo-600 text-slate-900 bg-slate-50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Clock className="w-4 h-4 text-purple-600" />
+              <Clock className="w-3.5 h-3.5 text-purple-600" />
               <span>Shift Timings</span>
             </button>
 
             <button
               type="button"
               onClick={() => { setActiveTab('security'); setSecurityError(null); setSecuritySuccess(null); }}
-              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all cursor-pointer border-b-2 ${
+              className={`flex-1 min-w-[90px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
                 activeTab === 'security'
-                  ? 'border-indigo-600 text-slate-900 bg-slate-50 font-bold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <ShieldCheck className="w-4 h-4 text-amber-600" />
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
               <span>Security</span>
             </button>
-
           </div>
 
           {activeTab !== 'security' ? (

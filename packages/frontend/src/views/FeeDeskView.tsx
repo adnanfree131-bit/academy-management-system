@@ -15,7 +15,9 @@ import {
   RefreshCw,
   Edit2,
   Trash2,
-  TrendingUp
+  TrendingUp,
+  Percent,
+  BarChart2
 } from 'lucide-react';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import {
@@ -637,77 +639,86 @@ export const FeeDeskView: React.FC = () => {
       </PageHeading>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-          <p className="text-[11px] font-mono text-slate-500 uppercase tracking-wider font-semibold">Total Invoiced</p>
-          <p className="text-xl font-bold text-slate-900 mt-1">{totalBilled.toLocaleString()} <span className="text-xs text-slate-400 font-normal">PKR</span></p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{invoices.length} Vouchers Issued</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3.5">
+        <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3.5 shadow-2xs">
+          <p className="text-[10px] sm:text-[11px] font-mono text-slate-500 uppercase tracking-wider font-semibold truncate">Total Invoiced</p>
+          <p className="text-base sm:text-xl font-bold text-slate-900 mt-0.5 sm:mt-1 font-mono">{totalBilled.toLocaleString()} <span className="text-[10px] sm:text-xs text-slate-400 font-normal">PKR</span></p>
+          <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">{invoices.length} Vouchers Issued</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-          <p className="text-[11px] font-mono text-emerald-600 uppercase tracking-wider font-semibold">Total Collected</p>
-          <p className="text-xl font-bold text-emerald-600 mt-1">{totalCollected.toLocaleString()} <span className="text-xs text-slate-400 font-normal">PKR</span></p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{cashbook.length} Direct Receipts</p>
+        <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3.5 shadow-2xs">
+          <p className="text-[10px] sm:text-[11px] font-mono text-emerald-600 uppercase tracking-wider font-semibold truncate">Total Collected</p>
+          <p className="text-base sm:text-xl font-bold text-emerald-600 mt-0.5 sm:mt-1 font-mono">{totalCollected.toLocaleString()} <span className="text-[10px] sm:text-xs text-slate-400 font-normal">PKR</span></p>
+          <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">{cashbook.length} Direct Receipts</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-          <p className="text-[11px] font-mono text-amber-600 uppercase tracking-wider font-semibold">Outstanding Dues</p>
-          <p className="text-xl font-bold text-amber-600 mt-1">{totalOutstanding.toLocaleString()} <span className="text-xs text-slate-400 font-normal">PKR</span></p>
-          <p className="text-[11px] text-amber-600/80 mt-0.5">{unpaidCount} Pending Vouchers</p>
+        <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3.5 shadow-2xs">
+          <p className="text-[10px] sm:text-[11px] font-mono text-amber-600 uppercase tracking-wider font-semibold truncate">Outstanding Dues</p>
+          <p className="text-base sm:text-xl font-bold text-amber-600 mt-0.5 sm:mt-1 font-mono">{totalOutstanding.toLocaleString()} <span className="text-[10px] sm:text-xs text-slate-400 font-normal">PKR</span></p>
+          <p className="text-[10px] sm:text-[11px] text-amber-600/80 mt-0.5 truncate">{unpaidCount} Pending Vouchers</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-          <p className="text-[11px] font-mono text-indigo-600 uppercase tracking-wider font-semibold">Concessions Audited</p>
-          <p className="text-xl font-bold text-indigo-600 mt-1">{discounts.reduce((s, d) => s + d.actual_discount_amount, 0).toLocaleString()} <span className="text-xs text-slate-400 font-normal">PKR</span></p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{discounts.length} Approved Grants</p>
+        <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3.5 shadow-2xs">
+          <p className="text-[10px] sm:text-[11px] font-mono text-indigo-600 uppercase tracking-wider font-semibold truncate">Concessions Audited</p>
+          <p className="text-base sm:text-xl font-bold text-indigo-600 mt-0.5 sm:mt-1 font-mono">{discounts.reduce((s, d) => s + d.actual_discount_amount, 0).toLocaleString()} <span className="text-[10px] sm:text-xs text-slate-400 font-normal">PKR</span></p>
+          <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5 truncate">{discounts.length} Approved Grants</p>
         </div>
       </div>
 
-      {/* Main Tab Navigation */}
-      <div className="flex border-b border-slate-200 gap-4 sm:gap-6 text-sm font-medium overflow-x-auto no-scrollbar whitespace-nowrap">
+      {/* Main Tab Navigation - Native Segmented Control */}
+      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold overflow-x-auto no-scrollbar whitespace-nowrap">
         <button
           onClick={() => setActiveTab('invoices')}
-          className={`pb-3 transition-colors relative ${
-            activeTab === 'invoices' ? 'text-indigo-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+          className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
+            activeTab === 'invoices' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          Invoices & Challans
-          {activeTab === 'invoices' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-t" />}
+          <Receipt className="w-3.5 h-3.5 text-slate-500" />
+          <span>Invoices & Challans</span>
         </button>
         <button
           onClick={() => setActiveTab('cashier')}
-          className={`pb-3 transition-colors relative ${
-            activeTab === 'cashier' ? 'text-indigo-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+          className={`flex-1 min-w-[110px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
+            activeTab === 'cashier' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          Cashier Collection
-          {activeTab === 'cashier' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-t" />}
+          <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+          <span>Cashier Desk</span>
         </button>
         <button
           onClick={() => setActiveTab('discounts')}
-          className={`pb-3 transition-colors relative ${
-            activeTab === 'discounts' ? 'text-indigo-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+          className={`flex-1 min-w-[90px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
+            activeTab === 'discounts' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          Concessions
-          {activeTab === 'discounts' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-t" />}
+          <Percent className="w-3.5 h-3.5 text-slate-500" />
+          <span>Concessions</span>
         </button>
         <button
           onClick={() => setActiveTab('fee_heads')}
-          className={`pb-3 transition-colors relative ${
-            activeTab === 'fee_heads' ? 'text-indigo-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+          className={`flex-1 min-w-[80px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
+            activeTab === 'fee_heads' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          Fee Heads & Admission
-          {activeTab === 'fee_heads' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-t" />}
+          <Building2 className="w-3.5 h-3.5 text-slate-500" />
+          <span>Fee Heads</span>
         </button>
         <button
           onClick={() => setActiveTab('reports')}
-          className={`pb-3 transition-colors relative ${
-            activeTab === 'reports' ? 'text-indigo-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+          className={`flex-1 min-w-[70px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
+            activeTab === 'reports' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          Reports
-          {activeTab === 'reports' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-t" />}
+          <BarChart2 className="w-3.5 h-3.5 text-slate-500" />
+          <span>Reports</span>
         </button>
       </div>
+
+      {/* Mobile Floating Action Button (FAB) for + New Invoice */}
+      <button
+        onClick={() => setShowGenerateModal(true)}
+        className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 rounded-full bg-slate-900 text-white shadow-2xl flex items-center justify-center border border-slate-800 active:scale-95 transition-transform touch-press"
+        aria-label="New Invoice"
+      >
+        <Plus className="w-6 h-6 text-white" />
+      </button>
 
       {/* TAB 1: INVOICES & CHALLANS */}
       {activeTab === 'invoices' && (
@@ -759,7 +770,8 @@ export const FeeDeskView: React.FC = () => {
 
           {/* Invoices Table */}
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
+            {/* Desktop Invoices Table (>= 768px) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-700">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[11px] uppercase tracking-wider">
                   <tr>
@@ -848,6 +860,95 @@ export const FeeDeskView: React.FC = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Native Fee Invoice Cards (< 768px) */}
+            <div className="md:hidden divide-y divide-slate-100 bg-white">
+              {loading ? (
+                <div className="py-12 text-center text-slate-400">
+                  <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                  <span className="text-xs font-mono">Loading invoices...</span>
+                </div>
+              ) : filteredInvoices.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">
+                  <CreditCard className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                  <p className="text-xs font-semibold text-slate-600">No fee invoices found.</p>
+                </div>
+              ) : (
+                filteredInvoices.map(inv => (
+                  <div key={inv.id} className="p-3.5 flex flex-col gap-2.5">
+                    {/* Top: Invoice # + Status */}
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-bold text-slate-900">
+                        {inv.invoice_number}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase ${
+                        inv.status === 'paid'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : inv.status === 'partially_paid'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}>
+                        {inv.status.replace('_', ' ')}
+                      </span>
+                    </div>
+
+                    {/* Student & Batch */}
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">{inv.student_name}</h4>
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                        Roll: {inv.roll_number} • {inv.batch_name}
+                      </p>
+                    </div>
+
+                    {/* Financial Numbers Strip */}
+                    <div className="grid grid-cols-3 gap-2 bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 text-center font-mono">
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold block">Billed</span>
+                        <span className="text-xs font-bold text-slate-800">PKR {inv.net_amount.toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold block">Paid</span>
+                        <span className="text-xs font-bold text-emerald-600">PKR {inv.paid_amount.toLocaleString()}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 uppercase font-semibold block">Balance</span>
+                        <span className="text-xs font-bold text-rose-600">PKR {inv.balance_amount.toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                      <span className="text-[11px] text-slate-500">
+                        Due: <strong className="text-slate-700">{inv.due_date}</strong>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveInvoice(inv);
+                            setShowPrintModal(true);
+                          }}
+                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Challan</span>
+                        </button>
+                        {inv.status !== 'paid' && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenCollectModal(inv)}
+                            className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Collect</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

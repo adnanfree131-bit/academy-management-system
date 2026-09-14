@@ -147,15 +147,18 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] bg-slate-900/40 backdrop-blur-[2px] flex items-start justify-center pt-[12vh] px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-xs flex md:items-start justify-center md:pt-[10vh] p-0 md:px-4 animate-in fade-in duration-150" onClick={onClose}>
       <div
-        className="w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden"
+        className="w-full md:max-w-lg bg-white h-full md:h-auto md:rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-slate-100">
-          <Search className="w-4 h-4 text-slate-400" />
+        {/* Search Input Bar */}
+        <div className="flex items-center gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 bg-white">
+          <Search className="w-4 h-4 text-slate-400 shrink-0" />
           <input
             autoFocus
+            type="search"
+            placeholder="Search students, challans, or pages..."
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => {
@@ -170,35 +173,76 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
                 choose(items[activeIndex]);
               }
             }}
-            className="flex-1 text-sm text-slate-900 outline-none bg-transparent py-1"
+            className="flex-1 text-base md:text-sm text-slate-900 placeholder-slate-400 outline-none bg-transparent py-1 font-sans"
           />
-          <button type="button" onClick={onClose} className="p-1 text-slate-400 hover:text-slate-700">
+          {query && (
+            <button 
+              type="button" 
+              onClick={() => setQuery('')} 
+              className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="md:hidden px-2 py-1 text-xs font-bold text-indigo-600 active:text-indigo-800"
+          >
+            Cancel
+          </button>
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="hidden md:block p-1 text-slate-400 hover:text-slate-700"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="max-h-80 overflow-y-auto py-1">
+
+        {/* Results List */}
+        <div className="flex-1 md:max-h-80 overflow-y-auto py-1 divide-y divide-slate-100">
           {!q ? (
-            <p className="px-4 py-8 text-sm text-slate-500 text-center">
-              Type to search students, challans, or pages.
-            </p>
+            <div className="px-4 py-12 text-center space-y-2">
+              <Search className="w-8 h-8 text-slate-300 mx-auto" />
+              <p className="text-sm font-semibold text-slate-700">Search Academy ERP</p>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                Quickly locate student records, fee vouchers, or jump directly to any operational desk.
+              </p>
+            </div>
           ) : items.length === 0 ? (
-            <p className="px-4 py-6 text-xs text-slate-500 text-center">No matching students, fees, or pages.</p>
-          ) : items.map((item, idx) => (
-            <button
-              key={`${item.kind}-${item.id}`}
-              type="button"
-              onClick={() => choose(item)}
-              className={`w-full text-left px-4 py-2.5 flex items-center justify-between gap-3 text-sm ${
-                idx === activeIndex ? 'bg-slate-100' : 'hover:bg-slate-50'
-              }`}
-            >
-              <span className="font-semibold text-slate-900 truncate">{item.label}</span>
-              <span className="text-[10px] font-mono uppercase text-slate-400 shrink-0">{item.hint}</span>
-            </button>
-          ))}
+            <div className="px-4 py-10 text-center space-y-1">
+              <p className="text-xs font-semibold text-slate-600">No matching results found</p>
+              <p className="text-[11px] text-slate-400">Try searching by student name, roll number, or invoice #</p>
+            </div>
+          ) : (
+            items.map((item, idx) => (
+              <button
+                key={`${item.kind}-${item.id}`}
+                type="button"
+                onClick={() => choose(item)}
+                className={`w-full text-left px-4 py-3 md:py-2.5 flex items-center justify-between gap-3 text-sm transition-colors active:bg-slate-100 ${
+                  idx === activeIndex ? 'bg-slate-50 md:bg-slate-100' : 'hover:bg-slate-50'
+                }`}
+              >
+                <div className="min-w-0 flex items-center gap-2.5">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${
+                    item.kind === 'student' ? 'bg-blue-500' :
+                    item.kind === 'invoice' ? 'bg-emerald-500' : 'bg-indigo-500'
+                  }`} />
+                  <span className="font-semibold text-slate-900 truncate text-sm">{item.label}</span>
+                </div>
+                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0 font-semibold">
+                  {item.hint}
+                </span>
+              </button>
+            ))
+          )}
         </div>
-        <div className="px-4 py-2 border-t border-slate-100 text-[10px] text-slate-400 font-mono">
-          Ctrl+K to open · Enter to open · Esc to close
+
+        {/* Desktop Keyboard Hints Footer */}
+        <div className="hidden md:block px-4 py-2 border-t border-slate-100 text-[10px] text-slate-400 font-mono">
+          Ctrl+K to open · Enter to select · Esc to close
         </div>
       </div>
     </div>
