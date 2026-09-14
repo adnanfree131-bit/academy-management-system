@@ -1014,7 +1014,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           ===================================================================== */}
       {activeWhatsAppFollowup && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-emerald-600" />
@@ -1128,7 +1128,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           ===================================================================== */}
       {activeLogFollowup && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo
                 title="Log Call Outcome"
@@ -1243,7 +1243,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           ===================================================================== */}
       {rapidQueueOpen && rapidCurrentItem && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-emerald-600" />
@@ -1342,7 +1342,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           ===================================================================== */}
       {activeRetentionCase && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo
                 title="Parent Counseling"
@@ -1409,7 +1409,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           ===================================================================== */}
       {showCreateTemplateModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo
                 title="WhatsApp Template"

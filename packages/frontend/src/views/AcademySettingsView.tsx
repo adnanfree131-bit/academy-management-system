@@ -1022,7 +1022,7 @@ export const AcademySettingsView: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
                       <span className="text-xs font-bold text-slate-800 block">Morning Shift Timings</span>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
                           <label className="block text-[10px] text-slate-500 font-mono uppercase mb-1">Start Time</label>
                           <input
@@ -1046,7 +1046,7 @@ export const AcademySettingsView: React.FC = () => {
 
                     <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2">
                       <span className="text-xs font-bold text-slate-800 block">Evening Shift Timings</span>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
                           <label className="block text-[10px] text-slate-500 font-mono uppercase mb-1">Start Time</label>
                           <input

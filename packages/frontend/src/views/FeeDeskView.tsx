@@ -1543,7 +1543,7 @@ export const FeeDeskView: React.FC = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Billing Month</label>
                   <input
@@ -1729,7 +1729,7 @@ export const FeeDeskView: React.FC = () => {
                 {/* 1. Revision Scope */}
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-slate-700">Target Cohort Scope</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {[
                       { id: 'all', label: 'Entire Academy' },
                       { id: 'program', label: 'Specific Class' },
@@ -1860,7 +1860,7 @@ export const FeeDeskView: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 text-xs font-mono pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono pt-1">
                     <div>
                       <span className="text-[10px] text-slate-500 block uppercase">Current Monthly</span>
                       <span className="font-bold text-slate-900">PKR {totalCurrentTuition.toLocaleString()}</span>
@@ -1951,7 +1951,7 @@ export const FeeDeskView: React.FC = () => {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Type</label>
                   <select
@@ -2066,7 +2066,7 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL 4: 3-PER-PAGE PRINTABLE FEE CHALLAN */}
       {showPrintModal && activeInvoice && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-5xl w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-white rounded-2xl max-w-5xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden">
               <div className="flex items-center gap-2">
                 <Printer className="w-5 h-5 text-indigo-600" />
@@ -2229,7 +2229,7 @@ export const FeeDeskView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     System Code <span className="text-rose-500">*</span>

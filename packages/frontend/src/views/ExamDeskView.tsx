@@ -1234,7 +1234,7 @@ export const ExamDeskView: React.FC = () => {
       {/* CREATE NEW EXAM MODAL */}
       {showCreateExamModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo title="Create Exam" description="Configure exam details, batch, duration, and marks allocation" />
               <button onClick={() => setShowCreateExamModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
@@ -1254,7 +1254,7 @@ export const ExamDeskView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Batch / Section</label>
                   <select
@@ -1281,7 +1281,7 @@ export const ExamDeskView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Exam Date</label>
                   <input
@@ -1310,7 +1310,7 @@ export const ExamDeskView: React.FC = () => {
                   Question Section Marks Configuration
                 </h4>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
                     <label className="block text-[11px] text-slate-600 mb-0.5">MCQs Count:</label>
                     <input
@@ -1340,7 +1340,7 @@ export const ExamDeskView: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] text-slate-600 mb-0.5">Short Questions Total Marks:</label>
                     <input
@@ -1366,7 +1366,7 @@ export const ExamDeskView: React.FC = () => {
                 {/* Custom Question Labels & Numbering */}
                 <div className="pt-2 border-t border-slate-200 space-y-2">
                   <span className="font-bold text-slate-700 text-[11px] block">Custom Question Numbering / Labels:</span>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
                       <label className="text-[10px] text-slate-500 block">MCQ Label:</label>
                       <input
@@ -1428,7 +1428,7 @@ export const ExamDeskView: React.FC = () => {
       {/* PRINTABLE TEST PAPER MODAL */}
       {showPrintPaperModal && selectedExamForPaper && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <Printer className="w-4 h-4 text-indigo-600" />
@@ -1448,7 +1448,7 @@ export const ExamDeskView: React.FC = () => {
             </div>
 
             {/* Test Paper A4 Sheet */}
-            <div className="border border-slate-300 p-8 rounded-xl bg-white space-y-6 text-xs text-slate-900 font-serif">
+            <div className="border border-slate-300 p-4 sm:p-8 rounded-xl bg-white space-y-6 text-xs text-slate-900 font-serif">
               {/* Paper Header */}
               <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
                 <h2 className="text-xl font-black uppercase tracking-wide font-sans">{tenant?.name || 'ACADEMY PORTAL'}</h2>
@@ -1463,7 +1463,7 @@ export const ExamDeskView: React.FC = () => {
               </div>
 
               {/* Student Roll & Name Blank */}
-              <div className="grid grid-cols-2 gap-4 pb-2 border-b border-slate-300 text-xs font-sans">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-2 border-b border-slate-300 text-xs font-sans print:grid-cols-2">
                 <div>Student Name: _____________________________________</div>
                 <div className="text-right">Roll Number: ________________________</div>
               </div>
@@ -1482,7 +1482,7 @@ export const ExamDeskView: React.FC = () => {
                       <div className="font-medium text-slate-800">
                         ({idx + 1}) {q.question_text}
                       </div>
-                      <div className="grid grid-cols-4 gap-2 pl-4 text-slate-600 text-[11px]">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pl-4 text-slate-600 text-[11px] print:grid-cols-4">
                         {q.options?.map(opt => (
                           <div key={opt.key}>({opt.key}) {opt.text}</div>
                         ))}
@@ -1538,7 +1538,7 @@ export const ExamDeskView: React.FC = () => {
       {/* EXCEL CHAPTER UPLOAD MODAL (Flow A) */}
       {showExcelImportModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo title="Excel Question Import" description="Paste rows copied directly from Excel. The system automatically creates chapter categories and imports MCQs, Short, and Long questions." />
               <button onClick={() => setShowExcelImportModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
@@ -1554,7 +1554,7 @@ export const ExamDeskView: React.FC = () => {
             )}
 
             <form onSubmit={handleExcelImport} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Academic Program</label>
                   <select
@@ -1620,7 +1620,7 @@ export const ExamDeskView: React.FC = () => {
       {/* ADD QUESTION MODAL */}
       {showAddQuestionModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo title="Add Question" description="Store item in subject question repository" />
               <button onClick={() => setShowAddQuestionModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
@@ -1629,7 +1629,7 @@ export const ExamDeskView: React.FC = () => {
             </div>
 
             <form onSubmit={handleAddQuestion} className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Subject</label>
                   <select
@@ -1657,7 +1657,7 @@ export const ExamDeskView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">Question Type</label>
                   <select
@@ -1710,7 +1710,7 @@ export const ExamDeskView: React.FC = () => {
               {newQType === 'MCQ' && (
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
                   <span className="font-bold text-[11px] text-slate-700 block">MCQ Options:</span>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="flex items-center gap-1.5">
                       <span className="text-xs font-bold text-slate-500 w-4">A:</span>
                       <input type="text" value={newQOptionA} onChange={e => setNewQOptionA(e.target.value)} className="w-full px-2 py-1 border border-slate-300 rounded text-xs" />
@@ -1778,7 +1778,7 @@ export const ExamDeskView: React.FC = () => {
       {/* OFFICIAL STUDENT REPORT CARD MODAL */}
       {showReportCardModal && activeReportCard && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <Award className="w-4 h-4 text-purple-600" />
@@ -1853,7 +1853,7 @@ export const ExamDeskView: React.FC = () => {
               </div>
 
               {/* Student Bio Grid */}
-              <div className="grid grid-cols-2 gap-3 text-[11px] border-b border-slate-200 pb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px] border-b border-slate-200 pb-3 print:grid-cols-2">
                 <div>
                   <span className="text-slate-400 block text-[10px]">Student Name:</span>
                   <span className="font-bold text-slate-900">{activeReportCard.student.full_name}</span>
@@ -1914,7 +1914,7 @@ export const ExamDeskView: React.FC = () => {
               </table>
 
               {/* Total Marks & Grade Banner */}
-              <div className="grid grid-cols-4 gap-2 bg-slate-900 text-white p-4 rounded-xl text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-900 text-white p-4 rounded-xl text-center print:grid-cols-4">
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase block">Total Marks</span>
                   <strong className="text-base">{activeReportCard.exam.total_marks}</strong>

@@ -775,7 +775,7 @@ export const PayrollDeskView: React.FC = () => {
       {/* PRINT OFFICIAL PAYSLIP MODAL */}
       {showPrintModal && printPayslip && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 my-8">
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <Printer className="w-4 h-4 text-indigo-600" />
@@ -824,7 +824,7 @@ export const PayrollDeskView: React.FC = () => {
             </div>
 
             {/* Printable Payslip Card */}
-            <div className="border border-slate-300 p-6 rounded-xl bg-white space-y-4 text-xs font-mono">
+            <div className="border border-slate-300 p-4 sm:p-6 rounded-xl bg-white space-y-4 text-xs font-mono">
               <div className="text-center border-b border-slate-300 pb-3 space-y-1">
                 <h2 className="font-black text-slate-900 text-base uppercase tracking-tight">{tenant?.name || 'ACADEMY PORTAL'}</h2>
                 <p className="text-[10px] text-slate-500">{tenant?.campus_name || 'Main Campus'} • Official Salary Disbursement Slip</p>
@@ -833,7 +833,7 @@ export const PayrollDeskView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px] border-b border-slate-200 pb-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] border-b border-slate-200 pb-3 print:grid-cols-2">
                 <div>
                   <span className="text-slate-400 block text-[10px]">Staff Name & Role:</span>
                   <span className="font-bold text-slate-900">{printPayslip.staff_name} ({printPayslip.designation})</span>
@@ -852,7 +852,7 @@ export const PayrollDeskView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 print:grid-cols-2">
                 {/* Earnings Column */}
                 <div className="border border-slate-200 rounded p-2.5 space-y-2">
                   <p className="font-bold text-slate-900 border-b pb-1 text-[11px]">EARNINGS</p>

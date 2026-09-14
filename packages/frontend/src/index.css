@@ -89,43 +89,198 @@
   margin: 0 !important;
 }
 
-/* Institutional Frosted White Blur Backdrop for All Modal Popups & Overlays */
+/* Institutional Frosted Scrim Backdrop for All Modal Popups & Overlays */
 .fixed.inset-0[class*="bg-slate-900"],
 .fixed.inset-0[class*="bg-slate-950"],
 .fixed.inset-0[class*="bg-black"],
-.modal-backdrop-white {
-  background-color: rgba(255, 255, 255, 0.75) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
+.modal-backdrop-scrim {
+  background-color: rgba(15, 23, 42, 0.6) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
 }
 
-/* Native Slide-Up Bottom Sheet Transformation on Mobile (< 768px) */
+/* ========================================================================= */
+/* UNIVERSAL MOBILE NATIVE BOTTOM SHEET & FORM ENGINE (< 768px)              */
+/* Transforms EVERY modal, dialog, popup, and form drawer into a native sheet */
+/* ========================================================================= */
 @media screen and (max-width: 767px) {
-  /* Bottom sheet modal container positioning */
-  .fixed.inset-0.z-50,
-  .fixed.inset-0[class*="z-50"] {
+  /* 1. Universal Modal Overlay Bottom Sheet Alignment */
+  /* Matches any modal backdrop/overlay: z-50, z-60, z-[80], z-[90], z-[9999] */
+  .fixed.inset-0[class*="z-"]:not([class*="pointer-events-none"]):not(header):not(aside):not(.no-sheet-overlay),
+  .fixed.inset-0.z-50:not(aside),
+  .fixed.inset-0.z-60,
+  .fixed.inset-0[class*="z-["]:not(aside) {
     display: flex !important;
     align-items: flex-end !important;
     justify-content: center !important;
     padding: 0 !important;
+    margin: 0 !important;
+    overflow-y: hidden !important;
   }
 
-  /* Transform modal dialogue cards into bottom sheets */
-  .mobile-bottom-sheet,
-  .fixed.inset-0.z-50 > div[class*="bg-white"]:not(.no-sheet),
-  .fixed.inset-0[class*="z-50"] > div[class*="bg-white"]:not(.no-sheet) {
+  /* 2. Unify intermediate wrapper divs */
+  .fixed.inset-0[class*="z-"]:not([class*="pointer-events-none"]):not(header):not(aside):not(.no-sheet-overlay) > div:not([class*="bg-white"]):not(aside):not(.no-sheet) {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* 3. Transform Modal Cards into Native Bottom Sheets */
+  .fixed.inset-0[class*="z-"]:not([class*="pointer-events-none"]):not(header):not(aside):not(.no-sheet-overlay) > div[class*="bg-white"]:not(.no-sheet),
+  .fixed.inset-0[class*="z-"]:not([class*="pointer-events-none"]):not(header):not(aside):not(.no-sheet-overlay) > form[class*="bg-white"]:not(.no-sheet),
+  .fixed.inset-0[class*="z-"]:not([class*="pointer-events-none"]):not(header):not(aside):not(.no-sheet-overlay) > div:not([class*="bg-white"]) > div[class*="bg-white"]:not(.no-sheet),
+  .fixed.inset-0[class*="z-"]:not([class*="pointer-events-none"]):not(header):not(aside):not(.no-sheet-overlay) > div:not([class*="bg-white"]) > form[class*="bg-white"]:not(.no-sheet),
+  .mobile-bottom-sheet {
     width: 100% !important;
     max-width: 100% !important;
+    min-width: 100% !important;
     border-bottom-left-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
     border-top-left-radius: 1.5rem !important;
     border-top-right-radius: 1.5rem !important;
-    max-height: 92vh !important;
-    margin-bottom: 0 !important;
-    box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.12), 0 -8px 10px -6px rgba(0, 0, 0, 0.08) !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-bottom: none !important;
+    max-height: 90vh !important;
+    max-height: 90dvh !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    box-shadow: 0 -12px 36px -4px rgba(15, 23, 42, 0.28), 0 -4px 14px -2px rgba(15, 23, 42, 0.15) !important;
     animation: mobileSlideUpSheet 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
   }
 
+  /* 4. Native iOS/Android Drag Handle Pill */
+  .fixed.inset-0[class*="z-"]:not(.no-sheet-overlay) > div[class*="bg-white"]:not(.no-sheet)::before,
+  .fixed.inset-0[class*="z-"]:not(.no-sheet-overlay) > form[class*="bg-white"]:not(.no-sheet)::before,
+  .fixed.inset-0[class*="z-"]:not(.no-sheet-overlay) > div:not([class*="bg-white"]) > div[class*="bg-white"]:not(.no-sheet)::before,
+  .fixed.inset-0[class*="z-"]:not(.no-sheet-overlay) > div:not([class*="bg-white"]) > form[class*="bg-white"]:not(.no-sheet)::before {
+    content: '' !important;
+    display: block !important;
+    width: 36px !important;
+    height: 4px !important;
+    background-color: #cbd5e1 !important;
+    border-radius: 9999px !important;
+    margin: 10px auto 6px auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* 5. Modal Header Normalization: Fixed at Top with 44px Touch Close Targets */
+  .fixed.inset-0[class*="z-"] div[class*="border-b"]:first-child,
+  .fixed.inset-0[class*="z-"] form > div[class*="border-b"]:first-child,
+  .fixed.inset-0[class*="z-"] > div[class*="bg-white"] > div[class*="border-b"]:first-of-type {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.75rem !important;
+    flex-shrink: 0 !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+
+  .fixed.inset-0[class*="z-"] div[class*="border-b"]:first-child button,
+  .fixed.inset-0[class*="z-"] form > div[class*="border-b"]:first-child button,
+  .fixed.inset-0[class*="z-"] > div[class*="bg-white"] > div[class*="border-b"]:first-of-type button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* 6. Scrollable Form & Content Container: Never cut off fields or buttons */
+  .fixed.inset-0[class*="z-"] form,
+  .fixed.inset-0[class*="z-"] .overflow-y-auto,
+  .fixed.inset-0[class*="z-"] > div[class*="bg-white"] > div[class*="space-y-"],
+  .fixed.inset-0[class*="z-"] > div[class*="bg-white"] > div:not([class*="border-b"]):not([class*="border-t"]):not(style) {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin-top: 0 !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: max(3rem, calc(env(safe-area-inset-bottom) + 2.5rem)) !important;
+  }
+
+  /* 7. Input Touch Targets & Safari Auto-Zoom Prevention */
+  .fixed.inset-0[class*="z-"] form input:not([type="checkbox"]):not([type="radio"]),
+  .fixed.inset-0[class*="z-"] form select,
+  .fixed.inset-0[class*="z-"] form textarea,
+  .fixed.inset-0[class*="z-"] .overflow-y-auto input:not([type="checkbox"]):not([type="radio"]),
+  .fixed.inset-0[class*="z-"] .overflow-y-auto select,
+  .fixed.inset-0[class*="z-"] .overflow-y-auto textarea {
+    font-size: 16px !important;
+    min-height: 44px !important;
+    border-radius: 0.75rem !important;
+  }
+
+  /* 8. Collapse Squeezed Multi-Column Form Grids to 1 Column */
+  .fixed.inset-0[class*="z-"] form .grid:not(.keep-grid),
+  .fixed.inset-0[class*="z-"] .overflow-y-auto .grid:not(.keep-grid),
+  .fixed.inset-0[class*="z-"] div[class*="space-y-"] .grid:not(.keep-grid) {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Binary Button Toggle Grid Exception (Expense/Income, Active/Inactive) */
+  .fixed.inset-0[class*="z-"] form .grid.grid-cols-2:has(button):not(:has(input)):not(:has(select)),
+  .fixed.inset-0[class*="z-"] .grid.grid-cols-2:has(button):not(:has(input)):not(:has(select)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* 9. Full-Width Thumb-Reachable Action Buttons */
+  .fixed.inset-0[class*="z-"] form div[class*="justify-end"],
+  .fixed.inset-0[class*="z-"] form div[class*="border-t"]:has(button),
+  .fixed.inset-0[class*="z-"] div[class*="border-t"]:has(button) {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.625rem !important;
+    width: 100% !important;
+    padding: 0.875rem 1rem max(1rem, env(safe-area-inset-bottom)) 1rem !important;
+    margin-top: auto !important;
+    flex-shrink: 0 !important;
+    background-color: #f8fafc !important;
+  }
+
+  .fixed.inset-0[class*="z-"] div[class*="border-t"] div:has(button),
+  .fixed.inset-0[class*="z-"] form div[class*="justify-end"] div:has(button) {
+    display: flex !important;
+    flex-direction: column-reverse !important;
+    gap: 0.625rem !important;
+    width: 100% !important;
+  }
+
+  .fixed.inset-0[class*="z-"] form div[class*="justify-end"] button,
+  .fixed.inset-0[class*="z-"] form div[class*="border-t"] button,
+  .fixed.inset-0[class*="z-"] div[class*="border-t"] button {
+    width: 100% !important;
+    min-height: 46px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0.875rem !important;
+    font-weight: 700 !important;
+    border-radius: 0.75rem !important;
+  }
+
+  /* 10. Table Horizontal Scrolling inside Print & Detail Modals */
+  .fixed.inset-0[class*="z-"] table {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-width: 100% !important;
+  }
+
+  /* Keyframe for Native Bottom Sheet Slide-Up */
   @keyframes mobileSlideUpSheet {
     from {
       transform: translateY(100%);

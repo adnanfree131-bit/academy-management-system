@@ -804,8 +804,8 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {showVoucherModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden max-h-[92vh] flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
               <SectionInfo
                 title={`Record ${voucherType === 'income' ? 'Income' : 'Expense'}`}
                 description={`Create a new ${voucherType} voucher in the cashbook`}
@@ -815,8 +815,8 @@ export const IncomeExpenseDeskView: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCreateVoucher} className="p-5 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleCreateVoucher} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">Voucher Type</label>
                   <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl">
@@ -896,7 +896,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">Amount (PKR)</label>
                   <input
@@ -925,7 +925,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
                     {voucherType === 'income' ? 'Payer Name / Source' : 'Payee / Vendor Name'}

@@ -577,7 +577,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
   }, [token, currentStudent.id]);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-white/70 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-5 m-0">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 m-0">
       {/* Print Stylesheet */}
       <style>{`
         @media print {
@@ -607,17 +607,18 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
       `}</style>
 
       {/* Main Container / Bottom Sheet on Mobile */}
-      <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-5xl w-full shadow-2xl border-t sm:border border-slate-300/90 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[94vh] animate-in slide-in-from-bottom-5 sm:zoom-in-95 duration-200">
+      <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-5xl w-full shadow-2xl border-t sm:border border-slate-300/90 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[94vh] animate-in slide-in-from-bottom-5 sm:zoom-in-95 duration-200 has-drag-handle">
         {/* Mobile Swipe / Grab Handle Pill */}
         <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
         
         {/* Header */}
-        <div className="bg-white border-b border-slate-200 px-6 py-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 shrink-0">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             
-            {/* Student Details */}
-            <div className="flex items-start sm:items-center gap-4">
-              {/* Photo Box */}
+            {/* Student Details + Mobile Close Button */}
+            <div className="flex items-start justify-between w-full lg:w-auto gap-3">
+              <div className="flex items-start sm:items-center gap-3 sm:gap-4">
+                {/* Photo Box */}
               <div className="w-14 h-16 sm:w-16 sm:h-20 rounded border border-slate-300 bg-slate-100 flex items-center justify-center font-mono font-bold text-slate-700 text-sm overflow-hidden shrink-0">
                 {currentStudent.photo_url ? (
                   <img 
@@ -692,8 +693,19 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center flex-wrap gap-2 lg:self-start pt-1">
+            {/* Mobile Close Button */}
+              <button
+                type="button"
+                onClick={onClose}
+                className="lg:hidden p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors shrink-0"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Actions: Horizontally Scrollable on Mobile */}
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full lg:w-auto shrink-0">
               <button
                 onClick={() => {
                   setActiveTab('finance');
@@ -858,8 +870,9 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
               )}
 
               <button
+                type="button"
                 onClick={onClose}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors ml-1"
+                className="hidden lg:flex p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors ml-1"
                 title="Close"
               >
                 <X className="w-5 h-5" />
@@ -869,7 +882,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
         </div>
 
         {/* Navigation Tabs (Smooth kinetic horizontal scroll on mobile) */}
-        <div className="flex items-center overflow-x-auto no-scrollbar border-b border-slate-200 px-4 sm:px-6 bg-slate-50 text-xs font-medium gap-1 whitespace-nowrap">
+        <div className="flex items-center overflow-x-auto no-scrollbar border-b border-slate-200 px-4 sm:px-6 bg-slate-50 text-xs font-medium gap-1 whitespace-nowrap shrink-0">
           <button
             onClick={() => setActiveTab('academic')}
             className={`py-2.5 px-3 border-b-2 flex items-center gap-2 transition-colors ${
@@ -2016,7 +2029,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
+        <div className="p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-500 shrink-0">
           <div className="flex items-center gap-2">
             <span>Admission Date:</span>
             <span className="font-mono text-slate-700 font-medium">{student.admission_date}</span>
@@ -2042,7 +2055,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
 
       {/* 3-PART BANK CHALLAN PRINT MODAL */}
       {challanInvoice && (
-        <div className="fixed inset-0 z-60 bg-white/70 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto m-0">
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto m-0">
           <div className="bg-white rounded-lg max-w-5xl w-full p-6 shadow-2xl border border-slate-300 space-y-4 my-auto print:border-none print:shadow-none print:p-0">
             {/* Modal Toolbar */}
             <div className="flex items-center justify-between border-b border-slate-200 pb-3 no-print">
@@ -2074,8 +2087,8 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
               </div>
             </div>
 
-            {/* Printable 3-Part Grid */}
-            <div id="printable-challan-area" className="grid grid-cols-3 gap-3 text-[10px] font-sans">
+            {/* Printable 3-Part Grid: Stacks on mobile viewport, 3 columns on desktop and print */}
+            <div id="printable-challan-area" className="grid grid-cols-1 md:grid-cols-3 print:grid-cols-3 gap-3 text-[10px] font-sans">
               {['BANK COPY', 'ACADEMY COPY', 'STUDENT COPY'].map((copyTitle, copyIdx) => (
                 <div 
                   key={copyIdx} 
@@ -2175,7 +2188,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
 
       {/* UPDATE ENROLLED SUBJECTS MODAL */}
       {showEditSubjectsModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-white/70 backdrop-blur-md animate-in fade-in duration-150 m-0">
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 m-0">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-300 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2">
@@ -2347,7 +2360,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
 
       {/* EDIT PARTICULARS MODAL */}
       {showEditParticularsModal && (
-        <div className="fixed inset-0 z-60 bg-white/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 m-0">
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 m-0">
           <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col max-h-[90vh]">
             <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
               <div>
@@ -2581,7 +2594,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
 
       {/* ADMINISTRATIVE STUDENT PASSWORD RESET MODAL */}
       {showResetPasswordModal && (
-        <div className="fixed inset-0 z-60 bg-white/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 m-0">
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 m-0">
           <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
@@ -2707,7 +2720,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                 {/* Password Selection */}
                 <div className="space-y-2 pt-1">
                   <label className="font-bold text-slate-700 block">Password Option</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setResetPasswordType('default')}
@@ -2795,7 +2808,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
 
       {/* STUDENT PROFILE AUDIT LOGS MODAL */}
       {showAuditLogsModal && (
-        <div className="fixed inset-0 z-60 bg-white/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 m-0">
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 m-0">
           <div className="bg-white rounded-xl max-w-3xl w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col max-h-[85vh]">
             <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
               <div>

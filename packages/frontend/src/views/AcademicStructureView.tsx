@@ -1362,7 +1362,7 @@ export const AcademicStructureView: React.FC = () => {
       {/* MODAL 1: CREATE NEW CLASS */}
       {showProgramModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 rounded-xl bg-slate-900 text-white">
@@ -1392,7 +1392,7 @@ export const AcademicStructureView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-slate-700 font-bold">
@@ -1447,7 +1447,7 @@ export const AcademicStructureView: React.FC = () => {
                   Batches in this class inherit these defaults automatically during enrollment & billing.
                 </p>
 
-                <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                   <div>
                     <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Monthly Tuition (PKR)</label>
                     <input
@@ -1535,7 +1535,7 @@ export const AcademicStructureView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="text-slate-700 font-bold">Class Code</label>
@@ -1584,7 +1584,7 @@ export const AcademicStructureView: React.FC = () => {
                   Batches in this class inherit these defaults automatically during enrollment & billing.
                 </p>
 
-                <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                   <div>
                     <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Monthly Tuition (PKR)</label>
                     <input
@@ -1873,7 +1873,7 @@ export const AcademicStructureView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">
                     Shift <span className="text-rose-500">*</span>
@@ -1999,7 +1999,7 @@ export const AcademicStructureView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">
                     Shift <span className="text-rose-500">*</span>

@@ -2164,7 +2164,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
             </div>
 
             {/* Side-by-side or Stacked Preview */}
-            <div id="printable-staff-id-card-area" className="flex flex-col sm:flex-row items-center justify-center gap-6 py-4 bg-slate-100/70 p-6 rounded-2xl border border-slate-200 print:bg-white print:border-none print:p-0">
+            <div id="printable-staff-id-card-area" className="flex flex-col sm:flex-row items-center justify-center gap-6 py-4 bg-slate-100/70 p-2 sm:p-6 rounded-2xl border border-slate-200 print:bg-white print:border-none print:p-0">
               {/* FRONT OF CARD */}
               <div className="w-[320px] h-[202px] bg-white rounded-xl border border-slate-300 shadow-md flex flex-col justify-between overflow-hidden select-none relative">
                 {/* Official Institutional Header */}
@@ -2333,7 +2333,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
             </div>
 
             {/* A4 Letter Sheet Preview */}
-            <div id="printable-staff-letter-area" className="bg-white border border-slate-300 p-8 rounded-xl space-y-6 text-slate-900 font-sans shadow-sm print:border-none print:shadow-none print:p-0">
+            <div id="printable-staff-letter-area" className="bg-white border border-slate-300 p-4 sm:p-8 rounded-xl space-y-6 text-slate-900 font-sans shadow-sm print:border-none print:shadow-none print:p-0">
               {/* Header Letterhead */}
               <div className="border-b-2 border-slate-900 pb-4 flex items-center justify-between">
                 <div>
@@ -2461,7 +2461,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               </div>
 
               {/* Signatures */}
-              <div className="pt-12 grid grid-cols-2 gap-8 text-xs border-t border-slate-200">
+              <div className="pt-12 grid grid-cols-1 sm:grid-cols-2 gap-8 text-xs border-t border-slate-200 print:grid-cols-2">
                 <div>
                   <div className="w-36 border-b border-slate-900 mb-1" />
                   <p className="font-bold text-slate-900">Campus Director / Principal</p>

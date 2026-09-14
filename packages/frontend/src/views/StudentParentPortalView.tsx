@@ -1736,7 +1736,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <span className="text-slate-500 ml-2">({profile?.batch_name})</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">From Date</label>
                   <input
@@ -2019,7 +2019,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 </div>
 
                 {/* Particulars Matrix */}
-                <div className="grid grid-cols-2 gap-3 mb-5 text-xs border border-slate-300 p-3 bg-slate-50/50">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 text-xs border border-slate-300 p-3 bg-slate-50/50">
                   <div className="space-y-1">
                     <div><span className="text-slate-500 font-bold uppercase text-[10px]">Student Name: </span><span className="font-bold text-slate-900">{printingReportCard.student.full_name}</span></div>
                     <div><span className="text-slate-500 font-bold uppercase text-[10px]">Roll Number: </span><span className="font-mono font-bold text-slate-900">{printingReportCard.student.roll_number}</span></div>
@@ -2070,8 +2070,8 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 </table>
 
                 {/* Evaluation Remarks */}
-                <div className="grid grid-cols-3 gap-3 mb-8">
-                  <div className="col-span-2 border border-slate-300 p-3 rounded">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8 print:grid-cols-3">
+                  <div className="sm:col-span-2 border border-slate-300 p-3 rounded print:col-span-2">
                     <span className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Teacher Remarks:</span>
                     <p className="italic text-slate-800 text-xs">
                       "{printingReportCard.evaluation.short_remarks || printingReportCard.evaluation.long_remarks || 'Satisfactory academic performance.'}"

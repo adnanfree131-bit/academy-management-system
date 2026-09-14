@@ -268,7 +268,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
               </div>
 
               <form onSubmit={handleSubmitReceipt} className="space-y-3.5 text-xs">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">Plan Duration:</label>
                     <select
@@ -299,7 +299,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">Payment Channel:</label>
                     <select

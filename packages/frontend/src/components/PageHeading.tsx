@@ -21,9 +21,9 @@ export const PageHeading: React.FC<PageHeadingProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`hidden sm:block pb-1 ${className}`}>
-      {/* Desktop Heading */}
-      <div className="flex items-center justify-between gap-4">
+    <div className={`pb-1 ${className}`}>
+      {/* Desktop Heading (>= sm) */}
+      <div className="hidden sm:flex items-center justify-between gap-4">
         <div className="flex items-center gap-2.5 min-w-0">
           {icon && (
             <span className="p-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 shrink-0 flex items-center justify-center">
@@ -54,6 +54,13 @@ export const PageHeading: React.FC<PageHeadingProps> = ({
           </div>
         )}
       </div>
+
+      {/* Mobile Action Strip (< sm): Makes modal trigger buttons visible and thumb-accessible */}
+      {children && (
+        <div className="sm:hidden flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full shrink-0">
+          {children}
+        </div>
+      )}
     </div>
   );
 };

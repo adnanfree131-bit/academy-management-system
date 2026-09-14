@@ -477,8 +477,8 @@ export const TimetableDesk: React.FC = () => {
       {/* Schedule Class Modal with Live Collision Prevention */}
       {showScheduleModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="p-1.5 bg-slate-900 text-white rounded-lg">
                   <Calendar className="w-4 h-4" />
@@ -493,9 +493,9 @@ export const TimetableDesk: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCreateSlot} className="p-5 space-y-4">
+            <form onSubmit={handleCreateSlot} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
               {/* Batch & Day Selection */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">Target Batch</label>
                   <select
@@ -526,7 +526,7 @@ export const TimetableDesk: React.FC = () => {
               </div>
 
               {/* Time Interval */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">Period Start Time</label>
                   <input

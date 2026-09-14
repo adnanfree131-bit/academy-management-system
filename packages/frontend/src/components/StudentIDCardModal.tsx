@@ -137,7 +137,7 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
         </div>
 
         {/* Printable Card Area */}
-        <div id="printable-id-card-area" className="p-8 bg-slate-100/60 flex flex-col items-center justify-center min-h-[320px] print:p-0 print:bg-white">
+        <div id="printable-id-card-area" className="p-2 sm:p-8 overflow-x-auto bg-slate-100/60 flex flex-col items-center justify-center min-h-[320px] print:p-0 print:bg-white">
           <StudentIDCardItem
             student={student}
             batch={batch}
