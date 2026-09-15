@@ -49,10 +49,9 @@ describe('Phase 8: Academy Settings, Income/Expense Operations & Admission Finan
           account_number: '0102-0104882910',
           iban: 'PK36MEZN0001020104882910',
           branch_code: 'Gulberg Branch (0102)',
-          liquidation_rules: {
+          fee_rules: {
             due_day: 10,
             grace_days: 5,
-            late_fee_per_day: 50,
             priority_order: ['admission_fee', 'exam_fee', 'tuition_fee']
           },
           shifts: {
@@ -76,7 +75,7 @@ describe('Phase 8: Academy Settings, Income/Expense Operations & Admission Finan
       expect(body.data.settings.campus_name).toBe('Gulberg Executive Campus');
       expect(body.data.settings.bank_name).toBe('Meezan Bank Limited');
       expect(body.data.settings.iban).toBe('PK36MEZN0001020104882910');
-      expect(body.data.settings.liquidation_rules.due_day).toBe(10);
+      expect(body.data.settings.fee_rules.due_day).toBe(10);
       expect(body.data.settings.shifts.morning.start).toBe('08:00');
 
       // Verify persistence via subsequent GET

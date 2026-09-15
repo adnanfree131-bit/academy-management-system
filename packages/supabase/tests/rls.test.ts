@@ -12,45 +12,16 @@ describe('Phase 1: Multi-Tenant Row-Level Security (RLS) Isolation Suite', () =>
   beforeAll(async () => {
     db = new PGlite();
 
-    // 1. Execute Migration 00001 (Core Tenancy & Users)
-    const mig1Path = path.join(__dirname, '../migrations/00001_tenants_and_core_auth.sql');
-    const mig1Sql = fs.readFileSync(mig1Path, 'utf8');
-    await db.exec(mig1Sql);
+    // Execute all migrations in sequence
+    const migrationsDir = path.join(__dirname, '../migrations');
+    const migrationFiles = fs.readdirSync(migrationsDir)
+      .filter((f) => f.endsWith('.sql'))
+      .sort();
 
-    // 2. Execute Migration 00002 (Academic Hierarchy & Student SIS)
-    const mig2Path = path.join(__dirname, '../migrations/00002_academic_hierarchy_and_sis.sql');
-    const mig2Sql = fs.readFileSync(mig2Path, 'utf8');
-    await db.exec(mig2Sql);
-
-    // 3. Execute Migration 00003 (Timetable, Attendance, Geofencing, Homework)
-    const mig3Path = path.join(__dirname, '../migrations/00003_timetable_attendance_geofence_homework.sql');
-    const mig3Sql = fs.readFileSync(mig3Path, 'utf8');
-    await db.exec(mig3Sql);
-
-    // 4. Execute Migration 00004 (Finance, Invoices, Payments, Payroll)
-    const mig4Path = path.join(__dirname, '../migrations/00004_finance_vouchers_payroll.sql');
-    const mig4Sql = fs.readFileSync(mig4Path, 'utf8');
-    await db.exec(mig4Sql);
-
-    // 5. Execute Migration 00005 (Examination Bank, Simple Exam & Hybrid Evaluation)
-    const mig5Path = path.join(__dirname, '../migrations/00005_examination_question_bank.sql');
-    const mig5Sql = fs.readFileSync(mig5Path, 'utf8');
-    await db.exec(mig5Sql);
-
-    // 6. Execute Migration 00006 (WhatsApp Templates, Absentee & Retention Desk)
-    const mig6Path = path.join(__dirname, '../migrations/00006_whatsapp_absentee_retention.sql');
-    const mig6Sql = fs.readFileSync(mig6Path, 'utf8');
-    await db.exec(mig6Sql);
-
-    // 7. Execute Migration 00007 (SaaS Billing, Platform Banking Config, Subscription Receipts)
-    const mig7Path = path.join(__dirname, '../migrations/00007_saas_billing_lockout.sql');
-    const mig7Sql = fs.readFileSync(mig7Path, 'utf8');
-    await db.exec(mig7Sql);
-
-    // 8. Execute Migration 00008 (SuperAdmin Platform Controls, Aliases, Announcements)
-    const mig8Path = path.join(__dirname, '../migrations/00008_superadmin_platform_controls.sql');
-    const mig8Sql = fs.readFileSync(mig8Path, 'utf8');
-    await db.exec(mig8Sql);
+    for (const file of migrationFiles) {
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      await db.exec(sql);
+    }
 
     // 9. Execute Dual-Tenant Seed Fixture
     const seedPath = path.join(__dirname, '../seeds/001_dual_tenant_seed.sql');

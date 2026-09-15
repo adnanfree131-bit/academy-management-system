@@ -44,8 +44,6 @@ export interface StudentChallanData {
   concession_amount?: number;
   arrears_amount?: number;
   net_amount: number;
-  late_fee_fine?: number;
-  total_after_due_date?: number;
 }
 
 export interface BatchChallanPdfOptions {
@@ -446,43 +444,18 @@ export async function buildBatchChallansPdfBytes(opts: BatchChallanPdfOptions): 
         borderColor: rgb(0.7, 0.8, 0.95),
         borderWidth: 0.8,
       });
-      page.drawText('PAYABLE BY DUE DATE:', { x: colX + 4, y: y - 13, size: 7, font: fontBold, color: NAVY });
+      page.drawText('TOTAL PAYABLE AMOUNT:', { x: colX + 4, y: y - 13, size: 7, font: fontBold, color: NAVY });
       const netStr = `PKR ${Number(ch.net_amount).toLocaleString()}`;
       const netW = fontBold.widthOfTextAtSize(netStr, 8.5);
       page.drawText(netStr, { x: colX + colWidth - 6 - netW, y: y - 13, size: 8.5, font: fontBold, color: NAVY });
-      y -= 24;
-
-      // Late fee surcharge and after due date
-      const lateFine = ch.late_fee_fine || 200;
-      const afterDue = ch.total_after_due_date || (ch.net_amount + lateFine);
-
-      page.drawText('Late Fee Surcharge:', { x: colX + 4, y, size: 6.5, font, color: SLATE });
-      const fineStr = `PKR ${Number(lateFine).toLocaleString()}`;
-      const fineW = font.widthOfTextAtSize(fineStr, 6.5);
-      page.drawText(fineStr, { x: colX + colWidth - 6 - fineW, y, size: 6.5, font, color: SLATE });
-      y -= 12;
-
-      page.drawRectangle({
-        x: colX,
-        y: y - 14,
-        width: colWidth,
-        height: 16,
-        color: rgb(0.99, 0.95, 0.95),
-        borderColor: rgb(0.9, 0.75, 0.75),
-        borderWidth: 0.5,
-      });
-      page.drawText('PAYABLE AFTER DUE DATE:', { x: colX + 4, y: y - 10, size: 6.5, font: fontBold, color: rgb(0.65, 0.1, 0.1) });
-      const afterStr = `PKR ${Number(afterDue).toLocaleString()}`;
-      const afterW = fontBold.widthOfTextAtSize(afterStr, 7.5);
-      page.drawText(afterStr, { x: colX + colWidth - 6 - afterW, y: y - 10, size: 7.5, font: fontBold, color: rgb(0.65, 0.1, 0.1) });
-      y -= 22;
+      y -= 26;
 
       // 7. Instructions
       page.drawText('INSTRUCTIONS:', { x: colX + 2, y, size: 6, font: fontBold, color: SLATE });
       y -= 8;
       const instructions = [
         '1. Please deposit fee on or before due date.',
-        '2. Late surcharge automatically applies after due date.',
+        '2. Retain deposit receipt for academy records.',
         '3. Fee once deposited is strictly non-refundable.',
       ];
       for (const inst of instructions) {

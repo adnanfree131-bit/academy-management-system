@@ -164,9 +164,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [admitCustomSubjectIds, setAdmitCustomSubjectIds] = useState<string[]>([]);
   const [bloodGroup, setBloodGroup] = useState('');
   const [admissionTuition, setAdmissionTuition] = useState<number | ''>('');
-  const [admissionFeeCharge, setAdmissionFeeCharge] = useState<number | ''>('');
-  const [admissionExamCharge, setAdmissionExamCharge] = useState<number | ''>('');
-  const [admissionHeadOverrides, setAdmissionHeadOverrides] = useState<Record<string, number | ''>>({});
+  const [selectedAdmissionHeads, setSelectedAdmissionHeads] = useState<Array<{ fee_head_id: string; amount: number }>>([]);
+  const [headToAdd, setHeadToAdd] = useState<string>('');
 
   const [concessionType, setConcessionType] = useState<'none' | 'kinship' | 'merit' | 'hardship' | 'staff' | 'custom'>('none');
   const [concessionMode, setConcessionMode] = useState<'percentage' | 'flat'>('percentage');
@@ -530,20 +529,11 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       const p = programs.find(x => x.id === enrollForm.program_id);
       const tuition = b?.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount 
         ?? p?.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount;
-      const admission = b?.fee_schedule?.find(f => f.fee_type === 'admission')?.amount 
-        ?? p?.fee_schedule?.find(f => f.fee_type === 'admission')?.amount;
-      const exam = b?.fee_schedule?.find(f => f.fee_type === 'exam_lab')?.amount 
-        ?? p?.fee_schedule?.find(f => f.fee_type === 'exam_lab')?.amount;
-      
       if (tuition !== undefined) setAdmissionTuition(tuition);
-      if (admission !== undefined) setAdmissionFeeCharge(admission);
-      if (exam !== undefined) setAdmissionExamCharge(exam);
     }
   }, [enrollForm.batch_id, enrollForm.program_id, batches, programs]);
 
   const tuitionNum = typeof admissionTuition === 'number' ? admissionTuition : 0;
-  const admissionFeeNum = typeof admissionFeeCharge === 'number' ? admissionFeeCharge : 0;
-  const examFeeNum = typeof admissionExamCharge === 'number' ? admissionExamCharge : 0;
   const concessionValNum = typeof concessionVal === 'number' ? concessionVal : 0;
 
   const discountAmount = useMemo(() => {
@@ -556,23 +546,34 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
   const netMonthlyTuition = Math.max(0, tuitionNum - discountAmount);
 
-  // Active Fee Heads configured for Admission
-  const admissionActiveHeads = useMemo(() => {
-    return feeHeads.filter(h => h.show_at_admission !== false);
-  }, [feeHeads]);
+  const availableAdmissionHeads = useMemo(() => {
+    return feeHeads.filter(h => h.code !== 'TUITION' && !selectedAdmissionHeads.some(s => s.fee_head_id === h.id));
+  }, [feeHeads, selectedAdmissionHeads]);
 
-  const otherAdmissionHeads = useMemo(() => {
-    return admissionActiveHeads.filter(h => h.code !== 'TUITION' && h.code !== 'ADMISSION' && h.code !== 'EXAM');
-  }, [admissionActiveHeads]);
+  const additionalHeadsTotal = useMemo(() => {
+    return selectedAdmissionHeads.reduce((sum, h) => sum + (Number(h.amount) || 0), 0);
+  }, [selectedAdmissionHeads]);
 
-  const otherHeadsTotal = useMemo(() => {
-    return otherAdmissionHeads.reduce((sum, h) => {
-      const val = admissionHeadOverrides[h.id] !== undefined ? admissionHeadOverrides[h.id] : h.default_amount;
-      return sum + (typeof val === 'number' ? val : 0);
-    }, 0);
-  }, [otherAdmissionHeads, admissionHeadOverrides]);
+  const firstMonthTotal = netMonthlyTuition + additionalHeadsTotal;
 
-  const firstMonthTotal = netMonthlyTuition + admissionFeeNum + examFeeNum + otherHeadsTotal;
+  const handleAddAdmissionHead = (feeHeadId: string) => {
+    if (!feeHeadId) return;
+    const head = feeHeads.find(h => h.id === feeHeadId);
+    if (!head) return;
+    setSelectedAdmissionHeads(prev => [
+      ...prev,
+      { fee_head_id: head.id, amount: head.default_amount || 0 }
+    ]);
+    setHeadToAdd('');
+  };
+
+  const handleRemoveAdmissionHead = (feeHeadId: string) => {
+    setSelectedAdmissionHeads(prev => prev.filter(h => h.fee_head_id !== feeHeadId));
+  };
+
+  const handleUpdateAdmissionHeadAmount = (feeHeadId: string, amount: number) => {
+    setSelectedAdmissionHeads(prev => prev.map(h => h.fee_head_id === feeHeadId ? { ...h, amount } : h));
+  };
 
   // Direct Admission Submit
   const handleEnrollStudent = async (e: React.FormEvent) => {
@@ -626,8 +627,12 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           blood_group: bloodGroup || undefined,
           fee_structure: {
             base_tuition: tuitionNum,
-            admission_fee: admissionFeeNum,
-            exam_fee: examFeeNum,
+            admission_fee: selectedAdmissionHeads.find(h => feeHeads.find(fh => fh.id === h.fee_head_id)?.code === 'ADMISSION')?.amount || 0,
+            exam_fee: selectedAdmissionHeads.find(h => feeHeads.find(fh => fh.id === h.fee_head_id)?.code === 'EXAM')?.amount || 0,
+            additional_heads: selectedAdmissionHeads.map(h => ({
+              fee_head_id: h.fee_head_id,
+              amount: Number(h.amount) || 0
+            })),
             concession_type: concessionMode,
             concession_val: discountAmount > 0 ? concessionValNum : 0,
             concession_reason: discountAmount > 0 ? concessionReason : undefined,
@@ -683,11 +688,9 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         // Prepare receipt items
         const receiptItems = [
           { name: 'Monthly Tuition (Net)', amount: netMonthlyTuition },
-          ...(admissionFeeNum > 0 ? [{ name: 'Admission Fee', amount: admissionFeeNum }] : []),
-          ...(examFeeNum > 0 ? [{ name: 'Exam & Lab Charges', amount: examFeeNum }] : []),
-          ...otherAdmissionHeads.map(h => {
-            const val = admissionHeadOverrides[h.id] !== undefined ? admissionHeadOverrides[h.id] : h.default_amount;
-            return { name: h.name, amount: typeof val === 'number' ? val : 0 };
+          ...selectedAdmissionHeads.map(h => {
+            const head = feeHeads.find(fh => fh.id === h.fee_head_id);
+            return { name: head?.name || 'Fee Head', amount: Number(h.amount) || 0 };
           }).filter(it => it.amount > 0)
         ];
 
@@ -721,9 +724,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         setWhatsappSameAsCalling(true);
         setBloodGroup('');
         setAdmissionTuition('');
-        setAdmissionFeeCharge('');
-        setAdmissionExamCharge('');
-        setAdmissionHeadOverrides({});
+        setSelectedAdmissionHeads([]);
+        setHeadToAdd('');
         setConcessionType('none');
         setConcessionVal('');
         setConcessionReason('');
@@ -2044,8 +2046,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </div>
 
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-4">
-                {/* Dynamic Fee Heads Registered for Admission */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Tuition & Dynamic Fee Heads Selector */}
+                <div className="space-y-3.5">
                   <div>
                     <label className="block text-slate-700 font-bold mb-1 text-[11px]">Monthly Tuition (PKR)</label>
                     <input
@@ -2053,48 +2055,84 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       min={0}
                       value={admissionTuition === '' ? '' : admissionTuition}
                       onChange={e => setAdmissionTuition(e.target.value === '' ? '' : Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1 text-[11px]">Admission Fee (One-Time)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={admissionFeeCharge === '' ? '' : admissionFeeCharge}
-                      onChange={e => setAdmissionFeeCharge(e.target.value === '' ? '' : Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1 text-[11px]">Exam / Lab Charges</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={admissionExamCharge === '' ? '' : admissionExamCharge}
-                      onChange={e => setAdmissionExamCharge(e.target.value === '' ? '' : Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                      className="w-full sm:w-72 px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                      placeholder="e.g. 5000"
                     />
                   </div>
 
                   {/* Additional Dynamic Fee Heads */}
-                  {otherAdmissionHeads.map(head => (
-                    <div key={head.id}>
-                      <label className="block text-slate-700 font-bold mb-1 text-[11px]">
-                        {head.name} ({head.code})
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={admissionHeadOverrides[head.id] !== undefined ? admissionHeadOverrides[head.id] : head.default_amount}
-                        onChange={e => {
-                          const val = e.target.value === '' ? '' : Number(e.target.value);
-                          setAdmissionHeadOverrides(prev => ({ ...prev, [head.id]: val }));
-                        }}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
-                      />
+                  <div className="pt-2 border-t border-slate-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                      <div>
+                        <label className="block text-slate-800 font-bold text-xs">Additional Admission Fee Heads</label>
+                        <p className="text-[10px] text-slate-500">Select one-time or special charges to itemize on opening challan.</p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={headToAdd}
+                          onChange={e => setHeadToAdd(e.target.value)}
+                          className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 font-medium focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="">-- Select Fee Head --</option>
+                          {availableAdmissionHeads.map(head => (
+                            <option key={head.id} value={head.id}>
+                              {head.name} ({head.code}) - PKR {head.default_amount}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleAddAdmissionHead(headToAdd)}
+                          disabled={!headToAdd}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-colors disabled:opacity-40 flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add Head
+                        </button>
+                      </div>
                     </div>
-                  ))}
+
+                    {selectedAdmissionHeads.length === 0 ? (
+                      <div className="p-3 bg-white border border-dashed border-slate-200 rounded-lg text-center text-slate-400 text-xs">
+                        No additional fee heads selected. Only monthly tuition will be invoiced.
+                      </div>
+                    ) : (
+                      <div className="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100 overflow-hidden">
+                        {selectedAdmissionHeads.map(item => {
+                          const head = feeHeads.find(h => h.id === item.fee_head_id);
+                          return (
+                            <div key={item.fee_head_id} className="p-2.5 flex items-center justify-between gap-3 text-xs">
+                              <div className="min-w-0">
+                                <span className="font-bold text-slate-800">{head?.name || 'Fee Head'}</span>
+                                <span className="ml-2 font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                                  {head?.code}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className="text-[11px] text-slate-500">PKR</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={item.amount}
+                                  onChange={e => handleUpdateAdmissionHeadAmount(item.fee_head_id, Number(e.target.value) || 0)}
+                                  className="w-28 px-2.5 py-1 text-right font-mono font-bold text-xs bg-slate-50 border border-slate-200 rounded focus:bg-white focus:outline-none focus:border-indigo-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveAdmissionHead(item.fee_head_id)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                                  title="Remove Fee Head"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Concession / Discount Selector */}
@@ -2195,8 +2233,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <div className="space-y-0.5">
                       <span className="font-bold text-slate-800 block">First Month Admission Total Due:</span>
                       <span className="text-[11px] text-slate-500 font-mono">
-                        Net Tuition: PKR {netMonthlyTuition.toLocaleString()} + Adm: PKR {admissionFeeNum.toLocaleString()} + Exam: PKR {examFeeNum.toLocaleString()}
-                        {otherHeadsTotal > 0 && ` + Other Heads: PKR ${otherHeadsTotal.toLocaleString()}`}
+                        Net Tuition: PKR {netMonthlyTuition.toLocaleString()}
+                        {additionalHeadsTotal > 0 && ` + Admission Heads: PKR ${additionalHeadsTotal.toLocaleString()}`}
                       </span>
                     </div>
                     <div className="text-right">

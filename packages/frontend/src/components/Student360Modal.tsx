@@ -2156,30 +2156,25 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
 
                   {/* Total Payable Block */}
                   {(() => {
-                    const lateFee = Number((tenant?.settings as any)?.fee_rules?.late_fee_per_day || (tenant?.settings as any)?.liquidation_rules?.late_fee_per_day || 0);
                     const netPayable = Number(challanInvoice.net_total ?? challanInvoice.net_amount ?? 0);
+                    const paidAmount = Number(challanInvoice.paid_amount ?? 0);
+                    const balanceAmount = Number(challanInvoice.balance_amount ?? challanInvoice.balance_due ?? (netPayable - paidAmount));
                     return (
                       <div className="border-t-2 border-slate-900 pt-2 space-y-1 text-[10px]">
                         <div className="flex justify-between font-extrabold text-slate-950 text-xs">
-                          <span>Amount by Due Date:</span>
+                          <span>Total Payable Amount:</span>
                           <span className="font-mono">PKR {netPayable.toLocaleString()}</span>
                         </div>
-                        {lateFee > 0 ? (
-                          <>
-                            <div className="flex justify-between text-[8px] text-slate-600">
-                              <span>Late Payment Surcharge:</span>
-                              <span className="font-mono">PKR {lateFee.toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between font-bold text-[9px] text-rose-900">
-                              <span>After Due Date:</span>
-                              <span className="font-mono">PKR {(netPayable + lateFee).toLocaleString()}</span>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="text-[8px] text-slate-500 font-mono text-center pt-0.5">
-                            Zero Late Surcharge Applied
+                        {paidAmount > 0 && (
+                          <div className="flex justify-between text-[9px] text-emerald-700 font-semibold">
+                            <span>Amount Paid:</span>
+                            <span className="font-mono">PKR {paidAmount.toLocaleString()}</span>
                           </div>
                         )}
+                        <div className="flex justify-between font-bold text-[10px] text-slate-800">
+                          <span>Balance Due:</span>
+                          <span className="font-mono">PKR {balanceAmount.toLocaleString()}</span>
+                        </div>
                       </div>
                     );
                   })()}

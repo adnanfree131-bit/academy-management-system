@@ -20,7 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_fee_heads_tenant ON fee_heads(tenant_id);
 ALTER TABLE fee_heads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE fee_heads FORCE ROW LEVEL SECURITY;
 
--- 2. FEE PRIORITY CONFIGURATION (Academy drag-and-drop liquidation rule)
+-- 2. FEE PRIORITY CONFIGURATION (Academy drag-and-drop fee allocation order)
 CREATE TABLE IF NOT EXISTS fee_priority_configs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -68,8 +68,12 @@ CREATE TABLE IF NOT EXISTS student_invoices (
   net_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
   paid_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
   balance_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-  status VARCHAR(30) NOT NULL DEFAULT 'unpaid' CHECK (status IN ('unpaid', 'partially_paid', 'paid', 'voided')),
+  status VARCHAR(30) NOT NULL DEFAULT 'unpaid' CHECK (status IN ('unpaid', 'partially_paid', 'paid', 'voided', 'cancelled', 'rolled_over')),
   notes TEXT,
+  rolled_into_invoice_id UUID REFERENCES student_invoices(id) ON DELETE SET NULL,
+  cancel_reason TEXT,
+  cancelled_at TIMESTAMPTZ,
+  cancelled_by VARCHAR(150),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -111,8 +115,15 @@ CREATE TABLE IF NOT EXISTS fee_payments (
   roll_number VARCHAR(50) NOT NULL,
   payment_date DATE NOT NULL,
   amount_paid NUMERIC(12, 2) NOT NULL,
-  payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('cash', 'bank_transfer', 'cheque', 'wallet')),
+  payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('cash', 'bank_transfer', 'cheque', 'wallet', 'easypaisa', 'jazzcash')),
   reference_number VARCHAR(100),
+  bank_name VARCHAR(100),
+  cheque_number VARCHAR(100),
+  clearing_date DATE,
+  status VARCHAR(20) NOT NULL DEFAULT 'paid' CHECK (status IN ('paid', 'voided')),
+  void_reason TEXT,
+  voided_at TIMESTAMPTZ,
+  voided_by VARCHAR(150),
   is_override BOOLEAN NOT NULL DEFAULT false,
   override_reason TEXT,
   allocations JSONB NOT NULL DEFAULT '[]'::jsonb,

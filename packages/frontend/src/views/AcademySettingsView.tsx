@@ -126,7 +126,7 @@ export const AcademySettingsView: React.FC = () => {
         setIban(s.iban || '');
         setRaastId(s.raast_id || (s as any).payment_settings?.raast_id || '');
 
-        const feeRules = (s as any).fee_rules || s.liquidation_rules;
+        const feeRules = (s as any).fee_rules;
         if (feeRules) {
           if (feeRules.due_day) setDueDay(feeRules.due_day);
           if (feeRules.grace_days) setGraceDays(feeRules.grace_days);
@@ -158,7 +158,7 @@ export const AcademySettingsView: React.FC = () => {
         is_system_default: Boolean(h.is_system_default || h.code === 'TUITION'),
       }));
       setFeeHeads(heads);
-      const savedOrder: string[] = data?.data?.settings?.fee_rules?.priority_order || data?.data?.settings?.liquidation_rules?.priority_order || [];
+      const savedOrder: string[] = data?.data?.settings?.fee_rules?.priority_order || [];
       const dummyKeys = ['admission_fee', 'exam_fee', 'lab_fee', 'tuition_fee', 'fine'];
       const looksDummy = savedOrder.length === 0 || savedOrder.every((k: string) => dummyKeys.includes(k));
       if (looksDummy) {
@@ -415,13 +415,6 @@ export const AcademySettingsView: React.FC = () => {
       fee_rules: {
         due_day: dueDay,
         grace_days: graceDays,
-        late_fee_per_day: 0,
-        priority_order: paymentAllocationPriority,
-      },
-      liquidation_rules: {
-        due_day: dueDay,
-        grace_days: graceDays,
-        late_fee_per_day: 0,
         priority_order: paymentAllocationPriority,
       },
       shifts: {

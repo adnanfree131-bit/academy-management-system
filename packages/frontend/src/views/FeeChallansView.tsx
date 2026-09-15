@@ -6,7 +6,11 @@ import {
   Layers, 
   CheckCircle2, 
   RefreshCw, 
-  Eye
+  Eye,
+  Search,
+  AlertTriangle,
+  ShieldCheck,
+  Calendar
 } from 'lucide-react';
 import { 
   StudentInvoice, 
@@ -36,12 +40,15 @@ export const FeeChallansView: React.FC = () => {
   const [academySettings, setAcademySettings] = useState<any>(null);
 
   // Generation Controls
-  const [genScope, setGenScope] = useState<'class' | 'whole_institute'>('class');
+  const [genScope, setGenScope] = useState<'class' | 'whole_institute' | 'single_student'>('class');
   const [genProgramId, setGenProgramId] = useState<string>('all');
   const [genBatchId, setGenBatchId] = useState<string>('all');
-  const [genMonth, setGenMonth] = useState<string>(() => {
-    return new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const [singleAdmissionSearch, setSingleAdmissionSearch] = useState<string>('');
+  const [genYear, setGenYear] = useState<number>(() => new Date().getFullYear());
+  const [genMonthName, setGenMonthName] = useState<string>(() => {
+    return new Date().toLocaleDateString('en-US', { month: 'long' });
   });
+  const genMonth = `${genMonthName} ${genYear}`;
   const [genIssueDate, setGenIssueDate] = useState<string>(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
@@ -50,9 +57,19 @@ export const FeeChallansView: React.FC = () => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 10).toISOString().split('T')[0];
   });
-  const [genLateFine, setGenLateFine] = useState<number>(200);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [genSuccessMessage, setGenSuccessMessage] = useState<string | null>(null);
+  const [genErrorMessage, setGenErrorMessage] = useState<string | null>(null);
+
+  const availableYears = useMemo(() => {
+    const cy = new Date().getFullYear();
+    return [cy - 1, cy, cy + 1, cy + 2];
+  }, []);
+
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
   // Print Controls
   const [printScope, setPrintScope] = useState<'class' | 'whole_institute'>('class');
@@ -116,7 +133,7 @@ export const FeeChallansView: React.FC = () => {
 
   // Students eligible for generation based on selection
   const eligibleGenerationStudents = useMemo(() => {
-    let filtered = students.filter(s => s.status !== 'withdrawn');
+    let filtered = students.filter(s => s.status === 'active');
     if (genScope === 'class' && genProgramId !== 'all') {
       filtered = filtered.filter(s => s.program_id === genProgramId);
       if (genBatchId !== 'all') {
@@ -126,11 +143,73 @@ export const FeeChallansView: React.FC = () => {
     return filtered;
   }, [students, genScope, genProgramId, genBatchId]);
 
+  // Single student match by admission number or roll number
+  const matchedSingleStudent = useMemo(() => {
+    if (genScope !== 'single_student' || !singleAdmissionSearch.trim()) return null;
+    const q = singleAdmissionSearch.trim().toLowerCase();
+    return students.find(s => 
+      s.status === 'active' && (
+        (s.admission_number && s.admission_number.toLowerCase() === q) ||
+        (s.roll_number && s.roll_number.toLowerCase() === q) ||
+        (s.full_name && s.full_name.toLowerCase().includes(q))
+      )
+    ) || null;
+  }, [students, genScope, singleAdmissionSearch]);
+
+  // Duplicate check for selected single student
+  const singleStudentDuplicateChallan = useMemo(() => {
+    if (!matchedSingleStudent || !genMonth) return null;
+    return invoices.find(i => 
+      i.student_id === matchedSingleStudent.id &&
+      i.billing_month.trim().toLowerCase() === genMonth.trim().toLowerCase() &&
+      i.status !== 'voided' &&
+      i.status !== 'cancelled'
+    ) || null;
+  }, [invoices, matchedSingleStudent, genMonth]);
+
+  // Handle Single Student Challan Generation
+  const handleGenerateSingleChallan = async () => {
+    if (!token || !matchedSingleStudent) return;
+    setIsGenerating(true);
+    setGenSuccessMessage(null);
+    setGenErrorMessage(null);
+
+    try {
+      const res = await fetch('/api/v1/finance/invoices/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          student_id: matchedSingleStudent.id,
+          billing_month: genMonth,
+          due_date: genDueDate,
+          notes: `Individual Fee Challan for ${genMonth}`,
+        }),
+      });
+
+      const resData = await res.json();
+      if (res.ok && resData.success) {
+        setGenSuccessMessage(`Successfully issued Challan #${resData.data.invoice_number} for ${matchedSingleStudent.full_name} (${genMonth}).`);
+        await fetchData();
+        setPrintMonth(genMonth);
+      } else {
+        setGenErrorMessage(resData.error?.message || resData.message || 'Failed to generate challan.');
+      }
+    } catch (err: any) {
+      setGenErrorMessage(err.message || 'Network error generating challan.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // Handle Batch Challan Generation
   const handleGenerateChallans = async () => {
     if (!token || eligibleGenerationStudents.length === 0) return;
     setIsGenerating(true);
     setGenSuccessMessage(null);
+    setGenErrorMessage(null);
 
     try {
       const payload = {
@@ -139,10 +218,9 @@ export const FeeChallansView: React.FC = () => {
         billing_month: genMonth,
         issue_date: genIssueDate,
         due_date: genDueDate,
-        late_fee_fine: Number(genLateFine) || 200,
       };
 
-      const res = await fetch('/api/v1/finance/invoices/batch', {
+      const res = await fetch('/api/v1/finance/invoices/generate-batch', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -153,18 +231,19 @@ export const FeeChallansView: React.FC = () => {
 
       const resData = await res.json();
       if (res.ok && resData.success) {
-        setGenSuccessMessage(`Successfully generated ${resData.data?.count || eligibleGenerationStudents.length} challans for ${genMonth}.`);
+        const generatedCount = resData.count ?? (Array.isArray(resData.data) ? resData.data.length : resData.data?.count) ?? eligibleGenerationStudents.length;
+        setGenSuccessMessage(`Successfully generated ${generatedCount} challans for ${genMonth}.`);
         await fetchData();
         // Switch to print view for this month
         setPrintMonth(genMonth);
         if (genProgramId !== 'all') setPrintProgramId(genProgramId);
         if (genBatchId !== 'all') setPrintBatchId(genBatchId);
       } else {
-        alert(resData.message || 'Failed to generate challans. Please verify inputs.');
+        setGenErrorMessage(resData.error?.message || resData.message || 'Failed to generate challans. Please verify inputs.');
       }
     } catch (err: any) {
       console.error('Error generating batch challans:', err);
-      alert('Network or server error while generating challans.');
+      setGenErrorMessage('Network or server error while generating challans.');
     } finally {
       setIsGenerating(false);
     }
@@ -266,8 +345,6 @@ export const FeeChallansView: React.FC = () => {
           items,
           concession_amount: inv.discount_amount > 0 ? inv.discount_amount : undefined,
           net_amount: inv.balance_amount > 0 ? inv.balance_amount : inv.net_amount,
-          late_fee_fine: 200,
-          total_after_due_date: (inv.balance_amount > 0 ? inv.balance_amount : inv.net_amount) + 200,
         };
       });
 
@@ -360,17 +437,17 @@ export const FeeChallansView: React.FC = () => {
               {/* Scope selection */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">Target Scope</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setGenScope('class')}
-                    className={`py-2 px-3 text-xs font-semibold rounded-xl border transition-all text-center ${
+                    className={`py-2 px-2.5 text-xs font-semibold rounded-xl border transition-all text-center ${
                       genScope === 'class'
                         ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-2xs'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                   >
-                    Class & Batch Wise
+                    Class & Batch
                   </button>
                   <button
                     type="button"
@@ -379,13 +456,24 @@ export const FeeChallansView: React.FC = () => {
                       setGenProgramId('all');
                       setGenBatchId('all');
                     }}
-                    className={`py-2 px-3 text-xs font-semibold rounded-xl border transition-all text-center ${
+                    className={`py-2 px-2.5 text-xs font-semibold rounded-xl border transition-all text-center ${
                       genScope === 'whole_institute'
                         ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-2xs'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                   >
                     Whole Institute
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGenScope('single_student')}
+                    className={`py-2 px-2.5 text-xs font-semibold rounded-xl border transition-all text-center ${
+                      genScope === 'single_student'
+                        ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-2xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    Single Student
                   </button>
                 </div>
               </div>
@@ -428,17 +516,96 @@ export const FeeChallansView: React.FC = () => {
                 </div>
               )}
 
+              {/* Single Student Admission No / Roll No Input */}
+              {genScope === 'single_student' && (
+                <div className="space-y-2 pt-1">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Student Admission # or Roll #
+                  </label>
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      value={singleAdmissionSearch}
+                      onChange={e => {
+                        setSingleAdmissionSearch(e.target.value);
+                        setGenErrorMessage(null);
+                      }}
+                      placeholder="Enter exact Admission #, Roll #, or name..."
+                      className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
+                    />
+                  </div>
+
+                  {matchedSingleStudent ? (
+                    <div className="p-3 bg-indigo-50/50 border border-indigo-200 rounded-xl text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900">{matchedSingleStudent.full_name}</span>
+                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-mono font-bold text-[10px]">
+                          Roll #{matchedSingleStudent.roll_number}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600">
+                        Class: <strong>{getProgramName(matchedSingleStudent.program_id)}</strong>
+                        {matchedSingleStudent.batch_id ? ` • ${getBatchName(matchedSingleStudent.batch_id)}` : ''}
+                        {' • '}Father: {matchedSingleStudent.father_name || matchedSingleStudent.guardian_name || '—'}
+                      </p>
+                      {(() => {
+                        const struct = feeStructures.find(s => s.batch_id === matchedSingleStudent.batch_id);
+                        const baseFee = (struct?.items || []).reduce((sum, it) => sum + Number(it.amount || 0), 0);
+                        return baseFee > 0 ? (
+                          <p className="text-[10px] font-mono text-slate-500">
+                            Batch Standard Fee: PKR {baseFee.toLocaleString()}
+                          </p>
+                        ) : null;
+                      })()}
+                      {singleStudentDuplicateChallan && (
+                        <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-[11px] flex items-center gap-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                          <span>
+                            Duplicate Shield: Challan #{singleStudentDuplicateChallan.invoice_number} already exists for {genMonth}.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : singleAdmissionSearch.trim() ? (
+                    <p className="text-[11px] text-amber-600">No active student matched &ldquo;{singleAdmissionSearch}&rdquo;.</p>
+                  ) : null}
+                </div>
+              )}
+
               {/* Billing Month & Dates */}
               <div className="space-y-3 pt-1">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Billing Month</label>
-                  <input
-                    type="text"
-                    value={genMonth}
-                    onChange={e => setGenMonth(e.target.value)}
-                    placeholder="e.g. October 2026"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Academic Year</label>
+                    <select
+                      value={genYear}
+                      onChange={e => {
+                        setGenYear(Number(e.target.value));
+                        setGenErrorMessage(null);
+                      }}
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
+                    >
+                      {availableYears.map(yr => (
+                        <option key={yr} value={yr}>{yr}–{yr + 1} Session</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Billing Month</label>
+                    <select
+                      value={genMonthName}
+                      onChange={e => {
+                        setGenMonthName(e.target.value);
+                        setGenErrorMessage(null);
+                      }}
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
+                    >
+                      {MONTH_NAMES.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -461,24 +628,9 @@ export const FeeChallansView: React.FC = () => {
                     />
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Late Fee Fine (PKR)</label>
-                  <input
-                    type="number"
-                    value={genLateFine}
-                    onChange={e => setGenLateFine(Number(e.target.value))}
-                    min={0}
-                    step={50}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-mono"
-                  />
-                  <span className="text-[11px] text-slate-400 mt-1 block">
-                    Automatically appended to total after due date on printed challans.
-                  </span>
-                </div>
               </div>
 
-              {/* Feedback Success Message */}
+              {/* Feedback Messages */}
               {genSuccessMessage && (
                 <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -486,84 +638,131 @@ export const FeeChallansView: React.FC = () => {
                 </div>
               )}
 
+              {genErrorMessage && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{genErrorMessage}</span>
+                </div>
+              )}
+
               {/* Action Button */}
-              <button
-                type="button"
-                onClick={handleGenerateChallans}
-                disabled={isGenerating || eligibleGenerationStudents.length === 0}
-                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Generating Challans...</span>
-                  </>
-                ) : (
-                  <>
-                    <FileText className="w-4 h-4" />
-                    <span>Generate Challans ({eligibleGenerationStudents.length} Students)</span>
-                  </>
-                )}
-              </button>
+              {genScope === 'single_student' ? (
+                <button
+                  type="button"
+                  onClick={handleGenerateSingleChallan}
+                  disabled={isGenerating || !matchedSingleStudent || Boolean(singleStudentDuplicateChallan)}
+                  className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Generating Challan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-4 h-4" />
+                      <span>Generate Single Challan {matchedSingleStudent ? `(${matchedSingleStudent.full_name})` : ''}</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleGenerateChallans}
+                  disabled={isGenerating || eligibleGenerationStudents.length === 0}
+                  className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isGenerating ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Generating Challans...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-4 h-4" />
+                      <span>Generate Challans ({eligibleGenerationStudents.length} Students)</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Student Roster Preview */}
-          <div className="lg:col-span-7">
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+          {/* Institutional Generation Summary & Policies Card (Replaces Roster Box) */}
+          <div className="lg:col-span-7 space-y-4">
+            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Student Roster to be Invoiced</h3>
-                  <p className="text-[11px] text-slate-500">
-                    {eligibleGenerationStudents.length} active students in selected scope
-                  </p>
+                  <h3 className="text-sm font-bold text-slate-900">Fee Challan Generation Protocol</h3>
+                  <p className="text-xs text-slate-500">Standard operating guidelines and billing safeguards</p>
                 </div>
-                <span className="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg">
+                <span className="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100">
                   {genMonth}
                 </span>
               </div>
 
-              <div className="overflow-x-auto max-h-[500px]">
-                <table className="w-full text-left text-xs text-slate-700">
-                  <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600 uppercase text-[10px] sticky top-0">
-                    <tr>
-                      <th className="py-2.5 px-3">Roll #</th>
-                      <th className="py-2.5 px-3">Student Name</th>
-                      <th className="py-2.5 px-3">Class & Batch</th>
-                      <th className="py-2.5 px-3">Father Name</th>
-                      <th className="py-2.5 px-3 text-right">Tuition</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {eligibleGenerationStudents.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="py-8 text-center text-slate-400">
-                          No active students found in this selection.
-                        </td>
-                      </tr>
-                    ) : (
-                      eligibleGenerationStudents.map(stud => {
-                        const progName = getProgramName(stud.program_id);
-                        const batchName = getBatchName(stud.batch_id);
-                        const struct = feeStructures.find(s => s.batch_id === stud.batch_id);
-                        const baseFee = (struct?.items || []).reduce((sum, it) => sum + Number(it.amount || 0), 0) || 2000;
-                        return (
-                          <tr key={stud.id} className="hover:bg-slate-50">
-                            <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{stud.roll_number}</td>
-                            <td className="py-2.5 px-3 font-medium text-slate-900">{stud.full_name}</td>
-                            <td className="py-2.5 px-3 text-slate-500">
-                              {progName} {batchName ? `(${batchName})` : ''}
-                            </td>
-                            <td className="py-2.5 px-3 text-slate-500">{stud.guardian_name || stud.father_name || '—'}</td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                              PKR {baseFee.toLocaleString()}
-                            </td>
-                          </tr>
-                        );
-                      })
-                    )}
-                  </tbody>
-                </table>
+              {/* Guardrails Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                  <div className="flex items-center gap-2 text-indigo-700 font-bold text-xs">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Duplicate Challan Shield</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Active protection prevents generating duplicate active fee challans for the same student and month.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                  <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
+                    <Layers className="w-4 h-4" />
+                    <span>Roll-Forward Arrears</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Unpaid dues from previous months automatically consolidate into an Arrears head without double debiting.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                  <div className="flex items-center gap-2 text-amber-700 font-bold text-xs">
+                    <FileText className="w-4 h-4" />
+                    <span>3-Part Bank Challans</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Standard A4 tripartite layout (Bank Copy, Academy Copy, Student Copy) with bank account particulars.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                  <div className="flex items-center gap-2 text-purple-700 font-bold text-xs">
+                    <Calendar className="w-4 h-4" />
+                    <span>Timeline & Due Dates</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Issue Date: <span className="font-mono font-bold text-slate-800">{genIssueDate}</span> | Due Date:{' '}
+                    <span className="font-mono font-bold text-rose-700">{genDueDate}</span>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Live Target Scope Summary */}
+              <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div>
+                  <span className="text-slate-500">Active Scope: </span>
+                  <strong className="text-slate-900 capitalize">
+                    {genScope === 'single_student'
+                      ? (matchedSingleStudent ? `Single: ${matchedSingleStudent.full_name}` : 'Single Student (Enter Admission #)')
+                      : genScope === 'whole_institute'
+                      ? 'Whole Institute Roster'
+                      : `${getProgramName(genProgramId)} • ${genBatchId === 'all' ? 'All Batches' : getBatchName(genBatchId)}`}
+                  </strong>
+                </div>
+                <div className="font-mono font-bold text-slate-700">
+                  Target Students:{' '}
+                  <span className="text-indigo-600">
+                    {genScope === 'single_student' ? (matchedSingleStudent ? 1 : 0) : eligibleGenerationStudents.length}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

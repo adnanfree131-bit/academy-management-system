@@ -294,9 +294,13 @@ export function financeRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const schema = z.object({
-        batch_id: z.string().min(1),
+        batch_id: z.string().optional(),
+        program_id: z.string().optional(),
+        target_id: z.string().optional(),
+        scope: z.enum(['all', 'program', 'batch']).optional(),
         billing_month: z.string().min(1),
-        due_date: z.string().min(1)
+        due_date: z.string().min(1),
+        issue_date: z.string().optional()
       });
 
       const parse = schema.safeParse(request.body);
@@ -308,15 +312,101 @@ export function financeRoutes(store: IDataStore) {
         });
       }
 
-      const generated = await store.generateBatchInvoices(
-        user.tenant_id,
-        parse.data.batch_id,
-        parse.data.billing_month,
-        parse.data.due_date
-      );
-      return reply.status(201).send({ success: true, data: generated, timestamp: new Date().toISOString() });
+      const generated = await store.generateBatchInvoices(user.tenant_id, parse.data);
+      const count = generated.length;
+      return reply.status(201).send({
+        success: true,
+        data: generated,
+        count,
+        invoices_created: count,
+        timestamp: new Date().toISOString()
+      });
     };
     fastify.post('/invoices/generate-batch', generateBatchInvoicesHandler);
+    fastify.post('/invoices/batch', generateBatchInvoicesHandler);
+
+    const cancelInvoiceHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
+      const { id } = request.params as { id: string };
+      const schema = z.object({
+        reason: z.string().trim().min(3, 'Cancellation reason is required (minimum 3 characters)')
+      });
+
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Cancellation reason is required', details: parse.error.flatten() },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      try {
+        const cancelled = await store.cancelInvoice(user.tenant_id, id, parse.data.reason, user.email || 'Admin');
+        return reply.send({ success: true, data: cancelled, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'CANCEL_FAILED', message: err.message },
+          timestamp: new Date().toISOString()
+        });
+      }
+    };
+    fastify.post('/invoices/:id/cancel', cancelInvoiceHandler);
+    fastify.post('/invoices/:id/void', cancelInvoiceHandler);
+    fastify.delete('/invoices/:id', async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
+      const { id } = request.params as { id: string };
+      const reason = (request.body as any)?.reason || (request.query as any)?.reason || 'Challan deleted by administrator';
+      try {
+        const cancelled = await store.cancelInvoice(user.tenant_id, id, reason, user.email || 'Admin');
+        return reply.send({ success: true, data: cancelled, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'CANCEL_FAILED', message: err.message },
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    const updateInvoiceHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
+      const { id } = request.params as { id: string };
+      const schema = z.object({
+        due_date: z.string().optional(),
+        notes: z.string().nullable().optional(),
+        items: z.array(z.object({
+          fee_head_id: z.string().min(1),
+          amount: z.number().nonnegative()
+        })).optional()
+      });
+
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid update payload', details: parse.error.flatten() },
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      try {
+        const updated = await store.updateInvoice(user.tenant_id, id, parse.data);
+        return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'UPDATE_FAILED', message: err.message },
+          timestamp: new Date().toISOString()
+        });
+      }
+    };
+    fastify.patch('/invoices/:id', updateInvoiceHandler);
+    fastify.put('/invoices/:id', updateInvoiceHandler);
 
     // =========================================================================
     // 5. SMART AUTO-DISTRIBUTION PREVIEW (Zero Auto-Submit)
@@ -400,7 +490,7 @@ export function financeRoutes(store: IDataStore) {
 
     const recordFamilyPaymentHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'accountant'], reply)) return;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
 
       const schema = z.object({
         payment_method: z.enum(['cash', 'bank_transfer', 'cheque', 'wallet', 'easypaisa', 'jazzcash']),
@@ -445,6 +535,7 @@ export function financeRoutes(store: IDataStore) {
       }
     };
     fastify.post('/family-payment', recordFamilyPaymentHandler);
+    fastify.post('/payments/family', recordFamilyPaymentHandler);
 
     const getPaymentsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
@@ -571,6 +662,7 @@ export function financeRoutes(store: IDataStore) {
       return reply.send({ success: true, data: ledger, timestamp: new Date().toISOString() });
     };
     fastify.get('/reports/student-ledger/:studentId', getLedgerHandler);
+    fastify.get('/ledger/:studentId', getLedgerHandler);
 
     const getFeeHeadSummaryHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;

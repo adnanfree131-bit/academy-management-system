@@ -65,7 +65,7 @@ describe('Phase 4: Finance, Fee Vouchers, Priority Auto-Distribution & Staff Pay
       expect(body.data.default_amount).toBe(1200);
     });
 
-    it('retrieves and updates global liquidation priority configuration', async () => {
+    it('retrieves and updates global fee allocation priority configuration', async () => {
       const getRes = await app.inject({
         method: 'GET',
         url: '/api/v1/finance/priority-config',

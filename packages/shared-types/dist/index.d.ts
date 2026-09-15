@@ -45,16 +45,9 @@ export interface TenantSettings {
     evening_shift_start?: string;
     evening_shift_end?: string;
     affiliation_number?: string;
-    liquidation_rules?: {
-        due_day?: number;
-        grace_days?: number;
-        late_fee_per_day?: number;
-        priority_order?: string[];
-    };
     fee_rules?: {
         due_day?: number;
         grace_days?: number;
-        late_fee_per_day?: number;
         priority_order?: string[];
     };
     shifts?: {
@@ -770,7 +763,7 @@ export interface StudentFeeStructure {
     created_at: string;
     updated_at: string;
 }
-export type InvoiceStatus = 'unpaid' | 'partially_paid' | 'paid' | 'voided' | 'cancelled' | 'PAID' | 'UNPAID' | 'PARTIAL' | 'OVERDUE' | 'VOID';
+export type InvoiceStatus = 'unpaid' | 'partially_paid' | 'paid' | 'voided' | 'cancelled' | 'rolled_over' | 'PAID' | 'UNPAID' | 'PARTIAL' | 'OVERDUE' | 'VOID';
 export interface InvoiceItem {
     id: string;
     invoice_id: string;
@@ -811,8 +804,12 @@ export interface StudentInvoice {
     items: InvoiceItem[];
     notes?: string | null;
     fine_amount?: number;
-    late_fee?: number;
     arrears_amount?: number;
+    rolled_into_invoice_id?: string | null;
+    rolled_invoice_ids?: string[];
+    cancel_reason?: string | null;
+    cancelled_at?: string | null;
+    cancelled_by?: string | null;
     created_at: string;
     updated_at: string;
 }

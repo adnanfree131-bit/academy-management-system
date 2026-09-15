@@ -202,19 +202,26 @@ export function sisRoutes(store: IDataStore) {
           concession_val: z.number().optional(),
           concession_value: z.number().optional(),
           concession_reason: z.string().optional(),
-          net_tuition: z.number().nonnegative().default(0),
-          first_month_total: z.number().nonnegative().default(0),
+          net_tuition: z.number().nonnegative().optional(),
+          first_month_total: z.number().nonnegative().optional(),
+          additional_heads: z.array(z.object({
+            fee_head_id: z.string(),
+            amount: z.number().nonnegative()
+          })).optional(),
         }).transform(fs => {
           if (!fs) return undefined;
+          const base = fs.base_tuition ?? fs.tuition_fee ?? 0;
+          const net = fs.net_tuition !== undefined ? fs.net_tuition : base;
           return {
-            base_tuition: fs.base_tuition ?? fs.tuition_fee ?? 0,
+            base_tuition: base,
             admission_fee: fs.admission_fee ?? 0,
             exam_fee: fs.exam_fee ?? fs.exam_lab_charges ?? 0,
             concession_type: (fs.concession_type === 'percentage' || fs.concession_type === 'flat') ? fs.concession_type : 'percentage',
             concession_val: fs.concession_val ?? fs.concession_value ?? 0,
             concession_reason: fs.concession_reason,
-            net_tuition: fs.net_tuition ?? (fs.base_tuition ?? fs.tuition_fee ?? 0),
+            net_tuition: net,
             first_month_total: fs.first_month_total ?? 0,
+            additional_heads: fs.additional_heads,
           };
         }).optional(),
         generate_first_month_invoice: z.boolean().optional(),
