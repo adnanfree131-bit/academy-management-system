@@ -68,6 +68,24 @@ jobs:
               sys.exit(1)
           print("service_id", service_id)
 
+          build_cmd = "npm install -g pnpm@9.15.9 && pnpm install && pnpm -F @apex/shared-types build && pnpm -F @apex/backend build"
+          start_cmd = "node packages/backend/dist/server.js"
+          try:
+              _, updated = req("PATCH", f"/services/{service_id}", {
+                  "serviceDetails": {
+                      "envSpecificDetails": {
+                          "buildCommand": build_cmd,
+                          "startCommand": start_cmd,
+                      }
+                  }
+              })
+              details = ((updated or {}).get("serviceDetails") or {})
+              envd = details.get("envSpecificDetails") or {}
+              print("patched_build", envd.get("buildCommand"))
+              print("patched_start", envd.get("startCommand"))
+          except Exception as err:
+              print("patch_service_error", err, file=sys.stderr)
+
           clear = os.environ.get("CLEAR_CACHE", "true").lower() != "false"
           body = {"clearCache": "clear" if clear else "do_not_clear"}
           status, deploy = req("POST", f"/services/{service_id}/deploys", body)
@@ -90,6 +108,28 @@ jobs:
                   sys.exit(0)
               if st in {"failed", "canceled", "cancelled", "deactivated", "build_failed", "update_failed"}:
                   print("RENDER_DEPLOY_FAILED", st, file=sys.stderr)
+                  try:
+                      _, info = req("GET", f"/services/{service_id}/deploys/{deploy_id}")
+                      commit = (info or {}).get("commit") or {}
+                      print("failed_commit", commit.get("id"), (commit.get("message") or "").splitlines()[0] if commit.get("message") else "")
+                      print("failed_trigger", (info or {}).get("trigger"))
+                      print("failed_keys", sorted((info or {}).keys()))
+                      for k in ["status", "finishedAt", "createdAt", "updatedAt"]:
+                          if k in (info or {}):
+                              print(k, info.get(k))
+                  except Exception as err:
+                      print("deploy_detail_error", err, file=sys.stderr)
+                  for path in [
+                      f"/logs?resource={service_id}&limit=100",
+                      f"/logs?resource={deploy_id}&limit=100",
+                  ]:
+                      try:
+                          _, logs = req("GET", path)
+                          blob = json.dumps(logs)[:12000]
+                          print("LOGPATH", path)
+                          print(blob)
+                      except Exception as err:
+                          print("logs_error", path, err, file=sys.stderr)
                   sys.exit(1)
               time.sleep(15)
           print("RENDER_DEPLOY_TIMEOUT", last, file=sys.stderr)

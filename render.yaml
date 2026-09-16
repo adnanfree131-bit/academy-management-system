@@ -4,8 +4,8 @@ services:
     runtime: node
     plan: free
     region: singapore
-    buildCommand: COREPACK_INTEGRITY_KEYS=0 corepack enable && COREPACK_INTEGRITY_KEYS=0 pnpm install && pnpm -F @apex/shared-types build && pnpm -F @apex/backend build
-    startCommand: pnpm -F @apex/backend start
+    buildCommand: npm install -g pnpm@9.15.9 && pnpm install && pnpm -F @apex/shared-types build && pnpm -F @apex/backend build
+    startCommand: node packages/backend/dist/server.js
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_ENV
