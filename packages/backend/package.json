@@ -2,6 +2,7 @@
   "name": "@apex/backend",
   "version": "1.0.0",
   "description": "Fastify TypeScript Backend with Brevo OTP and Multi-Tenant RLS Injection",
+  "type": "module",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
