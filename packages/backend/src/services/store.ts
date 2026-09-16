@@ -1050,7 +1050,7 @@ export class InMemoryDataStore implements IDataStore {
 
     for (const inv of this.invoices) {
       if (inv.tenant_id !== tenantId) continue;
-      if (inv.status !== 'unpaid' && inv.status !== 'partial') continue;
+      if (inv.status !== 'unpaid' && inv.status !== 'UNPAID' && inv.status !== 'partially_paid' && inv.status !== 'PARTIAL') continue;
       const net = Number(inv.net_amount ?? inv.net_total ?? 0);
       if (net > 0 && Array.isArray(inv.items) && inv.items.length > 0) continue;
       inv.status = 'cancelled';
