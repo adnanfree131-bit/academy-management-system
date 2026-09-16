@@ -19,7 +19,7 @@ import {
   Users,
   Plus,
 } from 'lucide-react';
-import { TenantSettings } from '@apex/shared-types';
+import { AcademicSession, TenantSettings, defaultAcademicSessions } from '@apex/shared-types';
 import { compressImageFile } from '../components/LoginModal';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
@@ -63,6 +63,8 @@ export const AcademySettingsView: React.FC = () => {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [academicSession, setAcademicSession] = useState<string>('2026-2027');
+  const [academicSessions, setAcademicSessions] = useState<AcademicSession[]>(() => defaultAcademicSessions('2026-2027'));
+  const [newSessionStart, setNewSessionStart] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [address, setAddress] = useState<string>('');
@@ -105,7 +107,13 @@ export const AcademySettingsView: React.FC = () => {
         const s = t.settings || {};
         setAcademyName(t.name || tenant?.name || '');
         setCampusName(s.campus_name || tenant?.campus_name || '');
-        setAcademicSession(s.academic_session || tenant?.academic_session || '');
+        const sessionName = s.academic_session || tenant?.academic_session || '';
+        setAcademicSession(sessionName);
+        setAcademicSessions(
+          Array.isArray(s.academic_sessions) && s.academic_sessions.length > 0
+            ? s.academic_sessions
+            : defaultAcademicSessions(sessionName)
+        );
         const dummyEmail = !s.email || s.email === 'info@kampus.pk';
         const dummyAff = !s.affiliation_number || String(s.affiliation_number).includes('BISE/LHR-2026');
         const dummyAddr = !s.address || String(s.address).includes('Campus Avenue');
@@ -397,7 +405,8 @@ export const AcademySettingsView: React.FC = () => {
 
     const updatedSettings: Partial<TenantSettings> = {
       campus_name: campusName,
-      academic_session: academicSession,
+      academic_session: academicSessions.find(s => s.is_active)?.name || academicSession,
+      academic_sessions: academicSessions,
       phone,
       email,
       address,
@@ -681,15 +690,62 @@ export const AcademySettingsView: React.FC = () => {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Active Academic Session</label>
-                      <input
-                        type="text"
-                        value={academicSession}
-                        onChange={e => setAcademicSession(e.target.value)}
-                        className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-800"
-                        required
-                      />
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Academic sessions</label>
+                      <p className="text-[11px] text-slate-500 mb-2">Five years are listed by default. Set one active. Admission numbers use that year (ADM-2027-001).</p>
+                      <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white">
+                        {academicSessions.map(sess => (
+                          <div key={sess.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+                            <span className="font-mono font-semibold text-slate-800">{sess.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAcademicSessions(prev => prev.map(s => ({ ...s, is_active: s.id === sess.id })));
+                                setAcademicSession(sess.name);
+                              }}
+                              className={`px-2 py-1 rounded-md text-[11px] font-medium border ${
+                                sess.is_active
+                                  ? 'bg-slate-900 text-white border-slate-900'
+                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              {sess.is_active ? 'Active' : 'Set active'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <input
+                          type="number"
+                          min={2000}
+                          max={2100}
+                          value={newSessionStart}
+                          onChange={e => setNewSessionStart(e.target.value)}
+                          placeholder="Start year e.g. 2029"
+                          className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-md p-2 font-mono"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const y = parseInt(newSessionStart, 10);
+                            if (!y) return;
+                            const name = `${y}-${y + 1}`;
+                            if (academicSessions.some(s => s.start_year === y)) return;
+                            setAcademicSessions(prev => [...prev, {
+                              id: `session-${y}`,
+                              name,
+                              start_year: y,
+                              end_year: y + 1,
+                              is_active: false,
+                            }].sort((a, b) => a.start_year - b.start_year));
+                            setNewSessionStart('');
+                          }}
+                          className="px-3 py-2 bg-slate-900 text-white rounded-md text-xs font-medium flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add
+                        </button>
+                      </div>
                     </div>
 
                     <div>

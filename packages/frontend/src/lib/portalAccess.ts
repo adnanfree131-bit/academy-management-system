@@ -39,8 +39,9 @@ export const PORTAL_GROUPS: PortalGroup[] = [
   {
     group: 'Finance',
     desks: [
-      { id: 'voucher', label: 'Fee Invoices', hint: 'Challans, collection, receipts' },
-      { id: 'challans', label: 'Fee Challans', hint: 'Generate & print batch challans' },
+      { id: 'voucher', label: 'Fees Receiving', hint: 'Collect fees, defaulters, reports' },
+      { id: 'challans', label: 'Fee Challans', hint: 'Generate and print monthly challans' },
+      { id: 'fee_reversals', label: 'Fee Reversals', hint: 'Void receipts and cancel challans' },
       { id: 'expenses', label: 'Income & Expenses', hint: 'Cashbook and P&L' },
       { id: 'payroll', label: 'Staff Payroll', hint: 'Salaries and payslips' },
     ],
@@ -70,6 +71,7 @@ export function canOpenScreen(role: string | undefined, permissions: string[] | 
   if (screen === 'dashboard') return true;
   if (ADMIN_ONLY_SCREENS.includes(screen)) return false;
   if (screen === 'new_admission') return permissions.includes('enrollment');
-  if (screen === 'challans') return permissions.includes('voucher') || permissions.includes('challans');
+  if (screen === 'challans') return permissions.includes('challans');
+  if (screen === 'fee_reversals') return permissions.includes('fee_reversals');
   return permissions.includes(screen);
 }

@@ -489,8 +489,8 @@ export const LoginModal: React.FC = () => {
                 <div className="flex items-start gap-3.5">
                   <Receipt className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
                   <div>
-                    <h3 className="text-xs sm:text-sm font-semibold text-slate-200">Fee Ledger & Challans</h3>
-                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Ledgers, payments, and official vouchers.</p>
+                    <h3 className="text-xs sm:text-sm font-semibold text-slate-200">Fees Receiving</h3>
+                    <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">Collect fees, print challans, and keep the books.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3.5">

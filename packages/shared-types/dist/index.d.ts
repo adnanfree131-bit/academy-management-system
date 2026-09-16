@@ -28,6 +28,7 @@ export interface TenantSettings {
     timezone: string;
     date_format: string;
     academic_session: string;
+    academic_sessions?: AcademicSession[];
     campus_name: string;
     phone_country_code: string;
     address?: string;
@@ -74,6 +75,18 @@ export interface TenantSettings {
     grading_scale?: GradingTier[];
     departments?: string[];
 }
+export interface AcademicSession {
+    id: string;
+    name: string;
+    start_year: number;
+    end_year: number;
+    is_active: boolean;
+}
+export declare function defaultAcademicSessions(activeName?: string): AcademicSession[];
+export declare function activeSessionStartYear(settings?: {
+    academic_session?: string;
+    academic_sessions?: AcademicSession[];
+} | null): number;
 export interface GradingTier {
     grade: string;
     min_percentage: number;
@@ -832,6 +845,7 @@ export interface PaymentDistributionItem {
     fee_head_id: string;
     head_name: string;
     allocated_amount: number;
+    invoice_item_id?: string;
 }
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'wallet' | 'easypaisa' | 'jazzcash';
 export interface FeePayment {

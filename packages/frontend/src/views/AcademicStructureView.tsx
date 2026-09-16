@@ -23,7 +23,7 @@ import {
   Clock,
   Calendar
 } from 'lucide-react';
-import { AcademicProgram, Batch, Subject, SubjectGroup, Student } from '@apex/shared-types';
+import { AcademicProgram, Batch, Subject, SubjectGroup, Student, FeeHead } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
 
@@ -40,6 +40,7 @@ export const AcademicStructureView: React.FC = () => {
   const [subjectGroups, setSubjectGroups] = useState<SubjectGroup[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [staffMembers, setStaffMembers] = useState<any[]>([]);
+  const [feeHeads, setFeeHeads] = useState<FeeHead[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -85,15 +86,7 @@ export const AcademicStructureView: React.FC = () => {
     sort_order: 1,
   });
 
-  const [programFeeSchedule, setProgramFeeSchedule] = useState<{
-    tuition: number | '';
-    admission: number | '';
-    exam_lab: number | '';
-  }>({
-    tuition: '',
-    admission: '',
-    exam_lab: ''
-  });
+  const [programFeeSchedule, setProgramFeeSchedule] = useState<Record<string, number | ''>>({});
 
   const [compulsorySelectedSubjectIds, setCompulsorySelectedSubjectIds] = useState<string[]>([]);
 
@@ -141,13 +134,14 @@ export const AcademicStructureView: React.FC = () => {
     const headers = { Authorization: `Bearer ${token}` };
 
     try {
-      const [progRes, batchRes, subRes, groupRes, studRes, staffRes] = await Promise.all([
+      const [progRes, batchRes, subRes, groupRes, studRes, staffRes, headsRes] = await Promise.all([
         fetch('/api/v1/academic/programs', { headers }),
         fetch('/api/v1/academic/batches', { headers }),
         fetch('/api/v1/academic/subjects', { headers }),
         fetch('/api/v1/academic/groups', { headers }),
         fetch('/api/v1/sis/students', { headers }),
         fetch('/api/v1/academic/staff', { headers }).catch(() => null),
+        fetch('/api/v1/finance/heads', { headers }).catch(() => null),
       ]);
 
       const [progs, bts, subs, grps, studs] = await Promise.all([
@@ -171,6 +165,10 @@ export const AcademicStructureView: React.FC = () => {
       if (staffRes && staffRes.ok) {
         const staffJson = await staffRes.json();
         if (staffJson.success) setStaffMembers(staffJson.data || []);
+      }
+      if (headsRes && headsRes.ok) {
+        const headsJson = await headsRes.json();
+        if (headsJson.success) setFeeHeads(headsJson.data || []);
       }
     } catch (err: any) {
       console.error('Error fetching academic data:', err);
@@ -248,16 +246,35 @@ export const AcademicStructureView: React.FC = () => {
   }, [subjects, searchCatalogQuery]);
 
   // Handlers: Program
+  const openCreateProgramModal = () => {
+    setProgramForm({
+      name: '',
+      code: '',
+      description: '',
+      sort_order: programs.length + 1,
+    });
+    const sched: Record<string, number | ''> = {};
+    feeHeads.forEach(h => {
+      sched[h.id] = h.default_amount || '';
+    });
+    setProgramFeeSchedule(sched);
+    setShowProgramModal(true);
+  };
+
   const handleCreateProgram = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !programForm.name.trim()) return;
     setIsSubmitting(true);
     try {
-      const fee_schedule = [
-        { fee_head_id: 'tuition', head_name: 'Monthly Tuition Fee', fee_type: 'tuition', name: 'Monthly Tuition Fee', amount: Number(programFeeSchedule.tuition) || 0, is_monthly: true, is_recurring: true },
-        { fee_head_id: 'admission', head_name: 'Admission Fee', fee_type: 'admission', name: 'One-time Admission Fee', amount: Number(programFeeSchedule.admission) || 0, is_monthly: false, is_recurring: false },
-        { fee_head_id: 'exam_lab', head_name: 'Exam & Lab Charges', fee_type: 'exam_lab', name: 'Exam & Lab Charges', amount: Number(programFeeSchedule.exam_lab) || 0, is_monthly: false, is_recurring: false },
-      ];
+      const fee_schedule = feeHeads.map(head => ({
+        fee_head_id: head.id,
+        head_name: head.name,
+        fee_type: head.code.toLowerCase(),
+        name: head.name,
+        amount: Number(programFeeSchedule[head.id]) || 0,
+        is_monthly: head.code === 'TUITION',
+        is_recurring: head.code === 'TUITION',
+      }));
 
       const payload = {
         name: programForm.name.trim(),
@@ -277,7 +294,7 @@ export const AcademicStructureView: React.FC = () => {
       
       setShowProgramModal(false);
       setProgramForm({ name: '', code: '', description: '', sort_order: programs.length + 1 });
-      setProgramFeeSchedule({ tuition: '', admission: '', exam_lab: '' });
+      setProgramFeeSchedule({});
       setSelectedProgramId(data.data.id);
       triggerSuccess(`Class "${data.data.name}" created.`);
       fetchData();
@@ -295,11 +312,19 @@ export const AcademicStructureView: React.FC = () => {
       description: p.description || '',
       sort_order: p.sort_order || 1,
     });
-    setProgramFeeSchedule({
-      tuition: p.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount ?? '',
-      admission: p.fee_schedule?.find(f => f.fee_type === 'admission')?.amount ?? '',
-      exam_lab: p.fee_schedule?.find(f => f.fee_type === 'exam_lab')?.amount ?? '',
+    const sched: Record<string, number | ''> = {};
+    feeHeads.forEach(h => {
+      const match = p.fee_schedule?.find(f => 
+        f.fee_head_id === h.id || 
+        f.head_name?.toLowerCase() === h.name.toLowerCase() ||
+        f.name?.toLowerCase() === h.name.toLowerCase() ||
+        (h.code === 'TUITION' && f.fee_type === 'tuition') ||
+        (h.code === 'ADMISSION' && f.fee_type === 'admission') ||
+        (h.code === 'EXAM' && f.fee_type === 'exam_lab')
+      );
+      sched[h.id] = match !== undefined ? (match.amount ?? '') : (h.default_amount || '');
     });
+    setProgramFeeSchedule(sched);
     setShowEditProgramModal(true);
   };
 
@@ -308,11 +333,15 @@ export const AcademicStructureView: React.FC = () => {
     if (!token || !activeProgram || !programForm.name.trim()) return;
     setIsSubmitting(true);
     try {
-      const fee_schedule = [
-        { fee_head_id: 'tuition', head_name: 'Monthly Tuition Fee', fee_type: 'tuition', name: 'Monthly Tuition Fee', amount: Number(programFeeSchedule.tuition) || 0, is_monthly: true, is_recurring: true },
-        { fee_head_id: 'admission', head_name: 'Admission Fee', fee_type: 'admission', name: 'One-time Admission Fee', amount: Number(programFeeSchedule.admission) || 0, is_monthly: false, is_recurring: false },
-        { fee_head_id: 'exam_lab', head_name: 'Exam & Lab Charges', fee_type: 'exam_lab', name: 'Exam & Lab Charges', amount: Number(programFeeSchedule.exam_lab) || 0, is_monthly: false, is_recurring: false },
-      ];
+      const fee_schedule = feeHeads.map(head => ({
+        fee_head_id: head.id,
+        head_name: head.name,
+        fee_type: head.code.toLowerCase(),
+        name: head.name,
+        amount: Number(programFeeSchedule[head.id]) || 0,
+        is_monthly: head.code === 'TUITION',
+        is_recurring: head.code === 'TUITION',
+      }));
 
       const payload = {
         name: programForm.name.trim(),
@@ -743,7 +772,7 @@ export const AcademicStructureView: React.FC = () => {
         badge={`Session ${tenant?.academic_session || '2026-2027'}`}
       >
         <button
-          onClick={() => setShowProgramModal(true)}
+          onClick={openCreateProgramModal}
           className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs"
         >
           <Plus className="w-4 h-4 text-white" />
@@ -1469,47 +1498,50 @@ export const AcademicStructureView: React.FC = () => {
               {/* Default Fee Schedule Baseline */}
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                     <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                    Default Class Fee Baseline
+                    Default Class Fee Baseline (By Fee Head)
                   </span>
+                  <span className="text-[10px] text-slate-500 font-medium">Configured in Finance &gt; Fee Heads</span>
                 </div>
                 <p className="text-[10px] text-slate-500">
                   Batches in this class inherit these defaults automatically during enrollment & billing.
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                  <div>
-                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Monthly Tuition (PKR)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={programFeeSchedule.tuition}
-                      onChange={e => setProgramFeeSchedule({ ...programFeeSchedule, tuition: Number(e.target.value) || 0 })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
-                    />
+                {feeHeads.length === 0 ? (
+                  <div className="p-2 text-center text-xs text-slate-400 bg-white rounded-lg border border-dashed border-slate-200">
+                    No active fee heads found. Configure fee heads in Finance &gt; Fees Receiving &gt; Fee Heads.
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Admission Fee (PKR)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={programFeeSchedule.admission}
-                      onChange={e => setProgramFeeSchedule({ ...programFeeSchedule, admission: Number(e.target.value) || 0 })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
-                    />
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1 max-h-56 overflow-y-auto pr-1">
+                    {feeHeads.map(head => (
+                      <div key={head.id} className="bg-white p-2 rounded-lg border border-slate-200">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[11px] font-bold text-slate-700 truncate" title={head.name}>
+                            {head.name}
+                          </label>
+                          <span className="text-[9px] font-mono uppercase px-1 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">
+                            {head.code === 'TUITION' ? 'Monthly' : 'One-Time'}
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-mono">PKR</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={programFeeSchedule[head.id] ?? ''}
+                            onChange={e => setProgramFeeSchedule({
+                              ...programFeeSchedule,
+                              [head.id]: e.target.value === '' ? '' : Number(e.target.value)
+                            })}
+                            placeholder={String(head.default_amount || 0)}
+                            className="w-full pl-10 pr-2 py-1 bg-slate-50 border border-slate-200 rounded text-slate-800 font-mono text-xs font-bold text-right focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Exam / Lab Fee (PKR)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={programFeeSchedule.exam_lab}
-                      onChange={e => setProgramFeeSchedule({ ...programFeeSchedule, exam_lab: Number(e.target.value) || 0 })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
@@ -1606,47 +1638,50 @@ export const AcademicStructureView: React.FC = () => {
               {/* Default Fee Schedule Baseline */}
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                     <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                    Default Class Fee Baseline
+                    Default Class Fee Baseline (By Fee Head)
                   </span>
+                  <span className="text-[10px] text-slate-500 font-medium">Configured in Finance &gt; Fee Heads</span>
                 </div>
                 <p className="text-[10px] text-slate-500">
                   Batches in this class inherit these defaults automatically during enrollment & billing.
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                  <div>
-                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Monthly Tuition (PKR)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={programFeeSchedule.tuition}
-                      onChange={e => setProgramFeeSchedule({ ...programFeeSchedule, tuition: Number(e.target.value) || 0 })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
-                    />
+                {feeHeads.length === 0 ? (
+                  <div className="p-2 text-center text-xs text-slate-400 bg-white rounded-lg border border-dashed border-slate-200">
+                    No active fee heads found. Configure fee heads in Finance &gt; Fees Receiving &gt; Fee Heads.
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Admission Fee (PKR)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={programFeeSchedule.admission}
-                      onChange={e => setProgramFeeSchedule({ ...programFeeSchedule, admission: Number(e.target.value) || 0 })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
-                    />
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1 max-h-56 overflow-y-auto pr-1">
+                    {feeHeads.map(head => (
+                      <div key={head.id} className="bg-white p-2 rounded-lg border border-slate-200">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[11px] font-bold text-slate-700 truncate" title={head.name}>
+                            {head.name}
+                          </label>
+                          <span className="text-[9px] font-mono uppercase px-1 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">
+                            {head.code === 'TUITION' ? 'Monthly' : 'One-Time'}
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-mono">PKR</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={programFeeSchedule[head.id] ?? ''}
+                            onChange={e => setProgramFeeSchedule({
+                              ...programFeeSchedule,
+                              [head.id]: e.target.value === '' ? '' : Number(e.target.value)
+                            })}
+                            placeholder={String(head.default_amount || 0)}
+                            className="w-full pl-10 pr-2 py-1 bg-slate-50 border border-slate-200 rounded text-slate-800 font-mono text-xs font-bold text-right focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-medium text-slate-600 mb-0.5">Exam / Lab Fee (PKR)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={programFeeSchedule.exam_lab}
-                      onChange={e => setProgramFeeSchedule({ ...programFeeSchedule, exam_lab: Number(e.target.value) || 0 })}
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">

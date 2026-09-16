@@ -304,7 +304,7 @@ describe('Comprehensive ERP Audit Remediation & Integrity Test Suite', () => {
     });
 
     expect(updatedInvoice.paid_amount).toBe(initialPaid + 2000);
-    expect(payment.status).toBeUndefined(); // Active receipt
+    expect(payment.status).toBe('paid');
 
     // 3. Void payment via API
     const voidRes = await app.inject({
@@ -324,12 +324,14 @@ describe('Comprehensive ERP Audit Remediation & Integrity Test Suite', () => {
     expect(voidBody.data.invoice.paid_amount).toBe(initialPaid);
     expect(voidBody.data.invoice.balance_amount).toBe(initialBalance);
 
-    // 4. Verify Cashbook contains the reversing expense voucher
+    // 4. Original fee-collection cashbook line is zeroed (not a fake expense)
     const transactions = await store.getFinancialTransactions(tenantId);
-    const reversalVoucher = transactions.find(t => t.reference_number === `VOID-${payment.receipt_number}`);
-    expect(reversalVoucher).toBeDefined();
-    expect(reversalVoucher?.type).toBe('expense');
-    expect(reversalVoucher?.amount).toBe(2000);
+    const originalIncome = transactions.find(t =>
+      t.reference_number === payment.receipt_number || (t.description || '').includes(payment.receipt_number)
+    );
+    expect(originalIncome).toBeDefined();
+    expect(originalIncome?.amount).toBe(0);
+    expect(originalIncome?.description).toMatch(/^\[VOIDED\]/);
 
     // 5. Duplicate void rejection
     const repeatVoidRes = await app.inject({

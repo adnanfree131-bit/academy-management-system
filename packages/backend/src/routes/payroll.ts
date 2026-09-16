@@ -9,7 +9,7 @@ export function payrollRoutes(store: IDataStore) {
       await (fastify as any).authenticate(request, reply);
       if (reply.sent) return;
       const user = request.user as JWTPayload;
-      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin' && user.role !== 'finance_manager') {
         return reply.status(403).send({
           success: false,
           error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Administrator privileges required for payroll operations.' },

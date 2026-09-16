@@ -28,7 +28,6 @@ import {
   Users,
   Calendar,
   RefreshCw,
-  RotateCcw,
   ArrowRight
 } from 'lucide-react';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
@@ -41,12 +40,13 @@ import {
   FeeDiscount,
   DailyCashbookEntry,
   StudentLedgerEntry,
-  StudentFeeStructure,
   PaymentMethod,
   FeePayment
 } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
+import { localISODate, addLocalDays } from '../lib/localDate';
+import { normalizeBillingMonth } from './FeeChallansView';
 import {
   FeeSlipData,
   AcademyInfo,
@@ -57,12 +57,11 @@ import {
 
 export const FeeDeskView: React.FC = () => {
   const { token, tenant } = useAuth();
-  const [activeTab, setActiveTab] = useState<'cashier' | 'defaulters' | 'reports' | 'structures' | 'discounts' | 'fee_heads'>('cashier');
+  const [activeTab, setActiveTab] = useState<'cashier' | 'defaulters' | 'reports'>('cashier');
 
   // Core Data
   const [invoices, setInvoices] = useState<StudentInvoice[]>([]);
   const [feeHeads, setFeeHeads] = useState<FeeHead[]>([]);
-  const [feeStructures, setFeeStructures] = useState<StudentFeeStructure[]>([]);
   const [discounts, setDiscounts] = useState<FeeDiscount[]>([]);
   const [cashbook, setCashbook] = useState<DailyCashbookEntry[]>([]);
   const [students, setStudents] = useState<any[]>([]);
@@ -72,9 +71,16 @@ export const FeeDeskView: React.FC = () => {
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedBatch, setSelectedBatch] = useState<string>('all');
-  const [dayCloseDate, setDayCloseDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [dayCloseDate, setDayCloseDate] = useState<string>(() => localISODate());
   const [dayCloseRecords, setDayCloseRecords] = useState<DailyCashbookEntry[]>([]);
   const [expandedDefaulterId, setExpandedDefaulterId] = useState<string | null>(null);
+  const [duesView, setDuesView] = useState<'defaulters' | 'current_dues'>('defaulters');
+  const [unpaidMonthsFilter, setUnpaidMonthsFilter] = useState<'any' | '1' | '2' | '3+'>('any');
+  const [defaulterHeadIds, setDefaulterHeadIds] = useState<string[]>([]);
+  const [siblingReportOpen, setSiblingReportOpen] = useState(false);
+  const [siblingReportScope, setSiblingReportScope] = useState<'one_student' | 'one_class' | 'all_classes'>('all_classes');
+  const [siblingReportStudentId, setSiblingReportStudentId] = useState('');
+  const [siblingReportProgramId, setSiblingReportProgramId] = useState('all');
 
   // Cashier Student Search & Family Desk
   const [cashierSearch, setCashierSearch] = useState<string>('');
@@ -83,6 +89,28 @@ export const FeeDeskView: React.FC = () => {
   const [showSearchPopup, setShowSearchPopup] = useState<boolean>(false);
   const [payments, setPayments] = useState<FeePayment[]>([]);
 
+  // Embedded Fee Heads Drawer / Modal State
+  const [showFeeHeadsModal, setShowFeeHeadsModal] = useState<boolean>(false);
+
+  // Cashier Collection Custom Date & Head-Wise Counter Discount
+  const [paymentDate, setPaymentDate] = useState<string>(() => localISODate());
+  const [showCounterDiscount, setShowCounterDiscount] = useState<boolean>(false);
+  const [counterDiscounts, setCounterDiscounts] = useState<Record<string, number>>({});
+  const [counterDiscountReason, setCounterDiscountReason] = useState<string>('');
+
+  // Unified Concessions Report Modal State
+  const [showConcessionReportModal, setShowConcessionReportModal] = useState<boolean>(false);
+  const [concessionReportType, setConcessionReportType] = useState<'all' | 'scholarship' | 'counter'>('all');
+  const [concessionPeriodType, setConcessionPeriodType] = useState<'monthly' | 'yearly' | 'date_range'>('monthly');
+  const [concessionClassFilter, setConcessionClassFilter] = useState<string>('all');
+  const [concessionMonth, setConcessionMonth] = useState<string>(() => new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
+  const [concessionYear, setConcessionYear] = useState<string>(() => new Date().getFullYear().toString());
+  const [concessionStartDate, setConcessionStartDate] = useState<string>(() => {
+    const d = new Date();
+    return localISODate(new Date(d.getFullYear(), d.getMonth(), 1));
+  });
+  const [concessionEndDate, setConcessionEndDate] = useState<string>(() => localISODate());
+
   // Edit Invoice Modal State
   const [editingInvoice, setEditingInvoice] = useState<StudentInvoice | null>(null);
   const [editDueDate, setEditDueDate] = useState<string>('');
@@ -90,9 +118,6 @@ export const FeeDeskView: React.FC = () => {
   const [editItems, setEditItems] = useState<Array<{ fee_head_id: string; head_name: string; amount: number }>>([]);
   const [isSavingEditInvoice, setIsSavingEditInvoice] = useState<boolean>(false);
 
-  // Dynamic Structure New Head Selection
-  const [newStructureHeadId, setNewStructureHeadId] = useState<string>('');
-  const [newStructureHeadAmount, setNewStructureHeadAmount] = useState<number>(0);
   const [selectedFamily, setSelectedFamily] = useState<{
     guardian_name: string;
     guardian_phone: string;
@@ -124,9 +149,9 @@ export const FeeDeskView: React.FC = () => {
   // Reports Hub State
   const [reportStartDate, setReportStartDate] = useState<string>(() => {
     const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+    return localISODate(new Date(d.getFullYear(), d.getMonth(), 1));
   });
-  const [reportEndDate, setReportEndDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [reportEndDate, setReportEndDate] = useState<string>(() => localISODate());
   const [reportMonth, setReportMonth] = useState<string>(() => new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
   const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
 
@@ -142,15 +167,12 @@ export const FeeDeskView: React.FC = () => {
   }, [programs]);
 
   // Operational Modals & Drawers
-  const [showGenerateModal, setShowGenerateModal] = useState<boolean>(false);
-  const [showBatchInvoiceModal, setShowBatchInvoiceModal] = useState<boolean>(false);
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [showDiscountModal, setShowDiscountModal] = useState<boolean>(false);
   const [showBulkRevisionModal, setShowBulkRevisionModal] = useState<boolean>(false);
   const [showCashierDrawer, setShowCashierDrawer] = useState<boolean>(false);
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
   const [showPictureSlipModal, setShowPictureSlipModal] = useState<boolean>(false);
-  const [showStructureModal, setShowStructureModal] = useState<boolean>(false);
 
   // Active Entity Selection
   const [activeInvoice, setActiveInvoice] = useState<StudentInvoice | null>(null);
@@ -191,31 +213,12 @@ export const FeeDeskView: React.FC = () => {
   const [cancelInvoiceReason, setCancelInvoiceReason] = useState<string>('');
   const [cancelSubmitting, setCancelSubmitting] = useState<boolean>(false);
 
-  // Form States: New Single Invoice
-  const [newInvStudentId, setNewInvStudentId] = useState<string>('');
-  const [newInvMonth, setNewInvMonth] = useState<string>(() => new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
-  const [newInvDueDate, setNewInvDueDate] = useState<string>(() => new Date(new Date().getFullYear(), new Date().getMonth(), 15).toISOString().split('T')[0]);
-  const [newInvNotes, setNewInvNotes] = useState<string>('');
-  const [newInvCustomItems, setNewInvCustomItems] = useState<{ fee_head_id: string; amount: number }[]>([]);
-
-  // Form States: Batch Invoicing
-  const [batchInvBatchId, setBatchInvBatchId] = useState<string>('');
-  const [batchInvMonth, setBatchInvMonth] = useState<string>(() => new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
-  const [batchInvDueDate, setBatchInvDueDate] = useState<string>(() => new Date(new Date().getFullYear(), new Date().getMonth(), 15).toISOString().split('T')[0]);
-
   // Form States: Discount
   const [discountStudentId, setDiscountStudentId] = useState<string>('');
   const [discountInvoiceId, setDiscountInvoiceId] = useState<string>('');
   const [discountType, setDiscountType] = useState<'flat' | 'percentage'>('flat');
   const [discountValue, setDiscountValue] = useState<number | ''>('');
   const [discountReason, setDiscountReason] = useState<string>('');
-
-  // Form States: Fee Structures
-  const [editingStructure, setEditingStructure] = useState<StudentFeeStructure | null>(null);
-  const [structureBatchId, setStructureBatchId] = useState<string>('');
-  const [structureSession, setStructureSession] = useState<string>('2026-2027');
-  const [structureItems, setStructureItems] = useState<{ fee_head_id: string; amount: number }[]>([]);
-  const [isSavingStructure, setIsSavingStructure] = useState<boolean>(false);
 
   // Form States: Fee Heads Management
   const [showHeadModal, setShowHeadModal] = useState<boolean>(false);
@@ -261,16 +264,27 @@ export const FeeDeskView: React.FC = () => {
     };
   }, [tenant, academySettings]);
 
+  const fetchCashbook = useCallback(async () => {
+    if (!token) return;
+    try {
+      const cashRes = await fetch(
+        `/api/v1/finance/reports/cashbook?startDate=${encodeURIComponent(reportStartDate)}&endDate=${encodeURIComponent(reportEndDate)}`,
+        { headers: { authorization: `Bearer ${token}` } },
+      );
+      if (cashRes.ok) setCashbook((await cashRes.json()).data || []);
+    } catch (err) {
+      console.error('Failed to load cashbook:', err);
+    }
+  }, [token, reportStartDate, reportEndDate]);
+
   // Fetch Core Data
   const fetchData = async () => {
     if (!token) return;
     try {
-      const [invRes, headsRes, structRes, discRes, cashRes, studRes, batchRes, progRes, settRes, priorityRes, payRes] = await Promise.all([
+      const [invRes, headsRes, discRes, studRes, batchRes, progRes, settRes, priorityRes, payRes] = await Promise.all([
         fetch('/api/v1/finance/invoices', { headers: { authorization: `Bearer ${token}` } }),
         fetch('/api/v1/finance/heads', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/finance/structures', { headers: { authorization: `Bearer ${token}` } }),
         fetch('/api/v1/finance/discounts', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/finance/reports/cashbook', { headers: { authorization: `Bearer ${token}` } }),
         fetch('/api/v1/sis/students', { headers: { authorization: `Bearer ${token}` } }),
         fetch('/api/v1/academic/batches', { headers: { authorization: `Bearer ${token}` } }),
         fetch('/api/v1/academic/programs', { headers: { authorization: `Bearer ${token}` } }),
@@ -301,9 +315,8 @@ export const FeeDeskView: React.FC = () => {
       }
       setFeeHeads(fetchedHeads);
 
-      if (structRes.ok) setFeeStructures((await structRes.json()).data || []);
       if (discRes.ok) setDiscounts((await discRes.json()).data || []);
-      if (cashRes.ok) setCashbook((await cashRes.json()).data || []);
+      await fetchCashbook();
       if (settRes && settRes.ok) {
         const sData = await settRes.json();
         if (sData.success && sData.data) {
@@ -345,24 +358,24 @@ export const FeeDeskView: React.FC = () => {
   }, [dayCloseDate, fetchDayCloseData]);
 
   const handlePrevDay = () => {
-    const d = new Date(dayCloseDate);
-    d.setDate(d.getDate() - 1);
-    setDayCloseDate(d.toISOString().split('T')[0]);
+    setDayCloseDate(addLocalDays(dayCloseDate, -1));
   };
 
   const handleNextDay = () => {
-    const d = new Date(dayCloseDate);
-    d.setDate(d.getDate() + 1);
-    setDayCloseDate(d.toISOString().split('T')[0]);
+    setDayCloseDate(addLocalDays(dayCloseDate, 1));
   };
 
   const handleToday = () => {
-    setDayCloseDate(new Date().toISOString().split('T')[0]);
+    setDayCloseDate(localISODate());
   };
 
   useEffect(() => {
     fetchData();
   }, [token]);
+
+  useEffect(() => {
+    void fetchCashbook();
+  }, [fetchCashbook]);
 
   // Load student ledger when selected
   useEffect(() => {
@@ -376,27 +389,44 @@ export const FeeDeskView: React.FC = () => {
     }
   }, [token, ledgerStudentId]);
 
-  // Defaulters List Grouped by Student (Direct Overdue Classification)
+  const billingMonthKey = (m: string) => {
+    const n = normalizeBillingMonth(m || '');
+    const d = new Date(n);
+    if (Number.isNaN(d.getTime())) return 0;
+    return d.getFullYear() * 12 + d.getMonth();
+  };
+
+  const currentMonthKey = (() => {
+    const t = new Date();
+    return t.getFullYear() * 12 + t.getMonth();
+  })();
+
+  // Unpaid grouped students. Current-month unpaid is NOT a defaulter until next month starts.
   const defaultersList = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const overdueInvoices = invoices
+    const liveUnpaid = invoices
       .filter(inv => {
-        if (inv.status === 'paid' || inv.status === 'voided' || inv.balance_amount <= 0) return false;
-        const due = new Date(inv.due_date);
-        due.setHours(0, 0, 0, 0);
-        return today.getTime() > due.getTime();
+        const st = String(inv.status || '').toLowerCase();
+        if (st === 'paid' || st === 'voided' || st === 'cancelled' || st === 'rolled_over') return false;
+        return (inv.balance_amount ?? inv.balance_due ?? 0) > 0;
       })
       .map(inv => {
         const due = new Date(inv.due_date);
         due.setHours(0, 0, 0, 0);
-        const diffDays = Math.max(1, Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)));
+        const diffDays = Math.max(0, Math.floor((today.getTime() - due.getTime()) / (1000 * 60 * 60 * 24)));
         return {
           ...inv,
           overdue_days: diffDays,
         };
       });
+
+    const relevant = liveUnpaid.filter(inv => {
+      const key = billingMonthKey(inv.billing_month);
+      if (duesView === 'current_dues') return key === currentMonthKey;
+      return key < currentMonthKey;
+    });
 
     const grouped = new Map<string, {
       student_id: string;
@@ -415,7 +445,7 @@ export const FeeDeskView: React.FC = () => {
       invoices: (StudentInvoice & { overdue_days: number })[];
     }>();
 
-    for (const inv of overdueInvoices) {
+    for (const inv of relevant) {
       const stud = students.find(s => s.id === inv.student_id);
       let entry = grouped.get(inv.student_id);
       if (!entry) {
@@ -458,17 +488,31 @@ export const FeeDeskView: React.FC = () => {
         if (selectedBatch !== 'all' && def.batch_id !== selectedBatch) return false;
         if (searchQuery) {
           const q = searchQuery.toLowerCase();
-          return (
+          const hit =
             def.student_name.toLowerCase().includes(q) ||
             def.roll_number.toLowerCase().includes(q) ||
             def.father_name.toLowerCase().includes(q) ||
-            def.unpaid_months.some(m => m.toLowerCase().includes(q))
+            def.unpaid_months.some(m => m.toLowerCase().includes(q));
+          if (!hit) return false;
+        }
+        const monthCount = def.unpaid_months.length;
+        if (unpaidMonthsFilter === '1' && monthCount !== 1) return false;
+        if (unpaidMonthsFilter === '2' && monthCount !== 2) return false;
+        if (unpaidMonthsFilter === '3+' && monthCount < 3) return false;
+        if (defaulterHeadIds.length > 0) {
+          const pendingHeads = new Set(
+            def.invoices.flatMap(inv =>
+              (inv.items || [])
+                .filter(it => Number(it.balance_due ?? it.net_amount ?? 0) > 0)
+                .map(it => it.fee_head_id)
+            )
           );
+          if (!defaulterHeadIds.some(id => pendingHeads.has(id))) return false;
         }
         return true;
       })
       .sort((a, b) => b.total_balance - a.total_balance);
-  }, [invoices, students, selectedBatch, searchQuery, getProgramName]);
+  }, [invoices, students, selectedBatch, searchQuery, getProgramName, duesView, unpaidMonthsFilter, defaulterHeadIds, currentMonthKey]);
 
   // Summary Totals
   const totalDefaultersCount = defaultersList.length;
@@ -485,11 +529,7 @@ export const FeeDeskView: React.FC = () => {
 
       const sPhone = (student.guardian_phone || student.phone || '').replace(/\D/g, '');
       const oPhone = (other.guardian_phone || other.phone || '').replace(/\D/g, '');
-      if (sPhone.length >= 7 && oPhone.length >= 7 && sPhone === oPhone) return true;
-
-      const sFather = (student.guardian_name || student.father_name || '').toLowerCase().trim();
-      const oFather = (other.guardian_name || other.father_name || '').toLowerCase().trim();
-      if (sFather && oFather && sFather.length > 3 && sFather === oFather) return true;
+      if (sPhone.length >= 10 && oPhone.length >= 10 && sPhone === oPhone) return true;
 
       return false;
     });
@@ -607,7 +647,7 @@ export const FeeDeskView: React.FC = () => {
     return students.find(s => s.id === selectedCashierStudentId) || null;
   }, [students, selectedCashierStudentId]);
 
-  // Cashier Filtered Students Roster (Zero student roster until cashier searches)
+  // Cashier Filtered Students Roster (Shows initial roster on focus, filters dynamically on typing)
   const cashierFilteredStudents = useMemo(() => {
     let list = students;
     if (cashierClassFilter !== 'all') {
@@ -625,8 +665,121 @@ export const FeeDeskView: React.FC = () => {
       const phoneMatch = s.phone?.includes(q) || s.guardian_phone?.includes(q);
       const cnicMatch = s.guardian_id_card?.includes(q);
       return nameMatch || rollMatch || admMatch || guardMatch || phoneMatch || cnicMatch;
-    });
+    }).slice(0, 50);
   }, [students, cashierClassFilter, cashierSearch]);
+
+  // Unified Concession Report Generator (Scholarship / Needy vs. Counter Concessions)
+  const handleGenerateConcessionReport = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      const letterhead = await academyLetterheadFromAuth(tenant);
+      let filteredDiscounts = [...discounts];
+
+      // 1. Filter by Concession Type
+      if (concessionReportType === 'scholarship') {
+        filteredDiscounts = filteredDiscounts.filter(d => {
+          const r = ((d as any).reason || d.mandatory_reason || '').toLowerCase();
+          return r.includes('scholarship') || r.includes('needy') || r.includes('kinship') || r.includes('merit') || r.includes('orphan') || !d.invoice_id;
+        });
+      } else if (concessionReportType === 'counter') {
+        filteredDiscounts = filteredDiscounts.filter(d => Boolean(d.invoice_id));
+      }
+
+      // 2. Filter by Class
+      if (concessionClassFilter !== 'all') {
+        filteredDiscounts = filteredDiscounts.filter(d => {
+          const stud = students.find(s => s.id === d.student_id);
+          return stud?.program_id === concessionClassFilter;
+        });
+      }
+
+      // 3. Filter by Time Period
+      if (concessionPeriodType === 'monthly') {
+        filteredDiscounts = filteredDiscounts.filter(d => {
+          const timestamp = d.applied_at || (d as any).created_at;
+          if (!timestamp) return true;
+          const dt = new Date(timestamp);
+          const mName = dt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+          return mName.toLowerCase() === concessionMonth.toLowerCase();
+        });
+      } else if (concessionPeriodType === 'yearly') {
+        filteredDiscounts = filteredDiscounts.filter(d => {
+          const timestamp = d.applied_at || (d as any).created_at;
+          if (!timestamp) return true;
+          return new Date(timestamp).getFullYear().toString() === concessionYear;
+        });
+      } else if (concessionPeriodType === 'date_range') {
+        filteredDiscounts = filteredDiscounts.filter(d => {
+          const timestamp = d.applied_at || (d as any).created_at;
+          if (!timestamp) return true;
+          const dStr = timestamp.split('T')[0];
+          return dStr >= concessionStartDate && dStr <= concessionEndDate;
+        });
+      }
+
+      const totalConcessionAmount = filteredDiscounts.reduce((sum, d) => sum + (d.actual_discount_amount || d.discount_value || 0), 0);
+
+      const typeLabel = concessionReportType === 'scholarship'
+        ? 'Scholarship / Needy-Based Students Register'
+        : concessionReportType === 'counter'
+        ? 'Counter Concessions Register'
+        : 'Approved Concessions & Scholarships Register';
+
+      const title = `${typeLabel}`;
+      const filename = `Concessions_${concessionReportType}_${new Date().toISOString().split('T')[0]}.pdf`;
+
+      const rows = filteredDiscounts.map((d, i) => {
+        const stud = students.find(s => s.id === d.student_id);
+        const progName = stud ? getProgramName(stud.program_id) : '—';
+        const batch = batches.find(b => b.id === stud?.batch_id);
+        return {
+          sr: String(i + 1),
+          roll: stud?.roll_number || '—',
+          student: stud?.full_name || 'Student',
+          class_name: `${progName}${batch?.name ? ` (${batch.name})` : ''}`,
+          type: d.discount_type.toUpperCase(),
+          amount: `${d.discount_value}${d.discount_type === 'percentage' ? '%' : ' PKR'}`,
+          reason: (d as any).reason || d.mandatory_reason || 'Approved Concession',
+          approved_by: (d as any).approved_by || 'Academic Director',
+        };
+      });
+
+      const bytes = await buildTabularFeeReportPdfBytes({
+        title,
+        academy: letterhead,
+        filterInfo: [
+          { label: 'Category', value: typeLabel },
+          { label: 'Period Filter', value: concessionPeriodType.toUpperCase() },
+          { label: 'Class', value: concessionClassFilter === 'all' ? 'All Classes' : getProgramName(concessionClassFilter) },
+        ],
+        summaryStrip: [
+          { label: 'Total Concessions', value: `${filteredDiscounts.length} Students` },
+          { label: 'Total Value', value: `PKR ${totalConcessionAmount.toLocaleString()}` },
+        ],
+        columns: [
+          { key: 'sr', label: 'S#', width: 24 },
+          { key: 'roll', label: 'Roll #', width: 40 },
+          { key: 'student', label: 'Student Name', width: 105 },
+          { key: 'class_name', label: 'Class & Sec', width: 85 },
+          { key: 'type', label: 'Type', width: 45 },
+          { key: 'amount', label: 'Concession', width: 65, align: 'right' },
+          { key: 'reason', label: 'Mandatory Approval Reason', width: 150 },
+        ],
+        rows,
+        filename,
+      });
+
+      setPdfBytes(bytes);
+      setPdfTitle(title);
+      setPdfFilename(filename);
+      setPdfModalOpen(true);
+      setShowConcessionReportModal(false);
+    } catch (err: any) {
+      alert(`Error generating concession report: ${err.message}`);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
 
   // In-Portal PDF Report Generator & Viewer Handler
   const handleOpenReportPdf = async (reportType: string) => {
@@ -677,7 +830,14 @@ export const FeeDeskView: React.FC = () => {
         title = 'Family & Sibling Fee Record';
         filename = `Family_Sibling_Fee_Record_${new Date().toISOString().split('T')[0]}.pdf`;
         const familiesMap = new Map<string, { guardian: string; phone: string; cnic: string; children: string[]; totalDue: number }>();
-        for (const s of students) {
+        let sourceStudents = students;
+        if (siblingReportScope === 'one_student') {
+          const seed = students.find(s => s.id === siblingReportStudentId);
+          sourceStudents = seed ? [seed, ...getStudentSiblings(seed)] : [];
+        } else if (siblingReportScope === 'one_class' && siblingReportProgramId !== 'all') {
+          sourceStudents = students.filter(s => s.program_id === siblingReportProgramId);
+        }
+        for (const s of sourceStudents) {
           const key = (s.guardian_id_card || s.guardian_phone || s.guardian_name || '').trim();
           if (!key) continue;
           let fam = familiesMap.get(key);
@@ -748,16 +908,41 @@ export const FeeDeskView: React.FC = () => {
 
           rows.push({
             class_name: prog.name,
+            head: 'All heads',
             total_students: String(progStudents.length),
             billed: `PKR ${billed.toLocaleString()}`,
             collected: `PKR ${collected.toLocaleString()}`,
             pending: `PKR ${pending.toLocaleString()}`,
             recovery: recoveryPct,
           });
+          const byHead = new Map<string, { billed: number; collected: number; pending: number }>();
+          for (const inv of progInvoices) {
+            if (['cancelled', 'voided', 'rolled_over'].includes(String(inv.status || '').toLowerCase())) continue;
+            for (const it of inv.items || []) {
+              const name = it.head_name || it.head_code || 'Fee';
+              const rec = byHead.get(name) || { billed: 0, collected: 0, pending: 0 };
+              rec.billed += Number(it.net_amount || it.original_amount || 0);
+              rec.collected += Number(it.paid_amount || 0);
+              rec.pending += Number(it.balance_due ?? Math.max(0, Number(it.net_amount || 0) - Number(it.paid_amount || 0)));
+              byHead.set(name, rec);
+            }
+          }
+          for (const [head, rec] of byHead) {
+            rows.push({
+              class_name: `  ${prog.name}`,
+              head,
+              total_students: '',
+              billed: `PKR ${rec.billed.toLocaleString()}`,
+              collected: `PKR ${rec.collected.toLocaleString()}`,
+              pending: `PKR ${rec.pending.toLocaleString()}`,
+              recovery: rec.billed > 0 ? `${((rec.collected / rec.billed) * 100).toFixed(1)}%` : '0%',
+            });
+          }
         }
         bytes = await buildTabularFeeReportPdfBytes({
           title,
           academy: letterhead,
+          landscape: true,
           summaryStrip: [
             { label: 'Total Billed', value: `PKR ${grandBilled.toLocaleString()}` },
             { label: 'Total Collected', value: `PKR ${grandCollected.toLocaleString()}` },
@@ -765,12 +950,13 @@ export const FeeDeskView: React.FC = () => {
             { label: 'Recovery Rate', value: grandBilled > 0 ? `${((grandCollected / grandBilled) * 100).toFixed(1)}%` : '0%' },
           ],
           columns: [
-            { key: 'class_name', label: 'Class / Program', width: 140 },
-            { key: 'total_students', label: 'Students', width: 60, align: 'right' },
-            { key: 'billed', label: 'Total Billed', width: 75, align: 'right' },
-            { key: 'collected', label: 'Collected', width: 75, align: 'right' },
-            { key: 'pending', label: 'Outstanding', width: 80, align: 'right' },
-            { key: 'recovery', label: 'Recovery %', width: 60, align: 'right' },
+            { key: 'class_name', label: 'Class / Program', width: 150 },
+            { key: 'head', label: 'Fee Head', width: 130 },
+            { key: 'total_students', label: 'Students', width: 55, align: 'right' },
+            { key: 'billed', label: 'Billed', width: 80, align: 'right' },
+            { key: 'collected', label: 'Collected', width: 80, align: 'right' },
+            { key: 'pending', label: 'Outstanding', width: 85, align: 'right' },
+            { key: 'recovery', label: 'Recovery %', width: 62, align: 'right' },
           ],
           rows,
           filename,
@@ -1117,8 +1303,56 @@ export const FeeDeskView: React.FC = () => {
       return;
     }
 
+    // Check head-wise counter discount mandatory reason
+    const activeCounterEntries = showCounterDiscount
+      ? Object.entries(counterDiscounts).filter(([_, val]) => Number(val) > 0)
+      : [];
+
+    if (activeCounterEntries.length > 0 && !counterDiscountReason.trim()) {
+      alert('Please enter a mandatory approval remark / justification for the counter concession.');
+      return;
+    }
+
     setIsCommittingPayment(true);
     try {
+      let allocationsToSend = distributionItems;
+      // 1. Process head-wise counter concessions if applied
+      if (activeCounterEntries.length > 0) {
+        for (const [headId, val] of activeCounterEntries) {
+          const discRes = await fetch('/api/v1/finance/discounts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              student_id: activeInvoice.student_id,
+              invoice_id: activeInvoice.id,
+              fee_head_id: headId,
+              discount_type: 'flat',
+              discount_value: Number(val),
+              mandatory_reason: counterDiscountReason.trim(),
+            }),
+          });
+          const discData = await discRes.json();
+          if (!discRes.ok || !discData.success) {
+            throw new Error(discData.error?.message || 'Concession was not applied. Payment was not recorded.');
+          }
+        }
+        const previewRes = await fetch('/api/v1/finance/distribute-preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify({ invoice_id: activeInvoice.id, amount: numCollectionAmount }),
+        });
+        const previewData = await previewRes.json();
+        if (previewData.success && Array.isArray(previewData.data)) {
+          allocationsToSend = previewData.data;
+          setDistributionItems(previewData.data);
+        }
+      }
+
+      if (paymentMethod === 'cheque' && !paymentChequeNumber.trim()) {
+        throw new Error('Cheque number is required.');
+      }
+
+      // 2. Commit payment with custom payment_date
       const res = await fetch('/api/v1/finance/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
@@ -1126,13 +1360,14 @@ export const FeeDeskView: React.FC = () => {
           invoice_id: activeInvoice.id,
           amount_paid: numCollectionAmount,
           payment_method: paymentMethod,
+          payment_date: paymentDate,
           reference_number: paymentReference || undefined,
           bank_name: paymentBankName || undefined,
           cheque_number: paymentChequeNumber || undefined,
           clearing_date: paymentClearingDate || undefined,
           is_override: isOverrideActive,
           override_reason: isOverrideActive ? overrideReason : undefined,
-          allocations: distributionItems
+          allocations: allocationsToSend
         })
       });
 
@@ -1339,7 +1574,7 @@ export const FeeDeskView: React.FC = () => {
         });
         const data = await res.json();
         if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-          const validPayments = data.data.filter((p: any) => p.status !== 'void');
+          const validPayments = data.data.filter((p: any) => p.status !== 'void' && p.status !== 'voided');
           const targetPayment = validPayments[validPayments.length - 1] || data.data[0];
           setActivePaymentReceipt(targetPayment);
           setShowReceiptModal(true);
@@ -1350,87 +1585,7 @@ export const FeeDeskView: React.FC = () => {
       console.error('Failed to fetch genuine payment receipt', err);
     }
 
-    const cashbookPayment = cashbook.find(c => ((c as any).invoice_id === inv.id || c.roll_number === inv.roll_number) && c.amount > 0);
-    const payment = {
-      id: cashbookPayment?.id || `pmt-${inv.id}`,
-      receipt_number: cashbookPayment?.receipt_number || `REC-${new Date().getFullYear()}-${inv.invoice_number.replace(/\D/g, '').slice(-5).padStart(5, '0')}`,
-      invoice_id: inv.id,
-      student_id: inv.student_id,
-      student_name: inv.student_name,
-      roll_number: inv.roll_number,
-      payment_date: cashbookPayment?.date || new Date().toISOString().split('T')[0],
-      amount_paid: inv.paid_amount,
-      payment_method: cashbookPayment?.payment_method || 'cash',
-      collected_by: cashbookPayment?.collected_by || 'Accounts Desk',
-      allocations: inv.items.map(it => ({
-        head_name: it.head_name,
-        allocated_amount: it.paid_amount || 0
-      }))
-    };
-    setActivePaymentReceipt(payment);
-    setShowReceiptModal(true);
-  };
-
-  // Single Invoice Creation
-  const handleCreateInvoice = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !newInvStudentId) return;
-
-    try {
-      const res = await fetch('/api/v1/finance/invoices/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          student_id: newInvStudentId,
-          billing_month: newInvMonth,
-          due_date: newInvDueDate,
-          notes: newInvNotes,
-          custom_items: newInvCustomItems.length > 0 ? newInvCustomItems : undefined
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setShowGenerateModal(false);
-        setNewInvStudentId('');
-        setNewInvNotes('');
-        setNewInvCustomItems([]);
-        showToast('Student invoice generated with previous arrears calculated.');
-        fetchData();
-      } else {
-        alert(data.error?.message || 'Invoice generation failed');
-      }
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
-
-  // Batch Invoice Generation
-  const handleBatchInvoice = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !batchInvBatchId) return;
-
-    try {
-      const res = await fetch('/api/v1/finance/invoices/generate-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          batch_id: batchInvBatchId,
-          billing_month: batchInvMonth,
-          due_date: batchInvDueDate
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setShowBatchInvoiceModal(false);
-        const count = data.invoices_created ?? (Array.isArray(data.data) ? data.data.length : data.data?.invoices_created) ?? 'all';
-        showToast(`Successfully issued batch invoices for ${count} students.`);
-        fetchData();
-      } else {
-        alert(data.error?.message || 'Batch invoicing failed');
-      }
-    } catch (err: any) {
-      alert(err.message);
-    }
+    showToast('No payment receipt found for this challan.');
   };
 
   // Handle Cancel / Void Invoice
@@ -1505,77 +1660,6 @@ export const FeeDeskView: React.FC = () => {
       alert(err.message);
     } finally {
       setIsSubmittingBulkRev(false);
-    }
-  };
-
-  // Fee Structure Modal Handlers
-  const handleOpenNewStructure = () => {
-    setEditingStructure(null);
-    setStructureBatchId(batches.length > 0 ? batches[0].id : '');
-    setStructureSession('2026-2027');
-    const tuitionHead = feeHeads.find(h => h.code === 'TUI' || h.name.toLowerCase().includes('tuition'));
-    if (tuitionHead) {
-      setStructureItems([{ fee_head_id: tuitionHead.id, amount: tuitionHead.default_amount || 0 }]);
-    } else {
-      setStructureItems([]);
-    }
-    setNewStructureHeadId('');
-    setNewStructureHeadAmount(0);
-    setShowStructureModal(true);
-  };
-
-  const handleOpenEditStructure = (str: StudentFeeStructure) => {
-    setEditingStructure(str);
-    setStructureBatchId(str.batch_id || '');
-    setStructureSession(str.academic_session || '2026-2027');
-    setStructureItems(str.items.map(it => ({
-      fee_head_id: it.fee_head_id,
-      amount: it.amount
-    })));
-    setNewStructureHeadId('');
-    setNewStructureHeadAmount(0);
-    setShowStructureModal(true);
-  };
-
-  const handleSaveStructure = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !structureBatchId) return;
-
-    setIsSavingStructure(true);
-    try {
-      const formattedItems = structureItems
-        .filter(it => it.amount > 0)
-        .map(it => {
-          const h = feeHeads.find(fh => fh.id === it.fee_head_id);
-          return {
-            fee_head_id: it.fee_head_id,
-            head_name: h?.name || 'Fee Head',
-            amount: Number(it.amount)
-          };
-        });
-
-      const res = await fetch('/api/v1/finance/structures', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          batch_id: structureBatchId,
-          academic_session: structureSession,
-          items: formattedItems
-        })
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setShowStructureModal(false);
-        showToast('Batch fee structure saved successfully.');
-        fetchData();
-      } else {
-        alert(data.error?.message || 'Failed to save fee structure');
-      }
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsSavingStructure(false);
     }
   };
 
@@ -1871,8 +1955,8 @@ export const FeeDeskView: React.FC = () => {
 
       {/* Header */}
       <PageHeading
-        title="Fee Ledger & Invoicing"
-        description="Issue monthly fee vouchers, manage batch fee schedules, record desk payments, and dispatch picture fee slips."
+        title="Fees Receiving"
+        description="Collect fees, view defaulters, and print reports."
         icon={<Receipt className="w-4 h-4 text-slate-700" />}
       >
         <button
@@ -1883,29 +1967,19 @@ export const FeeDeskView: React.FC = () => {
           <TrendingUp className="w-3.5 h-3.5 text-indigo-600" />
           Bulk Fee Revision
         </button>
-        <button
-          onClick={() => setShowGenerateModal(true)}
-          className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs rounded-lg shadow-xs transition-colors flex items-center gap-1.5"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          New Invoice
-        </button>
       </PageHeading>
 
       {/* Main Tab Navigation */}
-      {/* Mobile Tab Selector (Eliminates horizontal scrolling hurdle) */}
+      {/* Mobile Tab Selector */}
       <div className="sm:hidden w-full">
         <select
           value={activeTab}
           onChange={e => setActiveTab(e.target.value as any)}
           className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
         >
-          <option value="cashier">Fee Collection Counter</option>
+          <option value="cashier">Fees Receiving</option>
           <option value="defaulters">Fee Defaulters {totalDefaultersCount > 0 ? `(${totalDefaultersCount})` : ''}</option>
-          <option value="reports">Reports & Analytics</option>
-          <option value="structures">Fee Structures</option>
-          <option value="discounts">Concessions</option>
-          <option value="fee_heads">Fee Heads & Priority</option>
+          <option value="reports">Finance Reports</option>
         </select>
       </div>
 
@@ -1917,8 +1991,8 @@ export const FeeDeskView: React.FC = () => {
             activeTab === 'cashier' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <Search className="w-3.5 h-3.5 text-slate-500" />
-          <span>Fee Collection</span>
+          <Receipt className="w-3.5 h-3.5 text-slate-500" />
+          <span>Fees Receiving</span>
         </button>
         <button
           onClick={() => setActiveTab('defaulters')}
@@ -1941,42 +2015,15 @@ export const FeeDeskView: React.FC = () => {
           }`}
         >
           <BarChart2 className="w-3.5 h-3.5 text-slate-500" />
-          <span>Reports</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('structures')}
-          className={`flex-1 min-w-[110px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'structures' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Building2 className="w-3.5 h-3.5 text-slate-500" />
-          <span>Fee Structures</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('discounts')}
-          className={`flex-1 min-w-[100px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'discounts' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Percent className="w-3.5 h-3.5 text-slate-500" />
-          <span>Concessions</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('fee_heads')}
-          className={`flex-1 min-w-[120px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'fee_heads' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <DollarSign className="w-3.5 h-3.5 text-slate-500" />
-          <span>Fee Heads & Priority</span>
+          <span>Finance Reports</span>
         </button>
       </div>
 
-      {/* TAB: FEE COLLECTION COUNTER (Hero Search, Popup Selector & Student Fee Dossier) */}
+      {/* TAB: FEES RECEIVING (Hero Search, Popup Selector & 3-Section Dossier) */}
       {activeTab === 'cashier' && (
         <div className="space-y-4">
-          {/* Hero Search & Filter Bar */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-3">
+          {/* Hero Search & Action Bar */}
+          <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-xs space-y-3">
             <form
               onSubmit={e => {
                 e.preventDefault();
@@ -1988,16 +2035,23 @@ export const FeeDeskView: React.FC = () => {
                 <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search student by name, roll #, admission #, guardian phone, or CNIC..."
+                  placeholder="Name, roll no, phone, or CNIC"
                   value={cashierSearch}
-                  onChange={e => setCashierSearch(e.target.value)}
+                  onChange={e => {
+                    const next = e.target.value;
+                    setCashierSearch(next);
+                    if (next.trim()) setShowSearchPopup(true);
+                    else setShowSearchPopup(false);
+                  }}
                   className="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:bg-white text-slate-900 transition-colors"
-                  autoFocus
                 />
                 {cashierSearch && (
                   <button
                     type="button"
-                    onClick={() => setCashierSearch('')}
+                    onClick={() => {
+                      setCashierSearch('');
+                      setShowSearchPopup(false);
+                    }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
                   >
                     <X className="w-4 h-4" />
@@ -2017,51 +2071,40 @@ export const FeeDeskView: React.FC = () => {
               </select>
 
               <button
-                type="submit"
-                disabled={!cashierSearch.trim()}
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-2xs flex items-center justify-center gap-2 transition-colors"
+                type="button"
+                onClick={() => {
+                  if (cashierSearch.trim()) setShowSearchPopup(true);
+                }}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-2xs flex items-center justify-center gap-2 transition-colors shrink-0"
               >
                 <Search className="w-4 h-4" />
-                <span>Search Student</span>
+                <span>Select Student</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowFeeHeadsModal(true)}
+                className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs rounded-xl shadow-2xs flex items-center justify-center gap-1.5 transition-colors shrink-0"
+                title="Manage Fee Heads and Allocation Order"
+              >
+                <DollarSign className="w-4 h-4 text-indigo-600" />
+                <span>Fee Heads & Priority</span>
               </button>
             </form>
 
             <div className="flex items-center justify-between text-xs text-slate-500 px-1 pt-1 border-t border-slate-100">
               <span className="text-[11px] text-slate-500">
-                Press <strong>Enter</strong> or click <strong>Search Student</strong> to open results modal.
-              </span>
-              <span className="text-[11px] text-slate-400">
-                Supports in-place sibling discounts, 1-click payment reversals, and instant challan edits.
+                Type a name or roll number, then Select Student.
               </span>
             </div>
           </div>
 
-          {/* Zero Initial Roster Loaded: Institutional Counter Ready Card */}
           {!selectedStudent && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center shadow-2xs space-y-4">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto text-indigo-600 shadow-2xs">
-                <CreditCard className="w-7 h-7" />
-              </div>
-              <div className="max-w-md mx-auto space-y-1.5">
-                <h3 className="text-base font-bold text-slate-900">Fee Collection Desk Ready</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Enter a student name, roll number, admission number, contact phone, or guardian CNIC above to open the student's complete fee dossier.
-                </p>
-              </div>
-              <div className="pt-2 flex flex-wrap items-center justify-center gap-2 text-[11px]">
-                <span className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-medium">
-                  • Zero Student Bloat on Load
-                </span>
-                <span className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-medium">
-                  • Sibling Desk & In-Place Concessions
-                </span>
-                <span className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-medium">
-                  • 1-Click Payment Reversals
-                </span>
-                <span className="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-600 font-medium">
-                  • Challan Edit & Voiding
-                </span>
-              </div>
+            <div className="bg-white border border-slate-200 rounded-lg p-8 text-center">
+              <h3 className="text-sm font-semibold text-slate-900">Search a student to collect fees</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                No student selected.
+              </p>
             </div>
           )}
 
@@ -2069,10 +2112,10 @@ export const FeeDeskView: React.FC = () => {
           {selectedStudent && (
             <div className="space-y-4">
               {/* 1. Student Particulars Banner */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs">
+              <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-2xs">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center font-bold text-indigo-700 text-base shrink-0 uppercase shadow-2xs">
+                    <div className="w-12 h-12 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center font-bold text-indigo-700 text-base shrink-0 uppercase shadow-2xs">
                       {selectedStudent.full_name?.charAt(0) || 'S'}
                     </div>
                     <div>
@@ -2118,18 +2161,6 @@ export const FeeDeskView: React.FC = () => {
                       <span>Search Another</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewInvStudentId(selectedStudent.id);
-                        setShowGenerateModal(true);
-                      }}
-                      className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Issue Challan</span>
-                    </button>
-
                     {getStudentSiblings(selectedStudent).length > 0 && (
                       <button
                         type="button"
@@ -2147,9 +2178,10 @@ export const FeeDeskView: React.FC = () => {
               {/* 2. KPI Summary Strip */}
               {(() => {
                 const studInvoices = invoices.filter(i => i.student_id === selectedStudent.id);
-                const unpaidInvoices = studInvoices.filter(i => i.status !== 'paid' && i.balance_amount > 0);
+                const liveInvoices = studInvoices.filter(i => i.status !== 'cancelled' && i.status !== 'voided' && i.status !== 'rolled_over');
+                const unpaidInvoices = liveInvoices.filter(i => i.status !== 'paid' && i.balance_amount > 0);
                 const totalDue = unpaidInvoices.reduce((s, inv) => s + inv.balance_amount, 0);
-                const totalPaid = studInvoices.reduce((s, inv) => s + (inv.paid_amount || 0), 0);
+                const totalPaid = liveInvoices.reduce((s, inv) => s + (inv.paid_amount || 0), 0);
                 const totalDiscounts = discounts.filter(d => d.student_id === selectedStudent.id).reduce((s, d) => s + (d.actual_discount_amount || 0), 0);
                 const siblings = getStudentSiblings(selectedStudent);
 
@@ -2194,20 +2226,27 @@ export const FeeDeskView: React.FC = () => {
                     </div>
 
                     {/* 3. Outstanding Invoices & Challans Breakdown */}
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3">
+                    <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-2xs space-y-3">
                       <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
                         <div>
                           <h4 className="text-sm font-bold text-slate-900">Fee Invoices & Challans</h4>
-                          <p className="text-xs text-slate-500">Itemized challan dues, payment collection, edit, and voiding</p>
+                          <p className="text-xs text-slate-500">Issued challans and amounts due</p>
                         </div>
                         <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-mono font-bold rounded-lg">
-                          {studInvoices.length} Challans Total
+                          {unpaidInvoices.length} unpaid
                         </span>
                       </div>
 
                       {studInvoices.length === 0 ? (
                         <div className="py-8 text-center text-slate-400 text-xs">
-                          No fee challans issued for this student yet. Click <strong>Issue Challan</strong> to create one.
+                          No challan this month.{' '}
+                          <button
+                            type="button"
+                            className="font-semibold text-slate-900 underline underline-offset-2"
+                            onClick={() => { window.location.hash = '#challans'; }}
+                          >
+                            Generate a challan
+                          </button>
                         </div>
                       ) : (
                         <div className="space-y-3">
@@ -2266,32 +2305,7 @@ export const FeeDeskView: React.FC = () => {
                                       </>
                                     )}
 
-                                    {inv.status !== 'cancelled' && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleOpenEditInvoice(inv)}
-                                        className="px-2.5 py-1.5 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
-                                        title="Edit due date or items"
-                                      >
-                                        <Edit2 className="w-3.5 h-3.5" />
-                                        <span>Edit</span>
-                                      </button>
-                                    )}
 
-                                    {inv.status !== 'cancelled' && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setCancelInvoiceTarget(inv);
-                                          setCancelInvoiceReason('');
-                                        }}
-                                        className="px-2.5 py-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
-                                        title="Delete / Cancel challan (removes dues)"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                        <span>Delete</span>
-                                      </button>
-                                    )}
 
                                     <button
                                       type="button"
@@ -2338,6 +2352,15 @@ export const FeeDeskView: React.FC = () => {
                                     >
                                       <Eye className="w-3.5 h-3.5" />
                                     </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenEditInvoice(inv)}
+                                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
+                                      title="Edit fee challan due date and notes"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
                                   </div>
                                 </div>
 
@@ -2383,104 +2406,13 @@ export const FeeDeskView: React.FC = () => {
                       )}
                     </div>
 
-                    {/* 4. Payment Receipts & History (with 1-Click Reverse Button) */}
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3">
-                      <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900">Payment Receipts & History</h4>
-                          <p className="text-xs text-slate-500">Collected vouchers with one-click payment reversal</p>
-                        </div>
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-mono font-bold rounded-lg">
-                          {payments.filter(p => p.student_id === selectedStudent.id).length} Receipts
-                        </span>
-                      </div>
-
-                      {payments.filter(p => p.student_id === selectedStudent.id).length === 0 ? (
-                        <div className="py-8 text-center text-slate-400 text-xs">
-                          No payment receipts recorded for this student yet.
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs text-slate-700">
-                            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase">
-                              <tr>
-                                <th className="py-2.5 px-3">Receipt #</th>
-                                <th className="py-2.5 px-3">Date</th>
-                                <th className="py-2.5 px-3">Method</th>
-                                <th className="py-2.5 px-3">Reference / Bank</th>
-                                <th className="py-2.5 px-3 text-right">Amount (PKR)</th>
-                                <th className="py-2.5 px-3 text-center">Status</th>
-                                <th className="py-2.5 px-3 text-right">Action</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {payments
-                                .filter(p => p.student_id === selectedStudent.id)
-                                .map(pay => {
-                                  const isVoided = pay.status === 'voided';
-                                  return (
-                                    <tr key={pay.id} className={isVoided ? 'bg-rose-50/30 text-slate-400' : 'hover:bg-slate-50'}>
-                                      <td className="py-2.5 px-3 font-mono font-bold text-slate-900">
-                                        {pay.receipt_number}
-                                      </td>
-                                      <td className="py-2.5 px-3 font-mono">{pay.payment_date}</td>
-                                      <td className="py-2.5 px-3 capitalize">{pay.payment_method?.replace('_', ' ')}</td>
-                                      <td className="py-2.5 px-3 text-slate-500 font-mono text-[11px]">
-                                        {pay.reference_number || pay.bank_name || '—'}
-                                      </td>
-                                      <td className={`py-2.5 px-3 text-right font-mono font-bold ${isVoided ? 'line-through text-slate-400' : 'text-emerald-700'}`}>
-                                        PKR {pay.amount_paid.toLocaleString()}
-                                      </td>
-                                      <td className="py-2.5 px-3 text-center">
-                                        {isVoided ? (
-                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-100 text-rose-800">
-                                            Voided
-                                          </span>
-                                        ) : (
-                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800">
-                                            Cleared
-                                          </span>
-                                        )}
-                                      </td>
-                                      <td className="py-2.5 px-3 text-right">
-                                        {!isVoided ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => {
-                                              setVoidPaymentModal({
-                                                id: pay.id,
-                                                receipt_number: pay.receipt_number,
-                                                amount: pay.amount_paid,
-                                                student_name: selectedStudent.full_name
-                                              });
-                                              setVoidReasonText('');
-                                            }}
-                                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 ml-auto"
-                                            title="Reverse payment with 1-click"
-                                          >
-                                            <RotateCcw className="w-3 h-3" />
-                                            <span>Reverse</span>
-                                          </button>
-                                        ) : (
-                                          <span className="text-[11px] text-slate-400 italic">Reversed</span>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 5. Sibling Section (with In-Place Discount) */}
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3">
+                    {/* SECTION 2: FAMILY SIBLINGS */}
+                    <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-2xs space-y-3">
                       <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
                         <div>
                           <h4 className="text-sm font-bold text-slate-900">Family Siblings</h4>
                           <p className="text-xs text-slate-500">
-                            Enrolled siblings sharing guardian CNIC or mobile. Grant concessions directly here without leaving this page.
+                            Siblings sharing a CNIC or guardian phone.
                           </p>
                         </div>
                         {siblings.length > 0 && (
@@ -2524,7 +2456,6 @@ export const FeeDeskView: React.FC = () => {
                                 </div>
 
                                 <div className="flex items-center gap-2 pt-1 border-t border-slate-200">
-                                  {/* IN-PLACE SIBLING DISCOUNT BUTTON */}
                                   <button
                                     type="button"
                                     onClick={() => handleOpenDiscountModalForStudent(sib.id, undefined, 'Sibling Concession')}
@@ -2553,12 +2484,118 @@ export const FeeDeskView: React.FC = () => {
                       )}
                     </div>
 
-                    {/* 6. Student Fee Ledger */}
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3">
+                    {/* SECTION 3: FULL PAYMENT HISTORY (SINGLE-LINE CLEAR RECORDS) */}
+                    <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-2xs space-y-3">
                       <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
                         <div>
-                          <h4 className="text-sm font-bold text-slate-900">Student Account Ledger</h4>
-                          <p className="text-xs text-slate-500">Double-entry audit register of debits, credits, and running balance</p>
+                          <h4 className="text-sm font-bold text-slate-900">Payment History</h4>
+                          <p className="text-xs text-slate-500">Receipts for this student</p>
+                        </div>
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-mono font-bold rounded-lg">
+                          {payments.filter(p => p.student_id === selectedStudent.id).length} Payment Record{payments.filter(p => p.student_id === selectedStudent.id).length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+
+                      {payments.filter(p => p.student_id === selectedStudent.id).length === 0 ? (
+                        <div className="py-8 text-center text-slate-400 text-xs">
+                          No payment receipts recorded for this student yet.
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs text-slate-700">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase">
+                              <tr>
+                                <th className="py-2.5 px-3">Receipt #</th>
+                                <th className="py-2.5 px-3">Date</th>
+                                <th className="py-2.5 px-3">Month</th>
+                                <th className="py-2.5 px-3">Method</th>
+                                <th className="py-2.5 px-3">Reference / Bank</th>
+                                <th className="py-2.5 px-3 text-right">Amount Submitted</th>
+                                <th className="py-2.5 px-3">Head Allocation Breakdown</th>
+                                <th className="py-2.5 px-3 text-right">Balance Left</th>
+                                <th className="py-2.5 px-3 text-center">Status</th>
+                                <th className="py-2.5 px-3 text-right">Receipt</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                              {payments
+                                .filter(p => p.student_id === selectedStudent.id)
+                                .map(pay => {
+                                  const isVoided = pay.status === 'voided';
+                                  const linkedInv = invoices.find(i => i.id === pay.invoice_id);
+                                  const allocSummary = (pay.allocations || [])
+                                    .map(a => `${a.head_name}: ${a.allocated_amount.toLocaleString()}`)
+                                    .join(', ') || 'General Allocation';
+
+                                  return (
+                                    <tr key={pay.id} className={isVoided ? 'bg-rose-50/20 text-slate-400' : 'hover:bg-slate-50'}>
+                                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                                        {pay.receipt_number}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-slate-600 font-sans">
+                                        {pay.payment_date}
+                                      </td>
+                                      <td className="py-2.5 px-3 font-sans font-medium text-slate-800">
+                                        {linkedInv?.billing_month || '—'}
+                                      </td>
+                                      <td className="py-2.5 px-3 capitalize font-sans">
+                                        {pay.payment_method?.replace('_', ' ')}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-slate-500 font-sans text-[11px] truncate max-w-[120px]">
+                                        {pay.reference_number || pay.bank_name || '—'}
+                                      </td>
+                                      <td className={`py-2.5 px-3 text-right font-bold ${isVoided ? 'line-through text-slate-400' : 'text-emerald-700'}`}>
+                                        PKR {pay.amount_paid.toLocaleString()}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-slate-600 font-sans text-[10px] max-w-[200px] truncate" title={allocSummary}>
+                                        {allocSummary}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right text-slate-700">
+                                        {linkedInv ? `PKR ${linkedInv.balance_amount.toLocaleString()}` : '—'}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-center font-sans">
+                                        {isVoided ? (
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-100 text-rose-800">
+                                            Voided
+                                          </span>
+                                        ) : (
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800">
+                                            Cleared
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right font-sans">
+                                        <div className="flex items-center justify-end gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActivePaymentReceipt(pay);
+                                              if (linkedInv) setActiveInvoice(linkedInv);
+                                              setShowReceiptModal(true);
+                                            }}
+                                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                                            title="View / Print Official Receipt"
+                                          >
+                                            <Receipt className="w-3 h-3 text-slate-500" />
+                                            <span>Receipt</span>
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 6. Student Fee Ledger */}
+                    <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-2xs space-y-3">
+                      <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
+                        <div>
+                          <h4 className="text-sm font-bold text-slate-900">Student ledger</h4>
+                          <p className="text-xs text-slate-500">Charges, receipts, and running balance</p>
                         </div>
                         <span className="text-xs font-mono font-bold text-slate-700">
                           Account #{selectedStudent.roll_number || selectedStudent.admission_number || selectedStudent.id.slice(0, 8)}
@@ -2621,7 +2658,7 @@ export const FeeDeskView: React.FC = () => {
                 Fee Defaulters List
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Students with unpaid fee challans past the due date.
+                Prior months unpaid. Current month unpaid is listed under Current dues until next month starts.
               </p>
             </div>
 
@@ -2647,12 +2684,60 @@ export const FeeDeskView: React.FC = () => {
           </div>
 
           {/* Controls */}
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 bg-white p-3 rounded-xl border border-slate-200">
+          <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex p-0.5 bg-slate-100 rounded-lg border border-slate-200 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setDuesView('defaulters')}
+                  className={`px-3 py-1.5 rounded-md ${duesView === 'defaulters' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
+                >
+                  Defaulters
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDuesView('current_dues')}
+                  className={`px-3 py-1.5 rounded-md ${duesView === 'current_dues' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
+                >
+                  Current dues
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {(['any', '1', '2', '3+'] as const).map(opt => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setUnpaidMonthsFilter(opt)}
+                    className={`px-2 py-1 rounded-md text-[11px] font-medium border ${
+                      unpaidMonthsFilter === opt ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    {opt === 'any' ? 'Any months' : opt === '1' ? '1 month' : opt === '2' ? '2 months' : '3+ months'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {feeHeads.filter(h => h.code !== 'ARREARS').map(h => {
+                const on = defaulterHeadIds.includes(h.id);
+                return (
+                  <button
+                    key={h.id}
+                    type="button"
+                    onClick={() => setDefaulterHeadIds(prev => on ? prev.filter(id => id !== h.id) : [...prev, h.id])}
+                    className={`px-2 py-1 rounded-md text-[11px] border ${on ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-white text-slate-600 border-slate-200'}`}
+                  >
+                    {h.name}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
             <div className="relative w-full sm:w-80">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search defaulter by name, roll #, or phone..."
+                placeholder="Search by name, roll #, or phone..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500"
@@ -2671,6 +2756,7 @@ export const FeeDeskView: React.FC = () => {
                 </option>
               ))}
             </select>
+            </div>
           </div>
 
           {/* Defaulters Table */}
@@ -2819,256 +2905,17 @@ export const FeeDeskView: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: BATCH FEE STRUCTURES */}
-      {activeTab === 'structures' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center bg-white p-3.5 rounded-xl border border-slate-200">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Academic Fee Structures (Class & Batch Schedules)</h3>
-              <p className="text-xs text-slate-500">
-                Default tuition and itemized heads mapped to academic cohorts for automatic voucher generation.
-              </p>
-            </div>
-            <button
-              onClick={handleOpenNewStructure}
-              className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-2xs"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Configure Batch Fee
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {batches.map(batch => {
-              const struct = feeStructures.find(s => s.batch_id === batch.id);
-              const items = struct?.items || [];
-              const totalMonth = items.reduce((s, it) => s + Number(it.amount), 0);
-
-              return (
-                <div key={batch.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3">
-                  <div className="flex justify-between items-start border-b border-slate-100 pb-2.5">
-                    <div>
-                      <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                        {getProgramName(batch.program_id) || 'Academic Class'}
-                      </span>
-                      <h4 className="font-bold text-slate-900 text-sm mt-1">{batch.name}</h4>
-                      <p className="text-[11px] text-slate-500 font-mono">Session: {batch.academic_session || '2026-2027'}</p>
-                    </div>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold font-mono bg-indigo-50 text-indigo-700 border border-indigo-200">
-                      {batch.shift ? `${batch.shift.toUpperCase()}` : 'REGULAR'}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1 text-xs">
-                    {items.length === 0 ? (
-                      <p className="text-slate-400 text-xs py-2">No custom fee structure configured yet. (Default rates apply)</p>
-                    ) : (
-                      items.map((it, idx) => (
-                        <div key={idx} className="flex justify-between text-[11px] py-0.5">
-                          <span className="text-slate-600">{it.head_name}</span>
-                          <span className="font-mono font-semibold text-slate-800">PKR {Number(it.amount).toLocaleString()}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="border-t border-slate-100 pt-2.5 flex justify-between items-center">
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase font-mono block">Baseline Monthly</span>
-                      <span className="font-mono font-bold text-sm text-slate-900">PKR {totalMonth.toLocaleString()}</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        if (struct) handleOpenEditStructure(struct);
-                        else {
-                          setEditingStructure(null);
-                          setStructureBatchId(batch.id);
-                          setStructureSession(batch.academic_session || '2026-2027');
-                          setStructureItems(feeHeads.map(h => ({ fee_head_id: h.id, amount: h.default_amount || 0 })));
-                          setShowStructureModal(true);
-                        }
-                      }}
-                      className="px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 border border-indigo-200 rounded-lg transition-colors flex items-center gap-1"
-                    >
-                      <Edit2 className="w-3 h-3" />
-                      <span>{struct ? 'Edit' : 'Configure'}</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: CONCESSIONS & DISCOUNTS */}
-      {activeTab === 'discounts' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center bg-white p-3.5 rounded-xl border border-slate-200">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Approved Student Concessions & Scholarships</h3>
-              <p className="text-xs text-slate-500">
-                Authorized adjustments with mandatory audit rationales and approved waivers.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowDiscountModal(true)}
-              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-2xs"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Grant Concession
-            </button>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[11px] uppercase tracking-wider">
-                  <tr>
-                    <th className="py-2.5 px-3.5">Date</th>
-                    <th className="py-2.5 px-3.5">Student</th>
-                    <th className="py-2.5 px-3.5">Type & Value</th>
-                    <th className="py-2.5 px-3.5 text-right">Granted Amount</th>
-                    <th className="py-2.5 px-3.5">Mandatory Approval Remark</th>
-                    <th className="py-2.5 px-3.5">Approved By</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {discounts.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">No concessions recorded.</td>
-                    </tr>
-                  ) : (
-                    discounts.map(d => (
-                      <tr key={d.id} className="hover:bg-slate-50">
-                        <td className="py-2.5 px-3.5 font-mono text-slate-500">{d.applied_at.split('T')[0]}</td>
-                        <td className="py-2.5 px-3.5 font-medium text-slate-900">{d.student_name}</td>
-                        <td className="py-2.5 px-3.5 font-mono uppercase text-[11px]">
-                          {d.discount_type === 'percentage' ? `${d.discount_value}%` : `PKR ${d.discount_value}`}
-                        </td>
-                        <td className="py-2.5 px-3.5 text-right font-mono font-bold text-emerald-600">
-                          -{d.actual_discount_amount.toLocaleString()} PKR
-                        </td>
-                        <td className="py-2.5 px-3.5 text-slate-600 italic text-[11px]">{d.mandatory_reason}</td>
-                        <td className="py-2.5 px-3.5 text-slate-500 text-[11px] font-mono">{d.approved_by}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: FEE HEADS & PAYMENT ALLOCATION PRIORITY */}
-      {activeTab === 'fee_heads' && (
-        <div className="space-y-4">
-          <div className="flex justify-between items-center bg-white p-3.5 rounded-xl border border-slate-200">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">Fee Heads & Payment Allocation Order</h3>
-              <p className="text-xs text-slate-500">
-                Itemized institutional fee heads and distribution priority order when partial fee payments are received.
-              </p>
-            </div>
-            <button
-              onClick={handleOpenNewHead}
-              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-2xs"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              New Fee Head
-            </button>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[11px] uppercase tracking-wider">
-                  <tr>
-                    <th className="py-2.5 px-3.5 text-center">Priority</th>
-                    <th className="py-2.5 px-3.5">Head Name</th>
-                    <th className="py-2.5 px-3.5">Code</th>
-                    <th className="py-2.5 px-3.5 text-right">Default Amount</th>
-                    <th className="py-2.5 px-3.5 text-center">At Admission</th>
-                    <th className="py-2.5 px-3.5 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {feeHeads.map((head, idx) => (
-                    <tr key={head.id} className="hover:bg-slate-50">
-                      <td className="py-2.5 px-3.5 text-center font-mono font-bold text-indigo-700">
-                        #{idx + 1}
-                      </td>
-                      <td className="py-2.5 px-3.5 font-bold text-slate-900">{head.name}</td>
-                      <td className="py-2.5 px-3.5 font-mono text-slate-500">{head.code}</td>
-                      <td className="py-2.5 px-3.5 text-right font-mono font-semibold text-slate-800">
-                        {head.default_amount ? `${head.default_amount.toLocaleString()} PKR` : 'Dynamic'}
-                      </td>
-                      <td className="py-2.5 px-3.5 text-center">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          head.show_at_admission ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {head.show_at_admission ? 'Included' : 'Excluded'}
-                        </span>
-                      </td>
-                      <td className="py-2.5 px-3.5 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            type="button"
-                            disabled={idx === 0}
-                            onClick={() => handleMovePriority(idx, 'up')}
-                            className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded disabled:opacity-25 transition-colors"
-                            title="Move Up in allocation priority"
-                          >
-                            <ArrowUp className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            disabled={idx === feeHeads.length - 1}
-                            onClick={() => handleMovePriority(idx, 'down')}
-                            className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded disabled:opacity-25 transition-colors"
-                            title="Move Down in allocation priority"
-                          >
-                            <ArrowDown className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleOpenEditHead(head)}
-                            className="p-1 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
-                            title="Edit Head"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          {!head.is_system_default && head.code !== 'TUITION' && (
-                            <button
-                              onClick={() => handleDeleteFeeHead(head.id)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
-                              title="Delete Head"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* TAB: REPORTS HUB (Sleek Slip Rectangle Cards with Direct In-Portal PDF Viewer) */}
       {activeTab === 'reports' && (
         <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row justify-between sm:items-center gap-2">
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <BarChart2 className="w-4 h-4 text-indigo-600" />
-                <span>Financial & Recovery Reports</span>
+                <BarChart2 className="w-4 h-4 text-slate-700" />
+                <span>Reports</span>
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Click any report slip below to open the vector A4 PDF directly inside the portal for preview, print, or download.
+                Print overdue, cashbook, class, and concession lists.
               </p>
             </div>
             {isGeneratingPdf && (
@@ -3079,9 +2926,9 @@ export const FeeDeskView: React.FC = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {/* 1. Fee Defaulters Register */}
-            <div className="bg-white border border-slate-200 hover:border-indigo-300 rounded-xl p-4 shadow-2xs transition-all flex flex-col justify-between space-y-3">
+            <div className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col justify-between space-y-2">
               <div className="space-y-1.5">
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2">
@@ -3097,9 +2944,7 @@ export const FeeDeskView: React.FC = () => {
                     {defaultersList.length} Students
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Overdue fee list displaying student roll #, class, father contact, unpaid months, and total outstanding dues.
-                </p>
+                <p className="text-xs text-slate-500">Students past due date.</p>
               </div>
               <button
                 type="button"
@@ -3113,7 +2958,7 @@ export const FeeDeskView: React.FC = () => {
             </div>
 
             {/* 2. Family & Sibling Record */}
-            <div className="bg-white border border-slate-200 hover:border-indigo-300 rounded-xl p-4 shadow-2xs transition-all flex flex-col justify-between space-y-3">
+            <div className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col justify-between space-y-2">
               <div className="space-y-1.5">
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2">
@@ -3129,13 +2974,11 @@ export const FeeDeskView: React.FC = () => {
                     Families
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Household fee record grouping enrolled siblings under guardian CNIC and phone with combined unpaid dues.
-                </p>
+                <p className="text-xs text-slate-500">Siblings grouped by CNIC or phone.</p>
               </div>
               <button
                 type="button"
-                onClick={() => handleOpenReportPdf('family')}
+                onClick={() => setSiblingReportOpen(true)}
                 disabled={isGeneratingPdf}
                 className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
               >
@@ -3145,7 +2988,7 @@ export const FeeDeskView: React.FC = () => {
             </div>
 
             {/* 3. Class-wise Summary */}
-            <div className="bg-white border border-slate-200 hover:border-indigo-300 rounded-xl p-4 shadow-2xs transition-all flex flex-col justify-between space-y-3">
+            <div className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col justify-between space-y-2">
               <div className="space-y-1.5">
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2">
@@ -3161,9 +3004,7 @@ export const FeeDeskView: React.FC = () => {
                     {programs.length} Classes
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Class and batch comparison showing students enrolled, total billed, amount collected, pending, and recovery rate %.
-                </p>
+                <p className="text-xs text-slate-500">Billed vs collected by class.</p>
               </div>
               <button
                 type="button"
@@ -3177,7 +3018,7 @@ export const FeeDeskView: React.FC = () => {
             </div>
 
             {/* 4. Date Range Cashbook */}
-            <div className="bg-white border border-slate-200 hover:border-indigo-300 rounded-xl p-4 shadow-2xs transition-all flex flex-col justify-between space-y-3">
+            <div className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col justify-between space-y-2">
               <div className="space-y-2">
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2">
@@ -3223,7 +3064,7 @@ export const FeeDeskView: React.FC = () => {
             </div>
 
             {/* 5. Month-wise Billing */}
-            <div className="bg-white border border-slate-200 hover:border-indigo-300 rounded-xl p-4 shadow-2xs transition-all flex flex-col justify-between space-y-3">
+            <div className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col justify-between space-y-2">
               <div className="space-y-2">
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2">
@@ -3259,7 +3100,7 @@ export const FeeDeskView: React.FC = () => {
             </div>
 
             {/* 6. Daily Cashier Closing */}
-            <div className="bg-white border border-slate-200 hover:border-indigo-300 rounded-xl p-4 shadow-2xs transition-all flex flex-col justify-between space-y-3">
+            <div className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col justify-between space-y-2">
               <div className="space-y-2">
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2">
@@ -3317,7 +3158,7 @@ export const FeeDeskView: React.FC = () => {
             </div>
 
             {/* 7. Fee Head Revenue Summary */}
-            <div className="bg-white border border-slate-200 hover:border-indigo-300 rounded-xl p-4 shadow-2xs transition-all flex flex-col justify-between space-y-3">
+            <div className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col justify-between space-y-2">
               <div className="space-y-1.5">
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2">
@@ -3333,9 +3174,7 @@ export const FeeDeskView: React.FC = () => {
                     {feeHeads.length} Heads
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Breakdown by fee head (tuition, exam, lab, admission) showing standard rates, total billed, collected, and outstanding.
-                </p>
+                <p className="text-xs text-slate-500">Billed vs collected by fee head.</p>
               </div>
               <button
                 type="button"
@@ -3349,39 +3188,37 @@ export const FeeDeskView: React.FC = () => {
             </div>
 
             {/* 8. Approved Concessions Register */}
-            <div className="bg-white border border-slate-200 hover:border-indigo-300 rounded-xl p-4 shadow-2xs transition-all flex flex-col justify-between space-y-3">
+            <div className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col justify-between space-y-2">
               <div className="space-y-1.5">
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-600 shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
                       <Percent className="w-4 h-4" />
                     </div>
                     <div>
                       <h4 className="font-bold text-slate-900 text-xs">Approved Concessions Register</h4>
-                      <span className="text-[10px] text-teal-600 font-mono font-semibold">Scholarships & Waivers</span>
+                      <span className="text-[10px] text-indigo-600 font-mono font-semibold">Scholarships & Waivers</span>
                     </div>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                     {discounts.length} Approved
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Register of all student fee concessions and scholarships, displaying discount type, value, approved reason, and authority.
-                </p>
+                <p className="text-xs text-slate-500">Approved discounts and scholarships.</p>
               </div>
               <button
                 type="button"
-                onClick={() => handleOpenReportPdf('concessions')}
+                onClick={() => setShowConcessionReportModal(true)}
                 disabled={isGeneratingPdf}
                 className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
               >
                 <Eye className="w-3.5 h-3.5" />
-                <span>Open Concessions PDF</span>
+                <span>Configure & Generate PDF</span>
               </button>
             </div>
 
             {/* 9. Student Running Ledger Statement */}
-            <div className="bg-white border border-slate-200 hover:border-indigo-300 rounded-xl p-4 shadow-2xs transition-all flex flex-col justify-between space-y-3">
+            <div className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col justify-between space-y-2">
               <div className="space-y-2">
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2">
@@ -3487,16 +3324,26 @@ export const FeeDeskView: React.FC = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Amount Received (PKR)</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Amount Received (PKR) *</label>
                     <input
                       type="number"
                       min="1"
-                      max={activeInvoice.balance_amount * 2}
+                      max={activeInvoice.balance_amount}
                       value={collectionAmount}
                       onChange={e => handleAmountChange(e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full px-3 py-2 text-sm font-mono font-bold bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Payment Date *</label>
+                    <input
+                      type="date"
+                      value={paymentDate}
+                      onChange={e => setPaymentDate(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-mono font-semibold bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
                       required
                     />
                   </div>
@@ -3516,6 +3363,72 @@ export const FeeDeskView: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Head-Wise Counter Concession Option */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Percent className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Counter Concession / Discount (Optional)</span>
+                    </span>
+                    <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={showCounterDiscount}
+                        onChange={e => setShowCounterDiscount(e.target.checked)}
+                        className="rounded text-indigo-600"
+                      />
+                      <span>Apply Concession</span>
+                    </label>
+                  </div>
+
+                  {showCounterDiscount && (
+                    <div className="p-3 bg-indigo-50/20 space-y-3">
+                      <p className="text-[11px] text-slate-500">
+                        Specify head-wise flat concession amounts to reduce before recording payment.
+                      </p>
+                      <div className="space-y-2">
+                        {activeInvoice.items.map(item => (
+                          <div key={item.fee_head_id} className="flex items-center justify-between gap-3 text-xs bg-white p-2 rounded-lg border border-slate-200">
+                            <div>
+                              <span className="font-bold text-slate-800">{item.head_name}</span>
+                              <span className="text-[10px] text-slate-400 font-mono ml-2">Due: PKR {item.balance_due.toLocaleString()}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-slate-500">PKR</span>
+                              <input
+                                type="number"
+                                min="0"
+                                max={item.balance_due}
+                                value={counterDiscounts[item.fee_head_id] || ''}
+                                onChange={e => {
+                                  const val = e.target.value === '' ? 0 : Number(e.target.value);
+                                  setCounterDiscounts(prev => ({ ...prev, [item.fee_head_id]: val }));
+                                }}
+                                placeholder="0"
+                                className="w-24 px-2 py-1 text-right text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Mandatory Reason / Audit Remark *
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={counterDiscountReason}
+                          onChange={e => setCounterDiscountReason(e.target.value)}
+                          placeholder="State operational reason (e.g. Approved by Director, Hardship concession, Staff ward discount)..."
+                          className="w-full p-2 text-xs bg-white border border-slate-300 rounded-lg text-slate-800"
+                          required={showCounterDiscount && Object.values(counterDiscounts).some(v => Number(v) > 0)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Conditional Fields for Bank / Cheque */}
                 {(paymentMethod === 'bank_transfer' || paymentMethod === 'cheque') && (
                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
@@ -3533,7 +3446,7 @@ export const FeeDeskView: React.FC = () => {
                       </div>
                       <div>
                         <label className="block text-[10px] text-slate-500 font-semibold mb-0.5">
-                          {paymentMethod === 'cheque' ? 'Cheque Number' : 'Transaction Ref / RRN'}
+                          {paymentMethod === 'cheque' ? 'Cheque number *' : 'Transaction ref / RRN'}
                         </label>
                         <input
                           type="text"
@@ -3669,7 +3582,7 @@ export const FeeDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {showReceiptModal && activePaymentReceipt && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-white/75 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-4 my-4">
+          <div className="bg-white rounded-lg max-w-lg w-full p-5 shadow-2xl space-y-4 my-4">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
@@ -3747,7 +3660,7 @@ export const FeeDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {showPictureSlipModal && previewSlipImage && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-white/75 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl space-y-4 my-4">
+          <div className="bg-white rounded-lg max-w-lg w-full p-5 shadow-2xl space-y-4 my-4">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-rose-600" />
@@ -3938,7 +3851,7 @@ export const FeeDeskView: React.FC = () => {
             }
           `}</style>
           <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
-            <div id="printable-challan-modal" className="bg-white rounded-2xl max-w-5xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
+            <div id="printable-challan-modal" className="bg-white rounded-lg max-w-5xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
               <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden challan-no-print">
                 <div className="flex items-center gap-2">
                   <Printer className="w-5 h-5 text-indigo-600" />
@@ -4117,171 +4030,11 @@ export const FeeDeskView: React.FC = () => {
     )}
 
       {/* ========================================================================= */}
-      {/* MODAL: SINGLE INVOICE GENERATION */}
-      {/* ========================================================================= */}
-      {showGenerateModal && (
-        <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <h3 className="text-sm font-bold text-slate-900">Generate Student Fee Invoice</h3>
-              <button onClick={() => setShowGenerateModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateInvoice} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Select Student</label>
-                <select
-                  value={newInvStudentId}
-                  onChange={e => setNewInvStudentId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
-                  required
-                >
-                  <option value="">-- Choose Student --</option>
-                  {students.map(s => {
-                    const progName = getProgramName(s.program_id);
-                    const batchObj = batches.find(b => b.id === s.batch_id);
-                    return (
-                      <option key={s.id} value={s.id}>
-                        {s.full_name} ({s.roll_number}) • {progName ? `${progName} - ` : ''}{batchObj?.name || 'Section'}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Billing Month</label>
-                  <input
-                    type="text"
-                    value={newInvMonth}
-                    onChange={e => setNewInvMonth(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    value={newInvDueDate}
-                    onChange={e => setNewInvDueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Custom Fee Heads (Optional Breakdown Override) */}
-              <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/70 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-800">Custom Fee Heads (Optional Override)</label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (feeHeads.length > 0) {
-                        setNewInvCustomItems(prev => [...prev, { fee_head_id: feeHeads[0].id, amount: feeHeads[0].default_amount || 1000 }]);
-                      }
-                    }}
-                    className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>Add Item</span>
-                  </button>
-                </div>
-                {newInvCustomItems.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 italic">
-                    Standard class tuition / batch structure will apply automatically. Click 'Add Item' to override with specific fee heads.
-                  </p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {newInvCustomItems.map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <select
-                          value={item.fee_head_id}
-                          onChange={e => {
-                            const val = e.target.value;
-                            const fh = feeHeads.find(h => h.id === val);
-                            setNewInvCustomItems(prev => prev.map((it, i) => i === idx ? { ...it, fee_head_id: val, amount: fh?.default_amount || it.amount } : it));
-                          }}
-                          className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none"
-                        >
-                          {feeHeads.map(h => (
-                            <option key={h.id} value={h.id}>{h.name} ({h.code})</option>
-                          ))}
-                        </select>
-                        <div className="relative w-28">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-mono">PKR</span>
-                          <input
-                            type="number"
-                            min="0"
-                            value={item.amount}
-                            onChange={e => {
-                              const val = Number(e.target.value);
-                              setNewInvCustomItems(prev => prev.map((it, i) => i === idx ? { ...it, amount: val } : it));
-                            }}
-                            className="w-full pl-8 pr-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-mono text-right"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setNewInvCustomItems(prev => prev.filter((_, i) => i !== idx))}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 rounded"
-                          title="Remove Head"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                    <div className="flex justify-between text-xs pt-1 border-t border-slate-200 font-semibold text-slate-700">
-                      <span>Custom Items Total:</span>
-                      <span className="font-mono text-indigo-700">
-                        PKR {newInvCustomItems.reduce((s, it) => s + Number(it.amount), 0).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Invoice Notes (Optional)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Regular monthly fee"
-                  value={newInvNotes}
-                  onChange={e => setNewInvNotes(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowGenerateModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg shadow-xs"
-                >
-                  Generate Invoice
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
       {/* MODAL: CANCEL / VOID INVOICE */}
       {/* ========================================================================= */}
       {cancelInvoiceTarget && (
         <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Void / Cancel Invoice</h3>
@@ -4343,290 +4096,11 @@ export const FeeDeskView: React.FC = () => {
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* MODAL: BATCH INVOICE GENERATION */}
-      {/* ========================================================================= */}
-      {showBatchInvoiceModal && (
-        <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Batch Invoicing (Whole Section)</h3>
-                <p className="text-xs text-slate-500">Auto-rolls prior arrears & applies fee structures</p>
-              </div>
-              <button onClick={() => setShowBatchInvoiceModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleBatchInvoice} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Select Batch</label>
-                <select
-                  value={batchInvBatchId}
-                  onChange={e => setBatchInvBatchId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
-                  required
-                >
-                  <option value="">-- Choose Batch --</option>
-                  {batches.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {getProgramName(b.program_id) ? `${getProgramName(b.program_id)} • ` : ''}{b.name} ({b.academic_session || '2026-2027'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {batchInvBatchId && (
-                <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs space-y-1">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Enrolled Students:</span>
-                    <span className="font-bold text-slate-900">
-                      {students.filter(s => s.batch_id === batchInvBatchId && s.status === 'active').length} Active
-                    </span>
-                  </div>
-                  {(() => {
-                    const struct = feeStructures.find(s => s.batch_id === batchInvBatchId);
-                    if (!struct) return <p className="text-slate-400 text-[11px]">No specific fee structure; baseline fees apply.</p>;
-                    const total = struct.items.reduce((s, it) => s + Number(it.amount), 0);
-                    return (
-                      <div className="flex justify-between text-slate-600 border-t border-slate-200 pt-1">
-                        <span>Configured Base Total:</span>
-                        <span className="font-bold text-indigo-700 font-mono">PKR {total.toLocaleString()}</span>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Billing Month</label>
-                <input
-                  type="text"
-                  value={batchInvMonth}
-                  onChange={e => setBatchInvMonth(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Due Date</label>
-                <input
-                  type="date"
-                  value={batchInvDueDate}
-                  onChange={e => setBatchInvDueDate(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowBatchInvoiceModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-xs"
-                >
-                  Generate for Batch
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* MODAL: CONFIGURE BATCH FEE STRUCTURE */}
-      {/* ========================================================================= */}
-      {showStructureModal && (
-        <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  {editingStructure ? 'Edit Batch Fee Structure' : 'Configure Batch Fee Structure'}
-                </h3>
-                <p className="text-xs text-slate-500">Set standard fee items and default rates for this batch</p>
-              </div>
-              <button onClick={() => setShowStructureModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveStructure} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Batch</label>
-                  <select
-                    value={structureBatchId}
-                    onChange={e => setStructureBatchId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg"
-                    required
-                  >
-                    <option value="">-- Choose Batch --</option>
-                    {batches.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Academic Session</label>
-                  <input
-                    type="text"
-                    value={structureSession}
-                    onChange={e => setStructureSession(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Dynamic Fee Heads Config */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden space-y-3 p-3 bg-white">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-800">Fee Heads & Rates</span>
-                  <span className="text-[11px] font-mono text-slate-500">
-                    Total: <strong className="text-slate-900 font-bold">PKR {structureItems.reduce((s, it) => s + (Number(it.amount) || 0), 0).toLocaleString()}</strong> / month
-                  </span>
-                </div>
-
-                {/* Add Head Selector */}
-                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-2">
-                  <span className="text-[11px] font-bold text-slate-600 block">Add Fee Head from Academy Catalog</span>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <select
-                      value={newStructureHeadId}
-                      onChange={e => {
-                        const hId = e.target.value;
-                        setNewStructureHeadId(hId);
-                        const found = feeHeads.find(h => h.id === hId);
-                        if (found && found.default_amount) {
-                          setNewStructureHeadAmount(found.default_amount);
-                        }
-                      }}
-                      className="flex-1 px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-700"
-                    >
-                      <option value="">-- Select Fee Head --</option>
-                      {feeHeads
-                        .filter(h => !structureItems.some(it => it.fee_head_id === h.id))
-                        .map(h => (
-                          <option key={h.id} value={h.id}>
-                            {h.name} ({h.code}) {h.default_amount ? `• Def: PKR ${h.default_amount.toLocaleString()}` : ''}
-                          </option>
-                        ))}
-                    </select>
-
-                    <div className="flex items-center gap-1.5">
-                      <input
-                        type="number"
-                        min="0"
-                        placeholder="Amount"
-                        value={newStructureHeadAmount || ''}
-                        onChange={e => setNewStructureHeadAmount(Number(e.target.value) || 0)}
-                        className="w-24 px-2.5 py-1.5 text-xs font-mono font-bold bg-white border border-slate-200 rounded-lg text-right"
-                      />
-                      <button
-                        type="button"
-                        disabled={!newStructureHeadId}
-                        onClick={() => {
-                          if (!newStructureHeadId) return;
-                          setStructureItems(prev => [
-                            ...prev,
-                            { fee_head_id: newStructureHeadId, amount: Number(newStructureHeadAmount) || 0 }
-                          ]);
-                          setNewStructureHeadId('');
-                          setNewStructureHeadAmount(0);
-                        }}
-                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-bold rounded-lg shrink-0 flex items-center gap-1"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Configured Heads List */}
-                <div className="divide-y divide-slate-100 max-h-56 overflow-y-auto pr-1">
-                  {structureItems.length === 0 ? (
-                    <div className="py-6 text-center text-slate-400 text-xs">
-                      No fee heads added yet. Select a fee head above and click <strong>Add</strong>.
-                    </div>
-                  ) : (
-                    structureItems.map((item, idx) => {
-                      const head = feeHeads.find(h => h.id === item.fee_head_id);
-                      return (
-                        <div key={item.fee_head_id || idx} className="py-2 flex items-center justify-between gap-3 text-xs">
-                          <div>
-                            <p className="font-bold text-slate-800">{head?.name || 'Fee Head'}</p>
-                            <span className="font-mono text-[10px] text-slate-400">{head?.code || '—'}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                min="0"
-                                value={item.amount}
-                                onChange={e => {
-                                  const val = Number(e.target.value) || 0;
-                                  setStructureItems(prev =>
-                                    prev.map(it => it.fee_head_id === item.fee_head_id ? { ...it, amount: val } : it)
-                                  );
-                                }}
-                                className="w-24 px-2.5 py-1 text-right font-mono font-bold text-xs bg-slate-50 border border-slate-200 rounded"
-                              />
-                              <span className="text-[10px] text-slate-400 font-mono">PKR</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setStructureItems(prev => prev.filter(it => it.fee_head_id !== item.fee_head_id));
-                              }}
-                              className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
-                              title="Remove head"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowStructureModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingStructure}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg shadow-xs"
-                >
-                  {isSavingStructure ? 'Saving...' : 'Save Structure'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* MODAL: FEE HEAD MANAGEMENT */}
       {/* ========================================================================= */}
       {showHeadModal && (
         <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo
                 title={editingHead ? "Edit Fee Head" : "New Fee Head"}
@@ -4729,7 +4203,7 @@ export const FeeDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {showDiscountModal && (
         <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <h3 className="text-sm font-bold text-slate-900">Grant Student Fee Concession</h3>
               <button onClick={() => setShowDiscountModal(false)} className="text-slate-400 hover:text-slate-600">
@@ -4750,7 +4224,7 @@ export const FeeDeskView: React.FC = () => {
                   className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg"
                   required
                 >
-                  <option value="">-- Choose Student --</option>
+                  <option value="">Select student</option>
                   {students.map(s => (
                     <option key={s.id} value={s.id}>{s.full_name} ({s.roll_number})</option>
                   ))}
@@ -4765,7 +4239,7 @@ export const FeeDeskView: React.FC = () => {
                   className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono"
                   required
                 >
-                  <option value="">-- Choose Invoice --</option>
+                  <option value="">Select invoice</option>
                   {invoices
                     .filter(i => !discountStudentId || i.student_id === discountStudentId)
                     .map(i => (
@@ -4840,7 +4314,7 @@ export const FeeDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {voidPaymentModal && (
         <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <h3 className="text-sm font-bold text-rose-700 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" />
@@ -4895,7 +4369,7 @@ export const FeeDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {showBulkRevisionModal && (
         <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200/90 space-y-4 max-h-[92vh] flex flex-col justify-between">
+          <div className="bg-white rounded-lg max-w-xl w-full p-6 shadow-2xl border border-slate-200/90 space-y-4 max-h-[92vh] flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-center border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -4904,7 +4378,7 @@ export const FeeDeskView: React.FC = () => {
                   </span>
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">Bulk Tuition Fee Revision</h3>
-                    <p className="text-[11px] text-slate-500">Institutional adjustment of student baseline tuition fees</p>
+                    <p className="text-[11px] text-slate-500">Change tuition for all students, a class, or a section.</p>
                   </div>
                 </div>
                 <button onClick={() => setShowBulkRevisionModal(false)} className="text-slate-400 hover:text-slate-600">
@@ -4953,7 +4427,7 @@ export const FeeDeskView: React.FC = () => {
                         className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
                         required
                       >
-                        <option value="" disabled>-- Select Class --</option>
+                        <option value="" disabled>Select class</option>
                         {programs.map(p => (
                           <option key={p.id} value={p.id}>{p.name}</option>
                         ))}
@@ -4970,7 +4444,7 @@ export const FeeDeskView: React.FC = () => {
                         className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
                         required
                       >
-                        <option value="" disabled>-- Select Section --</option>
+                        <option value="" disabled>Select section</option>
                         {batches.map(b => (
                           <option key={b.id} value={b.id}>{b.name} ({b.academic_session})</option>
                         ))}
@@ -5059,7 +4533,7 @@ export const FeeDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {selectedFamily && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-white/75 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200/90 space-y-5 my-6 animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 shadow-2xl border border-slate-200/90 space-y-5 my-6 animate-in fade-in zoom-in-95">
             {/* Header */}
             <div className="flex justify-between items-start border-b border-slate-200 pb-3.5">
               <div>
@@ -5264,7 +4738,7 @@ export const FeeDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {familyReceiptData && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-white/75 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200/90 space-y-4 animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-lg max-w-lg w-full p-6 shadow-2xl border border-slate-200/90 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
@@ -5372,7 +4846,7 @@ export const FeeDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {showSearchPopup && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -5526,7 +5000,7 @@ export const FeeDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {editingInvoice && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-lg max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -5631,6 +5105,390 @@ export const FeeDeskView: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: FEE HEADS & PAYMENT ALLOCATION PRIORITY DRAWER / MODAL */}
+      {/* ========================================================================= */}
+      {showFeeHeadsModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-3xl w-full p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-indigo-600" />
+                  <span>Fee Heads & Payment Allocation Order</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Order determines distribution priority when partial fee payments are received.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleOpenNewHead}
+                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-2xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>New Fee Head</span>
+                </button>
+                <button
+                  onClick={() => setShowFeeHeadsModal(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-y-auto flex-1 border border-slate-200 rounded-xl">
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[11px] uppercase tracking-wider sticky top-0">
+                  <tr>
+                    <th className="py-2.5 px-3.5 text-center">Priority</th>
+                    <th className="py-2.5 px-3.5">Head Name</th>
+                    <th className="py-2.5 px-3.5">Code</th>
+                    <th className="py-2.5 px-3.5 text-right">Standard Rate</th>
+                    <th className="py-2.5 px-3.5 text-center">At Admission</th>
+                    <th className="py-2.5 px-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {feeHeads.map((head, idx) => (
+                    <tr key={head.id} className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3.5 text-center font-mono font-bold text-indigo-700">
+                        #{idx + 1}
+                      </td>
+                      <td className="py-2.5 px-3.5 font-bold text-slate-900">{head.name}</td>
+                      <td className="py-2.5 px-3.5 font-mono text-slate-500">{head.code}</td>
+                      <td className="py-2.5 px-3.5 text-right font-mono font-semibold text-slate-800">
+                        {head.default_amount ? `${head.default_amount.toLocaleString()} PKR` : 'Dynamic'}
+                      </td>
+                      <td className="py-2.5 px-3.5 text-center">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          head.show_at_admission ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {head.show_at_admission ? 'Included' : 'Excluded'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3.5 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMovePriority(idx, 'up')}
+                            className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded disabled:opacity-25 transition-colors"
+                            title="Move Up in priority"
+                          >
+                            <ArrowUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === feeHeads.length - 1}
+                            onClick={() => handleMovePriority(idx, 'down')}
+                            className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded disabled:opacity-25 transition-colors"
+                            title="Move Down in priority"
+                          >
+                            <ArrowDown className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditHead(head)}
+                            className="p-1 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                            title="Edit Head"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          {!head.is_system_default && head.code !== 'TUITION' && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteFeeHead(head.id)}
+                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                              title="Delete Head"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowFeeHeadsModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: UNIFIED CONCESSIONS & SCHOLARSHIPS REPORT FILTER */}
+      {/* ========================================================================= */}
+      {showConcessionReportModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-lg w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                  <Percent className="w-4 h-4 text-teal-600" />
+                  <span>Configure Concessions Register</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Filter concessions by category, time duration, and academic class.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowConcessionReportModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              {/* Category Filter */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Concession Register Category
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setConcessionReportType('all')}
+                    className={`py-2 px-2.5 rounded-lg border text-center transition-all ${
+                      concessionReportType === 'all'
+                        ? 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    All Concessions
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConcessionReportType('scholarship')}
+                    className={`py-2 px-2.5 rounded-lg border text-center transition-all ${
+                      concessionReportType === 'scholarship'
+                        ? 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Scholarships / Needy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConcessionReportType('counter')}
+                    className={`py-2 px-2.5 rounded-lg border text-center transition-all ${
+                      concessionReportType === 'counter'
+                        ? 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Counter Concessions
+                  </button>
+                </div>
+              </div>
+
+              {/* Period Filter */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Period Duration
+                </label>
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setConcessionPeriodType('monthly')}
+                    className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+                      concessionPeriodType === 'monthly'
+                        ? 'bg-slate-900 text-white font-bold'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Monthly
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConcessionPeriodType('yearly')}
+                    className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+                      concessionPeriodType === 'yearly'
+                        ? 'bg-slate-900 text-white font-bold'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Yearly
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConcessionPeriodType('date_range')}
+                    className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+                      concessionPeriodType === 'date_range'
+                        ? 'bg-slate-900 text-white font-bold'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    Date Range
+                  </button>
+                </div>
+
+                {concessionPeriodType === 'monthly' && (
+                  <div>
+                    <label className="block text-[10px] text-slate-500 mb-0.5">Month & Year</label>
+                    <input
+                      type="text"
+                      value={concessionMonth}
+                      onChange={e => setConcessionMonth(e.target.value)}
+                      placeholder="e.g. October 2026"
+                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium"
+                    />
+                  </div>
+                )}
+
+                {concessionPeriodType === 'yearly' && (
+                  <div>
+                    <label className="block text-[10px] text-slate-500 mb-0.5">Academic Year</label>
+                    <input
+                      type="text"
+                      value={concessionYear}
+                      onChange={e => setConcessionYear(e.target.value)}
+                      placeholder="e.g. 2026"
+                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium"
+                    />
+                  </div>
+                )}
+
+                {concessionPeriodType === 'date_range' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-0.5">From Date</label>
+                      <input
+                        type="date"
+                        value={concessionStartDate}
+                        onChange={e => setConcessionStartDate(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-0.5">To Date</label>
+                      <input
+                        type="date"
+                        value={concessionEndDate}
+                        onChange={e => setConcessionEndDate(e.target.value)}
+                        className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Class Scope Filter */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Academic Class Filter
+                </label>
+                <select
+                  value={concessionClassFilter}
+                  onChange={e => setConcessionClassFilter(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
+                >
+                  <option value="all">All Classes ({programs.length})</option>
+                  {programs.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowConcessionReportModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerateConcessionReport}
+                disabled={isGeneratingPdf}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-2xs flex items-center gap-1.5"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>{isGeneratingPdf ? 'Rendering PDF...' : 'Generate & Open PDF'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {siblingReportOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
+          <div className="bg-white rounded-lg max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+            <h3 className="text-sm font-bold text-slate-900">Sibling fee report</h3>
+            <p className="text-xs text-slate-500">Choose the scope, then open the PDF in the viewer.</p>
+            <div className="space-y-2">
+              {([
+                { id: 'one_student', label: 'One student' },
+                { id: 'one_class', label: 'One class' },
+                { id: 'all_classes', label: 'All classes' },
+              ] as const).map(opt => (
+                <label key={opt.id} className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                  <input
+                    type="radio"
+                    name="sibling-scope"
+                    checked={siblingReportScope === opt.id}
+                    onChange={() => setSiblingReportScope(opt.id)}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+            </div>
+            {siblingReportScope === 'one_student' && (
+              <select
+                value={siblingReportStudentId}
+                onChange={e => setSiblingReportStudentId(e.target.value)}
+                className="w-full text-xs border border-slate-200 rounded-md p-2"
+              >
+                <option value="">Select student</option>
+                {students.map(s => (
+                  <option key={s.id} value={s.id}>{s.full_name} ({s.admission_number})</option>
+                ))}
+              </select>
+            )}
+            {siblingReportScope === 'one_class' && (
+              <select
+                value={siblingReportProgramId}
+                onChange={e => setSiblingReportProgramId(e.target.value)}
+                className="w-full text-xs border border-slate-200 rounded-md p-2"
+              >
+                <option value="all">Select class</option>
+                {programs.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            )}
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setSiblingReportOpen(false)} className="px-3 py-1.5 text-xs border border-slate-200 rounded-md">Cancel</button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSiblingReportOpen(false);
+                  void handleOpenReportPdf('family');
+                }}
+                className="px-3 py-1.5 text-xs bg-slate-900 text-white rounded-md font-medium"
+              >
+                Open PDF
+              </button>
+            </div>
           </div>
         </div>
       )}

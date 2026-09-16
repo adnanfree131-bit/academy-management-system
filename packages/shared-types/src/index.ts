@@ -34,6 +34,7 @@ export interface TenantSettings {
   timezone: string;
   date_format: string;
   academic_session: string;
+  academic_sessions?: AcademicSession[];
   campus_name: string;
   phone_country_code: string;
   address?: string;
@@ -73,6 +74,42 @@ export interface TenantSettings {
   };
   grading_scale?: GradingTier[];
   departments?: string[];
+}
+
+export interface AcademicSession {
+  id: string;
+  name: string;
+  start_year: number;
+  end_year: number;
+  is_active: boolean;
+}
+
+export function defaultAcademicSessions(activeName?: string): AcademicSession[] {
+  const now = new Date().getFullYear();
+  const sessions: AcademicSession[] = [];
+  for (let i = 0; i < 5; i++) {
+    const y = now - 2 + i;
+    const name = `${y}-${y + 1}`;
+    sessions.push({
+      id: `session-${y}`,
+      name,
+      start_year: y,
+      end_year: y + 1,
+      is_active: false,
+    });
+  }
+  const wanted = (activeName || '').trim();
+  const match = sessions.find(s => s.name === wanted) || sessions.find(s => s.start_year === now) || sessions[2];
+  if (match) match.is_active = true;
+  return sessions;
+}
+
+export function activeSessionStartYear(settings?: { academic_session?: string; academic_sessions?: AcademicSession[] } | null): number {
+  const active = settings?.academic_sessions?.find(s => s.is_active);
+  if (active?.start_year) return active.start_year;
+  const m = String(settings?.academic_session || '').match(/^(\d{4})/);
+  if (m) return parseInt(m[1], 10);
+  return new Date().getFullYear();
 }
 
 export interface GradingTier {
@@ -960,6 +997,7 @@ export interface PaymentDistributionItem {
   fee_head_id: string;
   head_name: string;
   allocated_amount: number;
+  invoice_item_id?: string;
 }
 
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'cheque' | 'wallet' | 'easypaisa' | 'jazzcash';

@@ -6,16 +6,18 @@ import {
   Layers, 
   CheckCircle2, 
   RefreshCw, 
-  Eye,
   Search,
   AlertTriangle,
-  ShieldCheck,
-  Calendar
+  Pencil,
+  Trash2,
+  Plus,
+  X
 } from 'lucide-react';
 import { 
   StudentInvoice, 
   AcademicProgram, 
-  StudentFeeStructure
+  StudentFeeStructure,
+  FeeHead
 } from '@apex/shared-types';
 import { InPortalPdfViewerModal } from '../components/InPortalPdfViewerModal';
 import { 
@@ -25,11 +27,41 @@ import {
 } from '../lib/feeReportsPdf';
 import { academyLetterheadFromAuth } from '../lib/officialDocumentPdf';
 
+function formatLocalDate(year: number, monthIdx: number, day: number): string {
+  const m = String(monthIdx + 1).padStart(2, '0');
+  const d = String(day).padStart(2, '0');
+  return `${year}-${m}-${d}`;
+}
+
+function lastDayOfMonth(year: number, monthIdx: number): string {
+  const d = new Date(year, monthIdx + 1, 0);
+  return formatLocalDate(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+export function normalizeBillingMonth(m: string): string {
+  if (!m) return '';
+  const trimmed = m.trim();
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})$/);
+  if (isoMatch) {
+    const year = isoMatch[1];
+    const monthNum = parseInt(isoMatch[2], 10);
+    const date = new Date(parseInt(year, 10), monthNum - 1, 1);
+    const monthName = date.toLocaleString('en-US', { month: 'long' });
+    return `${monthName} ${year}`;
+  }
+  return trimmed;
+}
+
+export function isSameBillingMonth(m1: string, m2: string): boolean {
+  if (!m1 || !m2) return false;
+  return normalizeBillingMonth(m1).toLowerCase() === normalizeBillingMonth(m2).toLowerCase();
+}
+
 export const FeeChallansView: React.FC = () => {
   const { token, tenant } = useAuth();
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'generate' | 'print'>('generate');
+  const [activeTab, setActiveTab] = useState<'generate' | 'edit'>('generate');
 
   // Core Data
   const [invoices, setInvoices] = useState<StudentInvoice[]>([]);
@@ -37,13 +69,21 @@ export const FeeChallansView: React.FC = () => {
   const [programs, setPrograms] = useState<AcademicProgram[]>([]);
   const [batches, setBatches] = useState<any[]>([]);
   const [feeStructures, setFeeStructures] = useState<StudentFeeStructure[]>([]);
+  const [feeHeads, setFeeHeads] = useState<FeeHead[]>([]);
   const [academySettings, setAcademySettings] = useState<any>(null);
+
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
 
   // Generation Controls
   const [genScope, setGenScope] = useState<'class' | 'whole_institute' | 'single_student'>('class');
   const [genProgramId, setGenProgramId] = useState<string>('all');
   const [genBatchId, setGenBatchId] = useState<string>('all');
   const [singleAdmissionSearch, setSingleAdmissionSearch] = useState<string>('');
+  const [additionalHeadsToAdd, setAdditionalHeadsToAdd] = useState<Array<{ fee_head_id: string; amount: number }>>([]);
+  const [selectedHeadId, setSelectedHeadId] = useState<string>('');
   const [genYear, setGenYear] = useState<number>(() => new Date().getFullYear());
   const [genMonthName, setGenMonthName] = useState<string>(() => {
     return new Date().toLocaleDateString('en-US', { month: 'long' });
@@ -51,34 +91,61 @@ export const FeeChallansView: React.FC = () => {
   const genMonth = `${genMonthName} ${genYear}`;
   const [genIssueDate, setGenIssueDate] = useState<string>(() => {
     const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+    return formatLocalDate(d.getFullYear(), d.getMonth(), 1);
   });
   const [genDueDate, setGenDueDate] = useState<string>(() => {
     const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 10).toISOString().split('T')[0];
+    const tenth = new Date(d.getFullYear(), d.getMonth(), 10);
+    if (tenth.getTime() < d.getTime()) {
+      return lastDayOfMonth(d.getFullYear(), d.getMonth());
+    }
+    return formatLocalDate(d.getFullYear(), d.getMonth(), 10);
   });
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [genSuccessMessage, setGenSuccessMessage] = useState<string | null>(null);
   const [genErrorMessage, setGenErrorMessage] = useState<string | null>(null);
 
+  // Edit Challan Modal State
+  const [editingInvoice, setEditingInvoice] = useState<StudentInvoice | null>(null);
+  const [editDueDate, setEditDueDate] = useState<string>('');
+  const [editNotes, setEditNotes] = useState<string>('');
+  const [editItems, setEditItems] = useState<Array<{ fee_head_id: string; head_name: string; amount: number }>>([]);
+  const [isSavingEdit, setIsSavingEdit] = useState<boolean>(false);
+  const [editAdmissionQuery, setEditAdmissionQuery] = useState<string>('');
+
+  // Delete Challan Modal State
+  const [deletingInvoice, setDeletingInvoice] = useState<StudentInvoice | null>(null);
+  const [deleteReason, setDeleteReason] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+
+  const handleMonthChange = (newMonthName: string, newYear: number) => {
+    setGenMonthName(newMonthName);
+    setGenYear(newYear);
+    const mIdx = MONTH_NAMES.indexOf(newMonthName);
+    if (mIdx !== -1) {
+      setGenIssueDate(formatLocalDate(newYear, mIdx, 1));
+      const tenth = new Date(newYear, mIdx, 10);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (tenth.getTime() < today.getTime() && newYear === today.getFullYear() && mIdx === today.getMonth()) {
+        setGenDueDate(lastDayOfMonth(newYear, mIdx));
+      } else {
+        setGenDueDate(formatLocalDate(newYear, mIdx, 10));
+      }
+    }
+    setGenErrorMessage(null);
+  };
+
   const availableYears = useMemo(() => {
+    const list = (academySettings?.academic_sessions || []) as Array<{ start_year: number }>;
+    if (list.length > 0) return [...new Set(list.map(s => s.start_year))].sort((a, b) => a - b);
     const cy = new Date().getFullYear();
-    return [cy - 1, cy, cy + 1, cy + 2];
-  }, []);
+    return [cy - 2, cy - 1, cy, cy + 1, cy + 2];
+  }, [academySettings]);
 
-  const MONTH_NAMES = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
-  ];
-
-  // Print Controls
-  const [printScope, setPrintScope] = useState<'class' | 'whole_institute'>('class');
   const [printProgramId, setPrintProgramId] = useState<string>('all');
-  const [printBatchId, setPrintBatchId] = useState<string>('all');
   const [printMonth, setPrintMonth] = useState<string>('all');
-  const [printStatus, setPrintStatus] = useState<'all' | 'unpaid' | 'paid'>('all');
-  const [vouchersPerPage, setVouchersPerPage] = useState<'3_per_page' | '2_per_page'>('3_per_page');
-  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<string>>(new Set());
+  const [selectedInvoiceIds] = useState<Set<string>>(new Set());
 
   // In-Portal PDF Viewer State
   const [pdfModalOpen, setPdfModalOpen] = useState<boolean>(false);
@@ -91,13 +158,14 @@ export const FeeChallansView: React.FC = () => {
   const fetchData = useCallback(async () => {
     if (!token) return;
     try {
-      const [invRes, studRes, progRes, batchRes, structRes, settRes] = await Promise.all([
+      const [invRes, studRes, progRes, batchRes, structRes, settRes, headsRes] = await Promise.all([
         fetch('/api/v1/finance/invoices', { headers: { authorization: `Bearer ${token}` } }),
         fetch('/api/v1/sis/students', { headers: { authorization: `Bearer ${token}` } }),
         fetch('/api/v1/academic/programs', { headers: { authorization: `Bearer ${token}` } }),
         fetch('/api/v1/academic/batches', { headers: { authorization: `Bearer ${token}` } }),
         fetch('/api/v1/finance/structures', { headers: { authorization: `Bearer ${token}` } }),
         fetch('/api/v1/academic/academy-settings', { headers: { authorization: `Bearer ${token}` } }).catch(() => null),
+        fetch('/api/v1/finance/heads', { headers: { authorization: `Bearer ${token}` } }).catch(() => null),
       ]);
 
       if (invRes.ok) setInvoices((await invRes.json()).data || []);
@@ -105,6 +173,7 @@ export const FeeChallansView: React.FC = () => {
       if (progRes.ok) setPrograms((await progRes.json()).data || []);
       if (batchRes.ok) setBatches((await batchRes.json()).data || []);
       if (structRes.ok) setFeeStructures((await structRes.json()).data || []);
+      if (headsRes && headsRes.ok) setFeeHeads((await headsRes.json()).data || []);
       if (settRes && settRes.ok) {
         const sData = await settRes.json();
         if (sData.success && sData.data) {
@@ -156,16 +225,59 @@ export const FeeChallansView: React.FC = () => {
     ) || null;
   }, [students, genScope, singleAdmissionSearch]);
 
+  const matchedEditStudent = useMemo(() => {
+    const q = editAdmissionQuery.trim().toLowerCase();
+    if (!q) return null;
+    return students.find(s =>
+      s.status === 'active' && (
+        (s.admission_number && s.admission_number.toLowerCase() === q) ||
+        (s.roll_number && s.roll_number.toLowerCase() === q)
+      )
+    ) || null;
+  }, [students, editAdmissionQuery]);
+
+  const editStudentInvoices = useMemo(() => {
+    if (!matchedEditStudent) return [];
+    return invoices
+      .filter(i => i.student_id === matchedEditStudent.id && i.status !== 'voided')
+      .sort((a, b) => String(b.issue_date || b.created_at).localeCompare(String(a.issue_date || a.created_at)));
+  }, [invoices, matchedEditStudent]);
+
+  useEffect(() => {
+    if (!matchedEditStudent) return;
+    if (editingInvoice && editingInvoice.student_id === matchedEditStudent.id) return;
+    const st = (s: string) => String(s || '').toLowerCase();
+    const preferred = editStudentInvoices.find(i => isSameBillingMonth(i.billing_month, genMonth) && st(i.status) !== 'cancelled')
+      || editStudentInvoices.find(i => ['unpaid', 'partial', 'partially_paid'].includes(st(i.status)))
+      || editStudentInvoices[0];
+    if (preferred) handleOpenEditInvoice(preferred);
+  }, [matchedEditStudent, editStudentInvoices, genMonth]);
+
   // Duplicate check for selected single student
   const singleStudentDuplicateChallan = useMemo(() => {
     if (!matchedSingleStudent || !genMonth) return null;
     return invoices.find(i => 
       i.student_id === matchedSingleStudent.id &&
-      i.billing_month.trim().toLowerCase() === genMonth.trim().toLowerCase() &&
+      isSameBillingMonth(i.billing_month, genMonth) &&
       i.status !== 'voided' &&
       i.status !== 'cancelled'
     ) || null;
   }, [invoices, matchedSingleStudent, genMonth]);
+
+  // Map student ID to active invoice for genMonth
+  const studentBillingMap = useMemo(() => {
+    const map = new Map<string, StudentInvoice>();
+    for (const inv of invoices) {
+      if (inv.status !== 'voided' && inv.status !== 'cancelled' && isSameBillingMonth(inv.billing_month, genMonth)) {
+        map.set(inv.student_id, inv);
+      }
+    }
+    return map;
+  }, [invoices, genMonth]);
+
+  const unbilledStudents = useMemo(() => {
+    return eligibleGenerationStudents.filter(s => !studentBillingMap.has(s.id));
+  }, [eligibleGenerationStudents, studentBillingMap]);
 
   // Handle Single Student Challan Generation
   const handleGenerateSingleChallan = async () => {
@@ -184,14 +296,17 @@ export const FeeChallansView: React.FC = () => {
         body: JSON.stringify({
           student_id: matchedSingleStudent.id,
           billing_month: genMonth,
+          issue_date: genIssueDate,
           due_date: genDueDate,
-          notes: `Individual Fee Challan for ${genMonth}`,
+          notes: `Fee challan for ${genMonth}`,
+          additional_heads: additionalHeadsToAdd.length > 0 ? additionalHeadsToAdd : undefined,
         }),
       });
 
       const resData = await res.json();
       if (res.ok && resData.success) {
         setGenSuccessMessage(`Successfully issued Challan #${resData.data.invoice_number} for ${matchedSingleStudent.full_name} (${genMonth}).`);
+        setAdditionalHeadsToAdd([]);
         await fetchData();
         setPrintMonth(genMonth);
       } else {
@@ -207,6 +322,14 @@ export const FeeChallansView: React.FC = () => {
   // Handle Batch Challan Generation
   const handleGenerateChallans = async () => {
     if (!token || eligibleGenerationStudents.length === 0) return;
+    if (genScope === 'class' && genProgramId === 'all' && genBatchId === 'all') {
+      setGenErrorMessage('Select a class, or choose Whole Institute.');
+      return;
+    }
+    if (feeHeads.length === 0 && additionalHeadsToAdd.length === 0) {
+      setGenErrorMessage('Set fee heads and class fees in Settings before generating challans.');
+      return;
+    }
     setIsGenerating(true);
     setGenSuccessMessage(null);
     setGenErrorMessage(null);
@@ -218,6 +341,7 @@ export const FeeChallansView: React.FC = () => {
         billing_month: genMonth,
         issue_date: genIssueDate,
         due_date: genDueDate,
+        additional_heads: additionalHeadsToAdd.length > 0 ? additionalHeadsToAdd : undefined,
       };
 
       const res = await fetch('/api/v1/finance/invoices/generate-batch', {
@@ -232,14 +356,14 @@ export const FeeChallansView: React.FC = () => {
       const resData = await res.json();
       if (res.ok && resData.success) {
         const generatedCount = resData.count ?? (Array.isArray(resData.data) ? resData.data.length : resData.data?.count) ?? eligibleGenerationStudents.length;
-        setGenSuccessMessage(`Successfully generated ${generatedCount} challans for ${genMonth}.`);
+        setGenSuccessMessage(`Generated ${generatedCount} challan${generatedCount === 1 ? '' : 's'} for ${genMonth}.`);
+        setAdditionalHeadsToAdd([]);
         await fetchData();
         // Switch to print view for this month
         setPrintMonth(genMonth);
         if (genProgramId !== 'all') setPrintProgramId(genProgramId);
-        if (genBatchId !== 'all') setPrintBatchId(genBatchId);
       } else {
-        setGenErrorMessage(resData.error?.message || resData.message || 'Failed to generate challans. Please verify inputs.');
+        setGenErrorMessage(resData.error?.message || resData.message || 'Failed to generate batch challans.');
       }
     } catch (err: any) {
       console.error('Error generating batch challans:', err);
@@ -249,61 +373,87 @@ export const FeeChallansView: React.FC = () => {
     }
   };
 
+  // Edit Challan Handlers
+  const handleOpenEditInvoice = (inv: StudentInvoice) => {
+    setEditingInvoice(inv);
+    setEditDueDate(inv.due_date);
+    setEditNotes(inv.notes || '');
+    setEditItems((inv.items || []).map(it => ({
+      fee_head_id: it.fee_head_id,
+      head_name: it.head_name || 'Fee Head',
+      amount: it.net_amount || it.original_amount || 0,
+    })));
+  };
+
+  const handleSaveEditInvoice = async () => {
+    if (!token || !editingInvoice) return;
+    setIsSavingEdit(true);
+    try {
+      const res = await fetch(`/api/v1/finance/invoices/${editingInvoice.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          due_date: editDueDate,
+          notes: editNotes,
+          items: editItems.map(it => ({
+            fee_head_id: it.fee_head_id,
+            amount: Number(it.amount) || 0
+          }))
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error?.message || 'Failed to update challan');
+      await fetchData();
+      if (data.data) handleOpenEditInvoice(data.data);
+    } catch (err: any) {
+      alert(err.message || 'Error updating challan');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleConfirmDeleteInvoice = async () => {
+    if (!token || !deletingInvoice) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(`/api/v1/finance/invoices/${deletingInvoice.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          reason: deleteReason.trim() || 'Deleted by administrator from Challans Desk'
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error?.message || 'Failed to delete challan');
+      setDeletingInvoice(null);
+      await fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Error deleting challan');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Invoices eligible for printing
   const printableInvoices = useMemo(() => {
     return invoices.filter(inv => {
-      if (printScope === 'class' && printProgramId !== 'all') {
-        if (inv.program_id !== printProgramId) return false;
-        if (printBatchId !== 'all' && inv.batch_id !== printBatchId) return false;
-      }
-      if (printMonth !== 'all' && inv.billing_month.toLowerCase() !== printMonth.toLowerCase()) {
-        return false;
-      }
-      if (printStatus === 'unpaid' && (inv.status === 'paid' || inv.balance_amount <= 0)) {
-        return false;
-      }
-      if (printStatus === 'paid' && inv.status !== 'paid') {
+      if (inv.status === 'cancelled' || inv.status === 'voided') return false;
+      if (printMonth !== 'all' && !isSameBillingMonth(inv.billing_month, printMonth)) {
         return false;
       }
       return true;
     });
-  }, [invoices, printScope, printProgramId, printBatchId, printMonth, printStatus]);
+  }, [invoices, printMonth]);
 
-  // Auto select/deselect all
-  const handleToggleSelectAll = () => {
-    if (selectedInvoiceIds.size === printableInvoices.length) {
-      setSelectedInvoiceIds(new Set());
-    } else {
-      setSelectedInvoiceIds(new Set(printableInvoices.map(i => i.id)));
-    }
-  };
-
-  const handleToggleSelectOne = (id: string) => {
-    setSelectedInvoiceIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  // Distinct billing months in invoices
-  const availableMonths = useMemo(() => {
-    const set = new Set<string>();
-    invoices.forEach(i => {
-      if (i.billing_month) set.add(i.billing_month);
-    });
-    return Array.from(set);
-  }, [invoices]);
-
-  // Open In-Portal PDF Preview for Selected or All Printable Challans
+  // Render & Preview Challan PDF (In-Portal Modal)
   const handlePreviewAndPrint = async (targetInvoices?: StudentInvoice[]) => {
-    const list = targetInvoices || (
-      selectedInvoiceIds.size > 0 
-        ? printableInvoices.filter(i => selectedInvoiceIds.has(i.id))
-        : printableInvoices
-    );
-
+    const list = targetInvoices || (selectedInvoiceIds.size > 0 ? printableInvoices.filter(i => selectedInvoiceIds.has(i.id)) : printableInvoices);
     if (list.length === 0) {
       alert('No challans selected for printing.');
       return;
@@ -313,12 +463,11 @@ export const FeeChallansView: React.FC = () => {
     try {
       const letterhead = await academyLetterheadFromAuth(tenant);
       const sSettings = academySettings || {};
-
       const bankDetails = {
-        bankName: sSettings.bank_name || 'Designated Bank / Cash Desk',
-        accountTitle: sSettings.bank_account_title || tenant?.name || 'Academy Fee Account',
-        accountNumber: sSettings.bank_account_number || '0102-0000000000',
-        branchName: sSettings.bank_branch || tenant?.city || 'Main Campus',
+        bankName: sSettings.bank_name || '',
+        accountTitle: sSettings.bank_account_title || tenant?.name || '',
+        accountNumber: sSettings.bank_account_number || '',
+        branchName: sSettings.bank_branch || tenant?.city || '',
       };
 
       const challanItems: StudentChallanData[] = list.map(inv => {
@@ -331,6 +480,20 @@ export const FeeChallansView: React.FC = () => {
           ? inv.items.map(it => ({ head_name: it.head_name || 'Tuition Fee', amount: it.net_amount }))
           : [{ head_name: 'Tuition Fee', amount: inv.net_amount }];
 
+        // Last 4 Months History for printed voucher
+        const pastInvoices = invoices.filter(i => 
+          i.student_id === inv.student_id && 
+          i.id !== inv.id && 
+          i.status !== 'voided' && 
+          i.status !== 'cancelled'
+        ).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        const history_months = pastInvoices.slice(0, 4).map(pi => ({
+          month: normalizeBillingMonth(pi.billing_month),
+          paid: Number(pi.paid_amount || 0),
+          balance: Number(pi.balance_amount || (pi.net_amount - (pi.paid_amount || 0))),
+        }));
+
         return {
           challan_number: inv.invoice_number,
           roll_number: inv.roll_number || student?.roll_number || '—',
@@ -339,27 +502,27 @@ export const FeeChallansView: React.FC = () => {
           father_name: fatherName,
           class_name: progName,
           batch_name: batchName,
-          billing_month: inv.billing_month,
+          billing_month: normalizeBillingMonth(inv.billing_month),
           issue_date: inv.issue_date || new Date().toISOString().split('T')[0],
           due_date: inv.due_date,
           items,
           concession_amount: inv.discount_amount > 0 ? inv.discount_amount : undefined,
-          net_amount: inv.balance_amount > 0 ? inv.balance_amount : inv.net_amount,
+          net_amount: inv.net_amount,
+          history_months,
         };
       });
 
       const bytes = await buildBatchChallansPdfBytes({
         academy: letterhead,
         bankDetails,
-        layout: vouchersPerPage,
         challans: challanItems,
       });
 
-      const scopeName = printScope === 'whole_institute' ? 'Institute_Wide' : (getProgramName(printProgramId).replace(/\s+/g, '_') || 'Batch');
+      const scopeName = genScope === 'whole_institute' ? 'Institute_Wide' : (getProgramName(printProgramId).replace(/\s+/g, '_') || 'Batch');
       const filename = `Fee_Challans_${scopeName}_${new Date().toISOString().split('T')[0]}.pdf`;
 
       setPdfBytes(bytes);
-      setPdfTitle(`Fee Challans (${list.length} Vouchers) • ${vouchersPerPage === '3_per_page' ? '3 Copies / Page' : '2 Copies / Page'}`);
+      setPdfTitle(list.length === 1 ? `Fee Challan • ${list[0].student_name}` : `Fee Challans (${list.length} Vouchers • 3 Students / Page)`);
       setPdfFilename(filename);
       setPdfModalOpen(true);
     } catch (err: any) {
@@ -373,15 +536,15 @@ export const FeeChallansView: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Top Header */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-2xs">
+      <div className="bg-white border border-slate-200/90 rounded-lg p-4 sm:p-5 shadow-2xs">
         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
           <div>
             <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-indigo-600" />
-              Fee Challans & Vouchers
+              <FileText className="w-5 h-5 text-slate-700" />
+              Fee Challans
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Generate class-wise and institute-wide monthly fee challans, preview in-portal, and print multi-voucher A4 sheets.
+              Generate monthly challans, or edit one by admission number.
             </p>
           </div>
 
@@ -397,25 +560,20 @@ export const FeeChallansView: React.FC = () => {
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>Challan Generation</span>
+              <span>Generate</span>
             </button>
 
             <button
               type="button"
-              onClick={() => setActiveTab('print')}
+              onClick={() => setActiveTab('edit')}
               className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'print'
+                activeTab === 'edit'
                   ? 'bg-white text-slate-900 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Printer className="w-3.5 h-3.5" />
-              <span>Challan Print Section</span>
-              {invoices.length > 0 && (
-                <span className="ml-1 px-1.5 py-0.2 text-[10px] bg-indigo-50 text-indigo-700 rounded-full font-mono font-bold">
-                  {invoices.length}
-                </span>
-              )}
+              <Pencil className="w-3.5 h-3.5" />
+              <span>Edit</span>
             </button>
           </div>
         </div>
@@ -425,10 +583,10 @@ export const FeeChallansView: React.FC = () => {
           SECTION 1: CHALLAN GENERATION
           ========================================================================= */}
       {activeTab === 'generate' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="max-w-2xl space-y-4">
           {/* Generation Setup Card */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
+          <div className="space-y-4">
+            <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-2xs space-y-4">
               <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2.5">
                 <Layers className="w-4 h-4 text-indigo-600" />
                 Generate New Monthly Challans
@@ -580,10 +738,7 @@ export const FeeChallansView: React.FC = () => {
                     <label className="block text-xs font-bold text-slate-700 mb-1">Academic Year</label>
                     <select
                       value={genYear}
-                      onChange={e => {
-                        setGenYear(Number(e.target.value));
-                        setGenErrorMessage(null);
-                      }}
+                      onChange={e => handleMonthChange(genMonthName, Number(e.target.value))}
                       className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
                     >
                       {availableYears.map(yr => (
@@ -595,10 +750,7 @@ export const FeeChallansView: React.FC = () => {
                     <label className="block text-xs font-bold text-slate-700 mb-1">Billing Month</label>
                     <select
                       value={genMonthName}
-                      onChange={e => {
-                        setGenMonthName(e.target.value);
-                        setGenErrorMessage(null);
-                      }}
+                      onChange={e => handleMonthChange(e.target.value, genYear)}
                       className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
                     >
                       {MONTH_NAMES.map(m => (
@@ -628,13 +780,106 @@ export const FeeChallansView: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {/* Dynamic Additional Special Fee Heads */}
+                <div className="pt-2 border-t border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-800">Additional Fee Heads (Optional)</label>
+                      <p className="text-[10px] text-slate-500">Add special charges (e.g. Exam Fee, Annual, Sports) to itemize on this challan.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedHeadId}
+                      onChange={e => setSelectedHeadId(e.target.value)}
+                      className="flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:border-indigo-500"
+                    >
+                      <option value="">Select fee head</option>
+                      {feeHeads
+                        .filter(h => h.code !== 'TUITION' && !additionalHeadsToAdd.some(a => a.fee_head_id === h.id))
+                        .map(h => (
+                          <option key={h.id} value={h.id}>
+                            {h.name} ({h.code}) - Default PKR {h.default_amount}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!selectedHeadId) return;
+                        const head = feeHeads.find(h => h.id === selectedHeadId);
+                        if (!head) return;
+                        setAdditionalHeadsToAdd(prev => [...prev, { fee_head_id: head.id, amount: head.default_amount || 0 }]);
+                        setSelectedHeadId('');
+                      }}
+                      disabled={!selectedHeadId}
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold disabled:opacity-40 flex items-center gap-1 shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add
+                    </button>
+                  </div>
+
+                  {additionalHeadsToAdd.length > 0 && (
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg divide-y divide-slate-200 overflow-hidden">
+                      {additionalHeadsToAdd.map(item => {
+                        const head = feeHeads.find(h => h.id === item.fee_head_id);
+                        return (
+                          <div key={item.fee_head_id} className="p-2 flex items-center justify-between text-xs">
+                            <span className="font-semibold text-slate-800">{head?.name || 'Fee Head'}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-slate-500 font-mono">PKR</span>
+                              <input
+                                type="number"
+                                min={0}
+                                value={item.amount}
+                                onChange={e => {
+                                  const val = Number(e.target.value) || 0;
+                                  setAdditionalHeadsToAdd(prev => prev.map(a => a.fee_head_id === item.fee_head_id ? { ...a, amount: val } : a));
+                                }}
+                                className="w-20 px-2 py-0.5 text-right font-mono font-bold text-xs bg-white border border-slate-300 rounded"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setAdditionalHeadsToAdd(prev => prev.filter(a => a.fee_head_id !== item.fee_head_id))}
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Feedback Messages */}
               {genSuccessMessage && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{genSuccessMessage}</span>
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="flex items-center gap-2 flex-1">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{genSuccessMessage}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const issued = invoices.filter(i =>
+                        isSameBillingMonth(i.billing_month, genMonth) &&
+                        i.status !== 'cancelled' &&
+                        i.status !== 'voided'
+                      );
+                      void handlePreviewAndPrint(issued);
+                    }}
+                    disabled={isPreparingPdf}
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-xs font-medium flex items-center gap-1.5 shrink-0"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print issued
+                  </button>
                 </div>
               )}
 
@@ -651,7 +896,7 @@ export const FeeChallansView: React.FC = () => {
                   type="button"
                   onClick={handleGenerateSingleChallan}
                   disabled={isGenerating || !matchedSingleStudent || Boolean(singleStudentDuplicateChallan)}
-                  className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isGenerating ? (
                     <>
@@ -669,357 +914,338 @@ export const FeeChallansView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleGenerateChallans}
-                  disabled={isGenerating || eligibleGenerationStudents.length === 0}
-                  className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
+                  disabled={isGenerating || eligibleGenerationStudents.length === 0 || unbilledStudents.length === 0}
+                  className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isGenerating ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
                       <span>Generating Challans...</span>
                     </>
+                  ) : unbilledStudents.length === 0 ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>All Students Already Billed ({eligibleGenerationStudents.length})</span>
+                    </>
                   ) : (
                     <>
                       <FileText className="w-4 h-4" />
-                      <span>Generate Challans ({eligibleGenerationStudents.length} Students)</span>
+                      <span>Generate challans ({unbilledStudents.length} student{unbilledStudents.length === 1 ? '' : 's'})</span>
                     </>
                   )}
                 </button>
               )}
             </div>
           </div>
+        </div>
+      )}
 
-          {/* Institutional Generation Summary & Policies Card (Replaces Roster Box) */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Fee Challan Generation Protocol</h3>
-                  <p className="text-xs text-slate-500">Standard operating guidelines and billing safeguards</p>
+      {activeTab === 'edit' && (
+        <div className="max-w-2xl space-y-4">
+          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-2xs space-y-4">
+            <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5">
+              Edit a challan
+            </h2>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Admission number</label>
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={editAdmissionQuery}
+                  onChange={e => {
+                    setEditAdmissionQuery(e.target.value);
+                    setEditingInvoice(null);
+                  }}
+                  placeholder="Enter admission number or roll number"
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Type the admission number. The challan and fee heads open only after a match.</p>
+            </div>
+
+            {editAdmissionQuery.trim() && !matchedEditStudent && (
+              <p className="text-xs text-amber-700">No student matched that admission or roll number.</p>
+            )}
+
+            {matchedEditStudent && (
+              <div className="space-y-4">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs">
+                  <p className="font-bold text-slate-900">{matchedEditStudent.full_name}</p>
+                  <p className="text-slate-500 font-mono mt-0.5">
+                    Adm {matchedEditStudent.admission_number} · Roll {matchedEditStudent.roll_number}
+                  </p>
                 </div>
-                <span className="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100">
-                  {genMonth}
-                </span>
+
+                {editStudentInvoices.length === 0 ? (
+                  <div className="p-3 border border-slate-200 rounded-lg text-xs space-y-2">
+                    <p className="text-slate-600">No challan on file for this student.</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('generate');
+                        setGenScope('single_student');
+                        setSingleAdmissionSearch(matchedEditStudent.admission_number || matchedEditStudent.roll_number || '');
+                      }}
+                      className="px-3 py-1.5 bg-slate-900 text-white rounded-md text-xs font-medium"
+                    >
+                      Generate a challan
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5">Billing month</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {editStudentInvoices.map(inv => (
+                          <button
+                            key={inv.id}
+                            type="button"
+                            onClick={() => handleOpenEditInvoice(inv)}
+                            className={`px-2.5 py-1 rounded-md text-[11px] font-medium border ${
+                              editingInvoice?.id === inv.id
+                                ? 'bg-slate-900 text-white border-slate-900'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            {normalizeBillingMonth(inv.billing_month)}
+                            <span className="ml-1 font-mono opacity-80">{inv.status}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {editingInvoice && editingInvoice.student_id === matchedEditStudent.id && (
+                      <div className="space-y-3 text-xs border border-slate-200 rounded-lg p-4">
+                        <div className="flex justify-between items-center">
+                          <p className="font-bold text-slate-900">Challan {editingInvoice.invoice_number}</p>
+                          <button
+                            type="button"
+                            onClick={() => void handlePreviewAndPrint([editingInvoice])}
+                            className="px-2.5 py-1 bg-white border border-slate-200 rounded-md text-xs font-medium flex items-center gap-1"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                            Print
+                          </button>
+                        </div>
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1">Due date</label>
+                          <input
+                            type="date"
+                            value={editDueDate}
+                            onChange={e => setEditDueDate(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md font-mono"
+                          />
+                        </div>
+                        {(() => {
+                          const fs = (matchedEditStudent as any).fee_structure || {};
+                          const studentFee = Number(fs.net_tuition || fs.recurring_monthly || fs.base_tuition || 0);
+                          const challanNet = Number(editingInvoice.net_amount || 0);
+                          if (studentFee > 0 && challanNet !== studentFee) {
+                            return (
+                              <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2 py-1.5">
+                                Student fee PKR {studentFee.toLocaleString()} · This challan PKR {challanNet.toLocaleString()}. Save the student amount if this challan was generated wrong.
+                              </p>
+                            );
+                          }
+                          return null;
+                        })()}
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1">Fee heads</label>
+                          <div className="divide-y divide-slate-100 border border-slate-200 rounded-md overflow-hidden">
+                            {editItems.map((item, idx) => (
+                              <div key={idx} className="px-3 py-2 flex items-center justify-between gap-2 bg-white">
+                                <span className="font-medium text-slate-800">{item.head_name}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-mono text-slate-400 text-[10px]">PKR</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={item.amount}
+                                    onChange={e => {
+                                      const val = Number(e.target.value) || 0;
+                                      setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, amount: val } : it));
+                                    }}
+                                    className="w-24 px-2 py-1 text-right font-mono font-bold bg-slate-50 border border-slate-200 rounded-md"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <p className="text-right font-mono font-bold text-slate-900 mt-2">
+                            Total PKR {editItems.reduce((s, it) => s + Number(it.amount || 0), 0).toLocaleString()}
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-slate-700 font-bold mb-1">Notes</label>
+                          <input
+                            type="text"
+                            value={editNotes}
+                            onChange={e => setEditNotes(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md"
+                          />
+                        </div>
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={handleSaveEditInvoice}
+                            disabled={isSavingEdit || editingInvoice.status === 'paid' || editingInvoice.status === 'cancelled'}
+                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-xs font-medium disabled:opacity-40"
+                          >
+                            {isSavingEdit ? 'Saving…' : 'Save challan'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {!editingInvoice && (
+                      <p className="text-xs text-slate-500">Select a billing month to load fee heads.</p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* EDIT CHALLAN MODAL — used only if opened outside the Edit tab */}
+      {editingInvoice && activeTab !== 'edit' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-lg max-w-lg w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Edit Fee Challan #{editingInvoice.invoice_number}</h3>
+                <p className="text-[11px] text-slate-500">Student: {editingInvoice.student_name} • Month: {editingInvoice.billing_month}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingInvoice(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Due Date</label>
+                <input
+                  type="date"
+                  value={editDueDate}
+                  onChange={e => setEditDueDate(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white font-mono"
+                />
               </div>
 
-              {/* Guardrails Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-                  <div className="flex items-center gap-2 text-indigo-700 font-bold text-xs">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Duplicate Challan Shield</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Active protection prevents generating duplicate active fee challans for the same student and month.
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-                  <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs">
-                    <Layers className="w-4 h-4" />
-                    <span>Roll-Forward Arrears</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Unpaid dues from previous months automatically consolidate into an Arrears head without double debiting.
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-                  <div className="flex items-center gap-2 text-amber-700 font-bold text-xs">
-                    <FileText className="w-4 h-4" />
-                    <span>3-Part Bank Challans</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Standard A4 tripartite layout (Bank Copy, Academy Copy, Student Copy) with bank account particulars.
-                  </p>
-                </div>
-
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
-                  <div className="flex items-center gap-2 text-purple-700 font-bold text-xs">
-                    <Calendar className="w-4 h-4" />
-                    <span>Timeline & Due Dates</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
-                    Issue Date: <span className="font-mono font-bold text-slate-800">{genIssueDate}</span> | Due Date:{' '}
-                    <span className="font-mono font-bold text-rose-700">{genDueDate}</span>.
-                  </p>
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Fee Heads Breakdown</label>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 divide-y divide-slate-200 space-y-1.5">
+                  {editItems.map((item, idx) => (
+                    <div key={idx} className="pt-1.5 first:pt-0 flex items-center justify-between gap-2">
+                      <span className="font-semibold text-slate-800">{item.head_name}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-slate-400 text-[10px]">PKR</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={item.amount}
+                          onChange={e => {
+                            const val = Number(e.target.value) || 0;
+                            setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, amount: val } : it));
+                          }}
+                          className="w-24 px-2 py-1 text-right font-mono font-bold bg-white border border-slate-300 rounded"
+                        />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Live Target Scope Summary */}
-              <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div>
-                  <span className="text-slate-500">Active Scope: </span>
-                  <strong className="text-slate-900 capitalize">
-                    {genScope === 'single_student'
-                      ? (matchedSingleStudent ? `Single: ${matchedSingleStudent.full_name}` : 'Single Student (Enter Admission #)')
-                      : genScope === 'whole_institute'
-                      ? 'Whole Institute Roster'
-                      : `${getProgramName(genProgramId)} • ${genBatchId === 'all' ? 'All Batches' : getBatchName(genBatchId)}`}
-                  </strong>
-                </div>
-                <div className="font-mono font-bold text-slate-700">
-                  Target Students:{' '}
-                  <span className="text-indigo-600">
-                    {genScope === 'single_student' ? (matchedSingleStudent ? 1 : 0) : eligibleGenerationStudents.length}
-                  </span>
-                </div>
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Notes / Remarks</label>
+                <input
+                  type="text"
+                  value={editNotes}
+                  onChange={e => setEditNotes(e.target.value)}
+                  placeholder="Optional reason for challan adjustment..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white"
+                />
               </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditingInvoice(null)}
+                className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEditInvoice}
+                disabled={isSavingEdit}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-xs disabled:opacity-50"
+              >
+                {isSavingEdit ? 'Saving...' : 'Save Changes'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* =========================================================================
-          SECTION 2: CHALLAN PRINT SECTION
-          ========================================================================= */}
-      {activeTab === 'print' && (
-        <div className="space-y-4">
-          {/* Print Configuration Bar */}
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs space-y-3">
-            <div className="flex flex-col md:flex-row justify-between md:items-center gap-3">
-              <div className="flex flex-wrap items-center gap-2.5 text-xs">
-                {/* Scope selector */}
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setPrintScope('class')}
-                    className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                      printScope === 'class' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
-                    }`}
-                  >
-                    Class-wise
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPrintScope('whole_institute');
-                      setPrintProgramId('all');
-                      setPrintBatchId('all');
-                    }}
-                    className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                      printScope === 'whole_institute' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
-                    }`}
-                  >
-                    Whole Institute
-                  </button>
-                </div>
-
-                {/* Class dropdown if class-wise */}
-                {printScope === 'class' && (
-                  <>
-                    <select
-                      value={printProgramId}
-                      onChange={e => {
-                        setPrintProgramId(e.target.value);
-                        setPrintBatchId('all');
-                      }}
-                      className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
-                    >
-                      <option value="all">All Classes</option>
-                      {programs.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-
-                    <select
-                      value={printBatchId}
-                      onChange={e => setPrintBatchId(e.target.value)}
-                      className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
-                    >
-                      <option value="all">All Batches</option>
-                      {batches
-                        .filter(b => printProgramId === 'all' || b.program_id === printProgramId)
-                        .map(b => (
-                          <option key={b.id} value={b.id}>{b.name}</option>
-                        ))}
-                    </select>
-                  </>
-                )}
-
-                {/* Billing Month Filter */}
-                <select
-                  value={printMonth}
-                  onChange={e => setPrintMonth(e.target.value)}
-                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
-                >
-                  <option value="all">All Billing Months</option>
-                  {availableMonths.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-
-                {/* Status Filter */}
-                <select
-                  value={printStatus}
-                  onChange={e => setPrintStatus(e.target.value as any)}
-                  className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="unpaid">Unpaid / Pending Only</option>
-                  <option value="paid">Paid Only</option>
-                </select>
+      {/* DELETE CHALLAN MODAL */}
+      {deletingInvoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-lg max-w-md w-full p-5 shadow-2xl border border-rose-200 space-y-4">
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+              <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-600" />
               </div>
-
-              {/* Vouchers Per Page Selector & PDF Action */}
-              <div className="flex items-center gap-2 self-end md:self-auto">
-                <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setVouchersPerPage('3_per_page')}
-                    className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
-                      vouchersPerPage === '3_per_page'
-                        ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                    title="3 copies per A4 page: Bank Copy, Academy Copy, Student Copy"
-                  >
-                    3 Per Page (Bank, Office, Student)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setVouchersPerPage('2_per_page')}
-                    className={`px-2.5 py-1.5 rounded-lg font-semibold transition-all ${
-                      vouchersPerPage === '2_per_page'
-                        ? 'bg-white text-indigo-700 shadow-xs font-bold'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                    title="2 copies per A4 page: Academy Copy, Student Copy"
-                  >
-                    2 Per Page (Admin, Student)
-                  </button>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handlePreviewAndPrint()}
-                  disabled={isPreparingPdf || printableInvoices.length === 0}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs flex items-center gap-2 disabled:opacity-50 shrink-0"
-                >
-                  {isPreparingPdf ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Preparing PDF...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Preview & Print Challans</span>
-                    </>
-                  )}
-                </button>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Delete Fee Challan #{deletingInvoice.invoice_number}</h3>
+                <p className="text-[11px] text-slate-500">Student: {deletingInvoice.student_name} • Month: {deletingInvoice.billing_month}</p>
               </div>
             </div>
 
-            {/* Selection Status Strip */}
-            <div className="flex justify-between items-center pt-2 border-t border-slate-100 text-xs text-slate-500">
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={printableInvoices.length > 0 && selectedInvoiceIds.size === printableInvoices.length}
-                    onChange={handleToggleSelectAll}
-                    className="rounded text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span>Select All ({printableInvoices.length} Challans)</span>
-                </label>
-                {selectedInvoiceIds.size > 0 && (
-                  <span className="font-semibold text-indigo-700">
-                    {selectedInvoiceIds.size} of {printableInvoices.length} selected
-                  </span>
-                )}
-              </div>
-
-              <div className="font-mono text-slate-700">
-                Total Billed:{' '}
-                <span className="font-bold text-slate-900">
-                  PKR {printableInvoices.reduce((s, i) => s + i.net_amount, 0).toLocaleString()}
-                </span>
-              </div>
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs space-y-1">
+              <p className="font-bold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                Cascade Deletion Warning:
+              </p>
+              <p className="text-[11px] text-rose-700 leading-relaxed">
+                Deleting this challan will permanently purge it and all connected fee payments ({deletingInvoice.paid_amount > 0 ? `PKR ${deletingInvoice.paid_amount.toLocaleString()} paid` : '0 paid'}) and cashbook ledger transactions recorded against it.
+              </p>
             </div>
-          </div>
 
-          {/* Challans Table Register */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xs overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-slate-700">
-                <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-600 uppercase text-[10px]">
-                  <tr>
-                    <th className="py-2.5 px-3 w-10">
-                      <input
-                        type="checkbox"
-                        checked={printableInvoices.length > 0 && selectedInvoiceIds.size === printableInvoices.length}
-                        onChange={handleToggleSelectAll}
-                        className="rounded text-indigo-600 focus:ring-indigo-500"
-                      />
-                    </th>
-                    <th className="py-2.5 px-3">Challan #</th>
-                    <th className="py-2.5 px-3">Roll #</th>
-                    <th className="py-2.5 px-3">Student Name</th>
-                    <th className="py-2.5 px-3">Class & Section</th>
-                    <th className="py-2.5 px-3">Month</th>
-                    <th className="py-2.5 px-3">Due Date</th>
-                    <th className="py-2.5 px-3 text-right">Amount (PKR)</th>
-                    <th className="py-2.5 px-3 text-center">Status</th>
-                    <th className="py-2.5 px-3 text-right">Print Single</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {printableInvoices.length === 0 ? (
-                    <tr>
-                      <td colSpan={10} className="py-10 text-center text-slate-400">
-                        No challans found matching current filters.
-                      </td>
-                    </tr>
-                  ) : (
-                    printableInvoices.map(inv => {
-                      const isChecked = selectedInvoiceIds.has(inv.id);
-                      return (
-                        <tr key={inv.id} className={`hover:bg-slate-50 ${isChecked ? 'bg-indigo-50/40' : ''}`}>
-                          <td className="py-2.5 px-3">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => handleToggleSelectOne(inv.id)}
-                              className="rounded text-indigo-600 focus:ring-indigo-500"
-                            />
-                          </td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-indigo-700">{inv.invoice_number}</td>
-                          <td className="py-2.5 px-3 font-mono text-slate-600">{inv.roll_number}</td>
-                          <td className="py-2.5 px-3 font-medium text-slate-900">{inv.student_name}</td>
-                          <td className="py-2.5 px-3 text-slate-500">
-                            {inv.program_name || getProgramName(inv.program_id)}
-                          </td>
-                          <td className="py-2.5 px-3 font-mono text-slate-600">{inv.billing_month}</td>
-                          <td className="py-2.5 px-3 font-mono text-slate-500">{inv.due_date}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                            {inv.net_amount.toLocaleString()}
-                          </td>
-                          <td className="py-2.5 px-3 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase font-mono ${
-                              inv.status === 'paid' 
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
-                                : inv.status === 'partially_paid'
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : 'bg-rose-50 text-rose-700 border border-rose-200'
-                            }`}>
-                              {inv.status}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-right">
-                            <button
-                              type="button"
-                              onClick={() => handlePreviewAndPrint([inv])}
-                              className="px-2.5 py-1 text-[11px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
-                            >
-                              Print
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+            <div className="space-y-1.5 text-xs">
+              <label className="block text-slate-700 font-bold">Reason for Deletion <span className="text-rose-500">*</span></label>
+              <input
+                type="text"
+                required
+                value={deleteReason}
+                onChange={e => setDeleteReason(e.target.value)}
+                placeholder="e.g. Issued in error, student withdrawn, duplicate challan..."
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeletingInvoice(null)}
+                className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteInvoice}
+                disabled={isDeleting || !deleteReason.trim()}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs shadow-xs disabled:opacity-50"
+              >
+                {isDeleting ? 'Deleting...' : 'Permanently Delete Challan'}
+              </button>
             </div>
           </div>
         </div>

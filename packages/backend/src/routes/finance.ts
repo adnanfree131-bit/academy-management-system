@@ -22,6 +22,9 @@ export function financeRoutes(store: IDataStore) {
     // =========================================================================
     // 1. FEE HEADS (Itemized Categories)
     // =========================================================================
+    const financeStaff = (user: JWTPayload) =>
+      user.role === 'tenant_admin' || user.role === 'finance_manager' || user.role === 'super_admin';
+
     const getHeadsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       const heads = await store.getFeeHeads(user.tenant_id);
@@ -223,10 +226,20 @@ export function financeRoutes(store: IDataStore) {
     const getInvoicesHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       const q = (request.query || {}) as any;
-      const student_id = q.student_id || q.studentId;
+      let student_id = q.student_id || q.studentId;
       const batch_id = q.batch_id || q.batchId;
       const billing_month = q.billing_month || q.billingMonth;
       const status = q.status as InvoiceStatus;
+
+      if (user.role === 'student' || user.role === 'parent') {
+        student_id = (user as any).student_id || student_id;
+      } else if (!financeStaff(user) && !student_id) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'You can only view a single student ledger, not the academy fee book.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       const invoices = await store.getInvoices(user.tenant_id, {
         student_id,
@@ -260,8 +273,13 @@ export function financeRoutes(store: IDataStore) {
         student_id: z.string().min(1),
         billing_month: z.string().min(1),
         due_date: z.string().min(1),
+        issue_date: z.string().optional(),
         include_arrears: z.boolean().optional(),
         custom_items: z.array(z.object({
+          fee_head_id: z.string(),
+          amount: z.number().min(0)
+        })).optional(),
+        additional_heads: z.array(z.object({
           fee_head_id: z.string(),
           amount: z.number().min(0)
         })).optional(),
@@ -300,7 +318,11 @@ export function financeRoutes(store: IDataStore) {
         scope: z.enum(['all', 'program', 'batch']).optional(),
         billing_month: z.string().min(1),
         due_date: z.string().min(1),
-        issue_date: z.string().optional()
+        issue_date: z.string().optional(),
+        additional_heads: z.array(z.object({
+          fee_head_id: z.string(),
+          amount: z.number().min(0)
+        })).optional()
       });
 
       const parse = schema.safeParse(request.body);
@@ -361,12 +383,12 @@ export function financeRoutes(store: IDataStore) {
       const { id } = request.params as { id: string };
       const reason = (request.body as any)?.reason || (request.query as any)?.reason || 'Challan deleted by administrator';
       try {
-        const cancelled = await store.cancelInvoice(user.tenant_id, id, reason, user.email || 'Admin');
-        return reply.send({ success: true, data: cancelled, timestamp: new Date().toISOString() });
+        const result = await store.deleteInvoice(user.tenant_id, id, reason, user.email || 'Admin');
+        return reply.send({ success: true, data: result, timestamp: new Date().toISOString() });
       } catch (err: any) {
         return reply.status(400).send({
           success: false,
-          error: { code: 'CANCEL_FAILED', message: err.message },
+          error: { code: 'DELETE_FAILED', message: err.message },
           timestamp: new Date().toISOString()
         });
       }
@@ -454,13 +476,18 @@ export function financeRoutes(store: IDataStore) {
         bank_name: z.string().optional().nullable(),
         cheque_number: z.string().optional().nullable(),
         clearing_date: z.string().optional().nullable(),
+        payment_date: z.string().optional(),
         is_override: z.boolean().default(false),
         override_reason: z.string().optional(),
         allocations: z.array(z.object({
           fee_head_id: z.string(),
           head_name: z.string(),
-          allocated_amount: z.number().min(0)
+          allocated_amount: z.number().min(0),
+          invoice_item_id: z.string().optional()
         })).optional()
+      }).refine(d => d.payment_method !== 'cheque' || Boolean(d.cheque_number && String(d.cheque_number).trim()), {
+        message: 'Cheque number is required for cheque payments',
+        path: ['cheque_number']
       });
 
       const parse = schema.safeParse(request.body);
@@ -539,6 +566,12 @@ export function financeRoutes(store: IDataStore) {
 
     const getPaymentsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!financeStaff(user) && user.role !== 'student' && user.role !== 'parent') {
+        const qCheck = (request.query || {}) as any;
+        if (!qCheck.invoice_id && !qCheck.student_id && !qCheck.studentId) {
+          if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
+        }
+      }
       const q = (request.query || {}) as any;
       const invoice_id = q.invoice_id || q.invoiceId;
       const student_id = q.student_id || q.studentId;
@@ -595,6 +628,24 @@ export function financeRoutes(store: IDataStore) {
       }
     };
     fastify.post('/payments/:id/void', voidPaymentHandler);
+    fastify.post('/payments/:id/reverse', voidPaymentHandler);
+
+    const deletePaymentHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
+      const { id } = request.params as { id: string };
+      try {
+        const result = await store.deletePayment(user.tenant_id, id, user.email || 'Finance Administrator');
+        return reply.send({ success: true, data: result, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'DELETE_PAYMENT_FAILED', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+    fastify.delete('/payments/:id', deletePaymentHandler);
 
     // =========================================================================
     // 7. DYNAMIC AD-HOC DISCOUNTS & CONCESSIONS (With Mandatory Audit Remark)
@@ -609,7 +660,7 @@ export function financeRoutes(store: IDataStore) {
 
     const applyDiscountHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin'], reply)) return;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const schema = z.object({
         student_id: z.string().min(1),
         invoice_id: z.string().optional(),
@@ -649,8 +700,9 @@ export function financeRoutes(store: IDataStore) {
     // =========================================================================
     const getCashbookHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      const { date } = request.query as { date?: string };
-      const cashbook = await store.getDailyCashbook(user.tenant_id, date);
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
+      const { date, endDate, startDate } = request.query as { date?: string; endDate?: string; startDate?: string };
+      const cashbook = await store.getDailyCashbook(user.tenant_id, startDate || date, endDate);
       return reply.send({ success: true, data: cashbook, timestamp: new Date().toISOString() });
     };
     fastify.get('/reports/cashbook', getCashbookHandler);
@@ -658,6 +710,9 @@ export function financeRoutes(store: IDataStore) {
     const getLedgerHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       const { studentId } = request.params as { studentId: string };
+      if (!financeStaff(user) && user.role !== 'student' && user.role !== 'parent') {
+        if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
+      }
       const ledger = await store.getStudentLedger(user.tenant_id, studentId);
       return reply.send({ success: true, data: ledger, timestamp: new Date().toISOString() });
     };
@@ -666,6 +721,7 @@ export function financeRoutes(store: IDataStore) {
 
     const getFeeHeadSummaryHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const summary = await store.getFeeHeadCollectionReport(user.tenant_id);
       return reply.send({ success: true, data: summary, timestamp: new Date().toISOString() });
     };
@@ -684,6 +740,7 @@ export function financeRoutes(store: IDataStore) {
 
     const createAccountHeadHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const schema = z.object({
         type: z.enum(['income', 'expense']),
         name: z.string().min(1),
@@ -719,6 +776,7 @@ export function financeRoutes(store: IDataStore) {
 
     const deleteAccountHeadHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const { id } = request.params as { id: string };
       const deleted = await store.deleteAccountHead(user.tenant_id, id);
       if (!deleted) {
@@ -737,6 +795,7 @@ export function financeRoutes(store: IDataStore) {
     // =========================================================================
     const getTransactionsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const { type, head_id, startDate, endDate } = request.query as {
         type?: 'income' | 'expense';
         head_id?: string;
@@ -815,6 +874,7 @@ export function financeRoutes(store: IDataStore) {
     // =========================================================================
     const getProfitLossHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const { month } = request.query as { month?: string };
       const report = await store.getProfitLossReport(user.tenant_id, month);
       return reply.send({ success: true, data: report, timestamp: new Date().toISOString() });

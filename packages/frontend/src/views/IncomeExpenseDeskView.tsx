@@ -36,9 +36,10 @@ export const IncomeExpenseDeskView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [selectedHeadFilter, setSelectedHeadFilter] = useState<string>('all');
-  const [selectedMonth, setSelectedMonth] = useState<string>(
-    new Date().toISOString().slice(0, 7) // 'YYYY-MM'
-  );
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
 
   // Modals
   const [showVoucherModal, setShowVoucherModal] = useState<boolean>(false);
@@ -101,13 +102,15 @@ export const IncomeExpenseDeskView: React.FC = () => {
     setIsPrinting(true);
     try {
       const academy = await academyLetterheadFromAuth(tenant);
-      const incomeRows = (plReport?.income_heads || plReport?.income || []).map((r: any) => ({
-        head: r.head_name || r.name || 'Income',
-        amount: `PKR ${Number(r.amount || r.total || 0).toLocaleString()}`,
+      const incomeMap = (plReport?.income_breakdown || plReport?.incomeByHead || {}) as Record<string, number>;
+      const expenseMap = (plReport?.expense_breakdown || plReport?.expenseByHead || {}) as Record<string, number>;
+      const incomeRows = Object.entries(incomeMap).map(([head, amount]) => ({
+        head,
+        amount: `PKR ${Number(amount || 0).toLocaleString()}`,
       }));
-      const expenseRows = (plReport?.expense_heads || plReport?.expenses || []).map((r: any) => ({
-        head: r.head_name || r.name || 'Expense',
-        amount: `PKR ${Number(r.amount || r.total || 0).toLocaleString()}`,
+      const expenseRows = Object.entries(expenseMap).map(([head, amount]) => ({
+        head,
+        amount: `PKR ${Number(amount || 0).toLocaleString()}`,
       }));
       const bytes = await buildSimpleStatementPdf({
         title: 'Profit & Loss Statement',
@@ -267,16 +270,20 @@ export const IncomeExpenseDeskView: React.FC = () => {
 
   // Filtered transactions
   const filteredTransactions = transactions.filter(t => {
+    const payee = (t.payee_payer || t.paid_to_or_received_from || '').toLowerCase();
     const matchesSearch =
-      (t.payee_payer?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+      payee.includes(searchQuery.toLowerCase()) ||
       (t.reference_number?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
       (t.description?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
       (t.head_name?.toLowerCase() || '').includes(searchQuery.toLowerCase());
 
     const matchesType = typeFilter === 'all' || t.type === typeFilter;
     const matchesHead = selectedHeadFilter === 'all' || t.account_head_id === selectedHeadFilter;
+    const txDate = t.transaction_date || t.date || '';
+    const matchesMonth = !selectedMonth || txDate.startsWith(selectedMonth);
+    const isLive = Number(t.amount) > 0 && !(t.description || '').startsWith('[VOIDED]');
 
-    return matchesSearch && matchesType && matchesHead;
+    return matchesSearch && matchesType && matchesHead && matchesMonth && isLive;
   });
 
   // Calculate Running Ledger Totals
@@ -298,7 +305,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {/* Header Banner */}
       <PageHeading
         title="Income & Expenses"
-        description="Record daily transactions, manage account heads, and view profit & loss summary."
+        description="Record income and expense. View cashbook and this month's P&L."
         icon={<Wallet className="w-4 h-4 text-slate-700" />}
       >
         <button
@@ -314,7 +321,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
             setVoucherType('expense');
             setShowVoucherModal(true);
           }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold shadow-xs transition-all"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium shadow-sm transition-colors"
         >
           <ArrowDownRight className="w-4 h-4" />
           <span>Record Expense</span>
@@ -325,7 +332,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
             setVoucherType('income');
             setShowVoucherModal(true);
           }}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs transition-all"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium shadow-sm transition-colors"
         >
           <ArrowUpRight className="w-4 h-4" />
           <span>Record Income</span>
@@ -333,7 +340,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
       </PageHeading>
 
       {/* Mobile Native 3-Stat Compact Strip (< 640px) */}
-      <div className="sm:hidden bg-white border border-slate-200 rounded-2xl p-3 shadow-xs grid grid-cols-3 divide-x divide-slate-100 text-center">
+      <div className="sm:hidden bg-white border border-slate-200 rounded-lg p-3 shadow-xs grid grid-cols-3 divide-x divide-slate-100 text-center">
         <div className="px-1">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Income</span>
           <span className="text-xs font-bold font-mono text-emerald-600 truncate block mt-0.5">+{totalIncome.toLocaleString()}</span>
@@ -352,7 +359,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
 
       {/* Desktop KPI Stats Overview (>= 640px) */}
       <div className="hidden sm:grid grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
+        <div className="bg-white border border-slate-200/90 rounded-lg p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Total Income</span>
             <span className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
@@ -360,12 +367,12 @@ export const IncomeExpenseDeskView: React.FC = () => {
             </span>
           </div>
           <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-2xl font-black text-slate-900">PKR {totalIncome.toLocaleString()}</span>
+            <span className="text-2xl font-bold text-slate-900 tabular-nums">PKR {totalIncome.toLocaleString()}</span>
           </div>
           <span className="text-[11px] text-emerald-600 font-semibold mt-1 block">Cash and bank receipts</span>
         </div>
 
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
+        <div className="bg-white border border-slate-200/90 rounded-lg p-4 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Total Expenses</span>
             <span className="p-2 rounded-xl bg-rose-50 text-rose-600">
@@ -373,12 +380,12 @@ export const IncomeExpenseDeskView: React.FC = () => {
             </span>
           </div>
           <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-2xl font-black text-slate-900">PKR {totalExpense.toLocaleString()}</span>
+            <span className="text-2xl font-bold text-slate-900 tabular-nums">PKR {totalExpense.toLocaleString()}</span>
           </div>
           <span className="text-[11px] text-rose-600 font-semibold mt-1 block">Operational bills & payments</span>
         </div>
 
-        <div className={`border rounded-2xl p-4 shadow-xs ${
+        <div className={`border rounded-lg p-4 shadow-xs ${
           netBalance >= 0 ? 'bg-emerald-50/60 border-emerald-200' : 'bg-rose-50/60 border-rose-200'
         }`}>
           <div className="flex items-center justify-between">
@@ -388,7 +395,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
             </span>
           </div>
           <div className="mt-2 flex items-baseline gap-1">
-            <span className={`text-2xl font-black ${netBalance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+            <span className={`text-2xl font-bold tabular-nums ${netBalance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
               PKR {netBalance.toLocaleString()}
             </span>
           </div>
@@ -441,7 +448,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {/* TAB 1: DAILY CASHBOOK LEDGER */}
       {/* ========================================================================= */}
       {activeTab === 'cashbook' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden space-y-4 p-4 sm:p-5">
+        <div className="bg-white border border-slate-200/90 rounded-lg shadow-xs overflow-hidden space-y-4 p-4 sm:p-5">
           {/* Controls Bar */}
           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             <div className="relative w-full md:w-80">
@@ -499,9 +506,9 @@ export const IncomeExpenseDeskView: React.FC = () => {
           ) : filteredTransactions.length === 0 ? (
             <div className="p-12 text-center text-slate-400">
               <Wallet className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-              <p className="text-sm font-bold text-slate-700">No transactions recorded yet</p>
+              <p className="text-sm font-bold text-slate-700">No transactions this month</p>
               <p className="text-xs text-slate-400 mt-1">
-                Click "+ Record Expense" or "+ Record Income" to enter operational vouchers.
+                Use Record Expense or Record Income.
               </p>
             </div>
           ) : (
@@ -525,7 +532,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                   {filteredTransactions.map(t => (
                     <tr key={t.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3 px-4 font-mono text-[11px] text-slate-700 whitespace-nowrap">
-                        {t.date}
+                        {t.transaction_date || t.date}
                       </td>
                       <td className="py-3 px-4">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
@@ -536,7 +543,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4 font-bold text-slate-800">
-                        {t.payee_payer || '—'}
+                        {t.payee_payer || t.paid_to_or_received_from || '—'}
                       </td>
                       <td className="py-3 px-4 capitalize font-mono text-[11px] text-slate-600">
                         {t.payment_method.replace('_', ' ')}
@@ -577,10 +584,10 @@ export const IncomeExpenseDeskView: React.FC = () => {
                           {t.head_name || (isIncome ? 'Income Voucher' : 'Operational Expense')}
                         </div>
                         <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                          {t.payee_payer || t.description || 'Direct Entry'}
+                          {t.payee_payer || t.paid_to_or_received_from || t.description || 'Entry'}
                         </div>
                         <div className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5">
-                          <span>{t.date}</span>
+                          <span>{t.transaction_date || t.date}</span>
                           <span>•</span>
                           <span className="capitalize">{t.payment_method.replace('_', ' ')}</span>
                           {t.reference_number && (
@@ -632,11 +639,11 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {/* TAB 2: DYNAMIC ACCOUNT HEADS */}
       {/* ========================================================================= */}
       {activeTab === 'heads' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs p-5 space-y-4">
+        <div className="bg-white border border-slate-200/90 rounded-lg shadow-xs p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <SectionInfo
               title="Account Heads"
-              description="Add income and expense heads for this academy. Fee heads created in Settings also appear as income."
+              description="Categories for operational income and expense. Student fee heads are separate."
             />
             <button
               onClick={() => setShowHeadModal(true)}
@@ -659,7 +666,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 >
                   <div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
                         head.type === 'income'
                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                           : 'bg-rose-100 text-rose-800 border border-rose-200'
@@ -677,7 +684,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
 
                     <h3 className="text-sm font-bold text-slate-900 mt-2">{head.name}</h3>
                     <p className="text-xs text-slate-500 mt-0.5 min-h-[32px]">
-                      {head.description || 'Custom institutional tag'}
+                      {head.description || '—'}
                     </p>
                   </div>
 
@@ -698,11 +705,11 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {/* TAB 3: PROFIT & LOSS STATEMENT */}
       {/* ========================================================================= */}
       {activeTab === 'pl_report' && (
-        <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs p-5 space-y-6">
+        <div className="bg-white border border-slate-200/90 rounded-lg shadow-xs p-5 space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <SectionInfo
-              title="Income vs Expense Statement"
-              description="Monthly reconciled profit & loss statement for campus administration"
+              title="Income and expense"
+              description="This month's fee collections plus other income, minus expenses."
             />
             <div className="flex items-center gap-2">
               <input
@@ -727,22 +734,22 @@ export const IncomeExpenseDeskView: React.FC = () => {
               {/* Summary Highlights */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-                  <span className="text-[10px] font-mono uppercase font-bold text-emerald-800">Total Month Income</span>
-                  <span className="text-xl font-black text-emerald-900 block mt-1">
+                  <span className="text-[10px] font-mono uppercase font-bold text-emerald-800">Month Income</span>
+                  <span className="text-xl font-bold text-emerald-900 tabular-nums block mt-1">
                     PKR {Number(plReport.total_income || 0).toLocaleString()}
                   </span>
                 </div>
                 <div className="p-4 rounded-xl bg-rose-50 border border-rose-200">
-                  <span className="text-[10px] font-mono uppercase font-bold text-rose-800">Total Month Expenses</span>
-                  <span className="text-xl font-black text-rose-900 block mt-1">
+                  <span className="text-[10px] font-mono uppercase font-bold text-rose-800">Month Expenses</span>
+                  <span className="text-xl font-bold text-rose-900 tabular-nums block mt-1">
                     PKR {Number(plReport.total_expense || 0).toLocaleString()}
                   </span>
                 </div>
                 <div className={`p-4 rounded-xl border ${
                   Number(plReport.net_profit || 0) >= 0 ? 'bg-indigo-50 border-indigo-200' : 'bg-amber-50 border-amber-200'
                 }`}>
-                  <span className="text-[10px] font-mono uppercase font-bold text-slate-600">Net Operating Margin</span>
-                  <span className={`text-xl font-black block mt-1 ${
+                  <span className="text-[10px] font-mono uppercase font-bold text-slate-600">Net Profit</span>
+                  <span className={`text-xl font-bold tabular-nums block mt-1 ${
                     Number(plReport.net_profit || 0) >= 0 ? 'text-indigo-900' : 'text-amber-900'
                   }`}>
                     PKR {Number(plReport.net_profit || 0).toLocaleString()}
@@ -804,7 +811,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {showVoucherModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden max-h-[92vh] flex flex-col">
+          <div className="bg-white border border-slate-200 rounded-lg w-full max-w-lg shadow-xl overflow-hidden max-h-[92vh] flex flex-col">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
               <SectionInfo
                 title={`Record ${voucherType === 'income' ? 'Income' : 'Expense'}`}
@@ -862,7 +869,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-bold text-slate-700">
-                    Dynamic Account Head ({voucherType})
+                    Category ({voucherType})
                   </label>
                   <button
                     type="button"
@@ -970,7 +977,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmittingVoucher}
-                  className={`px-5 py-2 rounded-xl text-xs font-extrabold text-white shadow-xs transition-all ${
+                  className={`px-3.5 py-2 rounded-md text-xs font-medium text-white shadow-sm transition-colors ${
                     voucherType === 'income' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
                   }`}
                 >
@@ -987,7 +994,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {showHeadModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-lg w-full max-w-md shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
               <SectionInfo
                 title="Create Account Head"
@@ -1059,7 +1066,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmittingHead}
-                  className="px-5 py-2 rounded-xl text-xs font-extrabold bg-slate-900 hover:bg-slate-800 text-white shadow-xs transition-all"
+                  className="px-3.5 py-2 rounded-md text-xs font-medium bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition-colors"
                 >
                   {isSubmittingHead ? 'Saving...' : 'Save Account Head'}
                 </button>

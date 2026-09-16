@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Settings,
   FileText,
+  RotateCcw,
   X 
 } from 'lucide-react';
 import { hapticSelection } from '../lib/haptics';
@@ -531,7 +532,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }`}
                       >
                         <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-white' : 'text-slate-400'}`} />
-                        <span>Fee Ledger</span>
+                        <span>Fees Receiving</span>
                       </button>}
 
                       {allow('challans') && <button 
@@ -544,6 +545,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <FileText className={`w-4 h-4 ${currentScreen === 'challans' ? 'text-white' : 'text-slate-400'}`} />
                         <span>Fee Challans</span>
+                      </button>}
+
+                      {allow('fee_reversals') && <button 
+                        onClick={() => handleNavClick('fee_reversals')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
+                          currentScreen === 'fee_reversals'
+                            ? 'bg-slate-900 text-white font-bold shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                        }`}
+                      >
+                        <RotateCcw className={`w-4 h-4 ${currentScreen === 'fee_reversals' ? 'text-white' : 'text-slate-400'}`} />
+                        <span>Fee Reversals</span>
                       </button>}
 
                       {allow('expenses') && <button 

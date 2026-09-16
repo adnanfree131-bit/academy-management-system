@@ -1,7 +1,8 @@
 import { PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'pdf-lib';
 
 const A4: [number, number] = [595.28, 841.89];
-const MARGIN = 42;
+const A4_LANDSCAPE: [number, number] = [841.89, 595.28];
+export const MARGIN = 24;
 const NAVY = rgb(0.06, 0.09, 0.16);
 const SLATE = rgb(0.35, 0.39, 0.45);
 const RULE = rgb(0.86, 0.88, 0.91);
@@ -24,8 +25,9 @@ export interface PdfTableColumn {
   align?: 'left' | 'right';
 }
 
-export async function createOfficialDocument(title: string, academy: AcademyLetterhead) {
+export async function createOfficialDocument(title: string, academy: AcademyLetterhead, opts?: { landscape?: boolean }) {
   const doc = await PDFDocument.create();
+  const pageSize = opts?.landscape ? A4_LANDSCAPE : A4;
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
   let logo = null as Awaited<ReturnType<PDFDocument['embedPng']>> | null;
@@ -40,29 +42,28 @@ export async function createOfficialDocument(title: string, academy: AcademyLett
   }
 
   const addPage = () => {
-    const page = doc.addPage(A4);
+    const page = doc.addPage(pageSize);
     const { width, height } = page.getSize();
-    page.drawRectangle({ x: 0, y: height - 72, width, height: 72, color: rgb(1, 1, 1) });
-    page.drawRectangle({ x: 0, y: height - 74, width, height: 2, color: NAVY });
+    page.drawRectangle({ x: 0, y: height - 56, width, height: 56, color: NAVY });
     if (logo) {
-      page.drawRectangle({ x: MARGIN, y: height - 62, width: 36, height: 36, color: rgb(1, 1, 1), borderColor: RULE, borderWidth: 0.6 });
-      const fit = logo.scaleToFit(32, 32);
-      page.drawImage(logo, { x: MARGIN + 2, y: height - 60, width: fit.width, height: fit.height });
+      page.drawRectangle({ x: MARGIN, y: height - 48, width: 32, height: 32, color: rgb(1, 1, 1) });
+      const fit = logo.scaleToFit(28, 28);
+      page.drawImage(logo, { x: MARGIN + 2, y: height - 46, width: fit.width, height: fit.height });
     }
-    const textX = logo ? MARGIN + 44 : MARGIN;
-    page.drawText(academy.name, { x: textX, y: height - 36, size: 14, font: fontBold, color: NAVY });
+    const textX = logo ? MARGIN + 40 : MARGIN;
+    page.drawText(academy.name, { x: textX, y: height - 24, size: 13, font: fontBold, color: rgb(1, 1, 1) });
     const sub = [academy.campus, academy.session, academy.phone].filter(Boolean).join('  ·  ');
-    if (sub) page.drawText(sub, { x: textX, y: height - 50, size: 8, font, color: SLATE });
-    page.drawText(title.toUpperCase(), { x: textX, y: height - 64, size: 9, font: fontBold, color: SLATE });
-    page.drawText('Kampus Academy ERP', { x: width - MARGIN - 90, y: height - 36, size: 7, font, color: SLATE });
-    page.drawText(new Date().toLocaleDateString('en-GB'), { x: width - MARGIN - 90, y: height - 48, size: 8, font, color: SLATE });
-    page.drawText('This is an official computer-generated document.', {
-      x: MARGIN, y: 28, size: 7, font, color: SLATE,
+    if (sub) page.drawText(sub, { x: textX, y: height - 38, size: 8, font, color: rgb(0.85, 0.88, 0.92) });
+    page.drawText(title.toUpperCase(), { x: textX, y: height - 50, size: 8, font: fontBold, color: rgb(0.75, 0.80, 0.86) });
+    page.drawText(new Date().toLocaleDateString('en-GB'), { x: width - MARGIN - 70, y: height - 28, size: 8, font, color: rgb(0.85, 0.88, 0.92) });
+    page.drawRectangle({ x: 0, y: 0, width, height: 22, color: NAVY });
+    page.drawText('Official computer-generated document', {
+      x: MARGIN, y: 8, size: 7, font, color: rgb(0.85, 0.88, 0.92),
     });
     return page;
   };
 
-  return { doc, font, fontBold, addPage, width: A4[0], height: A4[1] };
+  return { doc, font, fontBold, addPage, width: pageSize[0], height: pageSize[1] };
 }
 
 export function drawKeyValue(

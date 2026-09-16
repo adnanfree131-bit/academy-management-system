@@ -389,13 +389,17 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
         const invList: StudentInvoice[] = data.data || [];
         setInvoices(invList);
         if (invList.length > 0) {
-          const unpaid = invList.find(i => i.status !== 'PAID' && (i.status as string) !== 'paid');
+          const unpaid = invList.find(i => {
+            const st = String(i.status || '').toLowerCase();
+            const bal = i.balance_due ?? i.balance_amount ?? 0;
+            return bal > 0 && st !== 'paid' && st !== 'cancelled' && st !== 'voided' && st !== 'rolled_over';
+          });
           if (unpaid) {
             setCollectInvoiceId(unpaid.id);
             setCollectAmount(unpaid.balance_due ?? unpaid.balance_amount ?? 0);
           } else {
-            setCollectInvoiceId(invList[0].id);
-            setCollectAmount(invList[0].balance_due ?? invList[0].balance_amount ?? 0);
+            setCollectInvoiceId('');
+            setCollectAmount(0);
           }
         }
       }
@@ -435,7 +439,6 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
           amount_paid: Number(collectAmount),
           payment_method: collectMethod,
           reference_number: collectReference || undefined,
-          notes: collectNotes || undefined,
         }),
       });
       const data = await res.json();
@@ -911,7 +914,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
             }`}
           >
             <DollarSign className="w-4 h-4 text-slate-500" />
-            <span>Fee Ledger & Challans</span>
+            <span>Fees & Challans</span>
             {totalOutstanding > 0 && (
               <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-100 text-rose-800 border border-rose-200">
                 Due: PKR {totalOutstanding.toLocaleString()}
@@ -2198,7 +2201,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
       {/* UPDATE ENROLLED SUBJECTS MODAL */}
       {showEditSubjectsModal && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 m-0">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-300 space-y-4">
+          <div className="bg-white rounded-lg max-w-lg w-full p-6 shadow-2xl border border-slate-300 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-slate-800" />

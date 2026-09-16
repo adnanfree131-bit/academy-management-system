@@ -228,6 +228,7 @@ export function sisRoutes(store: IDataStore) {
         status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted']).default('active'),
         custom_field_values: z.record(z.any()).default({}),
         subjects: z.array(z.string()).default([]),
+        admission_date: z.string().optional(),
       });
 
       const parseResult = schema.safeParse({

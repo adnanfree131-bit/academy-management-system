@@ -56,7 +56,7 @@ function StatCard({
     <button
       type="button"
       onClick={onClick}
-      className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 text-left hover:border-slate-300 active:bg-slate-50 transition-colors"
+      className="bg-white border border-slate-200 rounded-lg p-3 sm:p-4 text-left hover:border-slate-300 active:bg-slate-50 transition-colors"
     >
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs sm:text-sm text-slate-500 font-medium">{label}</p>
@@ -205,9 +205,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         if (Array.isArray(fees)) {
           const list = fees as StudentInvoice[];
           setInvoices(list);
-          const billed = list.reduce((a, inv) => a + (inv.net_total || inv.net_amount || 0), 0);
-          const collected = list.reduce((a, inv) => a + (inv.paid_amount || 0), 0);
-          const unpaid = list.filter(inv => (inv.balance_due ?? inv.balance_amount ?? 0) > 0);
+          const live = list.filter(inv => {
+            const st = String(inv.status || '').toLowerCase();
+            return st !== 'cancelled' && st !== 'voided' && st !== 'rolled_over';
+          });
+          const billed = live.reduce((a, inv) => a + (inv.net_total || inv.net_amount || 0), 0);
+          const collected = live.reduce((a, inv) => a + (inv.paid_amount || 0), 0);
+          const unpaid = list.filter(inv => {
+            const st = String(inv.status || '').toLowerCase();
+            if (st === 'cancelled' || st === 'voided' || st === 'rolled_over' || st === 'paid') return false;
+            return (inv.balance_due ?? inv.balance_amount ?? 0) > 0 || st === 'unpaid' || st === 'partially_paid' || st === 'partial';
+          });
           setFeeStats({
             totalBilled: billed,
             totalCollected: collected,
@@ -274,7 +282,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const maxClass = Math.max(1, ...classRows.map(r => r.count));
 
   const unpaidInvoices = invoices
-    .filter(inv => (inv.balance_due ?? inv.balance_amount ?? 0) > 0)
+    .filter(inv => {
+      const st = String(inv.status || '').toLowerCase();
+      if (st === 'cancelled' || st === 'voided' || st === 'rolled_over' || st === 'paid') return false;
+      return (inv.balance_due ?? inv.balance_amount ?? 0) > 0;
+    })
     .sort((a, b) => (b.balance_due ?? b.balance_amount ?? 0) - (a.balance_due ?? a.balance_amount ?? 0))
     .slice(0, 6);
 
@@ -396,7 +408,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           value={n(staffCount)}
           hint={
             staffCount === 0
-              ? 'Add staff in payroll'
+              ? 'Add staff'
               : live.staffIn
                 ? `${live.staffIn} in today`
                 : 'No clock-ins yet'
@@ -416,7 +428,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         <StatCard
           label="Fees due"
           value={loading ? '—' : money(feeStats.unpaidAmount)}
-          hint={feeStats.unpaidCount ? `${feeStats.unpaidCount} unpaid challans` : 'All challans paid'}
+          hint={feeStats.unpaidCount ? `${feeStats.unpaidCount} unpaid challans` : (feeStats.totalBilled ? 'No outstanding dues' : 'No challans yet')}
           icon={CreditCard}
           tone="bg-amber-500"
           onClick={() => onNavigate('voucher')}
@@ -443,7 +455,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between">
+        <div className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col justify-between">
           <div>
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -517,12 +529,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-5">
+        <div className="bg-white border border-slate-200 rounded-lg p-5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold text-slate-900">Fee collection</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                {feeStats.totalBilled ? `${collectedPct}% of billed amount` : 'No invoices yet'}
+                {feeStats.totalBilled ? `${collectedPct}% of billed amount` : 'No challans yet'}
               </p>
             </div>
             <button
@@ -589,7 +601,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl overflow-hidden">
+        <div className="lg:col-span-3 bg-white border border-slate-200 rounded-lg overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold text-slate-900">Class strength</h2>
@@ -634,7 +646,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           )}
         </div>
 
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5">
+        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-5">
           <h2 className="text-sm font-semibold text-slate-900">Coming up</h2>
           {loading ? (
             <p className="text-sm text-slate-400 mt-4">Loading…</p>

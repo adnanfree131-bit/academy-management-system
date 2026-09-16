@@ -733,4 +733,46 @@ describe('Fees Overhaul & Financial Integrity Verification', () => {
       expect(firstInvoice.net_amount).toBe(10700);
     });
   });
+
+  describe('Student admission fee beats batch catalog', () => {
+    it('generates PKR 1500 when student net_tuition is 1500 even if batch default is higher', async () => {
+      const studentRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/sis/students',
+        headers: { authorization: `Bearer ${adminToken}` },
+        payload: {
+          full_name: 'Low Fee Student',
+          guardian_name: 'Parent Low Fee',
+          guardian_phone: '03009998877',
+          program_id: programId,
+          batch_id: batchId,
+          fee_structure: {
+            base_tuition: 1500,
+            net_tuition: 1500,
+            recurring_monthly: 1500,
+          },
+        },
+      });
+      expect(studentRes.statusCode).toBe(201);
+      const studentId = studentRes.json().data.id;
+
+      const genRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/finance/invoices/generate',
+        headers: { authorization: `Bearer ${adminToken}` },
+        payload: {
+          student_id: studentId,
+          billing_month: 'March 2028',
+          due_date: '2028-03-15',
+          include_arrears: false,
+        },
+      });
+      expect(genRes.statusCode).toBe(201);
+      const inv = genRes.json().data;
+      expect(inv.net_amount).toBe(1500);
+      const tuition = (inv.items || []).find((it: { head_code?: string }) => it.head_code === 'TUITION');
+      expect(tuition).toBeDefined();
+      expect(tuition.net_amount).toBe(1500);
+    });
+  });
 });

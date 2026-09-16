@@ -83,6 +83,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [selectedBatchFilter, setSelectedBatchFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [inquiryStageFilter, setInquiryStageFilter] = useState<string>('all');
+  const [directoryPage, setDirectoryPage] = useState(1);
+  const DIRECTORY_PAGE_SIZE = 30;
 
   const availableDirectoryBatches = useMemo(() => {
     if (selectedProgramFilter === 'all') return batches;
@@ -163,6 +165,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [selectedEnrollSubjectIds, setSelectedEnrollSubjectIds] = useState<string[]>([]);
   const [admitCustomSubjectIds, setAdmitCustomSubjectIds] = useState<string[]>([]);
   const [bloodGroup, setBloodGroup] = useState('');
+  const [admissionDate, setAdmissionDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [admissionTuition, setAdmissionTuition] = useState<number | ''>('');
   const [selectedAdmissionHeads, setSelectedAdmissionHeads] = useState<Array<{ fee_head_id: string; amount: number }>>([]);
   const [headToAdd, setHeadToAdd] = useState<string>('');
@@ -275,6 +278,16 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       return matchesSearch && matchesProgram && matchesBatch && matchesStatus;
     });
   }, [students, searchQuery, selectedProgramFilter, selectedBatchFilter, statusFilter]);
+
+  useEffect(() => {
+    setDirectoryPage(1);
+  }, [searchQuery, selectedProgramFilter, selectedBatchFilter, statusFilter]);
+
+  const directoryPageCount = Math.max(1, Math.ceil(filteredStudents.length / DIRECTORY_PAGE_SIZE));
+  const pagedStudents = filteredStudents.slice(
+    (directoryPage - 1) * DIRECTORY_PAGE_SIZE,
+    directoryPage * DIRECTORY_PAGE_SIZE
+  );
 
   const toggleDirectoryStudent = (id: string) => {
     const next = new Set(selectedDirectoryStudentIds);
@@ -623,6 +636,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           guardian_whatsapp: (guardianWhatsapp || enrollForm.guardian_phone).trim(),
           program_id: enrollForm.program_id,
           batch_id: enrollForm.batch_id,
+          admission_date: admissionDate || undefined,
           elective_group_id: enrollForm.elective_group_id || undefined,
           blood_group: bloodGroup || undefined,
           fee_structure: {
@@ -723,6 +737,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         setGuardianWhatsapp('');
         setWhatsappSameAsCalling(true);
         setBloodGroup('');
+        setAdmissionDate(new Date().toISOString().split('T')[0]);
         setAdmissionTuition('');
         setSelectedAdmissionHeads([]);
         setHeadToAdd('');
@@ -1096,7 +1111,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       </td>
                     </tr>
                   ) : (
-                    filteredStudents.map(student => (
+                    pagedStudents.map(student => (
                       <tr key={student.id} className="hover:bg-slate-50/70 transition-colors group">
                         <td className="py-3 px-3 text-center">
                           <button
@@ -1228,7 +1243,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <p className="text-xs font-semibold text-slate-600">No students found matching current filters.</p>
               </div>
             ) : (
-              filteredStudents.map(student => (
+              pagedStudents.map(student => (
                 <div
                   key={student.id}
                   onClick={() => setSelectedStudent(student)}
@@ -1348,6 +1363,31 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               ))
             )}
           </div>
+          {filteredStudents.length > 0 && (
+            <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-200 bg-slate-50 text-xs">
+              <span className="text-slate-500">
+                Page {directoryPage} of {directoryPageCount} ({filteredStudents.length} students)
+              </span>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  disabled={directoryPage <= 1}
+                  onClick={() => setDirectoryPage(p => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 border border-slate-200 rounded-md bg-white disabled:opacity-40"
+                >
+                  Prev
+                </button>
+                <button
+                  type="button"
+                  disabled={directoryPage >= directoryPageCount}
+                  onClick={() => setDirectoryPage(p => Math.min(directoryPageCount, p + 1))}
+                  className="px-3 py-1.5 border border-slate-200 rounded-md bg-white disabled:opacity-40"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Mobile Floating Action Button (FAB) for New Admission */}
@@ -1601,7 +1641,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <SectionInfo description="Select the academic program, allocated shift, and batch." />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     Academic Program / Discipline <span className="text-rose-500">*</span>
@@ -1649,9 +1689,23 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </select>
                 </div>
 
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Admission Date <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={admissionDate}
+                    onChange={e => setAdmissionDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">Official date of admission.</p>
+                </div>
+
                 {/* Elective Track Dropdown if available */}
                 {electiveGroupsForEnroll.length > 0 && (
-                  <div className="sm:col-span-2">
+                  <div className="sm:col-span-3">
                     <label className="block text-xs font-bold text-slate-700 mb-1">
                       Elective Track / Subject Major Group
                     </label>
@@ -1672,7 +1726,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                 {/* Granular Subject Selection Register */}
                 {enrollForm.program_id && (
-                  <div className="sm:col-span-2 bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                  <div className="sm:col-span-3 bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                       <div>
                         <div className="flex items-center gap-2">
@@ -2064,7 +2118,15 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   <div className="pt-2 border-t border-slate-200">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                       <div>
-                        <label className="block text-slate-800 font-bold text-xs">Additional Admission Fee Heads</label>
+                        <div className="flex items-center gap-1.5">
+                          <label className="block text-slate-800 font-bold text-xs">Additional Admission Fee Heads</label>
+                          <span
+                            className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 cursor-help text-[10px] font-bold"
+                            title="Fee heads and their standard rates can be customized in Finance > Fees Receiving > Fee Heads."
+                          >
+                            i
+                          </span>
+                        </div>
                         <p className="text-[10px] text-slate-500">Select one-time or special charges to itemize on opening challan.</p>
                       </div>
 

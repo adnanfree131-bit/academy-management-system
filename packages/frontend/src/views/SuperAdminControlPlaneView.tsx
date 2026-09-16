@@ -2335,7 +2335,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
               </div>
 
               <div className="p-3 bg-slate-50 border border-slate-200 rounded text-slate-600 text-[11px] leading-relaxed">
-                The previous subdomain (<span className="font-mono font-semibold">{selectedTenantForRename.slug}</span>) is retained as a permanent alias. Existing bookmarks, printed challans, and links will continue to route seamlessly.
+                The previous subdomain (<span className="font-mono font-semibold">{selectedTenantForRename.slug}</span>) is retained as a permanent alias. Existing bookmarks, printed challans, and links will continue to resolve automatically.
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">

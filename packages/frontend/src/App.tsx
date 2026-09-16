@@ -22,6 +22,7 @@ const HomeworkDesk = lazy(() => import('./views/HomeworkDesk').then(m => ({ defa
 const ComplaintsDeskView = lazy(() => import('./views/ComplaintsDeskView').then(m => ({ default: m.ComplaintsDeskView })));
 const FeeDeskView = lazy(() => import('./views/FeeDeskView').then(m => ({ default: m.FeeDeskView })));
 const FeeChallansView = lazy(() => import('./views/FeeChallansView').then(m => ({ default: m.FeeChallansView })));
+const FeeReversalsView = lazy(() => import('./views/FeeReversalsView').then(m => ({ default: m.FeeReversalsView })));
 const PayrollDeskView = lazy(() => import('./views/PayrollDeskView').then(m => ({ default: m.PayrollDeskView })));
 const ExamDeskView = lazy(() => import('./views/ExamDeskView').then(m => ({ default: m.ExamDeskView })));
 const AbsenteeRetentionDeskView = lazy(() => import('./views/AbsenteeRetentionDeskView').then(m => ({ default: m.AbsenteeRetentionDeskView })));
@@ -100,8 +101,9 @@ const getScreenMeta = (screen: string, role?: string): ScreenMeta => {
     case 'geofence': return { section: 'Daily Operations', title: 'Staff Attendance' };
     case 'complaints': return { section: 'Daily Operations', title: 'Feedback' };
     case 'exams': return { section: 'Examinations', title: 'Examinations' };
-    case 'voucher': return { section: 'Finance', title: 'Fee Ledger' };
+    case 'voucher': return { section: 'Finance', title: 'Fees Receiving' };
     case 'challans': return { section: 'Finance', title: 'Fee Challans' };
+    case 'fee_reversals': return { section: 'Finance', title: 'Fee Reversals' };
     case 'expenses': return { section: 'Finance', title: 'Income & Expenses' };
     case 'payroll': return { section: 'Finance', title: 'Payroll' };
     case 'staff': return { section: 'Administration', title: 'Staff Directory' };
@@ -415,6 +417,8 @@ const MainLayout: React.FC = () => {
                 <FeeDeskView />
               ) : currentScreen === 'challans' ? (
                 <FeeChallansView />
+              ) : currentScreen === 'fee_reversals' ? (
+                <FeeReversalsView />
               ) : currentScreen === 'expenses' ? (
                 <IncomeExpenseDeskView />
               ) : currentScreen === 'payroll' ? (

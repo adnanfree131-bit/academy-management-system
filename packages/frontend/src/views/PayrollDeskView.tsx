@@ -32,7 +32,9 @@ export const PayrollDeskView: React.FC = () => {
   const [profiles, setProfiles] = useState<StaffSalaryProfile[]>([]);
   const [payslips, setPayslips] = useState<StaffPayslip[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
-  const [selectedMonth, setSelectedMonth] = useState<string>('August 2026');
+  const [selectedMonth, setSelectedMonth] = useState<string>(() =>
+    new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  );
   const [loading, setLoading] = useState<boolean>(true);
 
   // Active Processing Form State
@@ -110,7 +112,7 @@ export const PayrollDeskView: React.FC = () => {
   const handleAddEarning = () => {
     setEarnings(prev => [
       ...prev,
-      { id: crypto.randomUUID(), name: 'Extra Period Allowance', quantity: 1, unit_rate: 1200, total: 1200 }
+      { id: crypto.randomUUID(), name: '', quantity: 1, unit_rate: 0, total: 0 }
     ]);
   };
 
@@ -132,7 +134,7 @@ export const PayrollDeskView: React.FC = () => {
   const handleAddDeduction = () => {
     setDeductions(prev => [
       ...prev,
-      { id: crypto.randomUUID(), name: 'Unexcused Absenteeism', quantity: 1, unit_rate: 2500, total: 2500 }
+      { id: crypto.randomUUID(), name: '', quantity: 1, unit_rate: 0, total: 0 }
     ]);
   };
 
@@ -169,8 +171,8 @@ export const PayrollDeskView: React.FC = () => {
         body: JSON.stringify({
           staff_id: selectedStaffId,
           payroll_month: selectedMonth,
-          earnings,
-          deductions,
+          earnings: earnings.filter(e => e.name.trim() && Number(e.unit_rate) >= 0),
+          deductions: deductions.filter(d => d.name.trim() && Number(d.unit_rate) >= 0),
           admin_notes: adminNotes
         })
       });
@@ -224,7 +226,7 @@ export const PayrollDeskView: React.FC = () => {
       {/* Header */}
       <PageHeading
         title="Payroll"
-        description="Calculate monthly staff salaries, record deductions and allowances, and generate payslips."
+        description="Set salary, add allowances or deductions, then save a payslip."
         icon={<Wallet className="w-4 h-4 text-slate-700" />}
       >
         <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
@@ -235,9 +237,13 @@ export const PayrollDeskView: React.FC = () => {
             onChange={e => setSelectedMonth(e.target.value)}
             className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none"
           >
-            <option value="August 2026">August 2026</option>
-            <option value="September 2026">September 2026</option>
-            <option value="October 2026">October 2026</option>
+            {Array.from({ length: 12 }, (_, i) => {
+              const d = new Date();
+              d.setDate(1);
+              d.setMonth(d.getMonth() - 6 + i);
+              const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+              return <option key={label} value={label}>{label}</option>;
+            })}
           </select>
         </div>
       </PageHeading>
@@ -272,13 +278,14 @@ export const PayrollDeskView: React.FC = () => {
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3">
             <h2 className="text-xs font-mono uppercase text-slate-500 font-bold tracking-wider">
-              1. Select Staff Member
+              Staff
             </h2>
             <select
               value={selectedStaffId}
               onChange={e => setSelectedStaffId(e.target.value)}
               className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600 font-bold text-slate-900"
             >
+              <option value="">Select staff</option>
               {profiles.map(p => (
                 <option key={p.staff_id} value={p.staff_id}>
                   {p.staff_name} — {p.designation} ({p.base_amount.toLocaleString()} PKR)
@@ -297,9 +304,9 @@ export const PayrollDeskView: React.FC = () => {
             const absentDays = staffAtt ? staffAtt.absent_days : 0;
             const halfDays = staffAtt ? staffAtt.half_days : 0;
             const totalPunches = presentDays + lateDays + halfDays;
-            const geofencePct = totalPunches > 0 && staffAtt 
-              ? Math.round((staffAtt.geofence_verified_count / totalPunches) * 100) 
-              : 100;
+            const geofencePct = totalPunches > 0 && staffAtt
+              ? Math.round((staffAtt.geofence_verified_count / totalPunches) * 100)
+              : null;
 
             return (
               <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3">
@@ -337,11 +344,11 @@ export const PayrollDeskView: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Half-Day Shifts:</span>
-                    <span className="font-bold text-orange-700 font-mono">{halfDays} Shifts</span>
+                    <span className="font-bold text-amber-700 font-mono">{halfDays} Shifts</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-500">GPS Proximity Verification:</span>
-                    <span className="font-bold text-emerald-600 font-mono">{geofencePct}% Verified</span>
+                    <span className="text-slate-500">GPS verified punches:</span>
+                    <span className="font-bold text-slate-700 font-mono">{geofencePct === null ? '—' : `${geofencePct}%`}</span>
                   </div>
                 </div>
               </div>
@@ -354,7 +361,7 @@ export const PayrollDeskView: React.FC = () => {
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-5">
             <div className="flex justify-between items-start border-b border-slate-200 pb-3">
               <div>
-                <h2 className="text-base font-bold text-slate-900">Interactive Salary Calculator</h2>
+                <h2 className="text-base font-bold text-slate-900">Salary</h2>
                 <p className="text-xs text-slate-500 font-mono">
                   {currentProfile?.staff_name} • {currentProfile?.designation}
                 </p>
@@ -434,7 +441,7 @@ export const PayrollDeskView: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-bold text-slate-900 uppercase font-mono tracking-wider flex items-center gap-1.5">
                     <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                    Deductions & Penalties (Attendance-Linked)
+                    Deductions
                   </h3>
                   <button
                     type="button"
@@ -494,7 +501,7 @@ export const PayrollDeskView: React.FC = () => {
 
               {/* Remarks */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Administrative Notes</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Notes</label>
                 <input
                   type="text"
                   value={adminNotes}
@@ -517,10 +524,11 @@ export const PayrollDeskView: React.FC = () => {
 
                 <button
                   type="submit"
-                  className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2"
+                  disabled={!selectedStaffId || !currentProfile}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  Process & Save Payslip
+                  Save payslip
                 </button>
               </div>
             </form>
@@ -534,9 +542,9 @@ export const PayrollDeskView: React.FC = () => {
           <div>
             <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <FileText className="w-4 h-4 text-indigo-600" />
-              Monthly Payslip Master Register ({selectedMonth})
+              Payslips ({selectedMonth})
             </h2>
-            <p className="text-xs text-slate-500">Record of finalized payslips with payout status tracking.</p>
+            <p className="text-xs text-slate-500">Processed slips for this month.</p>
           </div>
         </div>
 
@@ -700,7 +708,7 @@ export const PayrollDeskView: React.FC = () => {
       {/* DISBURSE / MARK PAID MODAL */}
       {showDisburseModal && activePayslip && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl space-y-4">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo
                 title="Salary Disbursement"
@@ -766,7 +774,7 @@ export const PayrollDeskView: React.FC = () => {
       {/* PRINT OFFICIAL PAYSLIP MODAL */}
       {showPrintModal && printPayslip && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <Printer className="w-4 h-4 text-indigo-600" />

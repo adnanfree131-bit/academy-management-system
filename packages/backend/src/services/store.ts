@@ -96,7 +96,9 @@ import {
   TeacherPortalOverview,
   StudentParentPortalOverview,
   SuperAdminOverview,
-  SuperAdminTenantSummary
+  SuperAdminTenantSummary,
+  defaultAcademicSessions,
+  activeSessionStartYear,
 } from '@apex/shared-types';
 
 import { hashPassword, verifyPassword } from './password.js';
@@ -453,15 +455,17 @@ export interface IDataStore {
     billing_month: string;
     due_date: string;
     custom_items?: Array<{ fee_head_id: string; amount: number }>;
+    additional_heads?: Array<{ fee_head_id: string; amount: number }>;
     notes?: string;
   }): Promise<StudentInvoice>;
   generateBatchInvoices(
     tenantId: string,
-    batchIdOrParams: string | { batch_id?: string; program_id?: string; scope?: 'all' | 'program' | 'batch'; target_id?: string; billing_month: string; due_date: string; issue_date?: string },
+    batchIdOrParams: string | { batch_id?: string; program_id?: string; scope?: 'all' | 'program' | 'batch'; target_id?: string; billing_month: string; due_date: string; issue_date?: string; additional_heads?: Array<{ fee_head_id: string; amount: number }> },
     billingMonth?: string,
     dueDate?: string
   ): Promise<StudentInvoice[]>;
   cancelInvoice(tenantId: string, invoiceId: string, reason: string, cancelledBy: string): Promise<StudentInvoice>;
+  deleteInvoice(tenantId: string, invoiceId: string, reason: string, deletedBy: string): Promise<{ success: boolean; deleted_invoice_id: string; deleted_payments_count: number }>;
   updateInvoice(
     tenantId: string,
     invoiceId: string,
@@ -479,6 +483,7 @@ export interface IDataStore {
     invoice_id: string;
     amount_paid: number;
     payment_method: PaymentMethod;
+    payment_date?: string;
     reference_number?: string;
     bank_name?: string | null;
     cheque_number?: string | null;
@@ -508,6 +513,7 @@ export interface IDataStore {
     total_amount: number;
   }>;
   voidPayment(tenantId: string, paymentId: string, voidReason: string, voidedBy: string): Promise<{ payment: FeePayment; invoice: StudentInvoice }>;
+  deletePayment(tenantId: string, paymentId: string, deletedBy: string): Promise<{ success: boolean; deleted_payment_id: string; invoice?: StudentInvoice }>;
 
   // --- Phase 4: Discounts & Audit Trail ---
   getDiscounts(tenantId: string, studentId?: string): Promise<FeeDiscount[]>;
@@ -522,7 +528,7 @@ export interface IDataStore {
   }): Promise<FeeDiscount>;
 
   // --- Phase 4: Reports & Ledgers ---
-  getDailyCashbook(tenantId: string, date?: string): Promise<DailyCashbookEntry[]>;
+  getDailyCashbook(tenantId: string, date?: string, endDate?: string): Promise<DailyCashbookEntry[]>;
   getStudentLedger(tenantId: string, studentId: string): Promise<StudentLedgerEntry[]>;
   getFeeHeadCollectionReport(tenantId: string): Promise<Array<{ fee_head_id: string; head_name: string; total_billed: number; total_collected: number; outstanding_balance: number }>>;
 
@@ -663,6 +669,36 @@ export interface IDataStore {
   restoreDataBackup(id: number): Promise<{ academy_count: number }>;
   exportDataBackupFile(): Promise<{ kind: string; version: number; exported_at: string; academy_count: number; payload: Record<string, unknown> }>;
   importDataBackupFile(file: { kind?: string; payload?: Record<string, unknown> }): Promise<{ academy_count: number }>;
+}
+
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+];
+
+export function normalizeBillingMonth(val: string | null | undefined): string {
+  if (!val) return '';
+  const trimmed = val.trim();
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})$/);
+  if (isoMatch) {
+    const year = isoMatch[1];
+    const monthNum = parseInt(isoMatch[2], 10);
+    if (monthNum >= 1 && monthNum <= 12) {
+      return `${MONTH_NAMES[monthNum - 1]} ${year}`;
+    }
+  }
+  const named = trimmed.match(/^(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+(\d{4})$/i);
+  if (named) {
+    const key = named[1].toLowerCase().slice(0, 3);
+    const idx = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(key);
+    if (idx >= 0) return `${MONTH_NAMES[idx]} ${named[2]}`;
+  }
+  return trimmed;
+}
+
+export function isSameBillingMonth(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return false;
+  return normalizeBillingMonth(a).toLowerCase() === normalizeBillingMonth(b).toLowerCase();
 }
 
 export class InMemoryDataStore implements IDataStore {
@@ -913,15 +949,31 @@ export class InMemoryDataStore implements IDataStore {
     if (payload.homeworkAssignments) this.homeworkAssignments = asArray(payload.homeworkAssignments);
     if (payload.notebookChecks) this.notebookChecks = asArray(payload.notebookChecks);
     if (payload.complaints) this.complaints = asArray(payload.complaints);
-    if (payload.feeHeads) this.feeHeads = asArray(payload.feeHeads);
-    if (payload.feePriorityConfigs) this.feePriorityConfigs = new Map(asEntries(payload.feePriorityConfigs));
-    if (payload.feeStructures) this.feeStructures = asArray(payload.feeStructures);
+    // Empty catalog arrays are a persist bug (audit generated a PKR 0 challan, then
+    // snapshot wrote feeHeads: []). Never clobber seed/defaults with an empty list.
+    const takeIfNonEmpty = <T>(value: unknown, current: T[]): T[] => {
+      if (!Array.isArray(value) || value.length === 0) return current;
+      return value as T[];
+    };
+    const mergeById = <T extends { id: string }>(incoming: unknown, current: T[]): T[] => {
+      if (!Array.isArray(incoming)) return current;
+      const map = new Map(current.map(item => [item.id, item]));
+      for (const item of incoming as T[]) {
+        if (item && item.id) map.set(item.id, item);
+      }
+      return [...map.values()];
+    };
+    this.feeHeads = takeIfNonEmpty(payload.feeHeads, this.feeHeads);
+    if (Array.isArray(payload.feePriorityConfigs) && payload.feePriorityConfigs.length > 0) {
+      this.feePriorityConfigs = new Map(asEntries(payload.feePriorityConfigs));
+    }
+    this.feeStructures = takeIfNonEmpty(payload.feeStructures, this.feeStructures);
     if (payload.invoices) this.invoices = asArray(payload.invoices);
     if (payload.feePayments) this.feePayments = asArray(payload.feePayments);
     if (payload.feeDiscounts) this.feeDiscounts = asArray(payload.feeDiscounts);
-    if (payload.accountHeads) this.accountHeads = asArray(payload.accountHeads);
+    this.accountHeads = takeIfNonEmpty(payload.accountHeads, this.accountHeads);
     if (payload.financialTransactions) this.financialTransactions = asArray(payload.financialTransactions);
-    if (payload.staffSalaryProfiles) this.staffSalaryProfiles = asArray(payload.staffSalaryProfiles);
+    this.staffSalaryProfiles = mergeById(payload.staffSalaryProfiles, this.staffSalaryProfiles);
     if (payload.staffPayslips) this.staffPayslips = asArray(payload.staffPayslips);
     if (payload.questionChapters) this.questionChapters = asArray(payload.questionChapters);
     if (payload.bankQuestions) this.bankQuestions = asArray(payload.bankQuestions);
@@ -940,6 +992,75 @@ export class InMemoryDataStore implements IDataStore {
     if (payload.announcementReceipts) this.announcementReceipts = asArray(payload.announcementReceipts);
   }
 
+  /** Restore fee heads / class fees when a snapshot wiped the catalog. */
+  private ensureDefaultFeeCatalog(tenantId: string): void {
+    const now = new Date().toISOString();
+    const existingHeads = this.feeHeads.filter(h => h.tenant_id === tenantId);
+    if (existingHeads.length === 0) {
+      const defaults: Array<{ code: string; name: string; amount: number; order: number; admission: boolean; system: boolean }> = [
+        { code: 'ARREARS', name: 'Previous Arrears', amount: 0, order: 1, admission: false, system: true },
+        { code: 'TUITION', name: 'Monthly Tuition Fee', amount: 8000, order: 2, admission: true, system: true },
+        { code: 'ANNUAL', name: 'Annual Development Charges', amount: 2000, order: 3, admission: false, system: false },
+        { code: 'EXAM', name: 'Examination & Assessment Fee', amount: 2500, order: 4, admission: false, system: false },
+        { code: 'LAB', name: 'Science & Computer Lab Fee', amount: 1500, order: 5, admission: false, system: false },
+        { code: 'ADMISSION', name: 'One-Time Admission Fee', amount: 10000, order: 6, admission: true, system: false },
+      ];
+      const created = defaults.map(d => ({
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        name: d.name,
+        code: d.code,
+        is_system_default: d.system,
+        default_amount: d.amount,
+        priority_order: d.order,
+        show_at_admission: d.admission,
+        created_at: now,
+      }));
+      this.feeHeads.push(...created);
+      if (!this.feePriorityConfigs.has(tenantId)) {
+        this.feePriorityConfigs.set(tenantId, {
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          priority_order: created.map(h => h.id),
+          updated_at: now,
+        });
+      }
+    }
+
+    if (!this.accountHeads.some(h => h.tenant_id === tenantId)) {
+      this.accountHeads.push(
+        { id: crypto.randomUUID(), tenant_id: tenantId, code: 'REV-01', name: 'Student Tuition Revenue', type: 'income', is_active: true, created_at: now },
+        { id: crypto.randomUUID(), tenant_id: tenantId, code: 'EXP-01', name: 'Faculty & Staff Salaries', type: 'expense', is_active: true, created_at: now },
+        { id: crypto.randomUUID(), tenant_id: tenantId, code: 'EXP-02', name: 'Campus Utilities & Electricity', type: 'expense', is_active: true, created_at: now },
+        { id: crypto.randomUUID(), tenant_id: tenantId, code: 'EXP-03', name: 'Campus Facility Rent', type: 'expense', is_active: true, created_at: now },
+        { id: crypto.randomUUID(), tenant_id: tenantId, code: 'EXP-04', name: 'Office & Academic Supplies', type: 'expense', is_active: true, created_at: now },
+      );
+    }
+
+    const tenantHeads = this.feeHeads.filter(h => h.tenant_id === tenantId);
+    const headsByName = new Map(tenantHeads.map(h => [h.name.toLowerCase(), h]));
+    for (const fs of this.feeStructures.filter(s => s.tenant_id === tenantId)) {
+      fs.items = (fs.items || []).map(it => {
+        const matched = tenantHeads.find(h => h.id === it.fee_head_id)
+          || (it.head_name ? headsByName.get(String(it.head_name).toLowerCase()) : undefined);
+        if (!matched) return it;
+        return { ...it, fee_head_id: matched.id, head_name: matched.name };
+      });
+    }
+
+    for (const inv of this.invoices) {
+      if (inv.tenant_id !== tenantId) continue;
+      if (inv.status !== 'unpaid' && inv.status !== 'partial') continue;
+      const net = Number(inv.net_amount ?? inv.net_total ?? 0);
+      if (net > 0 && Array.isArray(inv.items) && inv.items.length > 0) continue;
+      inv.status = 'cancelled';
+      inv.balance_amount = 0;
+      inv.balance_due = 0;
+      inv.notes = [inv.notes, 'Cancelled: empty challan with no billable heads.'].filter(Boolean).join(' ');
+      inv.updated_at = now;
+    }
+  }
+
   async hydrateFromDatabase(): Promise<void> {
     if (!persistenceEnabled()) return;
     try {
@@ -951,7 +1072,12 @@ export class InMemoryDataStore implements IDataStore {
       ]);
       if (payload && Array.isArray(payload.tenants) && payload.tenants.length > 0) {
         this.applySnapshot(payload);
+        for (const tenant of this.tenants.values()) {
+          if (tenant.settings?.is_platform) continue;
+          this.ensureDefaultFeeCatalog(tenant.id);
+        }
         this.persistAllowed = true;
+        this.persistQueued = true;
         console.log(`[Store] Restored snapshot with ${this.tenants.size} academies`);
         return;
       }
@@ -2239,7 +2365,9 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async getTenantById(id: string): Promise<Tenant | null> {
-    return this.tenants.get(id) || null;
+    const tenant = this.tenants.get(id) || null;
+    if (tenant) this.ensureTenantSessions(tenant);
+    return tenant;
   }
 
   async listTenants(): Promise<Tenant[]> {
@@ -2340,8 +2468,19 @@ export class InMemoryDataStore implements IDataStore {
         ...updates.settings,
       };
     }
+    this.ensureTenantSessions(tenant);
     this.tenants.set(tenantId, tenant);
+    this.schedulePersist();
     return tenant;
+  }
+
+  private ensureTenantSessions(tenant: Tenant): void {
+    if (!tenant.settings) return;
+    if (!tenant.settings.academic_sessions || tenant.settings.academic_sessions.length === 0) {
+      tenant.settings.academic_sessions = defaultAcademicSessions(tenant.settings.academic_session);
+    }
+    const active = tenant.settings.academic_sessions.find(s => s.is_active);
+    if (active) tenant.settings.academic_session = active.name;
   }
 
   async getUserByEmail(tenantId: string, email: string): Promise<User | null> {
@@ -2750,7 +2889,11 @@ export class InMemoryDataStore implements IDataStore {
 
   async createStudent(data: Omit<Student, 'id' | 'admission_number' | 'roll_number' | 'admission_date' | 'created_at' | 'updated_at'>): Promise<Student> {
     const batchStudents = this.students.filter(s => s.tenant_id === data.tenant_id && s.batch_id === data.batch_id);
-    const count = this.students.filter(s => s.tenant_id === data.tenant_id).length + 1;
+    const tenant = this.tenants.get(data.tenant_id);
+    if (tenant) this.ensureTenantSessions(tenant);
+    const sessionYear = activeSessionStartYear(tenant?.settings);
+    const admPrefix = `ADM-${sessionYear}-`;
+    const seq = this.students.filter(s => s.tenant_id === data.tenant_id && String(s.admission_number || '').startsWith(admPrefix)).length + 1;
 
     const batch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === data.tenant_id);
     const isFull = Boolean(batch && batch.current_enrollment >= batch.max_capacity);
@@ -2761,9 +2904,9 @@ export class InMemoryDataStore implements IDataStore {
     const student: Student = {
       ...data,
       id: crypto.randomUUID(),
-      admission_number: `ADM-2026-${count.toString().padStart(3, '0')}`,
+      admission_number: `${admPrefix}${seq.toString().padStart(3, '0')}`,
       roll_number: (data as any).roll_number || `R-${(batchStudents.length + 101).toString()}`,
-      admission_date: new Date().toISOString().split('T')[0],
+      admission_date: (data as any).admission_date || new Date().toISOString().split('T')[0],
       status: finalStatus,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -3245,6 +3388,36 @@ export class InMemoryDataStore implements IDataStore {
       };
       student.updated_at = nowIso;
       affectedStudents.push(student);
+    }
+
+    const roundAmt = (value: number) => {
+      let newBase = value;
+      if (params.rounding === 'nearest_50') newBase = Math.round(newBase / 50) * 50;
+      else if (params.rounding === 'nearest_100') newBase = Math.round(newBase / 100) * 100;
+      else newBase = Math.round(newBase);
+      return Math.max(0, newBase);
+    };
+
+    for (const fs of this.feeStructures) {
+      if (fs.tenant_id !== tenantId) continue;
+      if (params.scope === 'batch' && params.batch_id && fs.batch_id !== params.batch_id) continue;
+      if (params.scope === 'program' && params.program_id) {
+        const batch = this.batches.find(b => b.id === fs.batch_id);
+        if (batch && batch.program_id !== params.program_id) continue;
+        if (fs.student_id) {
+          const stu = this.students.find(s => s.id === fs.student_id);
+          if (stu && stu.program_id !== params.program_id) continue;
+        }
+      }
+      fs.items = fs.items.map(it => {
+        const head = this.feeHeads.find(h => h.id === it.fee_head_id);
+        const isTuition = head?.code === 'TUITION' || (it.head_name || '').toLowerCase().includes('tuition');
+        if (!isTuition) return it;
+        let amt = Number(it.amount) || 0;
+        if (params.increment_type === 'percentage') amt = amt * (1 + params.increment_value / 100);
+        else amt = amt + params.increment_value;
+        return { ...it, amount: roundAmt(amt) };
+      });
     }
 
     if (affectedStudents.length > 0) {
@@ -5677,7 +5850,7 @@ export class InMemoryDataStore implements IDataStore {
       if (i.tenant_id !== tenantId) return false;
       if (targetStudentId && i.student_id !== targetStudentId) return false;
       if (targetBatchId && i.batch_id !== targetBatchId) return false;
-      if (targetBillingMonth && i.billing_month.toLowerCase() !== targetBillingMonth.toLowerCase()) return false;
+      if (targetBillingMonth && !isSameBillingMonth(i.billing_month, targetBillingMonth)) return false;
       if (options?.status && i.status !== options.status) return false;
       return true;
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -5692,6 +5865,9 @@ export class InMemoryDataStore implements IDataStore {
     billing_month: string;
     due_date: string;
     custom_items?: Array<{ fee_head_id: string; amount: number }>;
+    additional_heads?: Array<{ fee_head_id: string; amount: number }>;
+    issue_date?: string;
+    include_arrears?: boolean;
     notes?: string;
   }): Promise<StudentInvoice> {
     const student = this.students.find(s => s.id === data.student_id && s.tenant_id === tenantId);
@@ -5704,12 +5880,12 @@ export class InMemoryDataStore implements IDataStore {
     const existingActive = this.invoices.find(i => 
       i.tenant_id === tenantId &&
       i.student_id === student.id &&
-      i.billing_month.trim().toLowerCase() === data.billing_month.trim().toLowerCase() &&
+      isSameBillingMonth(i.billing_month, data.billing_month) &&
       i.status !== 'voided' &&
       i.status !== 'cancelled'
     );
     if (existingActive) {
-      throw new Error(`An active fee challan (#${existingActive.invoice_number}) already exists for ${student.full_name} for ${data.billing_month}. Duplicate challans cannot be issued.`);
+      throw new Error(`An active fee challan (#${existingActive.invoice_number}) already exists for ${student.full_name} for ${normalizeBillingMonth(data.billing_month)}. Duplicate challans cannot be issued.`);
     }
 
     const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
@@ -5742,109 +5918,113 @@ export class InMemoryDataStore implements IDataStore {
         subtotal += amount;
       }
     } else {
-      // Inherit from student cohort fee structure or student's SIS fee structure
-      const studentStructure = this.feeStructures.find(fs => fs.tenant_id === tenantId && fs.student_id === student.id)
-        || this.feeStructures.find(fs => fs.tenant_id === tenantId && fs.batch_id === student.batch_id);
-
       const sFee = (student as any).fee_structure || {};
-      const hasStudentScholarship = (sFee.concession_val && Number(sFee.concession_val) > 0) ||
-                                    (sFee.net_tuition && sFee.base_tuition && sFee.net_tuition < sFee.base_tuition);
+      const sisNet = Number(sFee.net_tuition || sFee.recurring_monthly || 0);
+      const sisBase = Number(sFee.base_tuition || sFee.tuition_fee || sisNet || 0);
+      const sisTuition = sisNet > 0 ? sisNet : sisBase;
 
-      if (studentStructure && studentStructure.items && studentStructure.items.length > 0) {
-        for (const it of studentStructure.items) {
-          const head = this.feeHeads.find(h => h.id === it.fee_head_id && h.tenant_id === tenantId);
-          const amount = Number(it.amount) || 0;
-          let itemDiscount = 0;
-          let itemNet = amount;
+      const studentOverride = this.feeStructures.find(fs => fs.tenant_id === tenantId && fs.student_id === student.id);
+      const batchDefault = this.feeStructures.find(fs =>
+        fs.tenant_id === tenantId && fs.batch_id === student.batch_id && !fs.student_id
+      );
 
-          // If tuition head and student has an individual approved scholarship, apply it
-          const isTuition = head?.code === 'TUITION' || head?.name.toLowerCase().includes('tuition');
-          if (isTuition && hasStudentScholarship && !studentStructure.student_id) {
-            if (sFee.concession_type === 'percentage') {
-              itemDiscount = Math.round((amount * Number(sFee.concession_val)) / 100);
-            } else if (sFee.concession_type === 'fixed') {
-              itemDiscount = Math.min(amount, Number(sFee.concession_val));
-            } else if (sFee.base_tuition && sFee.net_tuition) {
-              itemDiscount = Math.max(0, sFee.base_tuition - sFee.net_tuition);
-            }
-            itemNet = Math.max(0, amount - itemDiscount);
+      const pushLine = (
+        head: { id: string; name: string; code: string } | undefined,
+        feeHeadId: string,
+        headName: string,
+        amount: number,
+        discount = 0,
+      ) => {
+        const original = Number(amount) || 0;
+        const disc = Math.max(0, Number(discount) || 0);
+        const net = Math.max(0, original - disc);
+        items.push({
+          id: crypto.randomUUID(),
+          invoice_id: invoiceId,
+          fee_head_id: head?.id || feeHeadId,
+          head_name: head?.name || headName,
+          head_code: head?.code || 'FEE',
+          original_amount: original,
+          discount_amount: disc,
+          net_amount: net,
+          paid_amount: 0,
+          balance_due: net,
+        });
+        subtotal += net;
+      };
+
+      const resolveHead = (feeHeadId?: string, headName?: string) =>
+        this.feeHeads.find(h => h.id === feeHeadId && h.tenant_id === tenantId)
+        || this.feeHeads.find(h => h.tenant_id === tenantId && headName && h.name.toLowerCase() === String(headName).toLowerCase());
+
+      const isTuitionHead = (head?: { code?: string; name?: string }, headName?: string) => {
+        const name = `${head?.name || ''} ${headName || ''}`.toLowerCase();
+        return head?.code === 'TUITION' || name.includes('tuition');
+      };
+
+      const applyStructureItems = (structureItems: Array<{ fee_head_id: string; head_name?: string; amount: number }>) => {
+        for (const it of structureItems) {
+          const head = resolveHead(it.fee_head_id, it.head_name);
+          let amount = Number(it.amount) || 0;
+          let discount = 0;
+          if (isTuitionHead(head, it.head_name) && sisTuition > 0) {
+            const base = sisBase > 0 ? sisBase : amount;
+            amount = base;
+            discount = Math.max(0, base - sisTuition);
           }
-
-          items.push({
-            id: crypto.randomUUID(),
-            invoice_id: invoiceId,
-            fee_head_id: it.fee_head_id,
-            head_name: head?.name || it.head_name,
-            head_code: head?.code || 'FEE',
-            original_amount: amount,
-            discount_amount: itemDiscount,
-            net_amount: itemNet,
-            paid_amount: 0,
-            balance_due: itemNet
-          });
-          subtotal += amount;
+          pushLine(head, it.fee_head_id, it.head_name || 'Fee Head', amount, discount);
         }
-      } else if (sFee.net_tuition || sFee.base_tuition || sFee.recurring_monthly) {
-        // Inherit directly from student's SIS admission / bulk revised fee structure
-        const tuitionHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'TUITION') || this.feeHeads.find(h => h.tenant_id === tenantId);
-        const baseTuition = Number(sFee.base_tuition || sFee.recurring_monthly || sFee.net_tuition || 0);
-        let netTuition = Number(sFee.net_tuition || sFee.recurring_monthly || baseTuition);
-        let discountAmt = Math.max(0, baseTuition - netTuition);
+      };
 
-        if (sFee.concession_val && Number(sFee.concession_val) > 0) {
-          if (sFee.concession_type === 'percentage') {
-            discountAmt = Math.round((baseTuition * Number(sFee.concession_val)) / 100);
-            netTuition = Math.max(0, baseTuition - discountAmt);
-          } else if (sFee.concession_type === 'fixed') {
-            discountAmt = Math.min(baseTuition, Number(sFee.concession_val));
-            netTuition = Math.max(0, baseTuition - discountAmt);
-          }
+      if (studentOverride?.items && studentOverride.items.length > 0) {
+        applyStructureItems(studentOverride.items);
+      } else if (sisTuition > 0) {
+        const tuitionHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'TUITION')
+          || this.feeHeads.find(h => h.tenant_id === tenantId && h.name.toLowerCase().includes('tuition'));
+        if (!tuitionHead) {
+          throw new Error('Cannot generate a challan: Monthly Tuition fee head is missing.');
         }
-
-        const billedTuition = baseTuition > 0 ? baseTuition : (tuitionHead?.default_amount || 8000);
-        const billedNet = netTuition > 0 ? netTuition : billedTuition;
-
-        if (tuitionHead) {
-          items.push({
-            id: crypto.randomUUID(),
-            invoice_id: invoiceId,
-            fee_head_id: tuitionHead.id,
-            head_name: tuitionHead.name,
-            head_code: tuitionHead.code,
-            original_amount: billedTuition,
-            discount_amount: discountAmt,
-            net_amount: billedNet,
-            paid_amount: 0,
-            balance_due: billedNet
-          });
-          subtotal += billedTuition;
-        }
+        const base = sisBase > 0 ? sisBase : sisTuition;
+        pushLine(tuitionHead, tuitionHead.id, tuitionHead.name, base, Math.max(0, base - sisTuition));
+      } else if (batchDefault?.items && batchDefault.items.length > 0) {
+        applyStructureItems(batchDefault.items);
       } else {
-        // Fallback to default tuition head
-        const tuitionHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'TUITION') || this.feeHeads.find(h => h.tenant_id === tenantId);
-        const defaultAmount = tuitionHead?.default_amount || 8000;
-        if (tuitionHead) {
-          items.push({
-            id: crypto.randomUUID(),
-            invoice_id: invoiceId,
-            fee_head_id: tuitionHead.id,
-            head_name: tuitionHead.name,
-            head_code: tuitionHead.code,
-            original_amount: defaultAmount,
-            discount_amount: 0,
-            net_amount: defaultAmount,
-            paid_amount: 0,
-            balance_due: defaultAmount
-          });
-          subtotal += defaultAmount;
+        throw new Error('Cannot generate a challan: no fee structure, student tuition, or class fees are set. Set this student\'s fee at admission or class fees first.');
+      }
+    }
+
+    // Append any additional heads specified for this billing cycle
+    if (data.additional_heads && Array.isArray(data.additional_heads) && data.additional_heads.length > 0) {
+      for (const ah of data.additional_heads) {
+        const ahAmount = Number(ah.amount) || 0;
+        if (ahAmount > 0) {
+          const already = items.some(it => it.fee_head_id === ah.fee_head_id);
+          if (already) continue;
+          const head = this.feeHeads.find(h => h.id === ah.fee_head_id && h.tenant_id === tenantId);
+          if (head) {
+            items.push({
+              id: crypto.randomUUID(),
+              invoice_id: invoiceId,
+              fee_head_id: head.id,
+              head_name: head.name,
+              head_code: head.code,
+              original_amount: ahAmount,
+              discount_amount: 0,
+              net_amount: ahAmount,
+              paid_amount: 0,
+              balance_due: ahAmount
+            });
+            subtotal += ahAmount;
+          }
         }
       }
     }
 
-    // Check prior unpaid balances (Arrears Rollover)
+    // Roll prior unpaid balances into a single ARREARS line (tests + allocation need a distinct head).
     let priorArrears = 0;
     let priorInvoices: StudentInvoice[] = [];
-    const shouldIncludeArrears = Boolean((data as any).include_arrears);
+    const shouldIncludeArrears = data.include_arrears === true
+      || (data.include_arrears !== false && !(data.custom_items && data.custom_items.length > 0));
     if (shouldIncludeArrears) {
       priorInvoices = this.invoices.filter(i =>
         i.tenant_id === tenantId &&
@@ -5859,28 +6039,14 @@ export class InMemoryDataStore implements IDataStore {
       );
       priorArrears = priorInvoices.reduce((sum, inv) => sum + Number(inv.balance_amount ?? inv.balance_due ?? 0), 0);
 
-      if (priorArrears > 0 && !items.some(it => it.head_code === 'ARREARS')) {
-        let arrearsHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'ARREARS');
-        if (!arrearsHead) {
-          arrearsHead = {
-            id: crypto.randomUUID(),
-            tenant_id: tenantId,
-            name: 'Previous Arrears',
-            code: 'ARREARS',
-            is_system_default: true,
-            default_amount: 0,
-            priority_order: 1,
-            show_at_admission: false,
-            created_at: new Date().toISOString()
-          };
-          this.feeHeads.unshift(arrearsHead);
-        }
+      if (priorArrears > 0) {
+        const arrearsHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'ARREARS');
         items.unshift({
           id: crypto.randomUUID(),
           invoice_id: invoiceId,
-          fee_head_id: arrearsHead.id,
-          head_name: arrearsHead.name,
-          head_code: arrearsHead.code,
+          fee_head_id: arrearsHead?.id || 'arrears',
+          head_name: arrearsHead?.name || 'Previous Outstanding Dues',
+          head_code: 'ARREARS',
           original_amount: priorArrears,
           discount_amount: 0,
           net_amount: priorArrears,
@@ -5889,10 +6055,12 @@ export class InMemoryDataStore implements IDataStore {
         });
         subtotal += priorArrears;
 
-        // Mark prior unpaid invoices as rolled over to prevent compounding arrears
         priorInvoices.forEach(pi => {
           pi.status = 'rolled_over';
           pi.rolled_into_invoice_id = invoiceId;
+          pi.balance_amount = 0;
+          pi.balance_due = 0;
+          pi.items = pi.items.map(it => ({ ...it, balance_due: 0 }));
           pi.updated_at = new Date().toISOString();
         });
       }
@@ -5900,6 +6068,9 @@ export class InMemoryDataStore implements IDataStore {
 
     const totalDiscount = items.reduce((s, it) => s + (it.discount_amount || 0), 0);
     const netAmount = items.reduce((s, it) => s + it.net_amount, 0);
+    if (items.length === 0 || netAmount <= 0) {
+      throw new Error('Cannot generate a challan with no billable amount. Set fee heads and class fees first.');
+    }
 
     const invoice: StudentInvoice = {
       id: invoiceId,
@@ -5912,7 +6083,7 @@ export class InMemoryDataStore implements IDataStore {
       batch_name: batch?.name || 'General Batch',
       program_id: programId,
       program_name: program?.name || 'Class',
-      billing_month: data.billing_month,
+      billing_month: normalizeBillingMonth(data.billing_month),
       issue_date: (data as any).issue_date || new Date().toISOString().split('T')[0],
       due_date: data.due_date,
       subtotal_amount: subtotal,
@@ -5947,7 +6118,7 @@ export class InMemoryDataStore implements IDataStore {
 
   async generateBatchInvoices(
     tenantId: string,
-    batchIdOrParams: string | { batch_id?: string; program_id?: string; scope?: 'all' | 'program' | 'batch'; target_id?: string; billing_month: string; due_date: string; issue_date?: string },
+    batchIdOrParams: string | { batch_id?: string; program_id?: string; scope?: 'all' | 'program' | 'batch'; target_id?: string; billing_month: string; due_date: string; issue_date?: string; additional_heads?: Array<{ fee_head_id: string; amount: number }> },
     billingMonthArg?: string,
     dueDateArg?: string
   ): Promise<StudentInvoice[]> {
@@ -5987,17 +6158,18 @@ export class InMemoryDataStore implements IDataStore {
       const existing = this.invoices.find(i => 
         i.tenant_id === tenantId &&
         i.student_id === student.id &&
-        i.billing_month.toLowerCase() === billingMonth.toLowerCase() &&
+        isSameBillingMonth(i.billing_month, billingMonth) &&
         i.status !== 'voided' &&
         i.status !== 'cancelled'
       );
       if (!existing) {
         const inv = await this.generateInvoice(tenantId, {
           student_id: student.id,
-          billing_month: billingMonth,
+          billing_month: normalizeBillingMonth(billingMonth),
           due_date: dueDate,
           issue_date: issueDate,
-          include_arrears: true
+          include_arrears: true,
+          additional_heads: typeof batchIdOrParams !== 'string' ? batchIdOrParams.additional_heads : undefined,
         } as any);
         created.push(inv);
       }
@@ -6022,6 +6194,8 @@ export class InMemoryDataStore implements IDataStore {
         if (ri.status === 'rolled_over') {
           ri.status = 'unpaid';
           ri.rolled_into_invoice_id = null;
+          ri.balance_amount = Number(ri.net_amount || 0);
+          ri.balance_due = Number(ri.net_amount || 0);
           ri.updated_at = new Date().toISOString();
         }
       });
@@ -6032,10 +6206,21 @@ export class InMemoryDataStore implements IDataStore {
     invoice.cancelled_at = new Date().toISOString();
     invoice.cancelled_by = cancelledBy;
     invoice.balance_amount = 0;
+    invoice.balance_due = 0;
     invoice.updated_at = new Date().toISOString();
 
     this.schedulePersist();
     return invoice;
+  }
+
+  async deleteInvoice(tenantId: string, invoiceId: string, reason: string, deletedBy: string): Promise<{ success: boolean; deleted_invoice_id: string; deleted_payments_count: number } & Partial<StudentInvoice>> {
+    const cancelled = await this.cancelInvoice(tenantId, invoiceId, reason || 'Challan cancelled by administrator', deletedBy);
+    return {
+      ...cancelled,
+      success: true,
+      deleted_invoice_id: invoiceId,
+      deleted_payments_count: 0,
+    };
   }
 
   async updateInvoice(
@@ -6065,44 +6250,24 @@ export class InMemoryDataStore implements IDataStore {
         throw new Error('Cannot modify line items on an invoice with recorded payments. Only due date and notes can be edited.');
       }
 
-      // Preserve ARREARS line item if present
-      const arrearsItem = invoice.items.find(it => it.head_code === 'ARREARS');
-      const priorArrears = arrearsItem ? arrearsItem.original_amount : Number(invoice.arrears_amount || 0);
-
       const feeHeads = this.feeHeads.filter(h => h.tenant_id === tenantId);
       const newItems: InvoiceItem[] = [];
 
       for (const itemData of data.items) {
         const head = feeHeads.find(h => h.id === itemData.fee_head_id);
         const amount = Number(itemData.amount);
-        if (amount > 0) {
-          newItems.push({
-            id: crypto.randomUUID(),
-            invoice_id: invoiceId,
-            fee_head_id: itemData.fee_head_id,
-            head_code: head?.code || 'CUSTOM',
-            head_name: head?.name || 'Fee Item',
-            original_amount: amount,
-            discount_amount: 0,
-            net_amount: amount,
-            paid_amount: 0,
-            balance_due: amount
-          });
-        }
-      }
-
-      if (priorArrears > 0) {
-        newItems.unshift({
-          id: arrearsItem ? arrearsItem.id : crypto.randomUUID(),
+        if (!Number.isFinite(amount) || amount < 0) continue;
+        newItems.push({
+          id: crypto.randomUUID(),
           invoice_id: invoiceId,
-          fee_head_id: arrearsItem?.fee_head_id || 'arrears',
-          head_code: 'ARREARS',
-          head_name: 'Previous Outstanding Dues / Arrears',
-          original_amount: priorArrears,
+          fee_head_id: itemData.fee_head_id,
+          head_code: head?.code || 'CUSTOM',
+          head_name: head?.name || 'Fee Item',
+          original_amount: amount,
           discount_amount: 0,
-          net_amount: priorArrears,
+          net_amount: amount,
           paid_amount: 0,
-          balance_due: priorArrears
+          balance_due: amount
         });
       }
 
@@ -6110,8 +6275,12 @@ export class InMemoryDataStore implements IDataStore {
       invoice.items = newItems;
       invoice.subtotal_amount = totalGross;
       invoice.subtotal = totalGross;
-      invoice.net_amount = Math.max(0, totalGross - (invoice.discount_amount || 0));
+      invoice.discount_amount = newItems.reduce((s, it) => s + (it.discount_amount || 0), 0);
+      invoice.net_amount = totalGross;
+      invoice.net_total = totalGross;
+      invoice.total_amount = totalGross;
       invoice.balance_amount = Math.max(0, invoice.net_amount - invoice.paid_amount);
+      invoice.balance_due = invoice.balance_amount;
       invoice.status = invoice.balance_amount <= 0 ? 'paid' : (invoice.paid_amount > 0 ? 'partially_paid' : 'unpaid');
     }
 
@@ -6152,7 +6321,7 @@ export class InMemoryDataStore implements IDataStore {
     const distribution: PaymentDistributionItem[] = [];
 
     for (const item of sortedItems) {
-      const due = item.balance_due;
+      const due = Number(item.balance_due ?? 0);
       let alloc = 0;
       if (due > 0 && remaining > 0) {
         alloc = Math.min(remaining, due);
@@ -6161,13 +6330,9 @@ export class InMemoryDataStore implements IDataStore {
       distribution.push({
         fee_head_id: item.fee_head_id,
         head_name: item.head_name,
-        allocated_amount: alloc
+        allocated_amount: alloc,
+        invoice_item_id: item.id,
       });
-    }
-
-    // If remaining amount exceeds total outstanding due, distribute to the first item (advance/excess)
-    if (remaining > 0 && distribution.length > 0) {
-      distribution[0].allocated_amount += remaining;
     }
 
     return distribution;
@@ -6181,6 +6346,7 @@ export class InMemoryDataStore implements IDataStore {
     bank_name?: string | null;
     cheque_number?: string | null;
     clearing_date?: string | null;
+    payment_date?: string;
     is_override?: boolean;
     override_reason?: string;
     allocations?: PaymentDistributionItem[];
@@ -6191,9 +6357,20 @@ export class InMemoryDataStore implements IDataStore {
     if (invoice.status === 'cancelled' || invoice.status === 'voided') {
       throw new Error(`Cannot record payment on a ${invoice.status} invoice`);
     }
+    if (invoice.status === 'rolled_over') {
+      throw new Error('This challan was rolled into a later month. Collect against the current unpaid challan.');
+    }
 
     const amountPaid = Number(data.amount_paid);
     if (amountPaid <= 0) throw new Error('Payment amount must be greater than zero');
+    if (data.payment_method === 'cheque' && !String(data.cheque_number || '').trim()) {
+      throw new Error('Cheque number is required for cheque payments.');
+    }
+
+    const outstanding = Number(invoice.balance_amount ?? invoice.balance_due ?? 0);
+    if (!data.is_override && amountPaid > outstanding + 0.05) {
+      throw new Error(`Amount exceeds outstanding PKR ${outstanding}. Record only the due amount, or use override with a reason to post an advance.`);
+    }
 
     // Determine allocations: use provided cashier review override or compute smart distribution
     const allocations = data.allocations && data.allocations.length > 0
@@ -6205,11 +6382,19 @@ export class InMemoryDataStore implements IDataStore {
       throw new Error(`Allocated sum (${sumAllocated}) does not match paid amount (${amountPaid})`);
     }
 
-    // Apply allocations to individual invoice items
+    // Apply allocations to the matching invoice line (item id, then unpaid head, then any head)
     for (const alloc of allocations) {
-      const item = invoice.items.find((i: InvoiceItem) => i.fee_head_id === alloc.fee_head_id);
+      const amt = Number(alloc.allocated_amount);
+      if (amt <= 0) continue;
+      let item = alloc.invoice_item_id
+        ? invoice.items.find((i: InvoiceItem) => i.id === alloc.invoice_item_id)
+        : undefined;
+      if (!item) {
+        item = invoice.items.find((i: InvoiceItem) => i.fee_head_id === alloc.fee_head_id && Number(i.balance_due) > 0)
+          || invoice.items.find((i: InvoiceItem) => i.fee_head_id === alloc.fee_head_id);
+      }
       if (item) {
-        item.paid_amount += Number(alloc.allocated_amount);
+        item.paid_amount += amt;
         item.balance_due = Math.max(0, item.net_amount - item.paid_amount);
       }
     }
@@ -6254,7 +6439,7 @@ export class InMemoryDataStore implements IDataStore {
       student_id: invoice.student_id,
       student_name: invoice.student_name,
       roll_number: invoice.roll_number,
-      payment_date: new Date().toISOString().split('T')[0],
+      payment_date: data.payment_date || new Date().toISOString().split('T')[0],
       amount_paid: amountPaid,
       payment_method: data.payment_method,
       reference_number: data.reference_number || null,
@@ -6265,6 +6450,7 @@ export class InMemoryDataStore implements IDataStore {
       override_reason: data.override_reason || null,
       allocations,
       collected_by: data.collected_by,
+      status: 'paid',
       created_at: new Date().toISOString()
     };
 
@@ -6286,7 +6472,9 @@ export class InMemoryDataStore implements IDataStore {
       payment_method: data.payment_method,
       reference_number: data.reference_number || receiptNumber,
       transaction_date: payment.payment_date,
+      date: payment.payment_date,
       paid_to_or_received_from: invoice.student_name,
+      payee_payer: invoice.student_name,
       description: `Tuition & Fee Collection: ${invoice.student_name} (${invoice.roll_number}) - Receipt #${receiptNumber} [Inv #${invoice.invoice_number}]`,
       recorded_by: data.collected_by || 'Cashier',
       created_at: new Date().toISOString(),
@@ -6326,7 +6514,11 @@ export class InMemoryDataStore implements IDataStore {
 
     const results: Array<{ payment: FeePayment; invoice: StudentInvoice }> = [];
     let totalAmount = 0;
+    const invoiceBackup = this.invoices.map(i => ({ ...i, items: i.items.map(it => ({ ...it })) }));
+    const paymentLen = this.feePayments.length;
+    const txLen = this.financialTransactions.length;
 
+    try {
     for (const p of data.payments) {
       if (p.amount_paid <= 0) continue;
       const res = await this.recordPayment(tenantId, {
@@ -6344,6 +6536,17 @@ export class InMemoryDataStore implements IDataStore {
       });
       results.push(res);
       totalAmount += p.amount_paid;
+    }
+    } catch (err) {
+      for (const b of invoiceBackup) {
+        const cur = this.invoices.find(i => i.id === b.id);
+        if (cur) {
+          Object.assign(cur, { ...b, items: b.items.map(it => ({ ...it })) });
+        }
+      }
+      this.feePayments.splice(paymentLen);
+      this.financialTransactions.splice(txLen);
+      throw err;
     }
 
     return {
@@ -6364,7 +6567,11 @@ export class InMemoryDataStore implements IDataStore {
     // Rollback allocations from invoice items
     if (payment.allocations && payment.allocations.length > 0) {
       for (const alloc of payment.allocations) {
-        const item = invoice.items.find(i => i.fee_head_id === alloc.fee_head_id);
+        const item = (alloc.invoice_item_id
+          ? invoice.items.find(i => i.id === alloc.invoice_item_id)
+          : undefined)
+          || invoice.items.find(i => i.fee_head_id === alloc.fee_head_id && i.paid_amount > 0)
+          || invoice.items.find(i => i.fee_head_id === alloc.fee_head_id);
         if (item) {
           item.paid_amount = Math.max(0, item.paid_amount - Number(alloc.allocated_amount));
           item.balance_due = Math.max(0, item.net_amount - item.paid_amount);
@@ -6409,31 +6616,38 @@ export class InMemoryDataStore implements IDataStore {
     payment.voided_by = voidedBy;
     payment.void_reason = voidReason;
 
-    // Auto-post reversing cashbook expense voucher
-    const txCount = this.financialTransactions.filter(t => t.tenant_id === tenantId && t.type === 'expense').length + 1;
-    const year = new Date().getFullYear();
-    const voucherNumber = `VCH-EXP-${year}-${txCount.toString().padStart(4, '0')}`;
-    const headId = (payment.allocations && payment.allocations[0]?.fee_head_id) || invoice.items[0]?.fee_head_id || 'fee-reversal';
-    const tx: FinancialTransaction = {
-      id: crypto.randomUUID(),
-      tenant_id: tenantId,
-      voucher_number: voucherNumber,
-      type: 'expense',
-      account_head_id: headId,
-      head_name: 'Fee Receipt Void / Refund',
-      amount: payment.amount_paid,
-      payment_method: payment.payment_method,
-      reference_number: `VOID-${payment.receipt_number}`,
-      transaction_date: new Date().toISOString().split('T')[0],
-      paid_to_or_received_from: invoice.student_name,
-      description: `Reversal of Fee Receipt #${payment.receipt_number} [Inv #${invoice.invoice_number}]: ${voidReason} (Voided by ${voidedBy})`,
-      recorded_by: voidedBy || 'Cashier',
-      created_at: new Date().toISOString()
-    };
-    this.financialTransactions.push(tx);
+    // Reverse the original fee-collection cashbook line instead of posting a fake expense.
+    for (const tx of this.financialTransactions) {
+      if (tx.tenant_id !== tenantId) continue;
+      const matchesReceipt = tx.reference_number === payment.receipt_number
+        || (tx.description || '').includes(`Receipt #${payment.receipt_number}`);
+      if (matchesReceipt && tx.type === 'income') {
+        tx.description = `[VOIDED] ${tx.description || payment.receipt_number}: ${voidReason}`;
+        tx.amount = 0;
+      }
+    }
     this.schedulePersist();
 
     return { payment, invoice };
+  }
+
+  async deletePayment(tenantId: string, paymentId: string, deletedBy: string): Promise<{ success: boolean; deleted_payment_id: string; invoice?: StudentInvoice }> {
+    const payment = this.feePayments.find(p => p.id === paymentId && p.tenant_id === tenantId);
+    if (!payment) throw new Error('Payment receipt not found');
+    if (payment.status === 'voided') {
+      throw new Error('Voided receipts are kept for audit and cannot be deleted.');
+    }
+    const { invoice } = await this.voidPayment(
+      tenantId,
+      paymentId,
+      'Receipt voided in place of delete (audit trail retained)',
+      deletedBy
+    );
+    return {
+      success: true,
+      deleted_payment_id: paymentId,
+      invoice
+    };
   }
 
   // --- Ad-Hoc Dynamic Discounts with Mandatory Audit Remarks ---
@@ -6532,9 +6746,16 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   // --- Financial Reports Suite ---
-  async getDailyCashbook(tenantId: string, date?: string): Promise<DailyCashbookEntry[]> {
-    const targetDate = date || new Date().toISOString().split('T')[0];
-    const payments = this.feePayments.filter(p => p.tenant_id === tenantId && p.payment_date === targetDate);
+  async getDailyCashbook(tenantId: string, date?: string, endDate?: string): Promise<DailyCashbookEntry[]> {
+    const start = date || '';
+    const end = endDate || date || '';
+    const payments = this.feePayments.filter(p => {
+      if (p.tenant_id !== tenantId) return false;
+      if (p.status === 'voided') return false;
+      if (start && p.payment_date < start) return false;
+      if (end && p.payment_date > end) return false;
+      return true;
+    }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return payments.map(p => ({
       id: p.id,
@@ -6634,6 +6855,7 @@ export class InMemoryDataStore implements IDataStore {
       let collected = 0;
 
       tenantInvoices.forEach(inv => {
+        if (inv.status === 'rolled_over' || inv.status === 'cancelled' || inv.status === 'voided') return;
         const item = inv.items.find((it: InvoiceItem) => it.fee_head_id === head.id);
         if (item) {
           billed += item.net_amount;
@@ -6697,7 +6919,9 @@ export class InMemoryDataStore implements IDataStore {
       id: crypto.randomUUID(),
       voucher_number,
       created_at: new Date().toISOString(),
-      ...data
+      ...data,
+      date: data.date || data.transaction_date,
+      payee_payer: data.payee_payer || data.paid_to_or_received_from,
     };
     this.financialTransactions.push(tx);
     this.schedulePersist();
@@ -6720,6 +6944,7 @@ export class InMemoryDataStore implements IDataStore {
   }> {
     const relevantPayments = this.feePayments.filter(p => {
       if (p.tenant_id !== tenantId) return false;
+      if (p.status === 'voided') return false;
       if (month && !p.payment_date.startsWith(month)) return false;
       return true;
     });
@@ -6728,6 +6953,9 @@ export class InMemoryDataStore implements IDataStore {
     const relevantTx = this.financialTransactions.filter(t => {
       if (t.tenant_id !== tenantId) return false;
       if (month && !t.transaction_date.startsWith(month)) return false;
+      if (Number(t.amount) <= 0) return false;
+      if ((t.description || '').startsWith('[VOIDED]')) return false;
+      if (t.head_name === 'Fee Receipt Void / Refund') return false;
       return true;
     });
 
@@ -6815,20 +7043,39 @@ export class InMemoryDataStore implements IDataStore {
     const profile = this.staffSalaryProfiles.find(p => p.tenant_id === tenantId && p.staff_id === data.staff_id);
     if (!profile) throw new Error('Staff salary profile not configured');
 
-    // Aggregate attendance summary from Module 13 records
-    const attendanceRecords = this.staffAttendance.filter(a => a.tenant_id === tenantId && a.staff_id === data.staff_id);
+    const existingSlip = this.staffPayslips.find(p =>
+      p.tenant_id === tenantId &&
+      p.staff_id === data.staff_id &&
+      isSameBillingMonth(p.payroll_month, data.payroll_month)
+    );
+    if (existingSlip) {
+      throw new Error(`A payslip already exists for this staff member for ${data.payroll_month} (${existingSlip.slip_number}).`);
+    }
+
+    const monthPrefix = (() => {
+      const n = normalizeBillingMonth(data.payroll_month);
+      const parts = n.split(' ');
+      const idx = MONTH_NAMES.indexOf(parts[0] as typeof MONTH_NAMES[number]);
+      if (idx < 0 || !parts[1]) return '';
+      return `${parts[1]}-${String(idx + 1).padStart(2, '0')}`;
+    })();
+
+    const attendanceRecords = this.staffAttendance.filter(a => {
+      if (a.tenant_id !== tenantId || a.staff_id !== data.staff_id) return false;
+      if (!monthPrefix) return true;
+      return (a.date || '').startsWith(monthPrefix);
+    });
     const presentDays = attendanceRecords.filter(a => a.status === 'on_time' || a.status === 'late').length;
     const lateCount = attendanceRecords.filter(a => a.status === 'late').length;
     const absentDays = attendanceRecords.filter(a => a.status === 'absent').length;
     const approvedLeaves = attendanceRecords.filter(a => a.status === 'on_leave').length;
 
-    const hasRecordedAttendance = attendanceRecords.length > 0;
     const workingDays = 26;
-    const effectivePresentDays = hasRecordedAttendance ? presentDays : 25;
-    const effectiveLateCount = hasRecordedAttendance ? lateCount : 1;
-    const effectiveAbsentDays = hasRecordedAttendance ? absentDays : 0;
-    const effectiveLeaves = hasRecordedAttendance ? approvedLeaves : 1;
-    const effectiveHours = hasRecordedAttendance ? (presentDays * 2) : 48;
+    const effectivePresentDays = presentDays;
+    const effectiveLateCount = lateCount;
+    const effectiveAbsentDays = absentDays;
+    const effectiveLeaves = approvedLeaves;
+    const effectiveHours = presentDays * 2;
 
     const earningsWithTotal = data.earnings.map(e => ({
       ...e,
@@ -6858,7 +7105,7 @@ export class InMemoryDataStore implements IDataStore {
       payroll_month: data.payroll_month,
       base_salary: profile.base_amount,
       attendance_summary: {
-        working_days: hasRecordedAttendance ? Math.max(26, presentDays + absentDays + approvedLeaves) : workingDays,
+        working_days: workingDays,
         present_days: effectivePresentDays,
         late_count: effectiveLateCount,
         absent_days: effectiveAbsentDays,
@@ -6885,6 +7132,9 @@ export class InMemoryDataStore implements IDataStore {
   async markPayslipPaid(tenantId: string, payslipId: string, paymentMethod: PaymentMethod, reference?: string): Promise<StaffPayslip> {
     const slip = this.staffPayslips.find(p => p.id === payslipId && p.tenant_id === tenantId);
     if (!slip) throw new Error('Payslip not found');
+    if (slip.status === 'paid') {
+      throw new Error('This payslip has already been marked paid.');
+    }
 
     slip.status = 'paid';
     slip.payment_date = new Date().toISOString().split('T')[0];
@@ -6893,11 +7143,13 @@ export class InMemoryDataStore implements IDataStore {
     slip.updated_at = new Date().toISOString();
 
     // Auto-post salary expense to Cashbook
+    const salaryHead = (await this.getAccountHeads(tenantId, 'expense'))
+      .find(h => /salary|payroll|wage/i.test(`${h.name} ${h.code || ''}`));
     await this.createFinancialTransaction({
       tenant_id: tenantId,
       type: 'expense',
-      account_head_id: 'head-salaries',
-      head_name: 'Staff Salaries & Payroll',
+      account_head_id: salaryHead?.id || 'head-salaries',
+      head_name: salaryHead?.name || 'Staff Salaries & Payroll',
       amount: slip.net_salary,
       payment_method: paymentMethod,
       reference_number: reference || slip.slip_number,
