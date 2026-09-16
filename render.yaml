@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     region: singapore
-    buildCommand: corepack enable && pnpm install && pnpm -F @apex/shared-types build && pnpm -F @apex/backend build
+    buildCommand: COREPACK_INTEGRITY_KEYS=0 corepack enable && COREPACK_INTEGRITY_KEYS=0 pnpm install && pnpm -F @apex/shared-types build && pnpm -F @apex/backend build
     startCommand: pnpm -F @apex/backend start
     healthCheckPath: /api/v1/health
     envVars:

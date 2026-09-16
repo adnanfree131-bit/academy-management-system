@@ -1,0 +1,97 @@
+name: Deploy Render backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      clear_cache:
+        description: Clear Render build cache
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger and wait for Render deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          CLEAR_CACHE: ${{ inputs.clear_cache }}
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json, os, sys, time, urllib.error, urllib.request
+
+          key = os.environ.get("RENDER_API_KEY") or ""
+          if not key:
+              print("RENDER_API_KEY secret is empty", file=sys.stderr)
+              sys.exit(1)
+
+          def req(method, path, body=None):
+              data = None if body is None else json.dumps(body).encode()
+              request = urllib.request.Request(
+                  "https://api.render.com/v1" + path,
+                  data=data,
+                  method=method,
+                  headers={
+                      "Authorization": "Bearer " + key,
+                      "Accept": "application/json",
+                      "Content-Type": "application/json",
+                      "User-Agent": "kampus-render-deploy",
+                  },
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=60) as resp:
+                      raw = resp.read()
+                      return resp.status, json.loads(raw) if raw else None
+              except urllib.error.HTTPError as err:
+                  detail = err.read().decode("utf-8", "replace")[:500]
+                  print(f"HTTP {err.code} {method} {path}: {detail}", file=sys.stderr)
+                  raise
+
+          status, services = req("GET", "/services?limit=50")
+          names = []
+          service_id = None
+          for row in services or []:
+              svc = row.get("service") if isinstance(row, dict) and "service" in row else row
+              if not isinstance(svc, dict):
+                  continue
+              name = svc.get("name") or ""
+              names.append(name)
+              if name == "apex-academy-backend":
+                  service_id = svc.get("id")
+          print("render_services", names)
+          if not service_id:
+              print("apex-academy-backend not found", file=sys.stderr)
+              sys.exit(1)
+          print("service_id", service_id)
+
+          clear = os.environ.get("CLEAR_CACHE", "true").lower() != "false"
+          body = {"clearCache": "clear" if clear else "do_not_clear"}
+          status, deploy = req("POST", f"/services/{service_id}/deploys", body)
+          deploy_id = (deploy or {}).get("id")
+          print("deploy_id", deploy_id, "status", (deploy or {}).get("status"))
+          if not deploy_id:
+              print("no deploy id returned", file=sys.stderr)
+              sys.exit(1)
+
+          deadline = time.time() + 20 * 60
+          last = ""
+          while time.time() < deadline:
+              _, info = req("GET", f"/services/{service_id}/deploys/{deploy_id}")
+              st = (info or {}).get("status") or ""
+              if st != last:
+                  print("deploy_status", st)
+                  last = st
+              if st in {"live", "succeeded", "available"}:
+                  print("RENDER_DEPLOY_OK", st)
+                  sys.exit(0)
+              if st in {"failed", "canceled", "cancelled", "deactivated", "build_failed", "update_failed"}:
+                  print("RENDER_DEPLOY_FAILED", st, file=sys.stderr)
+                  sys.exit(1)
+              time.sleep(15)
+          print("RENDER_DEPLOY_TIMEOUT", last, file=sys.stderr)
+          sys.exit(1)
+          PY
