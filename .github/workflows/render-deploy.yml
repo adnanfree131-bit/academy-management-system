@@ -7,6 +7,10 @@ on:
         description: Clear Render build cache
         type: boolean
         default: true
+      logs_only:
+        description: Fetch latest Render deploy logs without starting a new deploy
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -19,10 +23,11 @@ jobs:
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
           CLEAR_CACHE: ${{ inputs.clear_cache }}
+          LOGS_ONLY: ${{ inputs.logs_only }}
         run: |
           set -euo pipefail
           python3 <<'PY'
-          import json, os, sys, time, urllib.error, urllib.request
+          import json, os, sys, time, urllib.error, urllib.parse, urllib.request
 
           key = os.environ.get("RENDER_API_KEY") or ""
           if not key:
@@ -47,48 +52,90 @@ jobs:
                       raw = resp.read()
                       return resp.status, json.loads(raw) if raw else None
               except urllib.error.HTTPError as err:
-                  detail = err.read().decode("utf-8", "replace")[:500]
+                  detail = err.read().decode("utf-8", "replace")[:800]
                   print(f"HTTP {err.code} {method} {path}: {detail}", file=sys.stderr)
                   raise
 
-          status, services = req("GET", "/services?limit=50")
-          names = []
-          service_id = None
+          def dump_logs(owner_id, resource_id, label):
+              params = urllib.parse.urlencode({
+                  "ownerId": owner_id,
+                  "resource": resource_id,
+                  "limit": "100",
+              })
+              try:
+                  _, logs = req("GET", "/logs?" + params)
+                  print("LOGS", label, "type", type(logs).__name__)
+                  text = json.dumps(logs)[:15000]
+                  print(text)
+              except Exception as err:
+                  print("logs_error", label, err, file=sys.stderr)
+
+          _, services = req("GET", "/services?limit=50")
+          service = None
           for row in services or []:
               svc = row.get("service") if isinstance(row, dict) and "service" in row else row
-              if not isinstance(svc, dict):
-                  continue
-              name = svc.get("name") or ""
-              names.append(name)
-              if name == "apex-academy-backend":
-                  service_id = svc.get("id")
-          print("render_services", names)
-          if not service_id:
+              if isinstance(svc, dict) and svc.get("name") == "apex-academy-backend":
+                  service = svc
+                  break
+          if not service:
               print("apex-academy-backend not found", file=sys.stderr)
               sys.exit(1)
+
+          service_id = service.get("id")
+          owner_id = service.get("ownerId")
+          details = service.get("serviceDetails") or {}
+          envd = details.get("envSpecificDetails") or {}
           print("service_id", service_id)
+          print("ownerId", owner_id)
+          print("rootDir", service.get("rootDir"))
+          print("autoDeploy", service.get("autoDeploy"))
+          print("branch", service.get("branch"))
+          print("repo", service.get("repo"))
+          print("runtime", details.get("runtime") or details.get("env"))
+          print("current_build", envd.get("buildCommand"))
+          print("current_start", envd.get("startCommand"))
+
+          _, deploys = req("GET", f"/services/{service_id}/deploys?limit=5")
+          print("recent_deploys")
+          for row in deploys or []:
+              dep = row.get("deploy") if isinstance(row, dict) and "deploy" in row else row
+              if not isinstance(dep, dict):
+                  continue
+              commit = dep.get("commit") or {}
+              print(" ", dep.get("id"), dep.get("status"), dep.get("trigger"), (commit.get("id") or "")[:8], (commit.get("message") or "").splitlines()[0] if commit.get("message") else "")
+
+          if os.environ.get("LOGS_ONLY", "").lower() == "true":
+              if owner_id:
+                  dump_logs(owner_id, service_id, "service")
+                  latest = None
+                  for row in deploys or []:
+                      dep = row.get("deploy") if isinstance(row, dict) and "deploy" in row else row
+                      if isinstance(dep, dict):
+                          latest = dep
+                          break
+                  if latest:
+                      dump_logs(owner_id, latest.get("id"), "latest_deploy")
+              print("LOGS_ONLY_DONE")
+              sys.exit(0)
 
           build_cmd = "npm install -g pnpm@9.15.9 && pnpm install && pnpm -F @apex/shared-types build && pnpm -F @apex/backend build"
           start_cmd = "node packages/backend/dist/server.js"
-          try:
-              _, updated = req("PATCH", f"/services/{service_id}", {
-                  "serviceDetails": {
-                      "envSpecificDetails": {
-                          "buildCommand": build_cmd,
-                          "startCommand": start_cmd,
-                      }
+          _, updated = req("PATCH", f"/services/{service_id}", {
+              "serviceDetails": {
+                  "envSpecificDetails": {
+                      "buildCommand": build_cmd,
+                      "startCommand": start_cmd,
                   }
-              })
-              details = ((updated or {}).get("serviceDetails") or {})
-              envd = details.get("envSpecificDetails") or {}
-              print("patched_build", envd.get("buildCommand"))
-              print("patched_start", envd.get("startCommand"))
-          except Exception as err:
-              print("patch_service_error", err, file=sys.stderr)
+              }
+          })
+          envd = ((updated or {}).get("serviceDetails") or {}).get("envSpecificDetails") or {}
+          print("patched_build", envd.get("buildCommand"))
+          print("patched_start", envd.get("startCommand"))
 
           clear = os.environ.get("CLEAR_CACHE", "true").lower() != "false"
-          body = {"clearCache": "clear" if clear else "do_not_clear"}
-          status, deploy = req("POST", f"/services/{service_id}/deploys", body)
+          _, deploy = req("POST", f"/services/{service_id}/deploys", {
+              "clearCache": "clear" if clear else "do_not_clear",
+          })
           deploy_id = (deploy or {}).get("id")
           print("deploy_id", deploy_id, "status", (deploy or {}).get("status"))
           if not deploy_id:
@@ -108,28 +155,11 @@ jobs:
                   sys.exit(0)
               if st in {"failed", "canceled", "cancelled", "deactivated", "build_failed", "update_failed"}:
                   print("RENDER_DEPLOY_FAILED", st, file=sys.stderr)
-                  try:
-                      _, info = req("GET", f"/services/{service_id}/deploys/{deploy_id}")
-                      commit = (info or {}).get("commit") or {}
-                      print("failed_commit", commit.get("id"), (commit.get("message") or "").splitlines()[0] if commit.get("message") else "")
-                      print("failed_trigger", (info or {}).get("trigger"))
-                      print("failed_keys", sorted((info or {}).keys()))
-                      for k in ["status", "finishedAt", "createdAt", "updatedAt"]:
-                          if k in (info or {}):
-                              print(k, info.get(k))
-                  except Exception as err:
-                      print("deploy_detail_error", err, file=sys.stderr)
-                  for path in [
-                      f"/logs?resource={service_id}&limit=100",
-                      f"/logs?resource={deploy_id}&limit=100",
-                  ]:
-                      try:
-                          _, logs = req("GET", path)
-                          blob = json.dumps(logs)[:12000]
-                          print("LOGPATH", path)
-                          print(blob)
-                      except Exception as err:
-                          print("logs_error", path, err, file=sys.stderr)
+                  commit = (info or {}).get("commit") or {}
+                  print("failed_commit", commit.get("id"), (commit.get("message") or "").splitlines()[0] if commit.get("message") else "")
+                  if owner_id:
+                      dump_logs(owner_id, service_id, "service")
+                      dump_logs(owner_id, deploy_id, "deploy")
                   sys.exit(1)
               time.sleep(15)
           print("RENDER_DEPLOY_TIMEOUT", last, file=sys.stderr)
