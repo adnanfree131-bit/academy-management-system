@@ -742,7 +742,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
           <select
             value={selectedFilterTab}
             onChange={e => setSelectedFilterTab(e.target.value as any)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs focus:outline-none focus:ring-1 focus:ring-slate-900"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 shadow-xs focus:outline-none focus:ring-1 focus:ring-slate-900"
           >
             <option value="all">All Staff</option>
             <option value="faculty">Faculty</option>
@@ -2233,7 +2233,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                     <Building2 className="w-3.5 h-3.5 text-slate-800" />
                   </div>
                   <div className="min-w-0 flex-1 leading-tight">
-                    <h4 className="font-extrabold text-[10px] uppercase tracking-tight text-white truncate">
+                    <h4 className="font-bold text-[10px] uppercase tracking-tight text-white truncate">
                       {tenant?.name || 'Apex Academy'}
                     </h4>
                     <span className="text-[7.5px] font-semibold text-slate-300 tracking-wider uppercase block">
@@ -2262,7 +2262,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                     )}
                   </div>
                   <div className="min-w-0 flex-1 space-y-0.5 leading-tight">
-                    <h5 className="font-extrabold text-slate-900 text-[12px] truncate uppercase tracking-tight">
+                    <h5 className="font-bold text-slate-900 text-[12px] truncate uppercase tracking-tight">
                       {idCardStaff.full_name}
                     </h5>
                     <p className="text-[10px] font-bold text-indigo-900 truncate">
@@ -2397,7 +2397,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               {/* Header Letterhead */}
               <div className="border-b-2 border-slate-900 pb-4 flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-extrabold uppercase tracking-tight text-slate-900">
+                  <h2 className="text-xl font-bold uppercase tracking-tight text-slate-900">
                     {tenant?.name || 'Apex Academy'}
                   </h2>
                   <p className="text-xs font-medium text-slate-600">
@@ -2421,7 +2421,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               {/* Recipient Details */}
               <div className="text-xs space-y-1">
                 <p className="font-bold text-slate-900">To,</p>
-                <p className="font-extrabold text-sm">{appointmentStaff.full_name}</p>
+                <p className="font-bold text-sm">{appointmentStaff.full_name}</p>
                 {appointmentStaff.father_or_spouse_name && (
                   <p>S/O, D/O: {appointmentStaff.father_or_spouse_name}</p>
                 )}

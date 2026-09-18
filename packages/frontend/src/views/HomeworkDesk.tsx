@@ -373,15 +373,15 @@ export const HomeworkDesk: React.FC = () => {
               <div className="grid grid-cols-3 gap-3">
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
                   <span className="text-[10px] font-mono uppercase text-emerald-700 font-bold block">Done / Checked</span>
-                  <span className="text-lg font-extrabold text-emerald-800 mt-0.5 block">{checkStats.done}</span>
+                  <span className="text-lg font-bold text-emerald-800 mt-0.5 block">{checkStats.done}</span>
                 </div>
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
                   <span className="text-[10px] font-mono uppercase text-amber-700 font-bold block">Incomplete Work</span>
-                  <span className="text-lg font-extrabold text-amber-800 mt-0.5 block">{checkStats.incomplete}</span>
+                  <span className="text-lg font-bold text-amber-800 mt-0.5 block">{checkStats.incomplete}</span>
                 </div>
                 <div className="bg-rose-50 border border-rose-200 rounded-xl p-3">
                   <span className="text-[10px] font-mono uppercase text-rose-700 font-bold block">Missing Notebook</span>
-                  <span className="text-lg font-extrabold text-rose-800 mt-0.5 block">{checkStats.missing}</span>
+                  <span className="text-lg font-bold text-rose-800 mt-0.5 block">{checkStats.missing}</span>
                 </div>
               </div>
 

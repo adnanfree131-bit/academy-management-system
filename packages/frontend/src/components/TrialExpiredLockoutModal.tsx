@@ -119,12 +119,12 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
               <div>
                 <div className="flex items-center gap-2">
                   <img src="/kampus-logo.png?v=official2" alt="Kampus" className="h-5 w-auto object-contain mr-1" />
-                  <span className="px-2 py-0.5 bg-rose-500/40 text-rose-200 text-[10px] font-black uppercase tracking-wider rounded-md border border-rose-400/40">
+                  <span className="px-2 py-0.5 bg-rose-500/40 text-rose-200 text-[10px] font-semibold uppercase tracking-wider rounded-md border border-rose-400/40">
                     Subscription Expired
                   </span>
                   <span className="text-xs text-rose-200 font-mono">Status: {trialStatus.status.toUpperCase()}</span>
                 </div>
-                <h2 className="text-xl font-black tracking-tight mt-1">
+                <h2 className="text-xl font-bold tracking-tight mt-1">
                   Subscription Expired — {trialStatus.tenant_name}
                 </h2>
               </div>
@@ -205,7 +205,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
 
                   <div className="p-3 bg-white rounded-xl border border-slate-200/80 space-y-1">
                     <span className="text-[10px] text-slate-400 uppercase font-semibold">Account / IBAN Number</span>
-                    <p className="font-mono font-black text-slate-900 text-sm tracking-wide">{banking.account_number}</p>
+                    <p className="font-mono font-bold text-slate-900 text-sm tracking-wide">{banking.account_number}</p>
                     {banking.iban && (
                       <p className="font-mono text-[11px] text-indigo-600 font-semibold">{banking.iban}</p>
                     )}
@@ -213,7 +213,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
 
                   <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-1 text-[11px]">
                     <span className="text-[10px] text-indigo-800 uppercase font-bold">Standard Subscription Rate</span>
-                    <p className="font-black text-indigo-950 text-base">
+                    <p className="font-bold text-indigo-950 text-base">
                       PKR {banking.monthly_subscription_fee.toLocaleString()} <span className="text-xs font-normal text-indigo-700">/ month</span>
                     </p>
                   </div>
@@ -270,7 +270,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
               <form onSubmit={handleSubmitReceipt} className="space-y-3.5 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Plan Duration:</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Plan Duration:</label>
                     <select
                       value={planMonths}
                       onChange={e => {
@@ -278,7 +278,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
                         setPlanMonths(m);
                         setAmount((banking?.monthly_subscription_fee || 15000) * m);
                       }}
-                      className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold"
+                      className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800"
                     >
                       <option value={1}>1 Month (PKR 15,000)</option>
                       <option value={3}>3 Months (PKR 45,000)</option>

@@ -427,7 +427,7 @@ export const TimetableDesk: React.FC = () => {
                 </div>
 
                 {/* Subject & Batch */}
-                <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-1.5">
+                <h3 className="text-base font-bold text-slate-900 flex items-center gap-1.5">
                   <BookOpen className="w-4 h-4 text-indigo-600" />
                   <span>{slot.subject_name || 'Class Period'}</span>
                 </h3>
@@ -504,7 +504,7 @@ export const TimetableDesk: React.FC = () => {
                 <span className="p-1.5 bg-slate-900 text-white rounded-lg">
                   <Calendar className="w-4 h-4" />
                 </span>
-                <h2 className="text-sm font-extrabold text-slate-900">Schedule Academic Period</h2>
+                <h2 className="text-sm font-bold text-slate-900">Schedule Academic Period</h2>
               </div>
               <button
                 onClick={() => setShowScheduleModal(false)}
@@ -693,7 +693,7 @@ export const TimetableDesk: React.FC = () => {
                   <UserCheck className="w-4 h-4" />
                 </span>
                 <div>
-                  <h2 className="text-sm font-extrabold text-slate-900">Assign Substitute Faculty</h2>
+                  <h2 className="text-sm font-bold text-slate-900">Assign Substitute Faculty</h2>
                   <p className="text-[10px] text-slate-500 font-mono">
                     {substituteSlot.subject_name} • {substituteSlot.start_time}-{substituteSlot.end_time}
                   </p>

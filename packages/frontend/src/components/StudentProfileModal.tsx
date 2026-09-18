@@ -2642,7 +2642,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <span className="font-mono text-[8px] bg-slate-900 text-white px-2 py-0.5 rounded font-bold uppercase block w-max mx-auto">
                       {copyTitle}
                     </span>
-                    <h4 className="font-extrabold text-xs uppercase text-slate-950 mt-1 line-clamp-1">
+                    <h4 className="font-bold text-xs uppercase text-slate-950 mt-1 line-clamp-1">
                       {tenant?.name || 'Academy'}
                     </h4>
                     <div className="text-[8px] text-slate-700 font-mono">
@@ -2706,7 +2706,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     const balanceAmount = Number(challanInvoice.balance_amount ?? challanInvoice.balance_due ?? (netPayable - paidAmount));
                     return (
                       <div className="border-t-2 border-slate-900 pt-2 space-y-1 text-[10px]">
-                        <div className="flex justify-between font-extrabold text-slate-950 text-xs">
+                        <div className="flex justify-between font-bold text-slate-950 text-xs">
                           <span>Total Payable Amount:</span>
                           <span className="font-mono">PKR {netPayable.toLocaleString()}</span>
                         </div>
@@ -2963,7 +2963,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <select
                       value={editPrimaryContact}
                       onChange={e => setEditPrimaryContact(e.target.value)}
-                      className="px-2 py-1 border border-slate-300 rounded text-xs font-semibold bg-white text-slate-800"
+                      className="px-2 py-1 border border-slate-300 rounded text-xs font-medium bg-white text-slate-800"
                     >
                       <option value="father">Father</option>
                       <option value="mother">Mother</option>
@@ -3344,7 +3344,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 {/* Login Identifier (Father/Guardian CNIC) */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="font-bold text-slate-700">Username (Father / Guardian CNIC)</label>
+                    <label className="text-xs font-semibold text-slate-700">Username (Father / Guardian CNIC)</label>
                     <span className="text-[10px] text-slate-500 font-mono">National ID Card</span>
                   </div>
                   <input
@@ -3353,20 +3353,20 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     value={resetGuardianCnic}
                     onChange={e => setResetGuardianCnic(e.target.value)}
                     placeholder="35201-1234567-1"
-                    className="w-full px-3 py-2 bg-slate-50/50 border border-slate-300 rounded-lg font-mono font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all"
+                    className="w-full px-3 py-2 bg-slate-50/50 border border-slate-300 rounded-lg font-mono font-semibold text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all text-xs"
                   />
                 </div>
 
                 {/* Password Selection */}
                 <div className="space-y-2 pt-1">
-                  <label className="font-bold text-slate-700 block">Password Option</label>
+                  <label className="text-xs font-semibold text-slate-700 block">Password Option</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setResetPasswordType('default')}
                       className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
                         resetPasswordType === 'default'
-                          ? 'border-indigo-600 bg-indigo-50/40 text-indigo-950 font-bold shadow-2xs'
+                          ? 'border-indigo-600 bg-indigo-50/40 text-indigo-950 font-semibold shadow-2xs'
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
@@ -3374,7 +3374,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         <span className="text-xs">Standard Default</span>
                         {resetPasswordType === 'default' && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />}
                       </div>
-                      <span className="font-mono text-xs text-slate-900 block font-black">Student@123</span>
+                      <span className="font-mono text-xs text-slate-900 block font-semibold">Student@123</span>
                     </button>
 
                     <button
@@ -3382,7 +3382,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       onClick={() => setResetPasswordType('custom')}
                       className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
                         resetPasswordType === 'custom'
-                          ? 'border-indigo-600 bg-indigo-50/40 text-indigo-950 font-bold shadow-2xs'
+                          ? 'border-indigo-600 bg-indigo-50/40 text-indigo-950 font-semibold shadow-2xs'
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
@@ -3397,28 +3397,28 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                 {resetPasswordType === 'custom' && (
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Custom Temporary Password</label>
+                    <label className="text-xs font-semibold text-slate-700 block mb-1">Custom Temporary Password</label>
                     <input
                       type="text"
                       required
                       value={customResetPassword}
                       onChange={e => setCustomResetPassword(e.target.value)}
                       placeholder="Minimum 6 characters"
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-900"
+                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-900 text-xs"
                     />
                   </div>
                 )}
 
                 {/* Audit Reason */}
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Administrative Reason (Audit Log)</label>
+                  <label className="text-xs font-semibold text-slate-700 block mb-1">Administrative Reason (Audit Log)</label>
                   <input
                     type="text"
                     required
                     value={resetReason}
                     onChange={e => setResetReason(e.target.value)}
                     placeholder="Reason for password reset"
-                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800 text-xs"
                   />
                 </div>
 

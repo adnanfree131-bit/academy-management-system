@@ -941,46 +941,27 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
     if (payload.otps) this.otps = asArray(payload.otps);
-    if (payload.programs) {
-      for (const p of asArray<any>(payload.programs)) {
-        if (!this.programs.some(existing => existing.id === p.id)) this.programs.push(p);
-      }
-    }
-    if (payload.subjects) {
-      for (const s of asArray<any>(payload.subjects)) {
-        if (!this.subjects.some(existing => existing.id === s.id)) this.subjects.push(s);
-      }
-    }
-    if (payload.subjectGroups) {
-      for (const sg of asArray<any>(payload.subjectGroups)) {
-        if (!this.subjectGroups.some(existing => existing.id === sg.id)) this.subjectGroups.push(sg);
-      }
-    }
+    if (payload.programs) this.programs = asArray<AcademicProgram>(payload.programs);
+    if (payload.subjects) this.subjects = asArray<Subject>(payload.subjects);
+    if (payload.subjectGroups) this.subjectGroups = asArray<SubjectGroup>(payload.subjectGroups);
     if (payload.batches) {
-      for (const b of asArray<any>(payload.batches)) {
+      const batches = asArray<any>(payload.batches);
+      for (const b of batches) {
         if (!b.cohort_type) {
           b.cohort_type = b.name && /section/i.test(b.name) ? 'section' : 'batch';
         }
-        if (!this.batches.some(existing => existing.id === b.id)) this.batches.push(b);
       }
+      this.batches = batches;
     }
     if (payload.customFields) this.customFields = asArray(payload.customFields);
     if (payload.inquiries) this.inquiries = asArray(payload.inquiries);
-    if (payload.students) {
-      for (const s of asArray<Student>(payload.students)) {
-        const idx = this.students.findIndex(existing => existing.id === s.id);
-        if (idx >= 0) {
-          this.students[idx] = s;
-        } else {
-          this.students.push(s);
-        }
-      }
-    }
-    if (payload.rooms) {
-      for (const r of asArray<any>(payload.rooms)) {
-        if (!this.rooms.some(existing => existing.id === r.id)) this.rooms.push(r);
-      }
-    }
+    if (payload.students) this.students = asArray<Student>(payload.students);
+    if (payload.rooms) this.rooms = asArray<any>(payload.rooms);
+
+    // Clean up any dangling batches or subject groups whose parent program was deleted
+    const validProgramIds = new Set(this.programs.map(p => p.id));
+    this.batches = this.batches.filter(b => !b.program_id || validProgramIds.has(b.program_id));
+    this.subjectGroups = this.subjectGroups.filter(g => !g.program_id || validProgramIds.has(g.program_id));
     if (payload.timetableSlots) this.timetableSlots = asArray(payload.timetableSlots);
     if (payload.studentAttendance) this.studentAttendance = asArray(payload.studentAttendance);
     if (payload.attendanceAuditLogs) this.attendanceAuditLogs = asArray(payload.attendanceAuditLogs);
@@ -1131,194 +1112,7 @@ export class InMemoryDataStore implements IDataStore {
     if (!tenant || tenant.settings?.is_platform) return;
 
     const now = new Date().toISOString();
-    const isTSA = tenantId === '1944a64d-41f8-42e1-ada7-fb1bfd7d6e75' || tenant.slug === 'tsa';
 
-    if (isTSA) {
-      // 1. Ensure TSA has the authentic 14 subjects from user's setup
-      const tsaSubjectsList = [
-        { name: 'URDU', code: 'SUB', is_core: true },
-        { name: 'ENGLISH', code: '2', is_core: true },
-        { name: 'Math', code: '1', is_core: true },
-        { name: 'Physics', code: 'PHY', is_core: true },
-        { name: 'Chemistry', code: 'CHM', is_core: true },
-        { name: 'Biology', code: 'BIO', is_core: true },
-        { name: 'Computer Science', code: 'CS', is_core: true },
-        { name: 'Islamiyat', code: 'ISL', is_core: true },
-        { name: 'Pakistan Studies', code: 'PST', is_core: true },
-        { name: 'General Science', code: 'SCI', is_core: false },
-        { name: 'Social Studies', code: 'SST', is_core: false },
-        { name: 'Arabic', code: 'ARA', is_core: false },
-        { name: 'Tarjuma-tul-Quran', code: 'TQ', is_core: false },
-        { name: 'Art & Drawing', code: 'ART', is_core: false },
-      ];
-
-      for (const ds of tsaSubjectsList) {
-        const existing = this.subjects.find(
-          s => s.tenant_id === tenantId && (
-            s.name.toLowerCase() === ds.name.toLowerCase() ||
-            (s.code && ds.code && s.code.toLowerCase() === ds.code.toLowerCase())
-          )
-        );
-        if (!existing) {
-          this.subjects.push({
-            id: crypto.randomUUID(),
-            tenant_id: tenantId,
-            name: ds.name,
-            code: ds.code,
-            is_core: ds.is_core,
-            created_at: now,
-          });
-        } else {
-          if (ds.code === 'SUB' && existing.name.toUpperCase() === 'URDU') existing.code = 'SUB';
-          if (ds.code === '2' && existing.name.toUpperCase() === 'ENGLISH') existing.code = '2';
-          if (ds.code === '1' && existing.name.toUpperCase() === 'MATH') existing.code = '1';
-        }
-      }
-
-      // 2. Check TSA classes: authentic classes are '7th', '1', '2'
-      const existingTSAPrograms = this.programs.filter(p => p.tenant_id === tenantId);
-      const has7th = existingTSAPrograms.some(p => p.name.trim() === '7th');
-      const onlyHasDummyMatric = existingTSAPrograms.length === 1 && existingTSAPrograms[0].name.includes('Class 10');
-
-      if (!has7th || onlyHasDummyMatric) {
-        if (onlyHasDummyMatric) {
-          const dummyId = existingTSAPrograms[0].id;
-          this.programs = this.programs.filter(p => p.id !== dummyId);
-          this.batches = this.batches.filter(b => b.program_id !== dummyId);
-          this.subjectGroups = this.subjectGroups.filter(g => g.program_id !== dummyId);
-        }
-
-        const heads = this.feeHeads.filter(h => h.tenant_id === tenantId);
-        const tuitionHead = heads.find(h => h.code === 'TUITION');
-        const admHead = heads.find(h => h.code === 'ADMISSION');
-        const asdHead = heads.find(h => h.code === 'ASD' || h.name.toLowerCase() === 'asd');
-
-        const fee_schedule: any[] = [];
-        if (tuitionHead) {
-          fee_schedule.push({
-            fee_head_id: tuitionHead.id,
-            head_name: tuitionHead.name,
-            fee_type: 'tuition',
-            name: tuitionHead.name,
-            amount: 5000,
-            is_monthly: true,
-            is_recurring: true,
-          });
-        }
-        if (admHead) {
-          fee_schedule.push({
-            fee_head_id: admHead.id,
-            head_name: admHead.name,
-            fee_type: 'admission',
-            name: admHead.name,
-            amount: 10000,
-            is_monthly: false,
-            is_recurring: false,
-          });
-        }
-        if (asdHead) {
-          fee_schedule.push({
-            fee_head_id: asdHead.id,
-            head_name: asdHead.name,
-            fee_type: 'custom',
-            name: asdHead.name,
-            amount: 2500,
-            is_monthly: false,
-            is_recurring: false,
-          });
-        }
-
-        // Program 1: '7th'
-        const prog7th: AcademicProgram = {
-          id: crypto.randomUUID(),
-          tenant_id: tenantId,
-          name: '7th',
-          code: '7th',
-          description: 'Class 7',
-          sort_order: 1,
-          fee_schedule,
-          created_at: now,
-          updated_at: now,
-        };
-        this.programs.push(prog7th);
-
-        // Program 2: '1'
-        const prog1: AcademicProgram = {
-          id: crypto.randomUUID(),
-          tenant_id: tenantId,
-          name: '1',
-          code: '1',
-          description: 'Class 1',
-          sort_order: 2,
-          fee_schedule,
-          created_at: now,
-          updated_at: now,
-        };
-        this.programs.push(prog1);
-
-        // Program 3: '2'
-        const prog2: AcademicProgram = {
-          id: crypto.randomUUID(),
-          tenant_id: tenantId,
-          name: '2',
-          code: '2',
-          description: 'Class 2',
-          sort_order: 3,
-          fee_schedule,
-          created_at: now,
-          updated_at: now,
-        };
-        this.programs.push(prog2);
-
-        // Class Subjects for 7th: URDU, ENGLISH, Math
-        const currentSubs = this.subjects.filter(s => s.tenant_id === tenantId);
-        const urduSub = currentSubs.find(s => s.name.toUpperCase().includes('URDU'));
-        const engSub = currentSubs.find(s => s.name.toUpperCase().includes('ENG'));
-        const mathSub = currentSubs.find(s => s.name.toUpperCase().includes('MATH'));
-        const compSubIds = [urduSub?.id, engSub?.id, mathSub?.id].filter(Boolean) as string[];
-
-        if (compSubIds.length > 0) {
-          this.subjectGroups.push({
-            id: crypto.randomUUID(),
-            tenant_id: tenantId,
-            program_id: prog7th.id,
-            name: 'Class Subjects',
-            type: 'compulsory',
-            subject_ids: compSubIds,
-            created_at: now,
-          });
-        }
-
-        // Section for 7th: Section A (Capacity 40, Occupancy 1/40)
-        const secA: Batch = {
-          id: crypto.randomUUID(),
-          tenant_id: tenantId,
-          program_id: prog7th.id,
-          name: 'Section A',
-          cohort_type: 'section',
-          shift: 'morning',
-          start_time: '08:00 AM',
-          end_time: '01:30 PM',
-          room_number: 'Room 1',
-          academic_session: tenant.settings?.academic_session || '2026-2027',
-          max_capacity: 40,
-          current_enrollment: 1,
-          created_at: now,
-          updated_at: now,
-        };
-        this.batches.push(secA);
-
-        // Relink student Ameer Syed to 7th & Section A
-        const ameer = this.students.find(s => s.tenant_id === tenantId && s.full_name.includes('Ameer'));
-        if (ameer) {
-          ameer.program_id = prog7th.id;
-          ameer.batch_id = secA.id;
-          ameer.subjects = [...compSubIds];
-          ameer.updated_at = now;
-        }
-      }
-      return;
-    }
 
     // 1. Ensure core foundational subjects exist
     const tenantSubjects = this.subjects.filter(s => s.tenant_id === tenantId);
@@ -1482,7 +1276,6 @@ export class InMemoryDataStore implements IDataStore {
         for (const tenant of this.tenants.values()) {
           if (tenant.settings?.is_platform) continue;
           this.ensureDefaultFeeCatalog(tenant.id);
-          this.ensureDefaultAcademicCatalog(tenant.id);
         }
         this.persistAllowed = true;
         this.persistQueued = true;
@@ -1724,59 +1517,7 @@ export class InMemoryDataStore implements IDataStore {
     };
     this.tenants.set(tenantTSA.id, tenantTSA);
 
-    const tsaProg7: AcademicProgram = {
-      id: 'tsa-prog-7',
-      tenant_id: tenantTSA.id,
-      name: 'Class 7',
-      code: '7TH',
-      description: '',
-      sort_order: 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    const tsaProg9: AcademicProgram = {
-      id: 'tsa-prog-9',
-      tenant_id: tenantTSA.id,
-      name: 'Class 9',
-      code: '9TH',
-      description: '',
-      sort_order: 2,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    const tsaProg10: AcademicProgram = {
-      id: 'tsa-prog-10',
-      tenant_id: tenantTSA.id,
-      name: 'Class 10',
-      code: '10TH',
-      description: '',
-      sort_order: 3,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    this.programs.push(tsaProg7, tsaProg9, tsaProg10);
 
-    const tsaBatchComp: Batch = {
-      id: 'tsa-batch-computer',
-      tenant_id: tenantTSA.id,
-      program_id: tsaProg7.id,
-      name: 'computer course',
-      academic_session: '2026-2027',
-      shift: 'morning',
-      start_time: '08:00 AM',
-      end_time: '01:30 PM',
-      start_date: '2026-09-17',
-      end_date: '2026-11-17',
-      billing_mode: 'installment',
-      fee_amount: 10000,
-      max_capacity: 40,
-      current_enrollment: 0,
-      status: 'active',
-      cohort_type: 'batch',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    this.batches.push(tsaBatchComp);
 
     this.subscriptionReceipts.push({
       id: 'sub-rec-1',
@@ -3096,11 +2837,7 @@ export class InMemoryDataStore implements IDataStore {
 
   // --- Academic Hierarchy Methods ---
   async getPrograms(tenantId: string): Promise<AcademicProgram[]> {
-    let progs = this.programs.filter(p => p.tenant_id === tenantId);
-    if (progs.length === 0) {
-      this.ensureDefaultAcademicCatalog(tenantId);
-      progs = this.programs.filter(p => p.tenant_id === tenantId);
-    }
+    const progs = this.programs.filter(p => p.tenant_id === tenantId);
     return progs.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }
 
@@ -3112,7 +2849,8 @@ export class InMemoryDataStore implements IDataStore {
         prog.updated_at = new Date().toISOString();
       }
     });
-    this.schedulePersist();
+    this.persistQueued = true;
+    await this.flushPersist();
   }
 
   async createProgram(data: Omit<AcademicProgram, 'id' | 'created_at' | 'updated_at'>): Promise<AcademicProgram> {
@@ -3123,7 +2861,8 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     };
     this.programs.push(program);
-    this.schedulePersist();
+    this.persistQueued = true;
+    await this.flushPersist();
     return program;
   }
 
@@ -3141,7 +2880,8 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     };
     this.programs[idx] = updated;
-    this.schedulePersist();
+    this.persistQueued = true;
+    await this.flushPersist();
     return updated;
   }
 
@@ -3154,22 +2894,30 @@ export class InMemoryDataStore implements IDataStore {
           s.updated_at = new Date().toISOString();
         }
       }
+    } else {
+      for (const s of this.students) {
+        if (s.tenant_id === tenantId && s.program_id === id) {
+          s.program_id = undefined as any;
+          s.batch_id = undefined as any;
+          s.updated_at = new Date().toISOString();
+        }
+      }
     }
+    // Cascade delete child batches and subject groups
+    this.batches = this.batches.filter(b => !(b.tenant_id === tenantId && b.program_id === id));
+    this.subjectGroups = this.subjectGroups.filter(g => !(g.tenant_id === tenantId && g.program_id === id));
+
     this.programs = this.programs.filter(p => !(p.tenant_id === tenantId && p.id === id));
     if (this.programs.length < initLen) {
-      this.schedulePersist();
+      this.persistQueued = true;
+      await this.flushPersist();
       return true;
     }
     return false;
   }
 
   async getSubjects(tenantId: string): Promise<Subject[]> {
-    let subs = this.subjects.filter(s => s.tenant_id === tenantId);
-    if (subs.length === 0) {
-      this.ensureDefaultAcademicCatalog(tenantId);
-      subs = this.subjects.filter(s => s.tenant_id === tenantId);
-    }
-    return subs;
+    return this.subjects.filter(s => s.tenant_id === tenantId);
   }
 
   async createSubject(data: Omit<Subject, 'id' | 'created_at'>): Promise<Subject> {
@@ -3179,15 +2927,22 @@ export class InMemoryDataStore implements IDataStore {
       created_at: new Date().toISOString(),
     };
     this.subjects.push(subject);
-    this.schedulePersist();
+    this.persistQueued = true;
+    await this.flushPersist();
     return subject;
   }
 
   async deleteSubject(tenantId: string, id: string): Promise<boolean> {
     const initLen = this.subjects.length;
     this.subjects = this.subjects.filter(s => !(s.tenant_id === tenantId && s.id === id));
+    for (const group of this.subjectGroups) {
+      if (group.tenant_id === tenantId && group.subject_ids?.includes(id)) {
+        group.subject_ids = group.subject_ids.filter(sId => sId !== id);
+      }
+    }
     if (this.subjects.length < initLen) {
-      this.schedulePersist();
+      this.persistQueued = true;
+      await this.flushPersist();
       return true;
     }
     return false;
@@ -3206,7 +2961,8 @@ export class InMemoryDataStore implements IDataStore {
       created_at: new Date().toISOString(),
     };
     this.subjectGroups.push(group);
-    this.schedulePersist();
+    this.persistQueued = true;
+    await this.flushPersist();
     return group;
   }
 
@@ -3214,7 +2970,8 @@ export class InMemoryDataStore implements IDataStore {
     const initLen = this.subjectGroups.length;
     this.subjectGroups = this.subjectGroups.filter(g => !(g.tenant_id === tenantId && g.id === id));
     if (this.subjectGroups.length < initLen) {
-      this.schedulePersist();
+      this.persistQueued = true;
+      await this.flushPersist();
       return true;
     }
     return false;
@@ -3243,7 +3000,8 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     };
     this.batches.push(batch);
-    this.schedulePersist();
+    this.persistQueued = true;
+    await this.flushPersist();
     return batch;
   }
 
@@ -3261,7 +3019,8 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     };
     this.batches[idx] = updated;
-    this.schedulePersist();
+    this.persistQueued = true;
+    await this.flushPersist();
     return updated;
   }
 
@@ -3274,10 +3033,18 @@ export class InMemoryDataStore implements IDataStore {
           s.updated_at = new Date().toISOString();
         }
       }
+    } else {
+      for (const s of this.students) {
+        if (s.tenant_id === tenantId && s.batch_id === id) {
+          s.batch_id = undefined as any;
+          s.updated_at = new Date().toISOString();
+        }
+      }
     }
     this.batches = this.batches.filter(b => !(b.tenant_id === tenantId && b.id === id));
     if (this.batches.length < initLen) {
-      this.schedulePersist();
+      this.persistQueued = true;
+      await this.flushPersist();
       return true;
     }
     return false;

@@ -246,7 +246,7 @@ export const ComplaintsDeskView: React.FC = () => {
                   </div>
                 </div>
 
-                <h3 className="text-sm font-extrabold text-slate-900">{ticket.subject}</h3>
+                <h3 className="text-sm font-bold text-slate-900">{ticket.subject}</h3>
                 <p className="text-xs text-slate-600 mt-1 leading-relaxed">{ticket.description}</p>
 
                 <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-mono">
@@ -468,7 +468,7 @@ export const ComplaintsDeskView: React.FC = () => {
                       {selectedTicket.status.replace('_', ' ')}
                     </span>
                   </div>
-                  <h4 className="font-extrabold text-slate-900 text-sm">{selectedTicket.subject}</h4>
+                  <h4 className="font-bold text-slate-900 text-sm">{selectedTicket.subject}</h4>
                   <p className="text-slate-600 text-xs leading-relaxed">{selectedTicket.description}</p>
                   <div className="pt-2 border-t border-slate-200/60 text-[10px] text-slate-400 font-mono">
                     Submitted on: {new Date(selectedTicket.created_at).toLocaleString()}

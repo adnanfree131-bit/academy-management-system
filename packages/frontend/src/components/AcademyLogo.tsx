@@ -37,7 +37,7 @@ export const AcademyLogo: React.FC<AcademyLogoProps> = ({
           className="w-full h-full object-contain p-0.5 bg-white"
         />
       ) : (
-        <span className="text-slate-800 font-extrabold tracking-tight" style={{ fontSize: Math.max(12, size * 0.38) }}>
+        <span className="text-slate-800 font-bold tracking-tight" style={{ fontSize: Math.max(12, size * 0.38) }}>
           {initial}
         </span>
       )}

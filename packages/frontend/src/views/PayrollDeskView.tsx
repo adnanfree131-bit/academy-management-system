@@ -237,7 +237,7 @@ export const PayrollDeskView: React.FC = () => {
           <select
             value={selectedMonth}
             onChange={e => setSelectedMonth(e.target.value)}
-            className="bg-transparent text-xs font-bold text-slate-900 focus:outline-none"
+            className="bg-transparent text-xs font-medium text-slate-800 focus:outline-none"
           >
             {Array.from({ length: 12 }, (_, i) => {
               const d = new Date();
@@ -344,7 +344,7 @@ export const PayrollDeskView: React.FC = () => {
             <select
               value={selectedStaffId}
               onChange={e => setSelectedStaffId(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600 font-bold text-slate-900"
+              className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600 font-medium text-slate-800"
             >
               <option value="">Select staff</option>
               {profiles.map(p => (
@@ -886,7 +886,7 @@ export const PayrollDeskView: React.FC = () => {
             {/* Printable Payslip Card */}
             <div className="border border-slate-300 p-4 sm:p-6 rounded-xl bg-white space-y-4 text-xs font-mono">
               <div className="text-center border-b border-slate-300 pb-3 space-y-1">
-                <h2 className="font-black text-slate-900 text-base uppercase tracking-tight">{tenant?.name || 'ACADEMY PORTAL'}</h2>
+                <h2 className="font-bold text-slate-900 text-base uppercase tracking-tight">{tenant?.name || 'ACADEMY PORTAL'}</h2>
                 <p className="text-[10px] text-slate-500">{tenant?.campus_name || 'Main Campus'} • Official Salary Disbursement Slip</p>
                 <span className="inline-block px-3 py-0.5 rounded bg-slate-900 text-white text-[10px] font-bold">
                   PAYSLIP FOR {printPayslip.payroll_month.toUpperCase()}

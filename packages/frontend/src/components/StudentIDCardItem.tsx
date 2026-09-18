@@ -56,7 +56,7 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
           )}
         </div>
         <div className="min-w-0 flex-1 leading-tight">
-          <h4 className="font-extrabold text-[10.5px] uppercase tracking-tight text-white truncate">
+          <h4 className="font-bold text-[10.5px] uppercase tracking-tight text-white truncate">
             {academyName}
           </h4>
           <span className="text-[7.5px] font-medium text-slate-300 tracking-wider uppercase block truncate">
@@ -91,7 +91,7 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
           </div>
           {student.blood_group ? (
             <div className="mt-1 text-[7.5px] font-bold text-slate-600 tracking-tight">
-              BLOOD: <span className="font-mono font-extrabold text-red-700">{student.blood_group}</span>
+              BLOOD: <span className="font-mono font-bold text-red-700">{student.blood_group}</span>
             </div>
           ) : null}
         </div>
@@ -99,7 +99,7 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
         {/* Tabular Student Particulars */}
         <div className="flex-1 min-w-0 flex flex-col justify-center space-y-0.5">
           <div className="border-b border-slate-200 pb-0.5 mb-0.5">
-            <h3 className="font-extrabold text-[12px] sm:text-[13px] text-slate-900 tracking-tight uppercase leading-tight truncate">
+            <h3 className="font-bold text-[12px] sm:text-[13px] text-slate-900 tracking-tight uppercase leading-tight truncate">
               {student.full_name}
             </h3>
           </div>
@@ -159,7 +159,7 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
     <div className="cr80-card w-[325px] h-[205px] sm:w-[340px] sm:h-[215px] bg-white text-slate-900 rounded-xl border border-slate-300 shadow-sm flex flex-col justify-between overflow-hidden relative select-none print:shadow-none print:border-slate-400 print:w-[85.6mm] print:h-[54mm] print:rounded-none">
       {/* 1. Header Strip */}
       <div className="bg-[#0f172a] text-white px-3 py-1.5 flex items-center justify-between border-b border-slate-700 shrink-0">
-        <span className="font-extrabold text-[8.5px] uppercase tracking-wider text-slate-100">
+        <span className="font-bold text-[8.5px] uppercase tracking-wider text-slate-100">
           Rules & Emergency Directory
         </span>
         <span className="font-mono text-[7px] text-slate-400 uppercase">

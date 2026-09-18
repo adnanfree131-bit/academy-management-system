@@ -52,6 +52,7 @@ import {
 } from '@apex/shared-types';
 import { StudentProfileModal } from '../components/StudentProfileModal';
 import { StudentIDCardDesk } from './StudentIDCardDesk';
+import { ModernSelect } from '../components/ModernSelect';
 import { localISODate } from '../lib/localDate';
 import { compressImageFile } from '../components/LoginModal';
 import { InPortalPdfViewerModal } from '../components/InPortalPdfViewerModal';
@@ -198,7 +199,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [photoUrl, setPhotoUrl] = useState<string>('');
   const [studentWhatsapp, setStudentWhatsapp] = useState<string>('');
   const [studentWhatsappSameAsPhone, setStudentWhatsappSameAsPhone] = useState<boolean>(true);
-  const [guardianRelation, setGuardianRelation] = useState<string>('Father');
+  const [guardianRelation, setGuardianRelation] = useState<string>('');
   const [guardianWhatsapp, setGuardianWhatsapp] = useState<string>('');
   const [whatsappSameAsCalling, setWhatsappSameAsCalling] = useState<boolean>(true);
   const [emergencyContactName, setEmergencyContactName] = useState<string>('');
@@ -207,11 +208,11 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
   // Student Demographics
   const [dob, setDob] = useState<string>('');
-  const [gender, setGender] = useState<string>('male');
+  const [gender, setGender] = useState<string>('');
   const [studentBForm, setStudentBForm] = useState<string>('');
   const [customRollNumber, setCustomRollNumber] = useState<string>('');
   const [previousSchool, setPreviousSchool] = useState<string>('');
-  const [religion, setReligion] = useState<string>('Muslim');
+  const [religion, setReligion] = useState<string>('');
   const [residentialAddress, setResidentialAddress] = useState<string>('');
   const [city, setCity] = useState<string>('');
 
@@ -290,7 +291,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [selectedEnrollSubjectIds, setSelectedEnrollSubjectIds] = useState<string[]>([]);
   const [admitCustomSubjectIds, setAdmitCustomSubjectIds] = useState<string[]>([]);
   const [bloodGroup, setBloodGroup] = useState('');
-  const [admissionDate, setAdmissionDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [admissionDate, setAdmissionDate] = useState<string>('');
   const [admissionTuition, setAdmissionTuition] = useState<number | ''>('');
   const [billingMode, setBillingMode] = useState<BatchBillingMode>('monthly');
   const [installmentCount, setInstallmentCount] = useState<number>(3);
@@ -333,11 +334,19 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [enrollSuccessMessage, setEnrollSuccessMessage] = useState<string | null>(null);
 
   // Document Submission Checklist
-  const configuredDocHeads = useMemo<DocumentChecklistHead[]>(() => {
+  const [docHeads, setDocHeads] = useState<DocumentChecklistHead[]>(() => {
     return Array.isArray(tenant?.settings?.document_checklist_heads)
-      ? tenant.settings.document_checklist_heads
+      ? (tenant.settings.document_checklist_heads as DocumentChecklistHead[])
       : [];
+  });
+
+  useEffect(() => {
+    if (Array.isArray(tenant?.settings?.document_checklist_heads)) {
+      setDocHeads(tenant.settings.document_checklist_heads as DocumentChecklistHead[]);
+    }
   }, [tenant?.settings?.document_checklist_heads]);
+
+  const configuredDocHeads = docHeads;
 
   const defaultChecklistState = useMemo(() => {
     const initial: Record<string, 'submitted' | 'pending' | 'exempted'> = {};
@@ -377,7 +386,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         title: newDocHeadTitle.trim(),
         is_required: newDocHeadMandatory,
       };
-      const existing = (tenant?.settings?.document_checklist_heads || []) as DocumentChecklistHead[];
+      const existing = (tenant?.settings?.document_checklist_heads || docHeads || []) as DocumentChecklistHead[];
       const updatedHeads = [...existing, newHead];
 
       const res = await fetch('/api/v1/academic/academy-settings', {
@@ -395,10 +404,10 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         if (tenant?.settings) {
           tenant.settings.document_checklist_heads = updatedHeads;
         }
+        setDocHeads(updatedHeads);
         setSubmittedDocuments(prev => ({ ...prev, [uniqueCode]: 'pending' }));
         setNewDocHeadTitle('');
         setNewDocHeadMandatory(false);
-        setIsAddingDocHead(false);
         if (refreshSession) refreshSession();
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -415,7 +424,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     if (!token) return;
     if (!confirm('Remove this document requirement from the school checklist?')) return;
     try {
-      const existing = (tenant?.settings?.document_checklist_heads || []) as DocumentChecklistHead[];
+      const existing = (tenant?.settings?.document_checklist_heads || docHeads || []) as DocumentChecklistHead[];
       const updatedHeads = existing.filter(h => h.code !== code);
       const res = await fetch('/api/v1/academic/academy-settings', {
         method: 'PUT',
@@ -431,6 +440,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         if (tenant?.settings) {
           tenant.settings.document_checklist_heads = updatedHeads;
         }
+        setDocHeads(updatedHeads);
         setSubmittedDocuments(prev => {
           const next = { ...prev };
           delete next[code];
@@ -440,6 +450,46 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       }
     } catch (err) {
       console.error('Error removing document head:', err);
+    }
+  };
+
+  const handleLoadStandardDocHeads = async () => {
+    if (!token) return;
+    setIsSavingDocHead(true);
+    try {
+      const standardHeads: DocumentChecklistHead[] = [
+        { id: `doc-${Date.now()}-1`, code: 'B_FORM_CNIC', title: 'Student B-Form / CNIC Copy', is_required: true },
+        { id: `doc-${Date.now()}-2`, code: 'FATHER_CNIC', title: 'Father / Guardian CNIC Copy', is_required: true },
+        { id: `doc-${Date.now()}-3`, code: 'PHOTOS_PASSPORT', title: '4x Passport Size Photographs (Blue Background)', is_required: true },
+        { id: `doc-${Date.now()}-4`, code: 'PREV_SCHOOL_SLC', title: 'Previous School Leaving Certificate (SLC) / Character Certificate', is_required: false },
+      ];
+      const existing = (tenant?.settings?.document_checklist_heads || docHeads || []) as DocumentChecklistHead[];
+      const existingTitles = new Set(existing.map(h => h.title.toLowerCase()));
+      const toAdd = standardHeads.filter(h => !existingTitles.has(h.title.toLowerCase()));
+      const updatedHeads = [...existing, ...toAdd];
+
+      const res = await fetch('/api/v1/academic/academy-settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          document_checklist_heads: updatedHeads,
+        }),
+      });
+
+      if (res.ok) {
+        if (tenant?.settings) {
+          tenant.settings.document_checklist_heads = updatedHeads;
+        }
+        setDocHeads(updatedHeads);
+        if (refreshSession) refreshSession();
+      }
+    } catch (err) {
+      console.error('Error loading standard document heads:', err);
+    } finally {
+      setIsSavingDocHead(false);
     }
   };
 
@@ -1374,14 +1424,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         setPhotoUrl('');
         setStudentWhatsapp('');
         setStudentWhatsappSameAsPhone(true);
-        setGuardianRelation('Father');
+        setGuardianRelation('');
         setGuardianWhatsapp('');
         setWhatsappSameAsCalling(true);
         setEmergencyContactName('');
         setEmergencyContactPhone('');
         setEmergencyContactRelation('');
         setBloodGroup('');
-        setAdmissionDate(new Date().toISOString().split('T')[0]);
+        setAdmissionDate('');
         setAdmissionTuition('');
         setBillingMode('monthly');
         setInstallmentCount(3);
@@ -1395,11 +1445,11 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         setInitialPaymentAmount('');
         setInitialPaymentReference('');
         setDob('');
-        setGender('male');
+        setGender('');
         setStudentBForm('');
         setCustomRollNumber('');
         setPreviousSchool('');
-        setReligion('Muslim');
+        setReligion('');
         setSubmittedDocuments(defaultChecklistState);
         setResidentialAddress('');
         setCity('');
@@ -1618,8 +1668,9 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           <button
             type="button"
             onClick={() => setIsAddingDocHead(true)}
-            className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-[#E6ECF2] rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+            className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-[#E6ECF2] rounded-xl text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
+            <FileText className="w-3.5 h-3.5 text-slate-500" />
             <span>Document Checklist</span>
           </button>
 
@@ -1718,7 +1769,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             </span>
             <div className="flex items-baseline gap-1.5 mt-0.5">
               <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                1
+                {students.filter(s => s.fee_clearance_status === 'defaulter' || (Boolean(s.unpaid_balance) && s.unpaid_balance! > 0 && s.status === 'active')).length}
               </span>
               <span className="text-xs font-medium text-slate-500 leading-none">
                 Overdue
@@ -1757,7 +1808,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         <select
           value={activeTab}
           onChange={e => setActiveTab(e.target.value as any)}
-          className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
+          className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
         >
           <option value="directory">Directory ({students.length})</option>
           <option value="inquiries">Inquiries Pipeline ({inquiries.length})</option>
@@ -1880,7 +1931,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   setSelectedProgramFilter(e.target.value);
                   setSelectedBatchFilter('all');
                 }}
-                className="col-span-2 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                className="col-span-2 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none"
               >
                 <option value="all">All Classes ({programs.length})</option>
                 {programs.map(p => (
@@ -1891,7 +1942,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <select
                 value={selectedBatchFilter}
                 onChange={e => setSelectedBatchFilter(e.target.value)}
-                className="col-span-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                className="col-span-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none"
               >
                 <option value="all">
                   {directoryCohortType === 'section'
@@ -1908,7 +1959,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
-                className="col-span-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none"
+                className="col-span-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none"
               >
                 <option value="all">All Statuses</option>
                 <option value="active">Active</option>
@@ -1931,7 +1982,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     setSelectedProgramFilter(e.target.value);
                     setSelectedBatchFilter('all');
                   }}
-                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
                 >
                   <option value="all">All Classes ({programs.length})</option>
                   {programs.map(p => (
@@ -1947,7 +1998,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <select
                   value={selectedBatchFilter}
                   onChange={e => setSelectedBatchFilter(e.target.value)}
-                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
                 >
                   <option value="all">
                     {directoryCohortType === 'section'
@@ -1969,7 +2020,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <select
                   value={statusFilter}
                   onChange={e => setStatusFilter(e.target.value)}
-                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+                  className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
                 >
                   <option value="all">All Statuses ({students.length})</option>
                   <option value="active">Active ({students.filter(s => s.status === 'active').length})</option>
@@ -2571,7 +2622,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                               <select
                                 value={inq.stage}
                                 onChange={e => handleUpdateStage(inq.id, e.target.value as InquiryStage)}
-                                className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-[11px] font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                className="px-2 py-1 bg-slate-50 border border-slate-200 rounded text-[11px] font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                               >
                                 <option value="new">New</option>
                                 <option value="follow_up">Follow Up</option>
@@ -2750,103 +2801,109 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   {enrollmentType === 'class' ? (
                     <>
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                        <label className="block text-xs font-medium text-slate-700 mb-1">
                           Class / Program <span className="text-rose-500">*</span>
                         </label>
-                        <select
+                        <ModernSelect
                           value={enrollForm.program_id}
-                          onChange={e => {
-                            const progId = e.target.value;
+                          onChange={val => {
                             setEnrollForm(prev => ({
                               ...prev,
-                              program_id: progId,
+                              program_id: val,
                               batch_id: '',
                               elective_group_id: '',
                             }));
                           }}
                           required
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        >
-                          <option value="">Select Class</option>
-                          {programs.map(p => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </select>
+                          placeholder="Select Class"
+                          options={[
+                            { value: '', label: 'Select Class' },
+                            ...programs.map(p => ({
+                              value: p.id,
+                              label: p.name,
+                            })),
+                          ]}
+                        />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                        <label className="block text-xs font-medium text-slate-700 mb-1">
                           Section / Batch <span className="text-rose-500">*</span>
                         </label>
-                        <select
+                        <ModernSelect
                           value={enrollForm.batch_id}
-                          onChange={e => setEnrollForm(prev => ({ ...prev, batch_id: e.target.value }))}
+                          onChange={val => setEnrollForm(prev => ({ ...prev, batch_id: val }))}
                           required
                           disabled={!enrollForm.program_id}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-                        >
-                          <option value="">
-                            {!enrollForm.program_id
+                          placeholder={
+                            !enrollForm.program_id
                               ? 'Select Class First'
                               : availableBatchesForEnroll.length === 0
                               ? 'No Sections Available'
-                              : 'Select Section'}
-                          </option>
-                          {availableBatchesForEnroll.map(b => {
-                            const isFull = (b.current_enrollment || 0) >= b.max_capacity;
-                            return (
-                              <option key={b.id} value={b.id} disabled={isFull}>
-                                {b.name} ({b.shift.toUpperCase()} Shift • {isFull ? '[FULL] ' : ''}Enrolled: {b.current_enrollment || 0}/{b.max_capacity})
-                              </option>
-                            );
-                          })}
-                        </select>
+                              : 'Select Section'
+                          }
+                          options={[
+                            {
+                              value: '',
+                              label: !enrollForm.program_id
+                                ? 'Select Class First'
+                                : availableBatchesForEnroll.length === 0
+                                ? 'No Sections Available'
+                                : 'Select Section',
+                            },
+                            ...availableBatchesForEnroll.map(b => {
+                              const isFull = (b.current_enrollment || 0) >= b.max_capacity;
+                              return {
+                                value: b.id,
+                                label: `${b.name} (${b.shift.toUpperCase()} Shift • ${isFull ? '[FULL] ' : ''}Enrolled: ${b.current_enrollment || 0}/${b.max_capacity})`,
+                                disabled: isFull,
+                              };
+                            }),
+                          ]}
+                        />
                       </div>
                     </>
                   ) : (
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
                         Batch / Course <span className="text-rose-500">*</span>
                       </label>
-                      <select
+                      <ModernSelect
                         value={enrollForm.batch_id}
-                        onChange={e => {
-                          const batchId = e.target.value;
-                          const b = batches.find(x => x.id === batchId);
+                        onChange={val => {
+                          const b = batches.find(x => x.id === val);
                           setEnrollForm(prev => ({
                             ...prev,
-                            batch_id: batchId,
+                            batch_id: val,
                             program_id: b?.program_id || '',
                             elective_group_id: '',
                           }));
                         }}
                         required
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="">Select Batch</option>
-                        {batches
-                          .filter(b => b.status === 'active')
-                          .map(b => {
-                            const isFull = (b.current_enrollment || 0) >= b.max_capacity;
-                            return (
-                              <option key={b.id} value={b.id} disabled={isFull}>
-                                {b.name} ({b.shift.toUpperCase()} Shift{b.fee_amount != null ? ` • PKR ${b.fee_amount.toLocaleString()}` : ''} • {isFull ? '[FULL] ' : ''}Enrolled: {b.current_enrollment || 0}/{b.max_capacity})
-                              </option>
-                            );
-                          })}
-                      </select>
+                        placeholder="Select Batch"
+                        options={[
+                          { value: '', label: 'Select Batch' },
+                          ...batches
+                            .filter(b => b.status === 'active')
+                            .map(b => {
+                              const isFull = (b.current_enrollment || 0) >= b.max_capacity;
+                              return {
+                                value: b.id,
+                                label: `${b.name} (${b.shift.toUpperCase()} Shift${b.fee_amount != null ? ` • PKR ${b.fee_amount.toLocaleString()}` : ''} • ${isFull ? '[FULL] ' : ''}Enrolled: ${b.current_enrollment || 0}/${b.max_capacity})`,
+                                disabled: isFull,
+                              };
+                            }),
+                        ]}
+                      />
                     </div>
                   )}
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
-                      Admission Date <span className="text-rose-500">*</span>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Admission Date
                     </label>
                     <input
                       type="date"
-                      required
                       value={admissionDate}
                       onChange={e => setAdmissionDate(e.target.value)}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
@@ -2854,14 +2911,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
                       Roll Number (Optional)
                     </label>
                     <input
                       type="text"
                       value={customRollNumber}
                       onChange={e => setCustomRollNumber(e.target.value)}
-                      placeholder="Auto-assigned if empty"
+                      placeholder=""
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono placeholder:font-sans placeholder:text-slate-400"
                     />
                   </div>
@@ -2880,21 +2937,21 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 {/* Elective Track Dropdown */}
                 {electiveGroupsForEnroll.length > 0 && (
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
                       Elective Track / Subject Major Stream
                     </label>
-                    <select
+                    <ModernSelect
                       value={enrollForm.elective_group_id}
-                      onChange={e => setEnrollForm(prev => ({ ...prev, elective_group_id: e.target.value }))}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">Select Elective Stream (Optional)</option>
-                      {electiveGroupsForEnroll.map(eg => (
-                        <option key={eg.id} value={eg.id}>
-                          {eg.name} ({getSubjectNames(eg.subject_ids).join(', ')})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={val => setEnrollForm(prev => ({ ...prev, elective_group_id: val }))}
+                      placeholder="Select Elective Stream (Optional)"
+                      options={[
+                        { value: '', label: 'Select Elective Stream (Optional)' },
+                        ...electiveGroupsForEnroll.map(eg => ({
+                          value: eg.id,
+                          label: `${eg.name} (${getSubjectNames(eg.subject_ids).join(', ')})`,
+                        })),
+                      ]}
+                    />
                   </div>
                 )}
 
@@ -3075,12 +3132,12 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       ) : (
                         <div className="flex flex-col items-center text-slate-400 p-2 text-center">
                           <Camera className="w-6 h-6 mb-1 text-slate-400" />
-                          <span className="text-[9px] uppercase font-bold tracking-wider text-slate-500">Passport Photo</span>
-                          <span className="text-[8px] text-slate-400 mt-0.5">3:4 Ratio</span>
+                          <span className="text-[10px] uppercase font-semibold tracking-wider text-slate-500">Passport Photo</span>
+                          <span className="text-[10px] text-slate-400 mt-0.5">3:4 Ratio</span>
                         </div>
                       )}
                     </div>
-                    <label className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 rounded-md text-[11px] font-bold border border-slate-300 shadow-2xs transition-colors">
+                    <label className="cursor-pointer inline-flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 rounded-md text-xs font-semibold border border-slate-300 shadow-2xs transition-colors">
                       <Camera className="w-3 h-3 text-slate-500" />
                       <span>{photoUrl ? 'Change' : 'Upload Photo'}</span>
                       <input
@@ -3104,7 +3161,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   {/* Core Identity Form Inputs */}
                   <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
                         Student Full Legal Name <span className="text-rose-500">*</span>
                       </label>
                       <input
@@ -3112,13 +3169,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         required
                         value={enrollForm.full_name}
                         onChange={e => setEnrollForm(prev => ({ ...prev, full_name: e.target.value }))}
-                        placeholder="Student full name"
+                        placeholder=""
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
                         Date of Birth <span className="text-rose-500">*</span>
                       </label>
                       <input
@@ -3131,69 +3188,74 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
                         Gender <span className="text-rose-500">*</span>
                       </label>
-                      <select
+                      <ModernSelect
                         value={gender}
-                        onChange={e => setGender(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                        <option value="other">Other</option>
-                      </select>
+                        onChange={val => setGender(val)}
+                        placeholder="Select Gender"
+                        options={[
+                          { value: '', label: 'Select Gender' },
+                          { value: 'male', label: 'Male' },
+                          { value: 'female', label: 'Female' },
+                          { value: 'other', label: 'Other' },
+                        ]}
+                      />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
                         Student B-Form / NADRA CRC
                       </label>
                       <input
                         type="text"
                         value={studentBForm}
                         onChange={e => setStudentBForm(e.target.value)}
-                        placeholder="35201-1234567-1"
+                        placeholder=""
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
                         Blood Group
                       </label>
-                      <select
+                      <ModernSelect
                         value={bloodGroup}
-                        onChange={e => setBloodGroup(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
-                      >
-                        <option value="">Select Blood Group</option>
-                        <option value="A+">A+</option>
-                        <option value="A-">A-</option>
-                        <option value="B+">B+</option>
-                        <option value="B-">B-</option>
-                        <option value="O+">O+</option>
-                        <option value="O-">O-</option>
-                        <option value="AB+">AB+</option>
-                        <option value="AB-">AB-</option>
-                      </select>
+                        onChange={val => setBloodGroup(val)}
+                        placeholder="Select Blood Group"
+                        options={[
+                          { value: '', label: 'Select Blood Group' },
+                          { value: 'A+', label: 'A+' },
+                          { value: 'A-', label: 'A-' },
+                          { value: 'B+', label: 'B+' },
+                          { value: 'B-', label: 'B-' },
+                          { value: 'O+', label: 'O+' },
+                          { value: 'O-', label: 'O-' },
+                          { value: 'AB+', label: 'AB+' },
+                          { value: 'AB-', label: 'AB-' },
+                        ]}
+                      />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
                         Religion
                       </label>
-                      <select
+                      <ModernSelect
                         value={religion}
-                        onChange={e => setReligion(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="Muslim">Muslim</option>
-                        <option value="Christian">Christian</option>
-                        <option value="Hindu">Hindu</option>
-                        <option value="Sikh">Sikh</option>
-                        <option value="Other">Other</option>
-                      </select>
+                        onChange={val => setReligion(val)}
+                        placeholder="Select Religion"
+                        options={[
+                          { value: '', label: 'Select Religion' },
+                          { value: 'Muslim', label: 'Muslim' },
+                          { value: 'Christian', label: 'Christian' },
+                          { value: 'Hindu', label: 'Hindu' },
+                          { value: 'Sikh', label: 'Sikh' },
+                          { value: 'Other', label: 'Other' },
+                        ]}
+                      />
                     </div>
                   </div>
                 </div>
@@ -3201,20 +3263,20 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 {/* Residential & Contact Details */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
                       City
                     </label>
                     <input
                       type="text"
                       value={city}
                       onChange={e => setCity(e.target.value)}
-                      placeholder="City"
+                      placeholder=""
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
                       Student Mobile (Optional)
                     </label>
                     <input
@@ -3227,14 +3289,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           setStudentWhatsapp(val);
                         }
                       }}
-                      placeholder="0300 1234567"
+                      placeholder=""
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-bold text-slate-700">
+                      <label className="text-xs font-medium text-slate-700">
                         Student WhatsApp
                       </label>
                       <label className="flex items-center gap-1.5 text-[10px] text-slate-500 cursor-pointer">
@@ -3260,46 +3322,46 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         setStudentWhatsapp(e.target.value);
                         setStudentWhatsappSameAsPhone(false);
                       }}
-                      placeholder="0300 1234567"
+                      placeholder=""
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div className="sm:col-span-2 lg:col-span-3">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
                       Student Email Address (Optional)
                     </label>
                     <input
                       type="email"
                       value={enrollForm.email}
                       onChange={e => setEnrollForm(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder="student@email.com"
+                      placeholder=""
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div className="sm:col-span-2 lg:col-span-3">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
                       Residential Address
                     </label>
                     <input
                       type="text"
                       value={residentialAddress}
                       onChange={e => setResidentialAddress(e.target.value)}
-                      placeholder="House / Street, Area"
+                      placeholder=""
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
 
                   <div className="sm:col-span-2 lg:col-span-3">
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
                       Previous School (Optional)
                     </label>
                     <input
                       type="text"
                       value={previousSchool}
                       onChange={e => setPreviousSchool(e.target.value)}
-                      placeholder="Previous school name"
+                      placeholder=""
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
@@ -3519,7 +3581,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Guardian Full Name <span className="text-rose-500">*</span>
                           </label>
                           <input
@@ -3527,34 +3589,38 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             required
                             value={enrollForm.guardian_name}
                             onChange={e => setEnrollForm(prev => ({ ...prev, guardian_name: e.target.value }))}
-                            placeholder="Guardian full name"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Guardian Relationship <span className="text-rose-500">*</span>
                           </label>
-                          <select
+                          <ModernSelect
                             value={guardianRelation}
-                            onChange={e => setGuardianRelation(e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          >
-                            <option value="Uncle">Uncle</option>
-                            <option value="Aunt">Aunt</option>
-                            <option value="Brother">Brother</option>
-                            <option value="Sister">Sister</option>
-                            <option value="Grandfather">Grandfather</option>
-                            <option value="Grandmother">Grandmother</option>
-                            <option value="Legal Guardian">Legal Guardian</option>
-                            <option value="Orphanage/Sponsor">Trustee / Sponsor</option>
-                            <option value="Other">Other</option>
-                          </select>
+                            onChange={val => setGuardianRelation(val)}
+                            placeholder="Select Relationship"
+                            options={[
+                              { value: '', label: 'Select Relationship' },
+                              { value: 'Father', label: 'Father' },
+                              { value: 'Mother', label: 'Mother' },
+                              { value: 'Uncle', label: 'Uncle' },
+                              { value: 'Aunt', label: 'Aunt' },
+                              { value: 'Brother', label: 'Brother' },
+                              { value: 'Sister', label: 'Sister' },
+                              { value: 'Grandfather', label: 'Grandfather' },
+                              { value: 'Grandmother', label: 'Grandmother' },
+                              { value: 'Legal Guardian', label: 'Legal Guardian' },
+                              { value: 'Orphanage/Sponsor', label: 'Trustee / Sponsor' },
+                              { value: 'Other', label: 'Other' },
+                            ]}
+                          />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Guardian CNIC <span className="text-rose-500">*</span>
                           </label>
                           <input
@@ -3562,13 +3628,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             required
                             value={enrollForm.guardian_id_card || ''}
                             onChange={e => setEnrollForm(prev => ({ ...prev, guardian_id_card: e.target.value }))}
-                            placeholder="35201-1234567-1"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Guardian Calling Mobile <span className="text-rose-500">*</span>
                           </label>
                           <input
@@ -3582,14 +3648,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                 setGuardianWhatsapp(val);
                               }
                             }}
-                            placeholder="0300 1234567"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
 
                         <div>
                           <div className="flex items-center justify-between mb-1">
-                            <label className="text-xs font-bold text-slate-700">
+                            <label className="text-xs font-medium text-slate-700">
                               Guardian WhatsApp
                             </label>
                             <label className="flex items-center gap-1.5 text-[10px] text-slate-500 cursor-pointer">
@@ -3615,33 +3681,33 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                               setGuardianWhatsapp(e.target.value);
                               setWhatsappSameAsCalling(false);
                             }}
-                            placeholder="0300 1234567"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Guardian Email Address (Optional)
                           </label>
                           <input
                             type="email"
                             value={enrollForm.guardian_email || ''}
                             onChange={e => setEnrollForm(prev => ({ ...prev, guardian_email: e.target.value }))}
-                            placeholder="guardian@email.com"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
 
                         <div className="sm:col-span-2">
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Guardian Occupation
                           </label>
                           <input
                             type="text"
                             value={fatherOccupation}
                             onChange={e => setFatherOccupation(e.target.value)}
-                            placeholder="Occupation"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
@@ -3656,22 +3722,22 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       </summary>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3 pt-3 border-t border-slate-200">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">Father Name</label>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">Father Name</label>
                           <input
                             type="text"
                             value={fatherName}
                             onChange={e => setFatherName(e.target.value)}
-                            placeholder="Father name"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">Mother Name</label>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">Mother Name</label>
                           <input
                             type="text"
                             value={motherName}
                             onChange={e => setMotherName(e.target.value)}
-                            placeholder="Mother name"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none"
                           />
                         </div>
@@ -3697,7 +3763,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Father Full Name {primaryContact === 'father' && <span className="text-rose-500">*</span>}
                           </label>
                           <input
@@ -3705,13 +3771,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             required={primaryContact === 'father'}
                             value={fatherName}
                             onChange={e => setFatherName(e.target.value)}
-                            placeholder="Father full name"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Father CNIC {primaryContact === 'father' && <span className="text-rose-500">*</span>}
                           </label>
                           <input
@@ -3719,13 +3785,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             required={primaryContact === 'father'}
                             value={fatherCnic}
                             onChange={e => setFatherCnic(e.target.value)}
-                            placeholder="35201-1234567-1"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Father Mobile {primaryContact === 'father' && <span className="text-rose-500">*</span>}
                           </label>
                           <input
@@ -3739,7 +3805,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                 setGuardianWhatsapp(val);
                               }
                             }}
-                            placeholder="0300 1234567"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
@@ -3749,7 +3815,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           <>
                             <div>
                               <div className="flex items-center justify-between mb-1">
-                                <label className="text-xs font-bold text-slate-700">
+                                <label className="text-xs font-medium text-slate-700">
                                   Father WhatsApp
                                 </label>
                                 <label className="flex items-center gap-1.5 text-[10px] text-slate-500 cursor-pointer">
@@ -3775,20 +3841,20 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                   setGuardianWhatsapp(e.target.value);
                                   setWhatsappSameAsCalling(false);
                                 }}
-                                placeholder="0300 1234567"
+                                placeholder=""
                                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-xs font-bold text-slate-700 mb-1">
+                              <label className="block text-xs font-medium text-slate-700 mb-1">
                                 Father Email Address (Optional)
                               </label>
                               <input
                                 type="email"
                                 value={enrollForm.guardian_email || ''}
                                 onChange={e => setEnrollForm(prev => ({ ...prev, guardian_email: e.target.value }))}
-                                placeholder="father@email.com"
+                                placeholder=""
                                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                               />
                             </div>
@@ -3796,14 +3862,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         )}
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Father Occupation
                           </label>
                           <input
                             type="text"
                             value={fatherOccupation}
                             onChange={e => setFatherOccupation(e.target.value)}
-                            placeholder="Occupation"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
@@ -3827,7 +3893,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Mother Full Name {primaryContact === 'mother' && <span className="text-rose-500">*</span>}
                           </label>
                           <input
@@ -3835,13 +3901,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             required={primaryContact === 'mother'}
                             value={motherName}
                             onChange={e => setMotherName(e.target.value)}
-                            placeholder="Mother full name"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Mother CNIC {primaryContact === 'mother' && <span className="text-rose-500">*</span>}
                           </label>
                           <input
@@ -3849,13 +3915,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             required={primaryContact === 'mother'}
                             value={motherCnic}
                             onChange={e => setMotherCnic(e.target.value)}
-                            placeholder="35201-1234567-2"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Mother Mobile {primaryContact === 'mother' && <span className="text-rose-500">*</span>}
                           </label>
                           <input
@@ -3869,7 +3935,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                 setGuardianWhatsapp(val);
                               }
                             }}
-                            placeholder="0300 1234567"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
@@ -3879,7 +3945,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           <>
                             <div>
                               <div className="flex items-center justify-between mb-1">
-                                <label className="text-xs font-bold text-slate-700">
+                                <label className="text-xs font-medium text-slate-700">
                                   Mother WhatsApp
                                 </label>
                                 <label className="flex items-center gap-1.5 text-[10px] text-slate-500 cursor-pointer">
@@ -3905,20 +3971,20 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                   setGuardianWhatsapp(e.target.value);
                                   setWhatsappSameAsCalling(false);
                                 }}
-                                placeholder="0300 1234567"
+                                placeholder=""
                                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                               />
                             </div>
 
                             <div>
-                              <label className="block text-xs font-bold text-slate-700 mb-1">
+                              <label className="block text-xs font-medium text-slate-700 mb-1">
                                 Mother Email Address (Optional)
                               </label>
                               <input
                                 type="email"
                                 value={enrollForm.guardian_email || ''}
                                 onChange={e => setEnrollForm(prev => ({ ...prev, guardian_email: e.target.value }))}
-                                placeholder="mother@email.com"
+                                placeholder=""
                                 className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                               />
                             </div>
@@ -3926,14 +3992,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         )}
 
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
                             Mother Occupation
                           </label>
                           <input
                             type="text"
                             value={motherOccupation}
                             onChange={e => setMotherOccupation(e.target.value)}
-                            placeholder="Occupation"
+                            placeholder=""
                             className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
                         </div>
@@ -3952,51 +4018,53 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50/70 p-3 rounded-lg border border-slate-200">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
                         Emergency Contact Person
                       </label>
                       <input
                         type="text"
                         value={emergencyContactName}
                         onChange={e => setEmergencyContactName(e.target.value)}
-                        placeholder="Contact person name"
+                        placeholder=""
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
                         Emergency Contact Phone
                       </label>
                       <input
                         type="text"
                         value={emergencyContactPhone}
                         onChange={e => setEmergencyContactPhone(e.target.value)}
-                        placeholder="0300 1234567"
+                        placeholder=""
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
                         Relationship to Student
                       </label>
-                      <select
+                      <ModernSelect
                         value={emergencyContactRelation}
-                        onChange={e => setEmergencyContactRelation(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="Uncle">Uncle</option>
-                        <option value="Aunt">Aunt</option>
-                        <option value="Mother">Mother</option>
-                        <option value="Father">Father</option>
-                        <option value="Brother">Brother</option>
-                        <option value="Sister">Sister</option>
-                        <option value="Grandfather">Grandfather</option>
-                        <option value="Grandmother">Grandmother</option>
-                        <option value="Relative">Relative</option>
-                        <option value="Neighbor">Neighbor</option>
-                        <option value="Family Friend">Family Friend</option>
-                        <option value="Other">Other</option>
-                      </select>
+                        onChange={val => setEmergencyContactRelation(val)}
+                        placeholder="Select Relationship"
+                        options={[
+                          { value: '', label: 'Select Relationship' },
+                          { value: 'Uncle', label: 'Uncle' },
+                          { value: 'Aunt', label: 'Aunt' },
+                          { value: 'Mother', label: 'Mother' },
+                          { value: 'Father', label: 'Father' },
+                          { value: 'Brother', label: 'Brother' },
+                          { value: 'Sister', label: 'Sister' },
+                          { value: 'Grandfather', label: 'Grandfather' },
+                          { value: 'Grandmother', label: 'Grandmother' },
+                          { value: 'Relative', label: 'Relative' },
+                          { value: 'Neighbor', label: 'Neighbor' },
+                          { value: 'Family Friend', label: 'Family Friend' },
+                          { value: 'Other', label: 'Other' },
+                        ]}
+                      />
                     </div>
                   </div>
                 </div>
@@ -4004,22 +4072,40 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
               {/* 4. Document Submission Checklist (Only added heads are shown) */}
               <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
-                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <FileText className="w-4 h-4 text-indigo-600" />
-                  <div>
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                      4. Document Submission Checklist
-                    </h3>
-                    <p className="text-[11px] text-slate-500">
-                      Document submission status.
-                    </p>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-indigo-600" />
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                        4. Document Submission Checklist
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Document submission status.
+                      </p>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingDocHead(true)}
+                    className="text-xs font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Manage Requirements</span>
+                  </button>
                 </div>
 
                 {/* Only added heads are shown in this space */}
                 {configuredDocHeads.length === 0 ? (
-                  <div className="p-3.5 bg-slate-50/70 rounded-lg border border-slate-200 text-center text-xs text-slate-400">
-                    No document checklist requirements configured for this academy.
+                  <div className="p-4 bg-slate-50/70 rounded-lg border border-slate-200 text-center text-xs text-slate-500 space-y-2">
+                    <p>No document checklist requirements configured for this academy.</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingDocHead(true)}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 font-semibold border border-slate-300 rounded-lg shadow-2xs inline-flex items-center gap-1.5 cursor-pointer text-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Configure Document Requirements</span>
+                    </button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -4092,124 +4178,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 )}
               </div>
 
-              {/* Modal: Add Document Head */}
-              {isAddingDocHead && createPortal(
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-                  <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-indigo-600" />
-                        <h3 className="text-sm font-bold text-slate-900">Add Document Requirement</h3>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAddingDocHead(false);
-                          setNewDocHeadTitle('');
-                          setNewDocHeadMandatory(false);
-                        }}
-                        className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Document Head Title <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={newDocHeadTitle}
-                          onChange={e => setNewDocHeadTitle(e.target.value)}
-                          placeholder="Document title"
-                          className="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          autoFocus
-                        />
-                      </div>
-
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={newDocHeadMandatory}
-                          onChange={e => setNewDocHeadMandatory(e.target.checked)}
-                          className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500"
-                        />
-                        <span className="text-xs font-bold text-slate-800">Mandatory Document</span>
-                      </label>
-
-                      <p className="text-[11px] text-slate-500">
-                        This document requirement will appear on student admission checklists.
-                      </p>
-
-                      {configuredDocHeads.length > 0 && (
-                        <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                            Existing Academy Heads ({configuredDocHeads.length})
-                          </span>
-                          <div className="max-h-36 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg bg-slate-50/50">
-                            {configuredDocHeads.map((h: DocumentChecklistHead) => (
-                              <div key={h.code} className="p-2 flex items-center justify-between text-xs">
-                                <div className="flex items-center gap-1.5 min-w-0">
-                                  <span className="font-semibold text-slate-800 truncate">{h.title}</span>
-                                  {h.is_required && (
-                                    <span className="text-[9px] font-bold text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-200">
-                                      Required
-                                    </span>
-                                  )}
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteDocHeadFromEnrollment(h.code)}
-                                  className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
-                                  title="Remove head from academy"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsAddingDocHead(false);
-                          setNewDocHeadTitle('');
-                          setNewDocHeadMandatory(false);
-                        }}
-                        className="px-3.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!newDocHeadTitle.trim() || isSavingDocHead}
-                        onClick={handleAddDocHeadFromEnrollment}
-                        className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-40 cursor-pointer shadow-xs"
-                      >
-                        {isSavingDocHead ? (
-                          <>
-                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            <span>Saving...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Add Document Head</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>,
-                document.body
-              )}
-
               {/* 5. Additional Institutional Fields (if configured) */}
               {customFields.length > 0 && (
                 <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
@@ -4223,7 +4191,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200">
                     {customFields.map(field => (
                       <div key={field.id} className={field.field_type === 'select' ? '' : 'sm:col-span-2'}>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                        <label className="block text-xs font-medium text-slate-700 mb-1">
                           {field.label} {field.is_required && <span className="text-rose-500">*</span>}
                         </label>
 
@@ -4358,7 +4326,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       value={admissionTuition === '' ? '' : admissionTuition}
                       onChange={e => setAdmissionTuition(e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full pl-12 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder={billingMode === 'monthly' ? '5000' : '45000'}
+                      placeholder=""
                     />
                   </div>
                 </div>
@@ -4407,7 +4375,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                 type="number"
                                 min="0"
                                 value={item.amount === 0 ? '' : item.amount}
-                                placeholder="0"
+                                placeholder=""
                                 onChange={e => handleUpdateAdmissionHeadAmount(item.fee_head_id, e.target.value)}
                                 onFocus={e => e.target.select()}
                                 className="w-20 px-1.5 py-0.5 text-right font-mono font-bold text-xs bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-500"
@@ -4494,7 +4462,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           <select
                             value={concessionMode}
                             onChange={e => setConcessionMode(e.target.value as any)}
-                            className="w-16 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold"
+                            className="w-16 px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800"
                           >
                             <option value="percentage">%</option>
                             <option value="flat">PKR</option>
@@ -4505,7 +4473,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             value={concessionVal === '' ? '' : concessionVal}
                             onChange={e => setConcessionVal(e.target.value === '' ? '' : Number(e.target.value))}
                             className="flex-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
-                            placeholder="Discount rate"
+                            placeholder=""
                           />
                         </div>
                       </div>
@@ -4519,7 +4487,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           required
                           value={concessionReason}
                           onChange={e => setConcessionReason(e.target.value)}
-                          placeholder="Reason for concession"
+                          placeholder=""
                           className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
                         />
                       </div>
@@ -4541,7 +4509,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       <select
                         value={installmentCount}
                         onChange={e => setInstallmentCount(Number(e.target.value))}
-                        className="px-2 py-0.5 bg-white border border-slate-200 rounded text-xs font-semibold"
+                        className="px-2 py-0.5 bg-white border border-slate-200 rounded text-xs font-medium text-slate-800"
                       >
                         <option value={2}>2 Installments</option>
                         <option value={3}>3 Installments</option>
@@ -4565,7 +4533,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             <tr key={idx} className={idx === 0 ? 'bg-indigo-50/40' : ''}>
                               <td className="py-1.5 px-2 font-sans font-medium text-slate-800">
                                 Ins {ins.installment_number}
-                                {idx === 0 && <span className="text-[9px] text-indigo-700 font-bold block">Opening</span>}
+                                {idx === 0 && <span className="text-[10px] text-indigo-700 font-semibold block">Opening</span>}
                               </td>
                               <td className="py-1.5 px-2">
                                 <input
@@ -4648,7 +4616,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       </span>
                       <span className="text-[10px] text-slate-400">Official student copy</span>
                     </div>
-                    <span className="text-xl font-black text-indigo-950 font-mono">
+                    <span className="text-xl font-bold text-indigo-950 font-mono">
                       PKR {firstChallanDue.toLocaleString()}
                     </span>
                   </div>
@@ -4710,31 +4678,31 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        <label className="block text-xs font-medium text-slate-700 mb-1">
                           Payment Method <span className="text-rose-500">*</span>
                         </label>
-                        <select
+                        <ModernSelect
                           value={initialPaymentMethod}
-                          onChange={e => setInitialPaymentMethod(e.target.value as any)}
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold"
-                        >
-                          <option value="cash">Cash Counter</option>
-                          <option value="meezan_bank">Bank Transfer / Meezan IBFT</option>
-                          <option value="easypaisa">EasyPaisa</option>
-                          <option value="jazzcash">JazzCash</option>
-                          <option value="cheque">Bank Cheque</option>
-                        </select>
+                          onChange={val => setInitialPaymentMethod(val as any)}
+                          options={[
+                            { value: 'cash', label: 'Cash Counter' },
+                            { value: 'meezan_bank', label: 'Bank Transfer / Meezan IBFT' },
+                            { value: 'easypaisa', label: 'EasyPaisa' },
+                            { value: 'jazzcash', label: 'JazzCash' },
+                            { value: 'cheque', label: 'Bank Cheque' },
+                          ]}
+                        />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        <label className="block text-xs font-medium text-slate-700 mb-1">
                           Receipt / Reference Note
                         </label>
                         <input
                           type="text"
                           value={initialPaymentReference}
                           onChange={e => setInitialPaymentReference(e.target.value)}
-                          placeholder="Trx # / Cheque # / Slip #"
+                          placeholder=""
                           className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
                         />
                       </div>
@@ -4817,7 +4785,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         <div className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 bg-white/80 backdrop-blur-md animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2 text-slate-900 font-black text-sm">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <UserCheck className="w-4 h-4 text-emerald-600" />
                 <span>Admit Inquiring Student</span>
               </div>
@@ -4835,7 +4803,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   {(() => {
                     const b = batches.find(x => x.id === admitBatchId);
                     const isSec = b ? (b.cohort_type || (/section/i.test(b.name) ? 'section' : 'batch')) === 'section' : false;
@@ -4870,7 +4838,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Elective Track (Optional)</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Elective Track (Optional)</label>
                 <select
                   value={admitElectiveGroupId}
                   onChange={e => setAdmitElectiveGroupId(e.target.value)}
@@ -4885,7 +4853,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
               {admitBatchId && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
                     Enrolled Subjects ({admitCustomSubjectIds.length} Selected)
                   </label>
                   <div className="max-h-36 overflow-y-auto bg-slate-50 p-2 rounded-lg border border-slate-200 space-y-1">
@@ -4926,14 +4894,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
               {/* Guardian CNIC / ID Card */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Guardian CNIC / ID Card
                 </label>
                 <input
                   type="text"
                   value={admitGuardianCnic}
                   onChange={e => setAdmitGuardianCnic(e.target.value)}
-                  placeholder="35201-1234567-1"
+                  placeholder=""
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -4985,7 +4953,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       type="text"
                       value={admitConcessionReason}
                       onChange={e => setAdmitConcessionReason(e.target.value)}
-                      placeholder="Concession reason"
+                      placeholder=""
                       className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs text-slate-900"
                     />
                   </div>
@@ -5036,7 +5004,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         <div className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 bg-white/80 backdrop-blur-md animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2 text-slate-900 font-black text-sm">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <HelpCircle className="w-4 h-4 text-amber-600" />
                 <span>Log Prospective Candidate Inquiry</span>
               </div>
@@ -5050,7 +5018,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
             <form onSubmit={handleCreateInquiry} className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Candidate Full Name <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -5064,7 +5032,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
                     Contact Phone <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -5076,7 +5044,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Email</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Email</label>
                   <input
                     type="email"
                     value={newInquiryForm.email}
@@ -5088,7 +5056,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Guardian Name</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Guardian Name</label>
                   <input
                     type="text"
                     value={newInquiryForm.guardian_name}
@@ -5097,7 +5065,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Guardian Phone</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Guardian Phone</label>
                   <input
                     type="text"
                     value={newInquiryForm.guardian_phone}
@@ -5108,19 +5076,19 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Guardian CNIC / ID Card</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Guardian CNIC / ID Card</label>
                 <input
                   type="text"
                   value={newInquiryForm.guardian_id_card}
                   onChange={e => setNewInquiryForm(prev => ({ ...prev, guardian_id_card: e.target.value }))}
-                  placeholder="35201-1234567-1"
+                  placeholder=""
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Program of Interest</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Program of Interest</label>
                   <select
                     value={newInquiryForm.program_id}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, program_id: e.target.value }))}
@@ -5133,7 +5101,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Lead Source</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Lead Source</label>
                   <select
                     value={newInquiryForm.source}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, source: e.target.value }))}
@@ -5151,7 +5119,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Priority</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Priority</label>
                   <select
                     value={newInquiryForm.priority}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, priority: e.target.value as any }))}
@@ -5163,7 +5131,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Next Follow-Up Date</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Next Follow-Up Date</label>
                   <input
                     type="date"
                     value={newInquiryForm.next_follow_up_date}
@@ -5175,7 +5143,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Previous Institution</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Previous Institution</label>
                   <input
                     type="text"
                     value={newInquiryForm.previous_school}
@@ -5184,7 +5152,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Previous Marks / %</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Previous Marks / %</label>
                   <input
                     type="text"
                     value={newInquiryForm.previous_marks}
@@ -5195,7 +5163,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Discussion Notes</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Discussion Notes</label>
                 <textarea
                   value={newInquiryForm.notes}
                   onChange={e => setNewInquiryForm(prev => ({ ...prev, notes: e.target.value }))}
@@ -5475,7 +5443,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   type="text"
                   value={receiptWhatsappNumber}
                   onChange={e => setReceiptWhatsappNumber(e.target.value)}
-                  placeholder="0300 1234567"
+                  placeholder=""
                   className="flex-1 px-3 py-1.5 bg-white border border-emerald-300 rounded-lg text-xs font-mono font-semibold"
                 />
                 <button
@@ -5577,7 +5545,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         <div className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 bg-white/80 backdrop-blur-md animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2 text-slate-900 font-black text-sm">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
                 <span>Bulk Student CSV Import</span>
               </div>
@@ -5596,7 +5564,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Target Class & Section / Batch</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Target Class & Section / Batch</label>
                 <select
                   value={bulkImportBatchId}
                   onChange={e => setBulkImportBatchId(e.target.value)}
@@ -6039,6 +6007,145 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isBulkOperating ? 'Deleting...' : `Delete (${selectedDirectoryStudentIds.size}) Students`}</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* GLOBAL MODAL: DOCUMENT CHECKLIST (ACCESSIBLE FROM ALL TABS) */}
+      {isAddingDocHead && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-slate-700" />
+                <h3 className="text-sm font-bold text-slate-900">Document Checklist</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddingDocHead(false);
+                  setNewDocHeadTitle('');
+                  setNewDocHeadMandatory(false);
+                }}
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Simple Add Input */}
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newDocHeadTitle}
+                  onChange={e => setNewDocHeadTitle(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && newDocHeadTitle.trim() && !isSavingDocHead) {
+                      e.preventDefault();
+                      handleAddDocHeadFromEnrollment();
+                    }
+                  }}
+                  placeholder="Document name (e.g. B-Form, Father CNIC)"
+                  className="flex-1 text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  disabled={!newDocHeadTitle.trim() || isSavingDocHead}
+                  onClick={handleAddDocHeadFromEnrollment}
+                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg transition-colors disabled:opacity-40 cursor-pointer shadow-xs"
+                >
+                  {isSavingDocHead ? 'Saving...' : 'Add'}
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newDocHeadMandatory}
+                    onChange={e => setNewDocHeadMandatory(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded text-amber-600 border-slate-300 focus:ring-amber-500"
+                  />
+                  <span className="text-xs text-slate-700">Mandatory</span>
+                </label>
+
+                {configuredDocHeads.length === 0 && (
+                  <button
+                    type="button"
+                    disabled={isSavingDocHead}
+                    onClick={handleLoadStandardDocHeads}
+                    className="text-xs text-amber-600 hover:text-amber-700 font-semibold cursor-pointer"
+                  >
+                    + Load default checklist
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Document List */}
+            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span>Documents ({configuredDocHeads.length})</span>
+                {configuredDocHeads.length > 0 && (
+                  <button
+                    type="button"
+                    disabled={isSavingDocHead}
+                    onClick={handleLoadStandardDocHeads}
+                    className="text-[11px] text-amber-600 hover:text-amber-700 cursor-pointer"
+                  >
+                    + Add standard docs
+                  </button>
+                )}
+              </div>
+
+              {configuredDocHeads.length === 0 ? (
+                <p className="text-xs text-slate-400 py-3 text-center">No documents added yet.</p>
+              ) : (
+                <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                  {configuredDocHeads.map((h: DocumentChecklistHead) => (
+                    <div key={h.code} className="p-2.5 flex items-center justify-between text-xs hover:bg-slate-50">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-medium text-slate-800 truncate">{h.title}</span>
+                        {h.is_required ? (
+                          <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200">
+                            Mandatory
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                            Optional
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDocHeadFromEnrollment(h.code)}
+                        className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddingDocHead(false);
+                  setNewDocHeadTitle('');
+                  setNewDocHeadMandatory(false);
+                }}
+                className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+              >
+                Done
               </button>
             </div>
           </div>

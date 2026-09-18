@@ -665,7 +665,7 @@ export const ExamDeskView: React.FC = () => {
                         Long: {exam.long_total_marks}
                       </span>
                     </td>
-                    <td className="py-2 px-3 text-right font-black text-slate-900">{exam.total_marks} Marks</td>
+                    <td className="py-2 px-3 text-right font-bold text-slate-900">{exam.total_marks} Marks</td>
                     <td className="py-2 px-3 text-center">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                         exam.status === 'GRADED' ? 'bg-emerald-100 text-emerald-800' :
@@ -786,7 +786,7 @@ export const ExamDeskView: React.FC = () => {
             {/* Left Column: Chapter Hierarchy Tree */}
             <div className="lg:col-span-1 border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-3">
               <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
-                <h3 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1.5">
+                <h3 className="text-xs font-bold uppercase text-slate-800 flex items-center gap-1.5">
                   <FolderTree className="w-4 h-4 text-amber-600" />
                   Chapter Tree
                 </h3>
@@ -926,7 +926,7 @@ export const ExamDeskView: React.FC = () => {
                                   : 'bg-slate-50 border-slate-200 text-slate-600'
                               }`}
                             >
-                              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
+                              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
                                 q.correct_option === opt.key ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'
                               }`}>
                                 {opt.key}
@@ -965,11 +965,11 @@ export const ExamDeskView: React.FC = () => {
             {/* Exam & Student Selector */}
             <div className="flex items-center gap-3">
               <div>
-                <span className="block text-[10px] text-slate-500 uppercase font-bold">Select Exam:</span>
+                <span className="block text-[10px] text-slate-500 uppercase font-semibold">Select Exam:</span>
                 <select
                   value={evalSelectedExamId}
                   onChange={e => setEvalSelectedExamId(e.target.value)}
-                  className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800"
+                  className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800"
                 >
                   {exams.map(ex => (
                     <option key={ex.id} value={ex.id}>{ex.title} ({ex.total_marks}M)</option>
@@ -978,14 +978,14 @@ export const ExamDeskView: React.FC = () => {
               </div>
 
               <div>
-                <span className="block text-[10px] text-slate-500 uppercase font-bold">
+                <span className="block text-[10px] text-slate-500 uppercase font-semibold">
                   Select Student ({eligibleStudents.length} enrolled in subject):
                 </span>
                 <select
                   value={evalSelectedStudentId}
                   onChange={e => setEvalSelectedStudentId(e.target.value)}
                   disabled={eligibleStudents.length === 0}
-                  className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
+                  className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 disabled:bg-slate-100 disabled:text-slate-400"
                 >
                   {eligibleStudents.length === 0 ? (
                     <option value="">No enrolled students in this subject</option>
@@ -1036,7 +1036,7 @@ export const ExamDeskView: React.FC = () => {
                         <p className="text-[11px] text-blue-700">Objective Questions (Auto-Graded)</p>
                       </div>
                     </div>
-                    <span className="px-2.5 py-1 rounded bg-blue-600 text-white font-black text-xs">
+                    <span className="px-2.5 py-1 rounded bg-blue-600 text-white font-semibold text-xs">
                       MCQ Score: {autoCalculatedMcqScore} / {currentExam.mcq_total_marks || (currentExam.mcq_count * currentExam.mcq_marks_per_q)} Marks
                     </span>
                   </div>
@@ -1060,7 +1060,7 @@ export const ExamDeskView: React.FC = () => {
                                 !chosen ? 'bg-slate-100 text-slate-600' :
                                 isCorrect ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
                               }`}>
-                                {!chosen ? 'Unanswered' : isCorrect ? `Correct (+${mcq.marks}M)` : 'Incorrect (0M)'}
+                                !chosen ? 'Unanswered' : isCorrect ? `Correct (+${mcq.marks}M)` : 'Incorrect (0M)'
                               </span>
                             </div>
 
@@ -1101,7 +1101,7 @@ export const ExamDeskView: React.FC = () => {
                         <p className="text-[11px] text-amber-700">Obtained marks entry & section-specific remarks</p>
                       </div>
                     </div>
-                    <span className="px-2.5 py-1 rounded bg-amber-600 text-white font-black text-xs">
+                    <span className="px-2.5 py-1 rounded bg-amber-600 text-white font-semibold text-xs">
                       Max: {currentExam.short_total_marks} Marks
                     </span>
                   </div>
@@ -1150,7 +1150,7 @@ export const ExamDeskView: React.FC = () => {
                         <p className="text-[11px] text-purple-700">Obtained marks entry & section-specific remarks</p>
                       </div>
                     </div>
-                    <span className="px-2.5 py-1 rounded bg-purple-600 text-white font-black text-xs">
+                    <span className="px-2.5 py-1 rounded bg-purple-600 text-white font-semibold text-xs">
                       Max: {currentExam.long_total_marks} Marks
                     </span>
                   </div>
@@ -1195,7 +1195,7 @@ export const ExamDeskView: React.FC = () => {
                 {/* Result Card */}
                 <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                    <h3 className="font-black text-xs uppercase tracking-wider text-indigo-400">Total Final Marks</h3>
+                    <h3 className="font-semibold text-xs uppercase tracking-wider text-indigo-400">Total Final Marks</h3>
                     <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-mono font-bold">
                       {currentStudent?.roll_number}
                     </span>
@@ -1219,13 +1219,13 @@ export const ExamDeskView: React.FC = () => {
                   <div className="pt-3 border-t border-slate-800 flex items-baseline justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Obtained</span>
-                      <div className="text-3xl font-black text-white">
+                      <div className="text-3xl font-bold text-white">
                         {totalCalculatedObtained} <span className="text-sm font-normal text-slate-400">/ {examTotalMarks}</span>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">Grade</span>
-                      <div className="text-2xl font-black text-emerald-400">
+                      <div className="text-2xl font-bold text-emerald-400">
                         {derivedGrade} <span className="text-xs text-slate-300 font-normal">({calculatedPercentage}%)</span>
                       </div>
                     </div>
@@ -1258,7 +1258,7 @@ export const ExamDeskView: React.FC = () => {
                             <span className="text-[10px] text-slate-500">Roll: {ev.roll_number} • {ev.percentage}%</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-black text-xs">
+                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold text-xs">
                               {ev.grade}
                             </span>
                             <button
@@ -1388,7 +1388,7 @@ export const ExamDeskView: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-[11px] text-slate-600 mb-0.5">MCQ Total:</label>
-                    <div className="px-2 py-1 bg-blue-100 text-blue-900 rounded font-black text-center">
+                    <div className="px-2 py-1 bg-blue-100 text-blue-900 rounded font-bold text-center">
                       {newExamMcqCount * newExamMcqMarksPerQ} M
                     </div>
                   </div>
@@ -1453,7 +1453,7 @@ export const ExamDeskView: React.FC = () => {
 
                 <div className="pt-2 border-t border-slate-200 flex justify-between items-center">
                   <span className="font-bold text-slate-700 text-xs">Total Exam Marks (Auto-Sum):</span>
-                  <span className="px-3 py-1 bg-slate-900 text-white rounded-lg font-black text-sm">
+                  <span className="px-3 py-1 bg-slate-900 text-white rounded-lg font-bold text-sm">
                     {(newExamMcqCount * newExamMcqMarksPerQ) + Number(newExamShortMarks) + Number(newExamLongMarks)} Marks
                   </span>
                 </div>
@@ -1505,7 +1505,7 @@ export const ExamDeskView: React.FC = () => {
             <div className="border border-slate-300 p-4 sm:p-8 rounded-xl bg-white space-y-6 text-xs text-slate-900 font-serif">
               {/* Paper Header */}
               <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
-                <h2 className="text-xl font-black uppercase tracking-wide font-sans">{tenant?.name || 'ACADEMY PORTAL'}</h2>
+                <h2 className="text-xl font-bold uppercase tracking-wide font-sans">{tenant?.name || 'ACADEMY PORTAL'}</h2>
                 <p className="text-xs font-sans text-slate-600">{tenant?.campus_name || 'Main Campus'} • Academic Session {tenant?.academic_session || '2026-2027'}</p>
                 <h3 className="text-base font-bold uppercase underline mt-2">{selectedExamForPaper.title}</h3>
                 <div className="flex justify-between text-xs font-sans pt-2">
@@ -1899,7 +1899,7 @@ export const ExamDeskView: React.FC = () => {
             <div className="border border-slate-300 p-8 rounded-xl bg-white space-y-6 text-xs font-mono">
               {/* Academy Branding Header */}
               <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
-                <h2 className="text-lg font-black uppercase tracking-tight">{tenant?.name || 'ACADEMY PORTAL'}</h2>
+                <h2 className="text-lg font-bold uppercase tracking-tight">{tenant?.name || 'ACADEMY PORTAL'}</h2>
                 <p className="text-[10px] text-slate-500">{tenant?.campus_name || 'Main Campus'} • Official Assessment Report Card</p>
                 <span className="inline-block px-3 py-0.5 rounded bg-indigo-900 text-white text-[10px] font-bold tracking-widest mt-1">
                   ACADEMIC PERFORMANCE STATEMENT

@@ -579,7 +579,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
         <select
           value={activeTab}
           onChange={e => setActiveTab(e.target.value as any)}
-          className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
+          className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
         >
           <option value="roster">📅 Daily Roster</option>
           <option value="monthly">🗓️ Monthly Register</option>
@@ -657,7 +657,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               <select
                 value={selectedBatchId}
                 onChange={e => setSelectedBatchId(e.target.value)}
-                className="flex-1 min-w-0 text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 font-bold text-slate-800 focus:outline-none"
+                className="flex-1 min-w-0 text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 font-medium text-slate-800 focus:outline-none"
               >
                 {filteredBatches.map(b => (
                   <option key={b.id} value={b.id}>{b.name} ({b.shift.toUpperCase()})</option>
@@ -1312,16 +1312,16 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                           let activeColor = '';
                           let label = '';
                           if (status === 'present') {
-                            activeColor = isSelected ? 'bg-emerald-600 text-white font-extrabold shadow-xs' : 'bg-emerald-50/70 text-emerald-800 border border-emerald-200/60';
+                            activeColor = isSelected ? 'bg-emerald-600 text-white font-semibold shadow-xs' : 'bg-emerald-50/70 text-emerald-800 border border-emerald-200/60';
                             label = 'Present';
                           } else if (status === 'late') {
-                            activeColor = isSelected ? 'bg-amber-500 text-white font-extrabold shadow-xs' : 'bg-amber-50/70 text-amber-800 border border-amber-200/60';
+                            activeColor = isSelected ? 'bg-amber-500 text-white font-semibold shadow-xs' : 'bg-amber-50/70 text-amber-800 border border-amber-200/60';
                             label = 'Late';
                           } else if (status === 'absent') {
-                            activeColor = isSelected ? 'bg-rose-600 text-white font-extrabold shadow-xs' : 'bg-rose-50/70 text-rose-800 border border-rose-200/60';
+                            activeColor = isSelected ? 'bg-rose-600 text-white font-semibold shadow-xs' : 'bg-rose-50/70 text-rose-800 border border-rose-200/60';
                             label = 'Absent';
                           } else {
-                            activeColor = isSelected ? 'bg-indigo-600 text-white font-extrabold shadow-xs' : 'bg-indigo-50/70 text-indigo-800 border border-indigo-200/60';
+                            activeColor = isSelected ? 'bg-indigo-600 text-white font-semibold shadow-xs' : 'bg-indigo-50/70 text-indigo-800 border border-indigo-200/60';
                             label = 'Excused';
                           }
 
@@ -1455,14 +1455,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                         }`}
                       >
                         <div>{day.dayNumber}</div>
-                        <div className="text-[8px] text-slate-400">{day.weekday}</div>
+                        <div className="text-[10px] text-slate-400">{day.weekday}</div>
                       </th>
                     ))}
                     <th className="py-2.5 px-2 text-center text-emerald-700 bg-emerald-50/50">P</th>
                     <th className="py-2.5 px-2 text-center text-amber-700 bg-amber-50/50">L</th>
                     <th className="py-2.5 px-2 text-center text-rose-700 bg-rose-50/50">A</th>
                     <th className="py-2.5 px-2 text-center text-indigo-700 bg-indigo-50/50">E</th>
-                    <th className="py-2.5 px-3 text-center bg-slate-100 font-bold">Rate</th>
+                    <th className="py-2.5 px-3 text-center bg-slate-100 font-semibold">Rate</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono text-xs">
@@ -1471,10 +1471,9 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                     let aCount = 0;
                     let lCount = 0;
                     let eCount = 0;
-
                     return (
                       <tr key={student.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-2 px-3 sticky left-0 bg-white z-10 font-bold border-r border-slate-200 text-slate-800">
+                        <td className="py-2 px-3 sticky left-0 bg-white z-10 font-semibold border-r border-slate-200 text-slate-800">
                           {student.roll_number}
                         </td>
                         <td className="py-2 px-3 sticky left-16 bg-white z-10 font-sans font-medium text-slate-900 truncate max-w-[160px] border-r border-slate-200">
@@ -1488,19 +1487,19 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                           if (rec) {
                             if (rec.status === 'present') {
                               code = 'P';
-                              cellStyle = 'text-emerald-700 bg-emerald-50 font-bold';
+                              cellStyle = 'text-emerald-700 bg-emerald-50 font-semibold';
                               pCount++;
                             } else if (rec.status === 'absent') {
                               code = 'A';
-                              cellStyle = 'text-rose-700 bg-rose-50 font-bold';
+                              cellStyle = 'text-rose-700 bg-rose-50 font-semibold';
                               aCount++;
                             } else if (rec.status === 'late') {
                               code = 'L';
-                              cellStyle = 'text-amber-700 bg-amber-50 font-bold';
+                              cellStyle = 'text-amber-700 bg-amber-50 font-semibold';
                               lCount++;
                             } else if (rec.status === 'excused') {
                               code = 'E';
-                              cellStyle = 'text-indigo-700 bg-indigo-50 font-bold';
+                              cellStyle = 'text-indigo-700 bg-indigo-50 font-semibold';
                               eCount++;
                             }
                           }
@@ -1515,11 +1514,11 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                             </td>
                           );
                         })}
-                        <td className="py-2 px-2 text-center text-emerald-700 font-bold bg-emerald-50/20">{pCount}</td>
-                        <td className="py-2 px-2 text-center text-amber-700 font-bold bg-amber-50/20">{lCount}</td>
-                        <td className="py-2 px-2 text-center text-rose-700 font-bold bg-rose-50/20">{aCount}</td>
-                        <td className="py-2 px-2 text-center text-indigo-700 font-bold bg-indigo-50/20">{eCount}</td>
-                        <td className="py-2 px-3 text-center font-bold bg-slate-50">
+                        <td className="py-2 px-2 text-center text-emerald-700 font-semibold bg-emerald-50/20">{pCount}</td>
+                        <td className="py-2 px-2 text-center text-amber-700 font-semibold bg-amber-50/20">{lCount}</td>
+                        <td className="py-2 px-2 text-center text-rose-700 font-semibold bg-rose-50/20">{aCount}</td>
+                        <td className="py-2 px-2 text-center text-indigo-700 font-semibold bg-indigo-50/20">{eCount}</td>
+                        <td className="py-2 px-3 text-center font-semibold bg-slate-50">
                           {pCount + aCount + lCount + eCount > 0 ? (
                             <span className={
                               Math.round(((pCount + lCount + eCount) / (pCount + aCount + lCount + eCount)) * 100) >= 75
@@ -1736,7 +1735,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
             <form onSubmit={handleSubmitLeave} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Select Student</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Select Student</label>
                 <select
                   value={newLeaveForm.student_id}
                   onChange={e => setNewLeaveForm({ ...newLeaveForm, student_id: e.target.value })}
@@ -1752,7 +1751,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Start Date</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Start Date</label>
                   <input
                     type="date"
                     value={newLeaveForm.start_date}
@@ -1762,7 +1761,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">End Date</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">End Date</label>
                   <input
                     type="date"
                     value={newLeaveForm.end_date}
@@ -1774,7 +1773,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Category</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Category</label>
                 <select
                   value={newLeaveForm.category}
                   onChange={e => setNewLeaveForm({ ...newLeaveForm, category: e.target.value as LeaveCategory })}
@@ -1787,7 +1786,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Reason Description</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Reason Description</label>
                 <textarea
                   value={newLeaveForm.reason}
                   onChange={e => setNewLeaveForm({ ...newLeaveForm, reason: e.target.value })}
@@ -1809,7 +1808,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 <button
                   type="submit"
                   disabled={isSubmittingLeave}
-                  className="px-4 py-1.5 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg font-bold disabled:opacity-50 transition-colors shadow-xs"
+                  className="px-4 py-1.5 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg font-semibold disabled:opacity-50 transition-colors shadow-xs"
                 >
                   {isSubmittingLeave ? 'Submitting...' : 'Submit Leave'}
                 </button>
@@ -1837,11 +1836,11 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
             <div className="p-3 bg-slate-50 rounded-xl space-y-2 text-xs border border-slate-200">
               <div className="flex justify-between">
                 <span className="text-slate-500">Duration:</span>
-                <span className="font-mono font-bold text-slate-800">{reviewingLeave.start_date} to {reviewingLeave.end_date}</span>
+                <span className="font-mono font-semibold text-slate-800">{reviewingLeave.start_date} to {reviewingLeave.end_date}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Category:</span>
-                <span className="font-bold capitalize text-slate-800">{reviewingLeave.category}</span>
+                <span className="font-semibold capitalize text-slate-800">{reviewingLeave.category}</span>
               </div>
               <div className="pt-2 border-t border-slate-200">
                 <span className="text-slate-500 block mb-1">Reason:</span>
@@ -1850,7 +1849,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Decision Notes (Optional)</label>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Decision Notes (Optional)</label>
               <textarea
                 value={reviewNotes}
                 onChange={e => setReviewNotes(e.target.value)}

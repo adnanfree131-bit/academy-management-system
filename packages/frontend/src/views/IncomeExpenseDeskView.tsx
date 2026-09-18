@@ -468,7 +468,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
               <select
                 value={typeFilter}
                 onChange={e => setTypeFilter(e.target.value as any)}
-                className="flex-1 sm:flex-initial min-w-[120px] max-w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 font-semibold truncate"
+                className="flex-1 sm:flex-initial min-w-[120px] max-w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 font-medium truncate"
               >
                 <option value="all">All Types</option>
                 <option value="income">Income (+)</option>
@@ -478,7 +478,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
               <select
                 value={selectedHeadFilter}
                 onChange={e => setSelectedHeadFilter(e.target.value)}
-                className="flex-1 sm:flex-initial min-w-[120px] max-w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 font-semibold truncate"
+                className="flex-1 sm:flex-initial min-w-[120px] max-w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 font-medium truncate"
               >
                 <option value="all">All heads</option>
                 {accountHeads.map(h => (
@@ -889,7 +889,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 <select
                   value={voucherHeadId}
                   onChange={e => setVoucherHeadId(e.target.value)}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-semibold"
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-medium"
                   required
                 >
                   <option value="">Select Account Head...</option>

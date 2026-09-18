@@ -273,7 +273,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
             <select
               value={selectedProgramId}
               onChange={e => setSelectedProgramId(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-slate-900"
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-slate-900"
             >
               <option value="all">All Academic Programs</option>
               {programs.map(p => (
@@ -285,7 +285,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
             <select
               value={selectedBatchId}
               onChange={e => setSelectedBatchId(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-slate-900"
+              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-slate-900"
             >
               <option value="all">All Sections / Batches</option>
               {batches.map(b => (

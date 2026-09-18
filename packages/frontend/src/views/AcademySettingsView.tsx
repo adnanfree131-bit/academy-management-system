@@ -603,7 +603,7 @@ export const AcademySettingsView: React.FC = () => {
           {/* Institutional Navigation Tabs - Native Segmented Control */}
           {/* Mobile Tab Selector (Eliminates horizontal scrolling hurdle) */}
           <div className="sm:hidden w-full">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Settings Section</label>
+            <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Settings Section</label>
             <select
               value={activeTab}
               onChange={e => {
@@ -616,7 +616,7 @@ export const AcademySettingsView: React.FC = () => {
                   setSecuritySuccess(null);
                 }
               }}
-              className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
+              className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
             >
               <option value="profile">Campus Profile</option>
               <option value="departments">Academic Departments</option>
@@ -1616,7 +1616,7 @@ export const AcademySettingsView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-extrabold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                  className="flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   <span>{isSaving ? 'Saving Configuration...' : 'Save Academy Settings'}</span>
@@ -1731,7 +1731,7 @@ export const AcademySettingsView: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isChangingPassword || !currentPassword || !newPassword}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-extrabold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
                   >
                     {isChangingPassword ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                     <span>{isChangingPassword ? 'Sending code…' : 'Update password'}</span>

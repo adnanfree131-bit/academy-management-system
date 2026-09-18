@@ -3860,7 +3860,7 @@ export const FeeDeskView: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Amount Received (PKR) *</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Amount Received (PKR) *</label>
                     <input
                       type="number"
                       min="1"
@@ -3872,7 +3872,7 @@ export const FeeDeskView: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
                       Discount / Concession (PKR)
                     </label>
                     <input
@@ -3892,7 +3892,7 @@ export const FeeDeskView: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Payment Date *</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Payment Date *</label>
                     <input
                       type="date"
                       value={paymentDate}
@@ -3902,11 +3902,11 @@ export const FeeDeskView: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Payment Method</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Payment Method</label>
                     <select
                       value={paymentMethod}
                       onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600 text-slate-800 font-semibold"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600 text-slate-800 font-medium"
                     >
                       <option value="cash">Cash (Counter)</option>
                       <option value="bank_transfer">Online Bank Transfer / Meezan IBFT</option>
@@ -3992,7 +3992,7 @@ export const FeeDeskView: React.FC = () => {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                        <label className="block text-xs font-medium text-slate-700 mb-1">
                           Mandatory Reason / Audit Remark *
                         </label>
                         <textarea
@@ -4049,7 +4049,7 @@ export const FeeDeskView: React.FC = () => {
                 )}
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Receipt Note / Reference # (Optional)</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Receipt Note / Reference # (Optional)</label>
                   <input
                     type="text"
                     placeholder="e.g. Parent paid at counter"
@@ -4492,7 +4492,7 @@ export const FeeDeskView: React.FC = () => {
                 {['BANK COPY', 'ACADEMY COPY', 'STUDENT COPY'].map((copyTitle, idx) => (
                   <div key={idx} className="bg-white border border-slate-300 p-3 rounded-lg flex flex-col justify-between text-[11px] space-y-2 shadow-2xs print:shadow-none">
                     <div className="space-y-1.5 border-b border-slate-200 pb-2 text-center">
-                      <h4 className="font-black text-slate-900 tracking-tight text-xs uppercase">{academyInfo.name}</h4>
+                      <h4 className="font-bold text-slate-900 tracking-tight text-xs uppercase">{academyInfo.name}</h4>
                       <p className="text-[9px] text-slate-500 font-mono">{academyInfo.campus} • Official Fee Challan</p>
                       <span className="inline-block px-2 py-0.5 rounded bg-slate-900 text-white font-mono text-[9px] font-bold tracking-wider">
                         {copyTitle}
@@ -4642,7 +4642,7 @@ export const FeeDeskView: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-medium text-slate-700 mb-1">
                 Mandatory Cancellation Reason <span className="text-rose-600">*</span>
               </label>
               <textarea
@@ -4696,7 +4696,7 @@ export const FeeDeskView: React.FC = () => {
 
             <form onSubmit={handleSaveHead} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Head Name</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Head Name</label>
                 <input
                   type="text"
                   required
@@ -4709,7 +4709,7 @@ export const FeeDeskView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Code</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Code</label>
                   <input
                     type="text"
                     required
@@ -4720,7 +4720,7 @@ export const FeeDeskView: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Default Amount (PKR)</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Default Amount (PKR)</label>
                   <input
                     type="number"
                     min="0"
@@ -4734,7 +4734,7 @@ export const FeeDeskView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Allocation Priority</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Allocation Priority</label>
                   <input
                     type="number"
                     min="1"
@@ -4792,7 +4792,7 @@ export const FeeDeskView: React.FC = () => {
 
             <form onSubmit={handleApplyDiscount} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Student</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Student</label>
                 <select
                   value={discountStudentId}
                   onChange={e => {
@@ -4811,7 +4811,7 @@ export const FeeDeskView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Target Invoice</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Target Invoice</label>
                 <select
                   value={discountInvoiceId}
                   onChange={e => setDiscountInvoiceId(e.target.value)}
@@ -4831,7 +4831,7 @@ export const FeeDeskView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Type</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Type</label>
                   <select
                     value={discountType}
                     onChange={e => setDiscountType(e.target.value as any)}
@@ -4842,7 +4842,7 @@ export const FeeDeskView: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Value</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Value</label>
                   <input
                     type="number"
                     min="1"
@@ -4855,7 +4855,7 @@ export const FeeDeskView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Mandatory Audit Remark / Justification *
                 </label>
                 <textarea
@@ -4911,7 +4911,7 @@ export const FeeDeskView: React.FC = () => {
             </p>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Mandatory Reason for Void *</label>
+              <label className="block text-xs font-medium text-slate-700 mb-1">Mandatory Reason for Void *</label>
               <textarea
                 rows={2}
                 placeholder="e.g. Counter entry error, cheque returned, or duplicate voucher"
@@ -5034,7 +5034,7 @@ export const FeeDeskView: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Adjustment Method</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Adjustment Method</label>
                     <select
                       value={bulkRevType}
                       onChange={e => setBulkRevType(e.target.value as 'percentage' | 'fixed')}
@@ -5045,7 +5045,7 @@ export const FeeDeskView: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
                       {bulkRevType === 'percentage' ? 'Percentage Rate (%)' : 'Amount Added (PKR)'}
                     </label>
                     <input
@@ -5060,7 +5060,7 @@ export const FeeDeskView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Rounding Rule</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Rounding Rule</label>
                   <select
                     value={bulkRevRounding}
                     onChange={e => setBulkRevRounding(e.target.value as any)}
@@ -5073,7 +5073,7 @@ export const FeeDeskView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Mandatory Audit Rationale</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Mandatory Audit Rationale</label>
                   <input
                     type="text"
                     value={bulkRevReason}
@@ -5283,7 +5283,7 @@ export const FeeDeskView: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Payment Method</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Payment Method</label>
                     <select
                       value={familyPaymentMethod}
                       onChange={e => setFamilyPaymentMethod(e.target.value as PaymentMethod)}
@@ -5298,7 +5298,7 @@ export const FeeDeskView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Reference # / Trx ID</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Reference # / Trx ID</label>
                     <input
                       type="text"
                       placeholder="e.g. 982341 or Chq #4091"
@@ -5309,7 +5309,7 @@ export const FeeDeskView: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Bank Name (Optional)</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Bank Name (Optional)</label>
                     <input
                       type="text"
                       placeholder="e.g. Meezan Bank"
@@ -5762,7 +5762,7 @@ export const FeeDeskView: React.FC = () => {
             <div className="space-y-3.5 text-xs">
               {/* Category Filter */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Concession Register Category
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -5804,7 +5804,7 @@ export const FeeDeskView: React.FC = () => {
 
               {/* Period Filter */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Period Duration
                 </label>
                 <div className="grid grid-cols-3 gap-2 mb-2">
@@ -5895,7 +5895,7 @@ export const FeeDeskView: React.FC = () => {
 
               {/* Class Scope Filter */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <label className="block text-xs font-medium text-slate-700 mb-1">
                   Academic Class Filter
                 </label>
                 <select

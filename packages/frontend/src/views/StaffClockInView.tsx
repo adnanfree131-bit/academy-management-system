@@ -3196,15 +3196,15 @@ export const StaffClockInView: React.FC = () => {
                         type="date"
                         value={reportDailyDate}
                         onChange={e => setReportDailyDate(e.target.value)}
-                        className="w-full text-xs font-bold bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Department</label>
+                      <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Department</label>
                       <select
                         value={reportDailyDept}
                         onChange={e => setReportDailyDept(e.target.value)}
-                        className="w-full text-xs font-semibold bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
                       >
                         {departmentOptions.map(d => (
                           <option key={d.id} value={d.id}>{d.label}</option>
@@ -3275,15 +3275,15 @@ export const StaffClockInView: React.FC = () => {
                         type="month"
                         value={reportMonthlyMonth}
                         onChange={e => setReportMonthlyMonth(e.target.value)}
-                        className="w-full text-xs font-bold bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Department</label>
+                      <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Department</label>
                       <select
                         value={reportMonthlyDept}
                         onChange={e => setReportMonthlyDept(e.target.value)}
-                        className="w-full text-xs font-semibold bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
                       >
                         {departmentOptions.map(d => (
                           <option key={d.id} value={d.id}>{d.label}</option>
@@ -3349,12 +3349,12 @@ export const StaffClockInView: React.FC = () => {
                 <div className="space-y-3 pt-2 border-t border-slate-200/80">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Month</label>
+                      <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Month</label>
                       <input
                         type="month"
                         value={reportDeptMonth}
                         onChange={e => setReportDeptMonth(e.target.value)}
-                        className="w-full text-xs font-bold bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
                       />
                     </div>
                     <div>
@@ -3422,23 +3422,23 @@ export const StaffClockInView: React.FC = () => {
                 <div className="space-y-3 pt-2 border-t border-slate-200/80">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Month</label>
+                      <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Month</label>
                       <input
                         type="month"
                         value={reportMonthlyMonth}
                         onChange={e => setReportMonthlyMonth(e.target.value)}
-                        className="w-full text-xs font-bold bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Threshold (%)</label>
+                      <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Threshold (%)</label>
                       <input
                         type="number"
                         min={50}
                         max={95}
                         value={reportDefaultersThreshold}
                         onChange={e => setReportDefaultersThreshold(parseInt(e.target.value, 10) || 75)}
-                        className="w-full text-xs font-bold bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer font-mono"
+                        className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer font-mono"
                       />
                     </div>
                   </div>
@@ -3500,11 +3500,11 @@ export const StaffClockInView: React.FC = () => {
                 <div className="space-y-3 pt-2 border-t border-slate-200/80">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Staff Member</label>
+                      <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Staff Member</label>
                       <select
                         value={reportStaffMemberId || selectedStaffId}
                         onChange={e => setReportStaffMemberId(e.target.value)}
-                        className="w-full text-xs font-semibold bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
                       >
                         {dailyRoster.map(r => (
                           <option key={r.staff_id} value={r.staff_id}>
@@ -3514,12 +3514,12 @@ export const StaffClockInView: React.FC = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Month</label>
+                      <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Month</label>
                       <input
                         type="month"
                         value={reportStaffMonth}
                         onChange={e => setReportStaffMonth(e.target.value)}
-                        className="w-full text-xs font-bold bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
                       />
                     </div>
                   </div>
@@ -3573,12 +3573,12 @@ export const StaffClockInView: React.FC = () => {
                 <div className="space-y-3 pt-2 border-t border-slate-200/80">
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Month</label>
+                      <label className="block text-[10px] font-semibold text-slate-500 uppercase mb-1">Month</label>
                       <input
                         type="month"
                         value={selectedMonth}
                         onChange={e => setSelectedMonth(e.target.value)}
-                        className="w-full text-xs font-bold bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-medium bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 outline-none text-slate-800 cursor-pointer"
                       />
                     </div>
                     <div>
@@ -3638,11 +3638,11 @@ export const StaffClockInView: React.FC = () => {
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <label className="text-xs font-bold text-slate-700">Staff Member:</label>
+                  <label className="text-xs font-medium text-slate-700">Staff Member:</label>
                   <select
                     value={selectedStaffId}
                     onChange={e => setSelectedStaffId(e.target.value)}
-                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none cursor-pointer min-w-[220px]"
+                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none cursor-pointer min-w-[220px]"
                   >
                     {dailyRoster.map(r => (
                       <option key={r.staff_id} value={r.staff_id}>
@@ -4689,13 +4689,13 @@ export const StaffClockInView: React.FC = () => {
             <form onSubmit={handleSaveHeadModal} className="space-y-4">
               {/* 1. ACADEMY SCENARIO SELECTOR */}
               <div>
-                <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                <label className="text-xs font-medium text-slate-700 block mb-1.5">
                   Academy Operational Situation
                 </label>
                 <select
                   value={headModalForm.scenario}
                   onChange={e => handleScenarioChange(e.target.value as RuleScenario)}
-                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none cursor-pointer"
+                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none cursor-pointer"
                 >
                   <optgroup label="Departure & Shift Completion Rules">
                     <option value="early_exit">Early Departure (Staff came on time, but left before shift ended)</option>
@@ -4894,13 +4894,13 @@ export const StaffClockInView: React.FC = () => {
                   /* STATUS ASSIGNMENT & PAYROLL CREDIT FOR PUNCH RULES */
                   <div className="space-y-3 pt-2 border-t border-slate-200/80">
                     <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-1.5">
+                      <label className="text-xs font-medium text-slate-700 block mb-1.5">
                         Attendance Status to Assign
                       </label>
                       <select
                         value={headModalForm.category}
                         onChange={e => setHeadModalForm(prev => ({ ...prev, category: e.target.value as AttendanceHeadCategory }))}
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none cursor-pointer"
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none cursor-pointer"
                       >
                         {headModalForm.scenario === 'early_exit' && (
                           <>

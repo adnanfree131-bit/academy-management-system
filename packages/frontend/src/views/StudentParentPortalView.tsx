@@ -466,7 +466,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                   {profile?.full_name || 'Student Profile'}
                 </h1>
                 <span className="px-2.5 py-0.5 bg-slate-100 text-slate-800 border border-slate-200 text-xs font-mono font-bold rounded-md">
@@ -588,13 +588,13 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             }`}>
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-700">Tuition Fees</span>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
                   unpaidBalance === 0 ? 'bg-emerald-200 text-emerald-900' : 'bg-rose-200 text-rose-900'
                 }`}>
                   {unpaidBalance === 0 ? 'All Paid' : 'Due'}
                 </span>
               </div>
-              <div className={`text-2xl font-black font-mono ${unpaidBalance === 0 ? 'text-emerald-800' : 'text-rose-700'}`}>
+              <div className={`text-2xl font-bold font-mono ${unpaidBalance === 0 ? 'text-emerald-800' : 'text-rose-700'}`}>
                 {unpaidBalance === 0 ? 'PKR 0' : `PKR ${unpaidBalance.toLocaleString()}`}
               </div>
               <p className="text-xs text-slate-600">
@@ -620,7 +620,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   This Month
                 </span>
               </div>
-              <div className="text-2xl font-black font-mono text-slate-900">
+              <div className="text-2xl font-bold font-mono text-slate-900">
                 {attendanceStats.pct}%
               </div>
               <p className="text-xs text-slate-600">
@@ -644,7 +644,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   {new Date().toLocaleDateString('en-GB', { weekday: 'short' })}
                 </span>
               </div>
-              <div className="text-2xl font-black font-mono text-slate-900">
+              <div className="text-2xl font-bold font-mono text-slate-900">
                 {todaySchedule.length} Lectures
               </div>
               <p className="text-xs text-slate-600">
@@ -670,7 +670,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   Latest Exam
                 </span>
               </div>
-              <div className="text-2xl font-black font-mono text-slate-900">
+              <div className="text-2xl font-bold font-mono text-slate-900">
                 {reportCards.length > 0 
                   ? `${(reportCards[0].evaluation.percentage != null ? Number(reportCards[0].evaluation.percentage).toFixed(0) : '0')}%`
                   : 'Active'}
@@ -799,7 +799,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 {/* Step 1 */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500 text-slate-900 flex items-center justify-center text-[11px] font-black">1</span>
+                    <span className="w-5 h-5 rounded-full bg-emerald-500 text-slate-900 flex items-center justify-center text-[11px] font-bold">1</span>
                     <span>Transfer fee to our official academy account:</span>
                   </div>
 
@@ -870,7 +870,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 {/* Step 2 */}
                 <div className="space-y-2 pt-2 border-t border-slate-800">
                   <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500 text-slate-900 flex items-center justify-center text-[11px] font-black">2</span>
+                    <span className="w-5 h-5 rounded-full bg-emerald-500 text-slate-900 flex items-center justify-center text-[11px] font-bold">2</span>
                     <span>Send screenshot on WhatsApp for instant confirmation:</span>
                   </div>
                   <a
@@ -1117,7 +1117,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-center">
                 <span className="text-xs text-slate-500 font-bold uppercase block">Attendance Rate</span>
-                <span className={`text-2xl font-black font-mono block ${attendanceStats.pct >= 75 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                <span className={`text-2xl font-bold font-mono block ${attendanceStats.pct >= 75 ? 'text-emerald-700' : 'text-rose-600'}`}>
                   {attendanceStats.pct}%
                 </span>
                 <span className="text-[11px] text-slate-400">Regular</span>
@@ -1125,19 +1125,19 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
 
               <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-center">
                 <span className="text-xs text-emerald-800 font-bold uppercase block">Days Present</span>
-                <span className="text-2xl font-black font-mono text-emerald-900 block">{attendanceStats.presentCount}</span>
+                <span className="text-2xl font-bold font-mono text-emerald-900 block">{attendanceStats.presentCount}</span>
                 <span className="text-[11px] text-emerald-600">Classes Attended</span>
               </div>
 
               <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl text-center">
                 <span className="text-xs text-amber-800 font-bold uppercase block">Days Late</span>
-                <span className="text-2xl font-black font-mono text-amber-900 block">{attendanceStats.lateCount}</span>
+                <span className="text-2xl font-bold font-mono text-amber-900 block">{attendanceStats.lateCount}</span>
                 <span className="text-[11px] text-amber-600">Arrived Late</span>
               </div>
 
               <div className="p-3.5 bg-rose-50/70 border border-rose-200 rounded-xl text-center">
                 <span className="text-xs text-rose-800 font-bold uppercase block">Days Absent</span>
-                <span className="text-2xl font-black font-mono text-rose-900 block">{attendanceStats.absentCount}</span>
+                <span className="text-2xl font-bold font-mono text-rose-900 block">{attendanceStats.absentCount}</span>
                 <span className="text-[11px] text-rose-600">Missed Classes</span>
               </div>
             </div>
@@ -1258,7 +1258,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               <span className={`text-xs font-bold uppercase tracking-wider block ${unpaidBalance === 0 ? 'text-emerald-800' : 'text-rose-800'}`}>
                 {unpaidBalance === 0 ? 'Fee Status: Fully Cleared' : 'Fee Status: Payment Due'}
               </span>
-              <div className={`text-3xl font-black font-mono mt-1 ${unpaidBalance === 0 ? 'text-emerald-900' : 'text-rose-700'}`}>
+              <div className={`text-3xl font-bold font-mono mt-1 ${unpaidBalance === 0 ? 'text-emerald-900' : 'text-rose-700'}`}>
                 PKR {unpaidBalance.toLocaleString()}
               </div>
               <p className="text-xs text-slate-600 mt-1">
@@ -1676,14 +1676,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                         <span className="px-2 py-0.5 bg-slate-200 text-slate-800 font-mono text-[10px] font-bold uppercase rounded">
                           Exam Assessment
                         </span>
-                        <h4 className="text-base font-black text-slate-900 mt-1">{rc.exam.title}</h4>
+                        <h4 className="text-base font-bold text-slate-900 mt-1">{rc.exam.title}</h4>
                         <p className="text-xs text-slate-500">
                           Date: {rc.exam.exam_date} • Class Position: <strong className="text-slate-900 font-bold">Rank #{rc.rank || 1}</strong> of {rc.total_students || 1} students
                         </p>
                       </div>
 
                       <div className="sm:text-right">
-                        <span className="text-2xl font-black font-mono text-slate-900">
+                        <span className="text-2xl font-bold font-mono text-slate-900">
                           {rc.evaluation.total_obtained} / {rc.exam.total_marks} Marks
                         </span>
                         <span className="text-xs font-bold text-slate-600 block">
@@ -1726,7 +1726,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-slate-700" />
                 <span>Send Absence / Sick Leave Notice</span>
               </h3>
@@ -1738,13 +1738,13 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             <form onSubmit={handleSubmitLeave} className="space-y-3 text-xs">
               <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
                 <span className="text-slate-500">Student: </span>
-                <strong className="text-slate-900">{profile?.full_name}</strong>
+                <strong className="text-slate-900 font-semibold">{profile?.full_name}</strong>
                 <span className="text-slate-500 ml-2">({profile?.batch_name})</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">From Date</label>
+                  <label className="block font-medium text-slate-700 mb-1">From Date</label>
                   <input
                     type="date"
                     required
@@ -1754,7 +1754,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">To Date</label>
+                  <label className="block font-medium text-slate-700 mb-1">To Date</label>
                   <input
                     type="date"
                     required
@@ -1766,7 +1766,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Reason Category</label>
+                <label className="block font-medium text-slate-700 mb-1">Reason Category</label>
                 <select
                   value={leaveCategory}
                   onChange={e => setLeaveCategory(e.target.value as any)}
@@ -1779,7 +1779,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Message for Teacher / Administration</label>
+                <label className="block font-medium text-slate-700 mb-1">Message for Teacher / Administration</label>
                 <textarea
                   required
                   rows={3}
@@ -1801,14 +1801,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowLeaveModal(false)}
-                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer"
+                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingLeave}
-                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{isSubmittingLeave ? 'Sending...' : 'Send Notice'}</span>
@@ -1862,7 +1862,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                         <span className="px-2 py-0.5 bg-slate-900 text-white text-[9px] font-mono font-bold uppercase tracking-widest rounded-sm">
                           {copyTitle}
                         </span>
-                        <h4 className="font-black text-slate-900 text-xs uppercase tracking-tight mt-1.5">
+                        <h4 className="font-bold text-slate-900 text-xs uppercase tracking-tight mt-1.5">
                           {tenant?.name || 'Academy Management System'}
                         </h4>
                         <p className="text-[10px] text-slate-500 font-medium">{tenant?.campus_name || 'Main Campus'}</p>
@@ -2013,7 +2013,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               <div className="font-sans text-slate-900 bg-white p-8 max-w-3xl mx-auto border border-slate-300 shadow-xs">
                 {/* Institutional Letterhead */}
                 <div className="border-b-2 border-slate-900 pb-4 mb-5 text-center">
-                  <h1 className="text-2xl font-black uppercase tracking-wider text-slate-900">
+                  <h1 className="text-2xl font-bold uppercase tracking-wider text-slate-900">
                     {tenant?.name || 'ACADEMY MANAGEMENT SYSTEM'}
                   </h1>
                   <p className="text-xs text-slate-600 font-medium uppercase tracking-widest mt-0.5">
@@ -2055,7 +2055,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                       <td className="p-2.5 border-r border-slate-300 font-bold">{printingReportCard.exam.title}</td>
                       <td className="p-2.5 border-r border-slate-300 font-mono">{printingReportCard.exam.exam_date}</td>
                       <td className="p-2.5 border-r border-slate-300 text-right font-mono">{printingReportCard.exam.total_marks}</td>
-                      <td className="p-2.5 border-r border-slate-300 text-right font-mono font-black">{printingReportCard.evaluation.total_obtained}</td>
+                      <td className="p-2.5 border-r border-slate-300 text-right font-mono font-bold">{printingReportCard.evaluation.total_obtained}</td>
                       <td className="p-2.5 border-r border-slate-300 text-right font-mono font-bold">{(printingReportCard.evaluation?.percentage != null ? Number(printingReportCard.evaluation.percentage) : 0).toFixed(1)}%</td>
                       <td className="p-2.5 text-center font-bold">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${(printingReportCard.evaluation?.percentage ?? 0) >= 40 ? 'bg-slate-100 text-slate-900' : 'bg-slate-200 text-slate-900'}`}>
@@ -2085,7 +2085,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   </div>
                   <div className="border border-slate-300 p-3 rounded text-center">
                     <span className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Class Merit Rank</span>
-                    <span className="text-xl font-black font-mono text-slate-900 block">
+                    <span className="text-xl font-bold font-mono text-slate-900 block">
                       #{printingReportCard.rank || 1} <span className="text-xs text-slate-500 font-normal">of {printingReportCard.total_students || 1}</span>
                     </span>
                     <span className="text-[10px] text-slate-500 font-medium">Attendance: {profile?.monthly_attendance_pct != null ? profile.monthly_attendance_pct : 100}%</span>
@@ -2114,7 +2114,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               <button
                 type="button"
                 onClick={() => setPrintingReportCard(null)}
-                className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs rounded-xl cursor-pointer"
               >
                 Close
               </button>
@@ -2128,14 +2128,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           ===================================================================== */}
       {showChangePasswordModal && (
         <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 m-0">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-300 border-t-4 border-t-amber-500 overflow-hidden flex flex-col">
             <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
                   <Key className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold">Portal Account Password</h3>
+                  <h3 className="text-sm font-semibold">Portal Account Password</h3>
                   <p className="text-[11px] text-slate-300">Update your account login password</p>
                 </div>
               </div>
@@ -2165,7 +2165,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
 
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
                 <span className="text-[11px] text-slate-500 font-medium block">Login Username</span>
-                <span className="font-mono font-bold text-slate-900 text-sm block">
+                <span className="font-mono font-semibold text-slate-900 text-sm block">
                   {profile?.guardian_id_card || profile?.roll_number || 'Registered Identifier'}
                 </span>
                 <p className="text-[10px] text-slate-400">
@@ -2175,7 +2175,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
 
               <form onSubmit={handleChangePassword} className="space-y-3.5 text-xs">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Current Password</label>
+                  <label className="block text-slate-700 font-medium mb-1">Current Password</label>
                   <div className="relative">
                     <input
                       type={showCurrentPass ? 'text' : 'password'}
@@ -2196,7 +2196,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">New Password</label>
+                  <label className="block text-slate-700 font-medium mb-1">New Password</label>
                   <div className="relative">
                     <input
                       type={showNewPass ? 'text' : 'password'}
@@ -2218,7 +2218,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Confirm New Password</label>
+                  <label className="block text-slate-700 font-medium mb-1">Confirm New Password</label>
                   <input
                     type={showNewPass ? 'text' : 'password'}
                     required
@@ -2234,14 +2234,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowChangePasswordModal(false)}
-                    className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-semibold text-xs transition-colors cursor-pointer"
+                    className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium text-xs transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isChangingPassword || !currentPasswordInput || !newPasswordInput}
-                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <Lock className="w-3.5 h-3.5" />
                     <span>{isChangingPassword ? 'Updating...' : 'Update Password'}</span>
