@@ -11,6 +11,8 @@ import {
   Printer,
   Download,
   FileText,
+  Users,
+  Receipt,
   X
 } from 'lucide-react';
 import {
@@ -248,27 +250,86 @@ export const PayrollDeskView: React.FC = () => {
         </div>
       </PageHeading>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-          <p className="text-[11px] font-mono text-slate-500 uppercase tracking-wider font-semibold">Total Month Payroll</p>
-          <p className="text-xl font-bold text-slate-900 mt-1">{totalPayrollBilled.toLocaleString()} <span className="text-xs text-slate-400 font-normal">PKR</span></p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{payslips.length} Slips Generated</p>
+      {/* KPI Cards (Finalized Enterprise Design) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+        {/* Card 1: Total Month Payroll */}
+        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Total Month Payroll
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                PKR {totalPayrollBilled.toLocaleString()}
+              </span>
+              <span className="text-xs font-medium text-slate-500 leading-none">
+                {payslips.length} Slips
+              </span>
+            </div>
+          </div>
+          <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
+            <Receipt className="w-3.5 h-3.5 text-indigo-700" />
+          </span>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-          <p className="text-[11px] font-mono text-emerald-600 uppercase tracking-wider font-semibold">Disbursed / Paid</p>
-          <p className="text-xl font-bold text-emerald-600 mt-1">{totalPayrollPaid.toLocaleString()} <span className="text-xs text-slate-400 font-normal">PKR</span></p>
-          <p className="text-[11px] text-slate-400 mt-0.5">{payslips.filter(p => p.status === 'paid').length} Staff Members Cleared</p>
+
+        {/* Card 2: Disbursed / Paid */}
+        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Disbursed / Paid
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
+                PKR {totalPayrollPaid.toLocaleString()}
+              </span>
+              <span className="text-xs font-medium text-slate-500 leading-none">
+                {payslips.filter(p => p.status === 'paid').length} Cleared
+              </span>
+            </div>
+          </div>
+          <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+          </span>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-          <p className="text-[11px] font-mono text-amber-600 uppercase tracking-wider font-semibold">Pending Disbursement</p>
-          <p className="text-xl font-bold text-amber-600 mt-1">{(totalPayrollBilled - totalPayrollPaid).toLocaleString()} <span className="text-xs text-slate-400 font-normal">PKR</span></p>
-          <p className="text-[11px] text-amber-600/80 mt-0.5">{payslips.filter(p => p.status === 'processed').length} Processed Awaiting Payout</p>
+
+        {/* Card 3: Pending Disbursement */}
+        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Pending Disbursement
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="font-mono font-bold text-amber-700 text-sm leading-none">
+                PKR {(totalPayrollBilled - totalPayrollPaid).toLocaleString()}
+              </span>
+              <span className="text-xs font-medium text-slate-500 leading-none">
+                {payslips.filter(p => p.status === 'processed').length} Pending
+              </span>
+            </div>
+          </div>
+          <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
+            <Clock className="w-3.5 h-3.5 text-amber-700" />
+          </span>
         </div>
-        <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-          <p className="text-[11px] font-mono text-indigo-600 uppercase tracking-wider font-semibold">Active Staff Contracts</p>
-          <p className="text-xl font-bold text-indigo-600 mt-1">{profiles.length}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5">Profiles on Record</p>
+
+        {/* Card 4: Active Staff Contracts */}
+        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-slate-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Active Staff Contracts
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                {profiles.length}
+              </span>
+              <span className="text-xs font-medium text-slate-500 leading-none">
+                Profiles
+              </span>
+            </div>
+          </div>
+          <span className="w-7 h-7 rounded-lg bg-slate-50 text-slate-700 flex items-center justify-center border border-slate-200/70 shrink-0 shadow-2xs">
+            <Users className="w-3.5 h-3.5 text-slate-700" />
+          </span>
         </div>
       </div>
 
@@ -525,7 +586,7 @@ export const PayrollDeskView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={!selectedStaffId || !currentProfile}
-                  className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xs rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xs rounded-lg shadow-xs transition-colors flex items-center justify-center gap-2"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   Save payslip
@@ -811,7 +872,7 @@ export const PayrollDeskView: React.FC = () => {
                     });
                     await downloadPdfBytes(bytes, `payslip-${slip.slip_number}.pdf`);
                   }}
-                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
+                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5 transition-colors"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Download official payslip

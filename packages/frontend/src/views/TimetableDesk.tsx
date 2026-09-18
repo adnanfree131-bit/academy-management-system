@@ -299,7 +299,7 @@ export const TimetableDesk: React.FC = () => {
       >
         <button
           onClick={() => setShowScheduleModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 font-semibold text-xs shadow-xs transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Schedule Class</span>
@@ -489,7 +489,7 @@ export const TimetableDesk: React.FC = () => {
       <button
         type="button"
         onClick={() => setShowScheduleModal(true)}
-        className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 bg-slate-900 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-transform"
+        className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-all cursor-pointer"
         title="Schedule Class"
       >
         <Plus className="w-6 h-6" />
@@ -672,7 +672,7 @@ export const TimetableDesk: React.FC = () => {
                   className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition-all ${
                     collisionState?.has_conflict
                       ? 'bg-slate-300 cursor-not-allowed'
-                      : 'bg-indigo-600 hover:bg-indigo-700 shadow-xs'
+                      : 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800 shadow-xs cursor-pointer'
                   }`}
                 >
                   {isSubmittingSlot ? 'Saving Period...' : 'Confirm Schedule'}

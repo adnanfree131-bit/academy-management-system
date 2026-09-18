@@ -56,6 +56,13 @@ export interface TenantSettings {
     due_day?: number;
     grace_days?: number;
     priority_order?: string[];
+    kinship_rules?: {
+      enabled: boolean;
+      discount_percentage: number;
+      applicable_to?: string;
+      description?: string;
+      require_active_sibling?: boolean;
+    };
   };
   shifts?: {
     morning?: { start?: string; end?: string };
@@ -74,7 +81,17 @@ export interface TenantSettings {
   };
   grading_scale?: GradingTier[];
   departments?: string[];
+  document_checklist_heads?: DocumentChecklistHead[];
 }
+
+export interface DocumentChecklistHead {
+  id: string;
+  code: string;
+  title: string;
+  is_required?: boolean;
+}
+
+export const DEFAULT_DOCUMENT_CHECKLIST_HEADS: DocumentChecklistHead[] = [];
 
 export interface AcademicSession {
   id: string;
@@ -87,8 +104,12 @@ export interface AcademicSession {
 export function defaultAcademicSessions(activeName?: string): AcademicSession[] {
   const now = new Date().getFullYear();
   const sessions: AcademicSession[] = [];
-  for (let i = 0; i < 5; i++) {
-    const y = now - 2 + i;
+  const wanted = (activeName || '').trim();
+  const m = wanted.match(/^(\d{4})/);
+  const startY = m ? Math.max(now, parseInt(m[1], 10)) : now;
+
+  for (let i = 0; i < 3; i++) {
+    const y = startY + i;
     const name = `${y}-${y + 1}`;
     sessions.push({
       id: `session-${y}`,
@@ -98,8 +119,7 @@ export function defaultAcademicSessions(activeName?: string): AcademicSession[] 
       is_active: false,
     });
   }
-  const wanted = (activeName || '').trim();
-  const match = sessions.find(s => s.name === wanted) || sessions.find(s => s.start_year === now) || sessions[2];
+  const match = sessions.find(s => s.name === wanted) || sessions[0];
   if (match) match.is_active = true;
   return sessions;
 }
@@ -278,6 +298,7 @@ export interface AuthSessionResponse {
     campus_name: string;
     logo_url?: string | null;
     city?: string | null;
+    settings?: TenantSettings | null;
   };
 }
 
@@ -417,15 +438,23 @@ export interface SubjectGroup {
 }
 
 export type BatchShift = 'morning' | 'afternoon' | 'evening' | 'weekend';
+export type BatchBillingMode = 'monthly' | 'one_time' | 'installment' | 'quarterly';
+export type CohortType = 'section' | 'batch';
 
 export interface Batch {
   id: string;
   tenant_id: string;
-  program_id: string;
-  name: string;              // e.g. "MDCAT Morning - Batch A"
+  program_id?: string | null;
+  name: string;              // e.g. "Morning Batch 1", "Section A"
+  cohort_type?: 'section' | 'batch';
   shift: BatchShift | string;
   start_time?: string | null; // e.g. "08:00 AM" or "08:00"
   end_time?: string | null;   // e.g. "01:30 PM" or "13:30"
+  start_date?: string | null; // e.g. "2026-09-01"
+  end_date?: string | null;   // e.g. "2027-05-31" - Batch lifespan
+  billing_mode?: BatchBillingMode; // 'monthly' | 'one_time' | 'installment' | 'quarterly'
+  fee_amount?: number | null;        // Default tuition or package fee amount in PKR
+  room_number?: string | null; // e.g. "Room 3B", "Physics Lab"
   academic_session: string;  // e.g. "2026-2027"
   max_capacity: number;      // e.g. 50
   current_enrollment: number;
@@ -484,7 +513,7 @@ export interface StudentInquiry {
   updated_at: string;
 }
 
-export type StudentStatus = 'active' | 'on_leave' | 'suspended' | 'alumni' | 'withdrawn' | 'waitlisted';
+export type StudentStatus = 'active' | 'on_leave' | 'suspended' | 'alumni' | 'withdrawn' | 'waitlisted' | 'archived';
 
 export interface Student {
   id: string;
@@ -495,6 +524,10 @@ export interface Student {
   full_name: string;
   email?: string | null;
   phone?: string | null;
+  student_whatsapp?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  emergency_contact_relation?: string | null;
   guardian_name: string;
   guardian_phone: string;
   guardian_email?: string | null;
@@ -502,18 +535,48 @@ export interface Student {
   guardian_whatsapp?: string | null;
   guardian_relation?: string | null;
   photo_url?: string | null;
-  program_id: string;
-  batch_id: string;
+  program_id?: string | null;
+  batch_id?: string | null;
   elective_group_id?: string | null;
   status: StudentStatus;
+  date_of_birth?: string | null;
+  gender?: 'male' | 'female' | 'other' | string | null;
+  student_b_form?: string | null;
+  residential_address?: string | null;
+  city?: string | null;
+  father_name?: string | null;
+  father_cnic?: string | null;
+  father_phone?: string | null;
+  father_occupation?: string | null;
+  mother_name?: string | null;
+  mother_cnic?: string | null;
+  mother_phone?: string | null;
+  mother_occupation?: string | null;
+  primary_contact?: 'father' | 'mother' | 'guardian' | string;
+  sibling_student_id?: string | null;
   custom_field_values: Record<string, unknown>;
   subjects: string[];        // Array of enrolled Subject UUIDs
   blood_group?: string | null;
+  religion?: string | null;
+  previous_school?: string | null;
+  submitted_documents?: Record<string, 'submitted' | 'pending' | 'exempted'>;
   fee_structure?: any;
   first_invoice_id?: string | null;
   unpaid_balance?: number;
   fee_clearance_status?: 'cleared' | 'partial' | 'defaulter';
   admission_date: string;
+  billing_mode?: BatchBillingMode;
+  installment_plan?: {
+    total_fee: number;
+    total_installments: number;
+    installments: Array<{
+      installment_number: number;
+      due_date: string;
+      amount: number;
+      invoice_id?: string | null;
+      status: 'pending' | 'billed' | 'paid';
+    }>;
+  } | null;
   status_reason?: string | null;
   status_change_history?: Array<{
     previous_status: StudentStatus;
@@ -968,6 +1031,9 @@ export interface StudentInvoice {
   notes?: string | null;
   fine_amount?: number;
   arrears_amount?: number;
+  installment_number?: number | null;
+  total_installments?: number | null;
+  billing_mode?: BatchBillingMode;
   rolled_into_invoice_id?: string | null;
   rolled_invoice_ids?: string[];
   cancel_reason?: string | null;

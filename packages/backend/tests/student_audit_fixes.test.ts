@@ -609,4 +609,108 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
     expect(newLoginRes.statusCode).toBe(200);
     expect(newLoginRes.json().success).toBe(true);
   });
+
+  it('14. Student admission persists complete demographics, dual parents, and sibling linkage', async () => {
+    const batches = await store.getBatches(tenantId);
+    const targetBatch = batches[0];
+
+    // First, admit an elder sibling
+    const elderRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/sis/students',
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: {
+        full_name: 'Elder Brother Tariq',
+        date_of_birth: '2008-04-12',
+        gender: 'Male',
+        student_b_form: '35201-1111111-1',
+        residential_address: 'House 14, Street 2, Gulberg III',
+        city: 'Lahore',
+        father_name: 'Muhammad Tariq',
+        father_cnic: '35201-2222222-1',
+        father_phone: '+92 300 1234567',
+        father_occupation: 'Civil Engineer',
+        mother_name: 'Amina Tariq',
+        mother_cnic: '35201-3333333-2',
+        mother_phone: '+92 300 7654321',
+        mother_occupation: 'Professor',
+        primary_contact: 'father',
+        program_id: targetBatch.program_id,
+        batch_id: targetBatch.id,
+        fee_structure: {
+          base_tuition: 10000,
+          admission_fee: 2000,
+          net_tuition: 10000,
+        },
+      },
+    });
+
+    expect(elderRes.statusCode).toBe(201);
+    const elderStudent = elderRes.json().data;
+    expect(elderStudent.id).toBeDefined();
+    expect(elderStudent.father_name).toBe('Muhammad Tariq');
+    expect(elderStudent.mother_name).toBe('Amina Tariq');
+    expect(elderStudent.date_of_birth).toBe('2008-04-12');
+    expect(elderStudent.student_b_form).toBe('35201-1111111-1');
+    expect(elderStudent.guardian_name).toBe('Muhammad Tariq');
+    expect(elderStudent.guardian_phone).toBe('+92 300 1234567');
+
+    // Now admit younger sibling linked to elder brother with flat kinship concession
+    const youngerRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/sis/students',
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: {
+        full_name: 'Younger Sister Tariq',
+        date_of_birth: '2010-09-20',
+        gender: 'Female',
+        student_b_form: '35201-4444444-2',
+        residential_address: 'House 14, Street 2, Gulberg III',
+        city: 'Lahore',
+        father_name: 'Muhammad Tariq',
+        father_cnic: '35201-2222222-1',
+        father_phone: '+92 300 1234567',
+        father_occupation: 'Civil Engineer',
+        mother_name: 'Amina Tariq',
+        mother_cnic: '35201-3333333-2',
+        mother_phone: '+92 300 7654321',
+        mother_occupation: 'Professor',
+        primary_contact: 'mother',
+        sibling_student_id: elderStudent.id,
+        program_id: targetBatch.program_id,
+        batch_id: targetBatch.id,
+        fee_structure: {
+          base_tuition: 10000,
+          admission_fee: 0,
+          concession_type: 'percentage',
+          concession_val: 20,
+          concession_reason: 'Sibling Concession - 2nd Child (20% off tuition)',
+          net_tuition: 8000,
+          first_month_total: 8000,
+        },
+      },
+    });
+
+    expect(youngerRes.statusCode).toBe(201);
+    const youngerStudent = youngerRes.json().data;
+    expect(youngerStudent.id).toBeDefined();
+    expect(youngerStudent.sibling_student_id).toBe(elderStudent.id);
+    expect(youngerStudent.primary_contact).toBe('mother');
+    expect(youngerStudent.fee_structure.concession_val).toBe(20);
+    expect(youngerStudent.fee_structure.net_tuition).toBe(8000);
+
+    // Retrieve younger student through API
+    const getRes = await app.inject({
+      method: 'GET',
+      url: `/api/v1/sis/students/${youngerStudent.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(getRes.statusCode).toBe(200);
+    const fetched = getRes.json().data;
+    expect(fetched.sibling_student_id).toBe(elderStudent.id);
+    expect(fetched.father_cnic).toBe('35201-2222222-1');
+    expect(fetched.mother_cnic).toBe('35201-3333333-2');
+    expect(fetched.student_b_form).toBe('35201-4444444-2');
+  });
 });
+

@@ -2027,7 +2027,7 @@ export const StaffClockInView: React.FC = () => {
                 type="button"
                 onClick={() => handlePersonalAction('in')}
                 disabled={isPersonalClocking || isLocatingSelf}
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+                className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
               >
                 {isPersonalClocking ? <RefreshCw className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
                 Clock In
@@ -2052,7 +2052,7 @@ export const StaffClockInView: React.FC = () => {
                   type="button"
                   onClick={() => handlePersonalAction('in')}
                   disabled={isPersonalClocking || isLocatingSelf}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                   title="Clock in for evening batch or additional session"
                 >
                   {isPersonalClocking ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <LogIn className="w-3.5 h-3.5" />}
@@ -2191,7 +2191,7 @@ export const StaffClockInView: React.FC = () => {
                 type="button"
                 disabled={isExportingPdf}
                 onClick={() => handlePreviewStaffCardPdf(user?.id, facultySelectedMonth, facultyMonthlyRecords, facultySelectedMonth)}
-                className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5" />
                 Download Transcript Card (PDF)
@@ -2199,29 +2199,86 @@ export const StaffClockInView: React.FC = () => {
             </div>
           </div>
 
-          {/* 4 Metric Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Working Days</span>
-              <span className="text-xl font-bold font-mono text-slate-900 mt-0.5 block">{facultyMonthlyStats.totalWorking}</span>
-              <span className="text-[10px] text-slate-500">Period: {facultySelectedMonth}</span>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Present Equivalent</span>
-              <span className="text-xl font-bold font-mono text-emerald-700 mt-0.5 block">
-                {facultyMonthlyStats.present + facultyMonthlyStats.late + facultyMonthlyStats.halfDay * 0.5}
+          {/* 4 Metric Cards (Finalized Enterprise Design) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            {/* Card 1: Working Days */}
+            <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                  Working Days
+                </span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                    {facultyMonthlyStats.totalWorking}
+                  </span>
+                  <span className="text-xs font-medium text-slate-500 leading-none">
+                    Days
+                  </span>
+                </div>
+              </div>
+              <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
+                <CalendarDays className="w-3.5 h-3.5 text-indigo-700" />
               </span>
-              <span className="text-[10px] text-slate-500">{facultyMonthlyStats.present} On-time · {facultyMonthlyStats.late} Late</span>
             </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Sanctioned Leaves</span>
-              <span className="text-xl font-bold font-mono text-slate-700 mt-0.5 block">{facultyMonthlyStats.leave}</span>
-              <span className="text-[10px] text-slate-500">Approved Off-Campus</span>
+
+            {/* Card 2: Present Equivalent */}
+            <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                  Present Equivalent
+                </span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
+                    {facultyMonthlyStats.present + facultyMonthlyStats.late + facultyMonthlyStats.halfDay * 0.5}
+                  </span>
+                  <span className="text-xs font-medium text-slate-500 leading-none">
+                    Attended
+                  </span>
+                </div>
+              </div>
+              <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+              </span>
             </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Attendance Rate</span>
-              <span className="text-xl font-bold font-mono text-slate-900 mt-0.5 block">{facultyMonthlyStats.pct}%</span>
-              <span className="text-[10px] text-slate-500">Punctuality Score</span>
+
+            {/* Card 3: Sanctioned Leaves */}
+            <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                  Sanctioned Leaves
+                </span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="font-mono font-bold text-amber-700 text-sm leading-none">
+                    {facultyMonthlyStats.leave}
+                  </span>
+                  <span className="text-xs font-medium text-slate-500 leading-none">
+                    Approved
+                  </span>
+                </div>
+              </div>
+              <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+              </span>
+            </div>
+
+            {/* Card 4: Attendance Rate */}
+            <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-slate-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                  Attendance Rate
+                </span>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                    {facultyMonthlyStats.pct}%
+                  </span>
+                  <span className="text-xs font-medium text-slate-500 leading-none">
+                    Score
+                  </span>
+                </div>
+              </div>
+              <span className="w-7 h-7 rounded-lg bg-slate-50 text-slate-700 flex items-center justify-center border border-slate-200/70 shrink-0 shadow-2xs">
+                <Clock className="w-3.5 h-3.5 text-slate-700" />
+              </span>
             </div>
           </div>
 
@@ -2421,7 +2478,7 @@ export const StaffClockInView: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isSubmittingReg}
-                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
                   >
                     {isSubmittingReg ? 'Submitting...' : 'Submit Request'}
                   </button>
@@ -2454,7 +2511,7 @@ export const StaffClockInView: React.FC = () => {
             onClick={() => setActiveTab('daily')}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'daily'
-                ? 'bg-slate-900 text-white shadow-xs'
+                ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
@@ -2467,7 +2524,7 @@ export const StaffClockInView: React.FC = () => {
             onClick={() => setActiveTab('monthly')}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'monthly'
-                ? 'bg-slate-900 text-white shadow-xs'
+                ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
@@ -2480,7 +2537,7 @@ export const StaffClockInView: React.FC = () => {
             onClick={() => setActiveTab('reports')}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'reports'
-                ? 'bg-slate-900 text-white shadow-xs'
+                ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
@@ -2493,7 +2550,7 @@ export const StaffClockInView: React.FC = () => {
             onClick={() => setActiveTab('ledger')}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'ledger'
-                ? 'bg-slate-900 text-white shadow-xs'
+                ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
@@ -2506,7 +2563,7 @@ export const StaffClockInView: React.FC = () => {
             onClick={() => setActiveTab('exceptions')}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'exceptions'
-                ? 'bg-slate-900 text-white shadow-xs'
+                ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
@@ -2519,7 +2576,7 @@ export const StaffClockInView: React.FC = () => {
             onClick={() => setActiveTab('audit_logs')}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'audit_logs'
-                ? 'bg-slate-900 text-white shadow-xs'
+                ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
@@ -2532,7 +2589,7 @@ export const StaffClockInView: React.FC = () => {
             onClick={() => setActiveTab('settings')}
             className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'settings'
-                ? 'bg-slate-900 text-white shadow-xs'
+                ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
@@ -2627,7 +2684,7 @@ export const StaffClockInView: React.FC = () => {
                 type="button"
                 onClick={() => handlePreviewDailyPdf()}
                 disabled={isExportingPdf}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                 title="Preview Official PDF Document in New Tab"
               >
                 {isExportingPdf && generatingReportId === 'daily_muster_roll' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
@@ -2653,11 +2710,11 @@ export const StaffClockInView: React.FC = () => {
               onClick={() => setSelectedDailyHead('all')}
               className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                 selectedDailyHead === 'all'
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                  ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
                   : 'bg-white border-slate-200 hover:border-slate-300 text-slate-900'
               }`}
             >
-              <span className={`text-[10px] font-bold uppercase tracking-wider block ${selectedDailyHead === 'all' ? 'text-slate-300' : 'text-slate-400'}`}>Total Staff</span>
+              <span className={`text-[10px] font-bold uppercase tracking-wider block ${selectedDailyHead === 'all' ? 'text-amber-100' : 'text-slate-400'}`}>Total Staff</span>
               <span className="text-lg font-bold font-mono mt-0.5 block">{rosterStats.total}</span>
             </button>
 
@@ -2731,11 +2788,11 @@ export const StaffClockInView: React.FC = () => {
               onClick={() => setSelectedDailyHead('not_marked')}
               className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                 selectedDailyHead === 'not_marked'
-                  ? 'bg-slate-800 text-white border-slate-800 shadow-xs'
+                  ? 'bg-slate-600 text-white border-slate-600 shadow-xs'
                   : 'bg-white border-slate-200 hover:border-slate-300 text-slate-900'
               }`}
             >
-              <span className={`text-[10px] font-bold uppercase tracking-wider block ${selectedDailyHead === 'not_marked' ? 'text-slate-300' : 'text-slate-400'}`}>Unmarked</span>
+              <span className={`text-[10px] font-bold uppercase tracking-wider block ${selectedDailyHead === 'not_marked' ? 'text-slate-200' : 'text-slate-400'}`}>Unmarked</span>
               <span className={`text-lg font-bold font-mono mt-0.5 block ${selectedDailyHead === 'not_marked' ? 'text-white' : 'text-slate-500'}`}>{rosterStats.not_marked}</span>
             </button>
           </div>
@@ -2986,7 +3043,7 @@ export const StaffClockInView: React.FC = () => {
                 type="button"
                 onClick={() => handlePreviewMonthlyPdf()}
                 disabled={isExportingPdf}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                 title="Preview Official PDF Document in New Tab"
               >
                 {isExportingPdf && generatingReportId === 'monthly_register' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
@@ -3161,7 +3218,7 @@ export const StaffClockInView: React.FC = () => {
                       type="button"
                       disabled={isExportingPdf}
                       onClick={() => handlePreviewDailyPdf(reportDailyDate, reportDailyDept)}
-                      className="flex-1 px-3 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      className="flex-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
                       {isExportingPdf && generatingReportId === 'daily_muster_roll' ? (
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -3240,7 +3297,7 @@ export const StaffClockInView: React.FC = () => {
                       type="button"
                       disabled={isExportingPdf}
                       onClick={() => handlePreviewMonthlyPdf(reportMonthlyMonth, reportMonthlyDept)}
-                      className="flex-1 px-3 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      className="flex-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
                       {isExportingPdf && generatingReportId === 'monthly_register' ? (
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -3313,7 +3370,7 @@ export const StaffClockInView: React.FC = () => {
                       type="button"
                       disabled={isExportingPdf}
                       onClick={() => handlePreviewDeptSummaryPdf(reportDeptMonth)}
-                      className="flex-1 px-3 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      className="flex-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
                       {isExportingPdf && generatingReportId === 'dept_summary' ? (
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -3391,7 +3448,7 @@ export const StaffClockInView: React.FC = () => {
                       type="button"
                       disabled={isExportingPdf}
                       onClick={() => handlePreviewDefaultersPdf(reportMonthlyMonth, reportDefaultersThreshold)}
-                      className="flex-1 px-3 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      className="flex-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
                       {isExportingPdf && generatingReportId === 'defaulters' ? (
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -3472,7 +3529,7 @@ export const StaffClockInView: React.FC = () => {
                       type="button"
                       disabled={isExportingPdf}
                       onClick={() => handlePreviewStaffCardPdf(reportStaffMemberId || selectedStaffId, reportStaffMonth)}
-                      className="flex-1 px-3 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      className="flex-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
                       {isExportingPdf && generatingReportId === 'staff_card' ? (
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -3537,7 +3594,7 @@ export const StaffClockInView: React.FC = () => {
                       type="button"
                       disabled={isExportingPdf}
                       onClick={() => handlePreviewAuditPdf(selectedMonth)}
-                      className="flex-1 px-3 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      className="flex-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                     >
                       {isExportingPdf && generatingReportId === 'audit_logs' ? (
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -3652,7 +3709,7 @@ export const StaffClockInView: React.FC = () => {
                       : (ledgerStartDate || ledgerEndDate || selectedMonth);
                     handlePreviewStaffCardPdf(selectedStaffId, selectedMonth, filteredStaffPersonalRecords, customLabel);
                   }}
-                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   Staff Attendance Card (PDF)
@@ -3823,7 +3880,7 @@ export const StaffClockInView: React.FC = () => {
                               type="button"
                               disabled={isReviewingRegId === req.id}
                               onClick={() => handleReviewRegularization(req.id, 'approved')}
-                              className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
+                              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs"
                             >
                               Approve
                             </button>
@@ -3925,7 +3982,7 @@ export const StaffClockInView: React.FC = () => {
                   type="button"
                   disabled={isExportingPdf}
                   onClick={handlePreviewExceptionsPdf}
-                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   Exceptions Roster (PDF)
@@ -4028,7 +4085,7 @@ export const StaffClockInView: React.FC = () => {
                 type="button"
                 onClick={() => handlePreviewAuditPdf(selectedMonth)}
                 disabled={isExportingPdf}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 {isExportingPdf ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
                 Audit PDF
@@ -4168,7 +4225,7 @@ export const StaffClockInView: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSavingSettings}
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer shrink-0"
+                className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer shrink-0"
               >
                 {isSavingSettings ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                 Save Changes
@@ -4225,7 +4282,7 @@ export const StaffClockInView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleApplyShiftPreset}
-                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
                 title="Automatically update standard attendance heads based on these shift timings"
               >
                 <Check className="w-3.5 h-3.5" />
@@ -4376,7 +4433,7 @@ export const StaffClockInView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleOpenAddHeadModal}
-                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Add Custom Head
@@ -4921,7 +4978,7 @@ export const StaffClockInView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5" />
                   {editingHeadIndex !== null ? 'Save Changes' : 'Add Rule'}
@@ -5079,7 +5136,7 @@ export const StaffClockInView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmittingEdit}
-                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   {isSubmittingEdit ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   Save Changes

@@ -46,7 +46,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => handleNav('teacher')}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-            currentScreen === 'teacher' ? 'text-indigo-600 bg-indigo-50/80 font-bold' : 'text-slate-500 hover:text-slate-800'
+            currentScreen === 'teacher' ? 'text-amber-800 bg-amber-50 font-bold' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <GraduationCap className="w-5 h-5" />
@@ -56,7 +56,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => handleNav('timetable')}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-            currentScreen === 'timetable' ? 'text-indigo-600 bg-indigo-50/80 font-bold' : 'text-slate-500 hover:text-slate-800'
+            currentScreen === 'timetable' ? 'text-amber-800 bg-amber-50 font-bold' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <Calendar className="w-5 h-5" />
@@ -66,7 +66,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => handleNav('attendance')}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-            currentScreen === 'attendance' ? 'text-indigo-600 bg-indigo-50/80 font-bold' : 'text-slate-500 hover:text-slate-800'
+            currentScreen === 'attendance' ? 'text-amber-800 bg-amber-50 font-bold' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <CheckSquare className="w-5 h-5" />
@@ -76,7 +76,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => handleNav('geofence')}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-            currentScreen === 'geofence' ? 'text-indigo-600 bg-indigo-50/80 font-bold' : 'text-slate-500 hover:text-slate-800'
+            currentScreen === 'geofence' ? 'text-amber-800 bg-amber-50 font-bold' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <MapPin className="w-5 h-5" />
@@ -103,7 +103,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => handleNav('student_portal')}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-            currentScreen === 'student_portal' ? 'text-indigo-600 bg-indigo-50/80 font-bold' : 'text-slate-500 hover:text-slate-800'
+            currentScreen === 'student_portal' ? 'text-amber-800 bg-amber-50 font-bold' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <UserCheck className="w-5 h-5" />
@@ -113,7 +113,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => handleNav('timetable')}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-            currentScreen === 'timetable' ? 'text-indigo-600 bg-indigo-50/80 font-bold' : 'text-slate-500 hover:text-slate-800'
+            currentScreen === 'timetable' ? 'text-amber-800 bg-amber-50 font-bold' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <Calendar className="w-5 h-5" />
@@ -123,7 +123,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => handleNav('voucher')}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-            currentScreen === 'voucher' ? 'text-indigo-600 bg-indigo-50/80 font-bold' : 'text-slate-500 hover:text-slate-800'
+            currentScreen === 'voucher' ? 'text-amber-800 bg-amber-50 font-bold' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <CreditCard className="w-5 h-5" />
@@ -133,7 +133,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => handleNav('homework')}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-            currentScreen === 'homework' ? 'text-indigo-600 bg-indigo-50/80 font-bold' : 'text-slate-500 hover:text-slate-800'
+            currentScreen === 'homework' ? 'text-amber-800 bg-amber-50 font-bold' : 'text-slate-500 hover:text-slate-800'
           }`}
         >
           <BookOpen className="w-5 h-5" />
@@ -161,7 +161,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => handleNav('superadmin')}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-            currentScreen === 'superadmin' ? 'text-indigo-400 bg-slate-800 font-bold' : 'text-slate-400 hover:text-white'
+            currentScreen === 'superadmin' ? 'text-amber-400 bg-slate-800 font-bold' : 'text-slate-400 hover:text-white'
           }`}
         >
           <ShieldAlert className="w-5 h-5" />
@@ -171,7 +171,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => handleNav('dashboard')}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-            currentScreen === 'dashboard' ? 'text-indigo-400 bg-slate-800 font-bold' : 'text-slate-400 hover:text-white'
+            currentScreen === 'dashboard' ? 'text-amber-400 bg-slate-800 font-bold' : 'text-slate-400 hover:text-white'
           }`}
         >
           <LayoutDashboard className="w-5 h-5" />
@@ -181,7 +181,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => handleNav('voucher')}
           className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-            currentScreen === 'voucher' ? 'text-indigo-400 bg-slate-800 font-bold' : 'text-slate-400 hover:text-white'
+            currentScreen === 'voucher' ? 'text-amber-400 bg-slate-800 font-bold' : 'text-slate-400 hover:text-white'
           }`}
         >
           <CreditCard className="w-5 h-5" />
@@ -208,7 +208,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <button
         onClick={() => handleNav('dashboard')}
         className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-          currentScreen === 'dashboard' ? 'text-indigo-600 bg-indigo-50/80 font-bold' : 'text-slate-500 hover:text-slate-800'
+          currentScreen === 'dashboard' ? 'text-amber-800 bg-amber-50 font-bold' : 'text-slate-500 hover:text-slate-800'
         }`}
       >
         <LayoutDashboard className="w-5 h-5" />
@@ -218,7 +218,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <button
         onClick={() => handleNav('attendance')}
         className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-          currentScreen === 'attendance' ? 'text-indigo-600 bg-indigo-50/80 font-bold' : 'text-slate-500 hover:text-slate-800'
+          currentScreen === 'attendance' ? 'text-amber-800 bg-amber-50 font-bold' : 'text-slate-500 hover:text-slate-800'
         }`}
       >
         <CheckSquare className="w-5 h-5" />
@@ -229,7 +229,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         onClick={() => handleNav('enrollment')}
         className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
           currentScreen === 'enrollment' || currentScreen === 'new_admission' || currentScreen === 'id_cards'
-            ? 'text-indigo-600 bg-indigo-50/80 font-bold' 
+            ? 'text-amber-800 bg-amber-50 font-bold' 
             : 'text-slate-500 hover:text-slate-800'
         }`}
       >
@@ -240,7 +240,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       <button
         onClick={() => handleNav('voucher')}
         className={`flex flex-col items-center justify-center min-w-[56px] min-h-[48px] py-1 px-2 rounded-xl transition-all touch-press ${
-          currentScreen === 'voucher' ? 'text-indigo-600 bg-indigo-50/80 font-bold' : 'text-slate-500 hover:text-slate-800'
+          currentScreen === 'voucher' ? 'text-amber-800 bg-amber-50 font-bold' : 'text-slate-500 hover:text-slate-800'
         }`}
       >
         <CreditCard className="w-5 h-5" />

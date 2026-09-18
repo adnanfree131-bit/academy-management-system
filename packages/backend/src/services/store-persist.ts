@@ -173,8 +173,14 @@ export async function saveSnapshot(payload: Record<string, unknown>): Promise<vo
       [JSON.stringify(payload)]
     );
   } catch (err: any) {
-    if (err.code === 'ECONNREFUSED' || /ECONNREFUSED/i.test(err.message)) {
-      console.warn('[StorePersist] PostgreSQL connection refused — state safely saved to local disk file.');
+    if (
+      err.code === 'ECONNREFUSED' ||
+      err.code === 'ETIMEDOUT' ||
+      err.code === 'ENOTFOUND' ||
+      err.code === 'EHOSTUNREACH' ||
+      /ECONNREFUSED|ETIMEDOUT|timed out|timeout/i.test(err.message)
+    ) {
+      console.warn(`[StorePersist] PostgreSQL connection unavailable (${err.code || err.message}) — state safely saved to local disk file.`);
       return;
     }
     throw err;

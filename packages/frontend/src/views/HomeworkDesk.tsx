@@ -265,7 +265,7 @@ export const HomeworkDesk: React.FC = () => {
       >
         <button
           onClick={() => setShowNewHwModal(true)}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Assign Homework</span>
@@ -355,7 +355,7 @@ export const HomeworkDesk: React.FC = () => {
                   type="button"
                   onClick={handleSaveChecks}
                   disabled={isSavingChecks || students.length === 0}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all disabled:bg-slate-300"
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs transition-all disabled:bg-slate-300 cursor-pointer"
                 >
                   {isSavingChecks ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                   <span>{isSavingChecks ? 'Saving...' : 'Save Inspection'}</span>
@@ -598,7 +598,7 @@ export const HomeworkDesk: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmittingHw}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer"
                 >
                   {isSubmittingHw ? 'Assigning...' : 'Confirm Assignment'}
                 </button>

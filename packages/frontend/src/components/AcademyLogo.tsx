@@ -16,15 +16,26 @@ export const AcademyLogo: React.FC<AcademyLogoProps> = ({
   size = 40,
   className = '',
 }) => {
+  const [imageError, setImageError] = React.useState(false);
   const initial = (name.trim().charAt(0) || 'A').toUpperCase();
+
+  React.useEffect(() => {
+    setImageError(false);
+  }, [src]);
+
   return (
     <div
       className={`shrink-0 rounded-xl border border-slate-200 bg-white flex items-center justify-center overflow-hidden ${className}`}
       style={{ width: size, height: size }}
       title={name}
     >
-      {src ? (
-        <img src={src} alt={name} className="w-full h-full object-contain p-0.5 bg-white" />
+      {src && !imageError ? (
+        <img
+          src={src}
+          alt={name}
+          onError={() => setImageError(true)}
+          className="w-full h-full object-contain p-0.5 bg-white"
+        />
       ) : (
         <span className="text-slate-800 font-extrabold tracking-tight" style={{ fontSize: Math.max(12, size * 0.38) }}>
           {initial}

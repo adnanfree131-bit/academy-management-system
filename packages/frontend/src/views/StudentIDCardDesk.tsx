@@ -131,8 +131,8 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
     setSelectedStudentIds(new Set());
   };
 
-  const getBatch = (batchId: string) => batches.find(b => b.id === batchId);
-  const getProgram = (progId: string) => programs.find(p => p.id === progId);
+  const getBatch = (batchId?: string | null) => (batchId ? batches.find(b => b.id === batchId) : undefined);
+  const getProgram = (progId?: string | null) => (progId ? programs.find(p => p.id === progId) : undefined);
 
   // Split selected students into chunks of 8 for A4 Duplex pages
   const duplexChunks = useMemo(() => {
@@ -247,7 +247,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
               type="button"
               onClick={handlePrint}
               disabled={activeSelectedStudents.length === 0 || isExporting}
-              className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+              className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-300 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>{isExporting ? 'Preparing official cards…' : `Download ${activeSelectedStudents.length} official ID cards`}</span>
@@ -277,7 +277,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
             >
               <option value="all">All Academic Programs</option>
               {programs.map(p => (
-                <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
 

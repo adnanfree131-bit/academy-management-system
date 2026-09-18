@@ -23,8 +23,6 @@ import {
   ArrowUp,
   ArrowDown,
   Trash2,
-  ChevronDown,
-  ChevronUp,
   Users,
   Calendar,
   RefreshCw,
@@ -43,7 +41,6 @@ import {
   PaymentMethod,
   FeePayment
 } from '@apex/shared-types';
-import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
 import { localISODate, addLocalDays } from '../lib/localDate';
 import { normalizeBillingMonth } from './FeeChallansView';
@@ -73,10 +70,10 @@ export const FeeDeskView: React.FC = () => {
   const [selectedBatch, setSelectedBatch] = useState<string>('all');
   const [dayCloseDate, setDayCloseDate] = useState<string>(() => localISODate());
   const [dayCloseRecords, setDayCloseRecords] = useState<DailyCashbookEntry[]>([]);
-  const [expandedDefaulterId, setExpandedDefaulterId] = useState<string | null>(null);
-  const [duesView, setDuesView] = useState<'defaulters' | 'current_dues'>('defaulters');
+  const [duesView, setDuesView] = useState<'all' | 'overdue' | 'current'>('all');
   const [unpaidMonthsFilter, setUnpaidMonthsFilter] = useState<'any' | '1' | '2' | '3+'>('any');
-  const [defaulterHeadIds, setDefaulterHeadIds] = useState<string[]>([]);
+  const [selectedDefaulterHead, setSelectedDefaulterHead] = useState<string>('all');
+  const [selectedDefaulterModal, setSelectedDefaulterModal] = useState<any | null>(null);
   const [siblingReportOpen, setSiblingReportOpen] = useState(false);
   const [siblingReportScope, setSiblingReportScope] = useState<'one_student' | 'one_class' | 'all_classes'>('all_classes');
   const [siblingReportStudentId, setSiblingReportStudentId] = useState('');
@@ -88,6 +85,11 @@ export const FeeDeskView: React.FC = () => {
   const [selectedCashierStudentId, setSelectedCashierStudentId] = useState<string | null>(null);
   const [showSearchPopup, setShowSearchPopup] = useState<boolean>(false);
   const [payments, setPayments] = useState<FeePayment[]>([]);
+  const [studentDeskTab, setStudentDeskTab] = useState<'challans' | 'history' | 'siblings'>('challans');
+  const [historyViewMode, setHistoryViewMode] = useState<'receipts' | 'ledger'>('receipts');
+  const [quickDiscountAmount, setQuickDiscountAmount] = useState<number>(0);
+  const [familyHeadAllocations, setFamilyHeadAllocations] = useState<Record<string, number>>({});
+  const [familyTotalInput, setFamilyTotalInput] = useState<number | ''>('');
 
   // Embedded Fee Heads Drawer / Modal State
   const [showFeeHeadsModal, setShowFeeHeadsModal] = useState<boolean>(false);
@@ -110,13 +112,6 @@ export const FeeDeskView: React.FC = () => {
     return localISODate(new Date(d.getFullYear(), d.getMonth(), 1));
   });
   const [concessionEndDate, setConcessionEndDate] = useState<string>(() => localISODate());
-
-  // Edit Invoice Modal State
-  const [editingInvoice, setEditingInvoice] = useState<StudentInvoice | null>(null);
-  const [editDueDate, setEditDueDate] = useState<string>('');
-  const [editNotes, setEditNotes] = useState<string>('');
-  const [editItems, setEditItems] = useState<Array<{ fee_head_id: string; head_name: string; amount: number }>>([]);
-  const [isSavingEditInvoice, setIsSavingEditInvoice] = useState<boolean>(false);
 
   const [selectedFamily, setSelectedFamily] = useState<{
     guardian_name: string;
@@ -245,6 +240,8 @@ export const FeeDeskView: React.FC = () => {
       setFeedbackNotice(null);
     }, 6000);
   };
+
+
 
   // Resolve Academy Institutional Info
   const academyInfo: AcademyInfo = useMemo(() => {
@@ -401,8 +398,8 @@ export const FeeDeskView: React.FC = () => {
     return t.getFullYear() * 12 + t.getMonth();
   })();
 
-  // Unpaid grouped students. Current-month unpaid is NOT a defaulter until next month starts.
-  const defaultersList = useMemo(() => {
+  // Stable list of all students with outstanding dues (for Cashier Dashboard & global metrics)
+  const allUnpaidStudents = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -422,10 +419,137 @@ export const FeeDeskView: React.FC = () => {
         };
       });
 
+    const grouped = new Map<string, any>();
+    for (const inv of liveUnpaid) {
+      const stud = students.find(s => s.id === inv.student_id);
+      let entry = grouped.get(inv.student_id);
+      if (!entry) {
+        const progName = inv.program_name || getProgramName(inv.program_id || stud?.program_id) || 'Class';
+        entry = {
+          student_id: inv.student_id,
+          student_name: inv.student_name,
+          roll_number: inv.roll_number,
+          program_name: progName,
+          batch_id: inv.batch_id,
+          batch_name: inv.batch_name,
+          father_name: stud?.father_name || stud?.guardian_name || 'Guardian',
+          guardian_phone: stud?.guardian_phone || stud?.guardian_whatsapp || stud?.phone || '',
+          total_balance: 0,
+          overdue_invoices_count: 0,
+          max_overdue_days: 0,
+          unpaid_months: [],
+          invoices: [],
+          latest_invoice: inv,
+        };
+        grouped.set(inv.student_id, entry);
+      }
+
+      entry.invoices.push(inv);
+      entry.total_balance += inv.balance_amount;
+      entry.overdue_invoices_count += 1;
+      if (inv.overdue_days > entry.max_overdue_days) {
+        entry.max_overdue_days = inv.overdue_days;
+      }
+      if (!entry.unpaid_months.includes(inv.billing_month)) {
+        entry.unpaid_months.push(inv.billing_month);
+      }
+      if (new Date(inv.due_date).getTime() >= new Date(entry.latest_invoice.due_date).getTime()) {
+        entry.latest_invoice = inv;
+      }
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => b.total_balance - a.total_balance);
+  }, [invoices, students, getProgramName]);
+
+  // Global counts for defaulters & outstanding dues
+  const duesSummary = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const liveUnpaid = invoices.filter(inv => {
+      const st = String(inv.status || '').toLowerCase();
+      if (st === 'paid' || st === 'voided' || st === 'cancelled' || st === 'rolled_over') return false;
+      return (inv.balance_amount ?? inv.balance_due ?? 0) > 0;
+    });
+
+    const allStudentIds = new Set<string>();
+    const overdueStudentIds = new Set<string>();
+    const currentStudentIds = new Set<string>();
+    let totalAllBalance = 0;
+    let totalOverdueBalance = 0;
+    let totalCurrentBalance = 0;
+
+    const todayIso = localISODate(today);
+
+    for (const inv of liveUnpaid) {
+      allStudentIds.add(inv.student_id);
+      totalAllBalance += (inv.balance_amount || 0);
+
+      const dueIso = (inv.due_date || '').split('T')[0];
+      const isPastDue = Boolean(dueIso && todayIso > dueIso);
+      const isPriorMonth = billingMonthKey(inv.billing_month) < currentMonthKey;
+      if (isPastDue || isPriorMonth) {
+        overdueStudentIds.add(inv.student_id);
+        totalOverdueBalance += (inv.balance_amount || 0);
+      }
+
+      if (billingMonthKey(inv.billing_month) === currentMonthKey) {
+        currentStudentIds.add(inv.student_id);
+        totalCurrentBalance += (inv.balance_amount || 0);
+      }
+    }
+
+    const totalInvoicedAmount = invoices.reduce((acc, i) => acc + (i.net_amount ?? i.net_total ?? i.total_amount ?? i.subtotal_amount ?? 0), 0);
+    const totalCollectedAmount = invoices.reduce((acc, i) => acc + (i.paid_amount || 0), 0);
+
+    return {
+      allCount: allStudentIds.size,
+      allAmount: totalAllBalance,
+      overdueCount: overdueStudentIds.size,
+      overdueAmount: totalOverdueBalance,
+      currentCount: currentStudentIds.size,
+      currentAmount: totalCurrentBalance,
+      totalInvoiced: totalInvoicedAmount,
+      totalCollected: totalCollectedAmount,
+    };
+  }, [invoices, currentMonthKey]);
+
+  // Defaulters list filtered according to user controls in Defaulters Tab
+  const defaultersList = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayIso = localISODate(today);
+
+    const liveUnpaid = invoices
+      .filter(inv => {
+        const st = String(inv.status || '').toLowerCase();
+        if (st === 'paid' || st === 'voided' || st === 'cancelled' || st === 'rolled_over') return false;
+        return (inv.balance_amount ?? inv.balance_due ?? 0) > 0;
+      })
+      .map(inv => {
+        const dueIso = (inv.due_date || '').split('T')[0];
+        const isPastDue = Boolean(dueIso && todayIso > dueIso);
+        let diffDays = 0;
+        if (isPastDue && dueIso) {
+          const [dy, dm, dd] = dueIso.split('-').map(Number);
+          const dueDt = new Date(dy, (dm || 1) - 1, dd || 1);
+          diffDays = Math.max(0, Math.floor((today.getTime() - dueDt.getTime()) / (1000 * 60 * 60 * 24)));
+        }
+        const isPriorMonth = billingMonthKey(inv.billing_month) < currentMonthKey;
+        const isCurrentMonth = billingMonthKey(inv.billing_month) === currentMonthKey;
+        return {
+          ...inv,
+          overdue_days: diffDays,
+          is_overdue: isPastDue || isPriorMonth,
+          is_current_month: isCurrentMonth,
+        };
+      });
+
     const relevant = liveUnpaid.filter(inv => {
-      const key = billingMonthKey(inv.billing_month);
-      if (duesView === 'current_dues') return key === currentMonthKey;
-      return key < currentMonthKey;
+      if (duesView === 'current') return inv.is_current_month;
+      if (duesView === 'overdue') return inv.is_overdue;
+      return true; // 'all'
     });
 
     const grouped = new Map<string, {
@@ -492,6 +616,7 @@ export const FeeDeskView: React.FC = () => {
             def.student_name.toLowerCase().includes(q) ||
             def.roll_number.toLowerCase().includes(q) ||
             def.father_name.toLowerCase().includes(q) ||
+            def.guardian_phone.toLowerCase().includes(q) ||
             def.unpaid_months.some(m => m.toLowerCase().includes(q));
           if (!hit) return false;
         }
@@ -499,7 +624,7 @@ export const FeeDeskView: React.FC = () => {
         if (unpaidMonthsFilter === '1' && monthCount !== 1) return false;
         if (unpaidMonthsFilter === '2' && monthCount !== 2) return false;
         if (unpaidMonthsFilter === '3+' && monthCount < 3) return false;
-        if (defaulterHeadIds.length > 0) {
+        if (selectedDefaulterHead !== 'all') {
           const pendingHeads = new Set(
             def.invoices.flatMap(inv =>
               (inv.items || [])
@@ -507,16 +632,24 @@ export const FeeDeskView: React.FC = () => {
                 .map(it => it.fee_head_id)
             )
           );
-          if (!defaulterHeadIds.some(id => pendingHeads.has(id))) return false;
+          if (!pendingHeads.has(selectedDefaulterHead)) return false;
         }
         return true;
       })
       .sort((a, b) => b.total_balance - a.total_balance);
-  }, [invoices, students, selectedBatch, searchQuery, getProgramName, duesView, unpaidMonthsFilter, defaulterHeadIds, currentMonthKey]);
+  }, [invoices, students, selectedBatch, searchQuery, getProgramName, duesView, unpaidMonthsFilter, selectedDefaulterHead, currentMonthKey]);
 
   // Summary Totals
   const totalDefaultersCount = defaultersList.length;
   const totalDefaultersAmount = defaultersList.reduce((s, d) => s + d.total_balance, 0);
+
+  // Open student in Student Desk directly
+  const handleViewStudentInDesk = (studentId: string) => {
+    setSelectedCashierStudentId(studentId);
+    setLedgerStudentId(studentId);
+    setStudentDeskTab('challans');
+    setActiveTab('cashier');
+  };
 
   // Sibling Finder Helper
   const getStudentSiblings = useCallback((student: any) => {
@@ -541,7 +674,7 @@ export const FeeDeskView: React.FC = () => {
     const allFamilyStudents = [student, ...siblings];
 
     const members = allFamilyStudents.map(stud => {
-      const studInvoices = invoices.filter(i => i.student_id === stud.id);
+      const studInvoices = invoices.filter(i => i.student_id === stud.id && i.status !== 'cancelled' && i.status !== 'voided');
       const unpaidInvoices = studInvoices.filter(i => i.status !== 'paid' && i.balance_amount > 0);
       const totalDue = unpaidInvoices.reduce((s, inv) => s + inv.balance_amount, 0);
       return {
@@ -554,14 +687,23 @@ export const FeeDeskView: React.FC = () => {
 
     const totalFamilyDue = members.reduce((sum, m) => sum + m.totalDue, 0);
 
+    const initialHeadAlloc: Record<string, number> = {};
     const initialAlloc: Record<string, number> = {};
     for (const m of members) {
       for (const inv of m.unpaidInvoices) {
-        initialAlloc[inv.id] = inv.balance_amount;
+        let invTotal = 0;
+        for (const it of inv.items || []) {
+          const due = it.balance_due || 0;
+          initialHeadAlloc[`${inv.id}_${it.fee_head_id}`] = due;
+          invTotal += due;
+        }
+        initialAlloc[inv.id] = invTotal > 0 ? invTotal : inv.balance_amount;
       }
     }
 
+    setFamilyHeadAllocations(initialHeadAlloc);
     setFamilyAllocations(initialAlloc);
+    setFamilyTotalInput(totalFamilyDue);
     setFamilyPaymentMethod('cash');
     setFamilyReference('');
     setFamilyBankName('');
@@ -574,6 +716,71 @@ export const FeeDeskView: React.FC = () => {
     });
   };
 
+  // Recalculate auto-distribution across all family fee heads by priority order
+  const handleFamilyTotalAmountChange = (totalAmt: number | '') => {
+    setFamilyTotalInput(totalAmt);
+    if (!selectedFamily) return;
+
+    const num = totalAmt === '' ? 0 : Number(totalAmt);
+    if (num <= 0) {
+      setFamilyHeadAllocations({});
+      setFamilyAllocations({});
+      return;
+    }
+
+    // Collect all unpaid items across all family students
+    const allItems: Array<{ invoice_id: string; fee_head_id: string; head_name: string; balance_due: number; priority: number }> = [];
+    for (const m of selectedFamily.members) {
+      for (const inv of m.unpaidInvoices) {
+        for (const it of inv.items || []) {
+          const headConfig = feeHeads.find(h => h.id === it.fee_head_id);
+          const priority = headConfig?.priority_order ?? 99;
+          allItems.push({
+            invoice_id: inv.id,
+            fee_head_id: it.fee_head_id,
+            head_name: it.head_name,
+            balance_due: it.balance_due,
+            priority,
+          });
+        }
+      }
+    }
+
+    // Sort by priority order (lower priority number = paid first)
+    allItems.sort((a, b) => a.priority - b.priority);
+
+    let remaining = num;
+    const newHeadAlloc: Record<string, number> = {};
+    const newInvAlloc: Record<string, number> = {};
+
+    for (const it of allItems) {
+      const alloc = Math.min(remaining, it.balance_due);
+      newHeadAlloc[`${it.invoice_id}_${it.fee_head_id}`] = alloc;
+      newInvAlloc[it.invoice_id] = (newInvAlloc[it.invoice_id] || 0) + alloc;
+      remaining -= alloc;
+    }
+
+    setFamilyHeadAllocations(newHeadAlloc);
+    setFamilyAllocations(newInvAlloc);
+  };
+
+  // Manually tweak an individual head cell for a student
+  const handleManualSiblingHeadChange = (invoiceId: string, headId: string, val: number) => {
+    const key = `${invoiceId}_${headId}`;
+    const newHeadAlloc = { ...familyHeadAllocations, [key]: val };
+    setFamilyHeadAllocations(newHeadAlloc);
+
+    const newInvAlloc: Record<string, number> = {};
+    for (const [k, v] of Object.entries(newHeadAlloc)) {
+      const [invId] = k.split('_');
+      newInvAlloc[invId] = (newInvAlloc[invId] || 0) + (Number(v) || 0);
+    }
+    setFamilyAllocations(newInvAlloc);
+
+    const grandTotal = Object.values(newHeadAlloc).reduce((sum, v) => sum + (Number(v) || 0), 0);
+    setFamilyTotalInput(grandTotal);
+  };
+
   // Commit Family Payment
   const handleCommitFamilyPayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -581,10 +788,25 @@ export const FeeDeskView: React.FC = () => {
 
     const paymentItems = Object.entries(familyAllocations)
       .filter(([_, amount]) => Number(amount) > 0)
-      .map(([invId, amount]) => ({
-        invoice_id: invId,
-        amount_paid: Number(amount),
-      }));
+      .map(([invId, amount]) => {
+        const invAllocations: Array<{ fee_head_id: string; head_name: string; allocated_amount: number }> = [];
+        for (const [k, v] of Object.entries(familyHeadAllocations)) {
+          if (k.startsWith(`${invId}_`) && Number(v) > 0) {
+            const headId = k.slice(invId.length + 1);
+            const headName = feeHeads.find(h => h.id === headId)?.name || 'Fee Head';
+            invAllocations.push({
+              fee_head_id: headId,
+              head_name: headName,
+              allocated_amount: Number(v),
+            });
+          }
+        }
+        return {
+          invoice_id: invId,
+          amount_paid: Number(amount),
+          allocations: invAllocations.length > 0 ? invAllocations : undefined,
+        };
+      });
 
     if (paymentItems.length === 0) {
       alert('Please enter a payment amount for at least one child.');
@@ -1225,6 +1447,10 @@ export const FeeDeskView: React.FC = () => {
     setActiveInvoice(inv);
     const amountToPay = inv.balance_amount;
     setCollectionAmount(amountToPay);
+    setQuickDiscountAmount(0);
+    setShowCounterDiscount(false);
+    setCounterDiscounts({});
+    setCounterDiscountReason('');
     setPaymentMethod('cash');
     setPaymentReference('');
     setPaymentBankName('');
@@ -1303,20 +1529,20 @@ export const FeeDeskView: React.FC = () => {
       return;
     }
 
-    // Check head-wise counter discount mandatory reason
+    // Check counter discount or quick discount mandatory reason
     const activeCounterEntries = showCounterDiscount
       ? Object.entries(counterDiscounts).filter(([_, val]) => Number(val) > 0)
       : [];
 
-    if (activeCounterEntries.length > 0 && !counterDiscountReason.trim()) {
-      alert('Please enter a mandatory approval remark / justification for the counter concession.');
+    if ((activeCounterEntries.length > 0 || quickDiscountAmount > 0) && !counterDiscountReason.trim()) {
+      alert('Please enter a mandatory approval remark / justification for the counter concession / discount.');
       return;
     }
 
     setIsCommittingPayment(true);
     try {
       let allocationsToSend = distributionItems;
-      // 1. Process head-wise counter concessions if applied
+      // 1. Process head-wise counter concessions or quick discount if applied
       if (activeCounterEntries.length > 0) {
         for (const [headId, val] of activeCounterEntries) {
           const discRes = await fetch('/api/v1/finance/discounts', {
@@ -1335,6 +1561,34 @@ export const FeeDeskView: React.FC = () => {
           if (!discRes.ok || !discData.success) {
             throw new Error(discData.error?.message || 'Concession was not applied. Payment was not recorded.');
           }
+        }
+        const previewRes = await fetch('/api/v1/finance/distribute-preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify({ invoice_id: activeInvoice.id, amount: numCollectionAmount }),
+        });
+        const previewData = await previewRes.json();
+        if (previewData.success && Array.isArray(previewData.data)) {
+          allocationsToSend = previewData.data;
+          setDistributionItems(previewData.data);
+        }
+      } else if (quickDiscountAmount > 0) {
+        const primaryHeadId = activeInvoice.items[0]?.fee_head_id;
+        const discRes = await fetch('/api/v1/finance/discounts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            student_id: activeInvoice.student_id,
+            invoice_id: activeInvoice.id,
+            fee_head_id: primaryHeadId,
+            discount_type: 'flat',
+            discount_value: Number(quickDiscountAmount),
+            mandatory_reason: counterDiscountReason.trim() || 'Counter fee concession at receiving',
+          }),
+        });
+        const discData = await discRes.json();
+        if (!discRes.ok || !discData.success) {
+          throw new Error(discData.error?.message || 'Concession was not applied. Payment was not recorded.');
         }
         const previewRes = await fetch('/api/v1/finance/distribute-preview', {
           method: 'POST',
@@ -1663,52 +1917,6 @@ export const FeeDeskView: React.FC = () => {
     }
   };
 
-  // Edit Invoice Handlers
-  const handleOpenEditInvoice = (inv: StudentInvoice) => {
-    setEditingInvoice(inv);
-    setEditDueDate(inv.due_date || '');
-    setEditNotes(inv.notes || '');
-    setEditItems(
-      inv.items.map(it => ({
-        fee_head_id: it.fee_head_id,
-        head_name: it.head_name,
-        amount: it.net_amount ?? it.original_amount ?? 0
-      }))
-    );
-  };
-
-  const handleSaveEditInvoice = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingInvoice || !token) return;
-    setIsSavingEditInvoice(true);
-    try {
-      const payload: any = {
-        due_date: editDueDate,
-        notes: editNotes
-      };
-      if (editingInvoice.paid_amount === 0) {
-        payload.items = editItems.map(it => ({
-          fee_head_id: it.fee_head_id,
-          amount: Number(it.amount) || 0
-        }));
-      }
-      const res = await fetch(`/api/v1/finance/invoices/${editingInvoice.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || 'Failed to update challan');
-      showToast('Challan updated successfully.');
-      setEditingInvoice(null);
-      fetchData();
-    } catch (err: any) {
-      alert(err.message);
-    } finally {
-      setIsSavingEditInvoice(false);
-    }
-  };
-
   // In-Place Student / Sibling Concession Modal Opener
   const handleOpenDiscountModalForStudent = (studentId: string, invoiceId?: string, defaultReason?: string) => {
     setDiscountStudentId(studentId);
@@ -1933,11 +2141,11 @@ export const FeeDeskView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2.5 sm:space-y-3">
       {/* Toast Notification */}
       {feedbackNotice && (
         <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-xl shadow-xl flex items-center gap-3 border text-xs font-semibold max-w-md animate-in slide-in-from-top-2 ${
+          className={`fixed top-4 right-4 z-50 p-3 rounded-xl shadow-xl flex items-center gap-3 border text-xs font-semibold max-w-md animate-in slide-in-from-top-2 ${
             feedbackNotice.type === 'success'
               ? 'bg-slate-900 text-white border-slate-700'
               : feedbackNotice.type === 'error'
@@ -1954,88 +2162,101 @@ export const FeeDeskView: React.FC = () => {
       )}
 
       {/* Header */}
-      <PageHeading
-        title="Fees Receiving"
-        description="Collect fees, view defaulters, and print reports."
-        icon={<Receipt className="w-4 h-4 text-slate-700" />}
-      >
-        <button
-          onClick={() => setShowBulkRevisionModal(true)}
-          className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium text-xs rounded-lg border border-indigo-200 transition-colors flex items-center gap-1.5"
-          title="Adjust tuition fees globally or by class/section"
-        >
-          <TrendingUp className="w-3.5 h-3.5 text-indigo-600" />
-          Bulk Fee Revision
-        </button>
-      </PageHeading>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+        <div>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
+            Fee Ledger & Collections
+          </h1>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            Student fee invoicing, cashier collection desk, payment allocations, and ledger records.
+          </p>
+        </div>
 
-      {/* Main Tab Navigation */}
-      {/* Mobile Tab Selector */}
-      <div className="sm:hidden w-full">
-        <select
-          value={activeTab}
-          onChange={e => setActiveTab(e.target.value as any)}
-          className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
-        >
-          <option value="cashier">Fees Receiving</option>
-          <option value="defaulters">Fee Defaulters {totalDefaultersCount > 0 ? `(${totalDefaultersCount})` : ''}</option>
-          <option value="reports">Finance Reports</option>
-        </select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowFeeHeadsModal(true)}
+            className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs rounded-lg border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Manage Fee Heads and Allocation Order"
+          >
+            <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+            <span>Fee Heads & Priority</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowBulkRevisionModal(true)}
+            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all flex items-center gap-1.5 cursor-pointer"
+            title="Adjust tuition fees globally or by class/section"
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-white/90" />
+            <span>Bulk Fee Revision</span>
+          </button>
+        </div>
       </div>
 
-      {/* Desktop/Tablet Tab Bar */}
-      <div className="hidden sm:flex bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold overflow-x-auto no-scrollbar whitespace-nowrap">
+      {/* Main Tab Navigation - Segmented Control matching Image 1 */}
+      <div className="flex items-center overflow-x-auto no-scrollbar max-w-full whitespace-nowrap bg-white p-0.5 rounded-xl border border-slate-200 text-xs font-semibold shadow-2xs">
         <button
           onClick={() => setActiveTab('cashier')}
-          className={`flex-1 min-w-[130px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'cashier' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+          className={`flex-1 min-w-[120px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
+            activeTab === 'cashier'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <Receipt className="w-3.5 h-3.5 text-slate-500" />
+          <Receipt className={`w-3.5 h-3.5 ${activeTab === 'cashier' ? 'text-white' : 'text-slate-500'}`} />
           <span>Fees Receiving</span>
         </button>
+
         <button
           onClick={() => setActiveTab('defaulters')}
-          className={`flex-1 min-w-[130px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'defaulters' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+          className={`flex-1 min-w-[120px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
+            activeTab === 'defaulters'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+          <AlertCircle className={`w-3.5 h-3.5 ${activeTab === 'defaulters' ? 'text-white' : 'text-slate-500'}`} />
           <span>Fee Defaulters</span>
-          {totalDefaultersCount > 0 && (
-            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-rose-100 text-rose-800 font-bold font-mono">
-              {totalDefaultersCount}
+          {duesSummary.allCount > 0 && (
+            <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[9.5px] font-bold font-mono ${
+              activeTab === 'defaulters' ? 'bg-white text-amber-700' : 'bg-rose-50 text-rose-700 border border-rose-200'
+            }`}>
+              {duesSummary.allCount}
             </span>
           )}
         </button>
+
         <button
           onClick={() => setActiveTab('reports')}
-          className={`flex-1 min-w-[110px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'reports' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900'
+          className={`flex-1 min-w-[120px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
+            activeTab === 'reports'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <BarChart2 className="w-3.5 h-3.5 text-slate-500" />
+          <BarChart2 className={`w-3.5 h-3.5 ${activeTab === 'reports' ? 'text-white' : 'text-slate-500'}`} />
           <span>Finance Reports</span>
         </button>
       </div>
 
       {/* TAB: FEES RECEIVING (Hero Search, Popup Selector & 3-Section Dossier) */}
       {activeTab === 'cashier' && (
-        <div className="space-y-4">
+        <div className="space-y-2.5 sm:space-y-3">
           {/* Hero Search & Action Bar */}
-          <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-xs space-y-3">
+          <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-2xs">
             <form
               onSubmit={e => {
                 e.preventDefault();
-                if (cashierSearch.trim()) setShowSearchPopup(true);
+                setShowSearchPopup(true);
               }}
-              className="flex flex-col sm:flex-row gap-3"
+              className="flex flex-col sm:flex-row gap-2"
             >
               <div className="relative flex-1">
-                <Search className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Name, roll no, phone, or CNIC"
+                  placeholder="Search by student name, roll #, phone, or CNIC..."
                   value={cashierSearch}
                   onChange={e => {
                     const next = e.target.value;
@@ -2043,467 +2264,572 @@ export const FeeDeskView: React.FC = () => {
                     if (next.trim()) setShowSearchPopup(true);
                     else setShowSearchPopup(false);
                   }}
-                  className="w-full pl-10 pr-10 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:bg-white text-slate-900 transition-colors"
+                  className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg focus:outline-none focus:border-[#0E2A47] focus:bg-white text-slate-900 transition-colors"
                 />
                 {cashierSearch && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setCashierSearch('');
-                      setShowSearchPopup(false);
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                    onClick={() => setCashierSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
 
-              <select
-                value={cashierClassFilter}
-                onChange={e => setCashierClassFilter(e.target.value)}
-                className="px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 text-slate-700 font-medium min-w-[180px]"
-              >
-                <option value="all">All Classes ({programs.length})</option>
-                {programs.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              {/* Class Filter */}
+              <div className="w-full sm:w-48 shrink-0">
+                <select
+                  value={cashierClassFilter}
+                  onChange={e => setCashierClassFilter(e.target.value)}
+                  className="w-full px-2.5 py-1.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg text-slate-800 font-medium focus:outline-none focus:border-[#0E2A47] cursor-pointer"
+                >
+                  <option value="all">All Classes ({programs.length})</option>
+                  {programs.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
 
               <button
-                type="button"
-                onClick={() => {
-                  if (cashierSearch.trim()) setShowSearchPopup(true);
-                }}
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-2xs flex items-center justify-center gap-2 transition-colors shrink-0"
+                type="submit"
+                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <Search className="w-4 h-4" />
-                <span>Select Student</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowFeeHeadsModal(true)}
-                className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-bold text-xs rounded-xl shadow-2xs flex items-center justify-center gap-1.5 transition-colors shrink-0"
-                title="Manage Fee Heads and Allocation Order"
-              >
-                <DollarSign className="w-4 h-4 text-indigo-600" />
-                <span>Fee Heads & Priority</span>
+                <Search className="w-3.5 h-3.5" />
+                <span>Search</span>
               </button>
             </form>
-
-            <div className="flex items-center justify-between text-xs text-slate-500 px-1 pt-1 border-t border-slate-100">
-              <span className="text-[11px] text-slate-500">
-                Type a name or roll number, then Select Student.
-              </span>
-            </div>
           </div>
 
+          {/* When No Student Selected: Active Dues Register */}
           {!selectedStudent && (
-            <div className="bg-white border border-slate-200 rounded-lg p-8 text-center">
-              <h3 className="text-sm font-semibold text-slate-900">Search a student to collect fees</h3>
-              <p className="text-xs text-slate-500 mt-1">
-                No student selected.
-              </p>
+            <div className="space-y-2.5 sm:space-y-3">
+              {/* 4-Card Financial Summary Strip (Finalized Enterprise Design) */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+                {/* Card 1: Total Invoiced */}
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                      Total Invoiced
+                    </span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                        PKR {duesSummary.totalInvoiced.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
+                    <CreditCard className="w-3.5 h-3.5 text-indigo-700" />
+                  </span>
+                </div>
+
+                {/* Card 2: Realized Collections */}
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                      Realized Collections
+                    </span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
+                        PKR {duesSummary.totalCollected.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                  </span>
+                </div>
+
+                {/* Card 3: Overdue Receivables */}
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                      Overdue Receivables
+                    </span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="font-mono font-bold text-rose-600 text-sm leading-none">
+                        PKR {duesSummary.allAmount.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-700" />
+                  </span>
+                </div>
+
+                {/* Card 4: Defaulter Students */}
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                      Defaulter Students
+                    </span>
+                    <div className="flex items-baseline gap-1 mt-0.5">
+                      <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                        {duesSummary.allCount}
+                      </span>
+                      <span className="text-xs font-medium text-slate-500 leading-none">
+                        Students
+                      </span>
+                    </div>
+                  </div>
+                  <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
+                    <Users className="w-3.5 h-3.5 text-amber-700" />
+                  </span>
+                </div>
+              </div>
+
+              {/* Active Dues Table */}
+              <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
+                <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-900">Students with Outstanding Dues</span>
+                    <span className="text-[11px] text-slate-500 font-mono">({allUnpaidStudents.length})</span>
+                  </div>
+                </div>
+
+                {allUnpaidStudents.length === 0 ? (
+                  <div className="py-8 text-center text-slate-400 text-xs">
+                    <CheckCircle2 className="w-7 h-7 mx-auto mb-1.5 text-emerald-500" />
+                    <p className="font-semibold text-slate-700">All student fees are fully cleared</p>
+                    <p className="text-[10.5px] text-slate-400 mt-0.5">Use the search bar above to look up any student dossier or payment history.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs text-slate-700">
+                      <thead className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+                        <tr>
+                          <th className="py-2 px-3">Student</th>
+                          <th className="py-2 px-3">Class & Section</th>
+                          <th className="py-2 px-3">Latest Challan #</th>
+                          <th className="py-2 px-3">Billing Month</th>
+                          <th className="py-2 px-3 text-right">Outstanding Due</th>
+                          <th className="py-2 px-3 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                        {allUnpaidStudents.slice(0, 30).map(def => (
+                          <tr key={def.student_id} className="hover:bg-slate-50/70 transition-colors">
+                            <td className="py-2 px-3 font-sans whitespace-nowrap">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-8 rounded border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 font-mono">
+                                  {def.student_name?.charAt(0) || 'S'}
+                                </div>
+                                <div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedCashierStudentId(def.student_id);
+                                      setLedgerStudentId(def.student_id);
+                                      setStudentDeskTab('challans');
+                                    }}
+                                    className="font-bold text-slate-900 hover:text-[#0E2A47] transition-colors text-left cursor-pointer"
+                                  >
+                                    {def.student_name}
+                                  </button>
+                                  <div className="text-[10px] text-slate-400 font-mono">
+                                    Roll: #{def.roll_number || '—'}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-2 px-3 font-sans text-slate-600 whitespace-nowrap">
+                              {def.program_name} {def.batch_name ? `• ${def.batch_name}` : ''}
+                            </td>
+                            <td className="py-2 px-3 whitespace-nowrap font-bold text-slate-800">
+                              {def.latest_invoice?.invoice_number || '—'}
+                            </td>
+                            <td className="py-2 px-3 font-sans text-slate-600 whitespace-nowrap">
+                              {def.unpaid_months.slice(0, 2).join(', ') || def.latest_invoice?.billing_month || '—'}
+                            </td>
+                            <td className="py-2 px-3 text-right font-bold text-rose-600 whitespace-nowrap">
+                              PKR {def.total_balance.toLocaleString()}
+                            </td>
+                            <td className="py-2 px-3 text-right font-sans whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCashierStudentId(def.student_id);
+                                  setLedgerStudentId(def.student_id);
+                                  setStudentDeskTab('challans');
+                                  if (def.latest_invoice) {
+                                    handleOpenCashierDrawer(def.latest_invoice);
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
+                              >
+                                <CreditCard className="w-3.5 h-3.5" />
+                                <span>Receive Fee</span>
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {/* Student Fee Dossier (When student selected) */}
-          {selectedStudent && (
-            <div className="space-y-4">
-              {/* 1. Student Particulars Banner */}
-              <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-2xs">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center font-bold text-indigo-700 text-base shrink-0 uppercase shadow-2xs">
-                      {selectedStudent.full_name?.charAt(0) || 'S'}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-base font-bold text-slate-900">{selectedStudent.full_name}</h3>
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 text-xs font-mono font-bold">
-                          Roll #{selectedStudent.roll_number || '—'}
-                        </span>
-                        {selectedStudent.admission_number && (
-                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-xs font-mono">
-                            Adm #{selectedStudent.admission_number}
+          {selectedStudent && (() => {
+            const studInvoices = invoices.filter(i => i.student_id === selectedStudent.id && i.status !== 'cancelled' && i.status !== 'voided');
+            const unpaidInvoices = studInvoices.filter(i => i.status !== 'paid' && i.balance_amount > 0);
+            const totalDue = unpaidInvoices.reduce((s, inv) => s + inv.balance_amount, 0);
+            const totalPaid = studInvoices.reduce((s, inv) => s + (inv.paid_amount || 0), 0);
+            const siblings = getStudentSiblings(selectedStudent);
+            const studentPayments = payments.filter(p => p.student_id === selectedStudent.id && (p as any).status !== 'voided' && (p as any).status !== 'cancelled');
+            const activeLedgerEntries = studentLedger.filter(e => {
+              const desc = (e.description || '').toUpperCase();
+              return !desc.includes('[CANCELLED]') && !desc.includes('[VOID') && !desc.includes('VOIDED');
+            });
+
+            return (
+              <div className="space-y-4">
+                {/* 1. Student Particulars & Account Balance Header */}
+                <div className="bg-white border border-slate-200 rounded-lg p-3.5 sm:p-4 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-700 text-sm shrink-0 uppercase font-mono">
+                        {selectedStudent.full_name?.charAt(0) || 'S'}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-sm font-bold text-slate-900">{selectedStudent.full_name}</h3>
+                          <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-800 text-[10px] font-mono font-bold">
+                            Roll #{selectedStudent.roll_number || '—'}
                           </span>
-                        )}
-                        <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-semibold">
-                          {getProgramName(selectedStudent.program_id) || 'Academic Class'}
-                          {batches.find(b => b.id === selectedStudent.batch_id)?.name ? ` • Section ${batches.find(b => b.id === selectedStudent.batch_id)?.name}` : ''}
+                          {selectedStudent.admission_number && (
+                            <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 text-[10px] font-mono">
+                              Adm #{selectedStudent.admission_number}
+                            </span>
+                          )}
+                          <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-semibold">
+                            {getProgramName(selectedStudent.program_id) || 'Academic Class'}
+                            {batches.find(b => b.id === selectedStudent.batch_id)?.name ? ` • ${batches.find(b => b.id === selectedStudent.batch_id)?.name}` : ''}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500 mt-1">
+                          <span>Father / Guardian: <strong className="text-slate-700">{selectedStudent.father_name || selectedStudent.guardian_name || '—'}</strong></span>
+                          {(selectedStudent.guardian_phone || selectedStudent.phone) && (
+                            <span>• Phone: <strong className="text-slate-700 font-mono">{selectedStudent.guardian_phone || selectedStudent.phone}</strong></span>
+                          )}
+                          {selectedStudent.guardian_id_card && (
+                            <span>• CNIC: <strong className="text-slate-700 font-mono">{selectedStudent.guardian_id_card}</strong></span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3.5 self-start sm:self-auto shrink-0">
+                      <div className="text-right font-mono pr-1">
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">
+                          {totalDue > 0 ? 'Outstanding Due' : 'Balance'}
+                        </span>
+                        <span className={`text-base font-bold block ${totalDue > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          {totalDue > 0 ? `PKR ${totalDue.toLocaleString()}` : 'Cleared'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 block">
+                          Total Paid: <strong className="text-slate-700">PKR {totalPaid.toLocaleString()}</strong>
                         </span>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mt-1">
-                        <span>Father / Guardian: <strong className="text-slate-700">{selectedStudent.father_name || selectedStudent.guardian_name || '—'}</strong></span>
-                        {(selectedStudent.guardian_phone || selectedStudent.phone) && (
-                          <span>• Phone: <strong className="text-slate-700 font-mono">{selectedStudent.guardian_phone || selectedStudent.phone}</strong></span>
-                        )}
-                        {selectedStudent.guardian_id_card && (
-                          <span>• CNIC: <strong className="text-slate-700 font-mono">{selectedStudent.guardian_id_card}</strong></span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions on Student */}
-                  <div className="flex items-center gap-2 flex-wrap self-start lg:self-auto">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedCashierStudentId(null);
-                        setCashierSearch('');
-                      }}
-                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
-                    >
-                      <Search className="w-3.5 h-3.5" />
-                      <span>Search Another</span>
-                    </button>
-
-                    {getStudentSiblings(selectedStudent).length > 0 && (
                       <button
                         type="button"
-                        onClick={() => handleOpenFamilyModal(selectedStudent)}
-                        className="px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
+                        onClick={() => {
+                          setSelectedCashierStudentId(null);
+                          setCashierSearch('');
+                          setStudentDeskTab('challans');
+                        }}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Clear student selection"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        <span>Clear</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Sub-Navigation Tabs */}
+                <div className="flex items-center justify-between border-b border-slate-200 gap-2">
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setStudentDeskTab('challans')}
+                      className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+                        studentDeskTab === 'challans'
+                          ? 'border-indigo-600 text-indigo-600'
+                          : 'border-transparent text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <span>Fee Challans</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                        unpaidInvoices.length > 0
+                          ? 'bg-rose-100 text-rose-800 font-bold'
+                          : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {studInvoices.length}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setStudentDeskTab('history')}
+                      className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+                        studentDeskTab === 'history'
+                          ? 'border-indigo-600 text-indigo-600'
+                          : 'border-transparent text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <span>Payment History & Ledger</span>
+                      <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-100 text-slate-600">
+                        {studentPayments.length}
+                      </span>
+                    </button>
+
+                    {siblings.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setStudentDeskTab('siblings')}
+                        className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+                          studentDeskTab === 'siblings'
+                            ? 'border-indigo-600 text-indigo-600'
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
                       >
                         <Users className="w-3.5 h-3.5 text-purple-600" />
-                        <span>Family Desk ({getStudentSiblings(selectedStudent).length + 1})</span>
+                        <span>Family Siblings</span>
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-purple-100 text-purple-800 font-bold">
+                          {siblings.length + 1}
+                        </span>
                       </button>
                     )}
                   </div>
+
+                  {siblings.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenFamilyModal(selectedStudent)}
+                      className="px-2.5 py-1.5 text-xs font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>1-Click Sibling Fee Collection</span>
+                    </button>
+                  )}
                 </div>
-              </div>
 
-              {/* 2. KPI Summary Strip */}
-              {(() => {
-                const studInvoices = invoices.filter(i => i.student_id === selectedStudent.id);
-                const liveInvoices = studInvoices.filter(i => i.status !== 'cancelled' && i.status !== 'voided' && i.status !== 'rolled_over');
-                const unpaidInvoices = liveInvoices.filter(i => i.status !== 'paid' && i.balance_amount > 0);
-                const totalDue = unpaidInvoices.reduce((s, inv) => s + inv.balance_amount, 0);
-                const totalPaid = liveInvoices.reduce((s, inv) => s + (inv.paid_amount || 0), 0);
-                const totalDiscounts = discounts.filter(d => d.student_id === selectedStudent.id).reduce((s, d) => s + (d.actual_discount_amount || 0), 0);
-                const siblings = getStudentSiblings(selectedStudent);
-
-                return (
-                  <>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">Outstanding Dues</span>
-                        <span className={`text-base font-mono font-bold mt-1 block ${totalDue > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          PKR {totalDue.toLocaleString()}
-                        </span>
-                        <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">
-                          {unpaidInvoices.length} unpaid challan{unpaidInvoices.length !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-
-                      <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">Total Paid</span>
-                        <span className="text-base font-mono font-bold text-emerald-700 mt-1 block">
-                          PKR {totalPaid.toLocaleString()}
-                        </span>
-                        <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">Lifetime collections</span>
-                      </div>
-
-                      <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">Concessions</span>
-                        <span className="text-base font-mono font-bold text-indigo-700 mt-1 block">
-                          PKR {totalDiscounts.toLocaleString()}
-                        </span>
-                        <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">Granted discounts</span>
-                      </div>
-
-                      <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">Enrolled Siblings</span>
-                        <span className="text-base font-mono font-bold text-purple-700 mt-1 block">
-                          {siblings.length} {siblings.length === 1 ? 'Sibling' : 'Siblings'}
-                        </span>
-                        <span className="text-[10px] text-slate-400 mt-0.5 block font-mono">
-                          {siblings.length > 0 ? 'Family discount eligible' : 'Solo enrollment'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* 3. Outstanding Invoices & Challans Breakdown */}
-                    <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-2xs space-y-3">
-                      <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900">Fee Invoices & Challans</h4>
-                          <p className="text-xs text-slate-500">Issued challans and amounts due</p>
-                        </div>
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-mono font-bold rounded-lg">
-                          {unpaidInvoices.length} unpaid
-                        </span>
-                      </div>
-
-                      {studInvoices.length === 0 ? (
-                        <div className="py-8 text-center text-slate-400 text-xs">
-                          No challan this month.{' '}
+                {/* TAB 1: FEE CHALLANS (All details in a single horizontal row) */}
+                {studentDeskTab === 'challans' && (
+                  <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
+                    {studInvoices.length === 0 ? (
+                      <div className="p-8 text-center text-slate-400 text-xs">
+                        <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
+                        <p className="font-semibold text-slate-700">No active fee challans found for this student.</p>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          Monthly challans can be generated from the{' '}
                           <button
                             type="button"
-                            className="font-semibold text-slate-900 underline underline-offset-2"
+                            className="font-semibold text-indigo-600 hover:text-indigo-800 underline underline-offset-2 cursor-pointer"
                             onClick={() => { window.location.hash = '#challans'; }}
                           >
-                            Generate a challan
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {studInvoices.map(inv => {
-                            const isPaid = inv.status === 'paid' || inv.balance_amount <= 0;
-                            return (
-                              <div
-                                key={inv.id}
-                                className={`border rounded-xl p-4 transition-all space-y-3 ${
-                                  isPaid ? 'bg-slate-50/50 border-slate-200' : 'bg-white border-slate-200 hover:border-indigo-300'
-                                }`}
-                              >
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-mono font-bold text-xs text-slate-900">{inv.invoice_number}</span>
-                                    <span className="px-2 py-0.5 bg-slate-100 text-slate-700 font-mono text-[10px] rounded-md font-semibold">
-                                      {inv.billing_month}
+                            Fee Challans
+                          </button>{' '}
+                          section.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase font-mono tracking-wider">
+                            <tr>
+                              <th className="py-2.5 px-3">Challan #</th>
+                              <th className="py-2.5 px-3">Month</th>
+                              <th className="py-2.5 px-3">Fee Heads Breakdown</th>
+                              <th className="py-2.5 px-3">Due Date</th>
+                              <th className="py-2.5 px-3 text-right">Net Payable</th>
+                              <th className="py-2.5 px-3 text-right">Paid</th>
+                              <th className="py-2.5 px-3 text-right">Balance Due</th>
+                              <th className="py-2.5 px-3 text-center">Status</th>
+                              <th className="py-2.5 px-3 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                            {studInvoices.map(inv => {
+                              const isPaid = inv.status === 'paid' || inv.balance_amount <= 0;
+                              return (
+                                <tr key={inv.id} className={isPaid ? 'bg-slate-50/40 hover:bg-slate-50' : 'hover:bg-slate-50'}>
+                                  <td className="py-2.5 px-3 font-bold text-slate-900 whitespace-nowrap">
+                                    {inv.invoice_number}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-sans font-medium text-slate-800 whitespace-nowrap">
+                                    <div className="flex items-center gap-1.5">
+                                      <span>{inv.billing_month}</span>
+                                      {inv.installment_number && (
+                                        <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px]">
+                                          Installment {inv.installment_number}{inv.total_installments ? ` of ${inv.total_installments}` : ''}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-3 font-sans text-slate-600 text-[11px]">
+                                    <div className="flex flex-wrap items-center gap-1.5 max-w-sm">
+                                      {inv.items.map((item, i) => (
+                                        <span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200 text-[10px] font-mono whitespace-nowrap">
+                                          <span className="text-slate-500">{item.head_name}:</span>
+                                          <strong className="text-slate-800">PKR {Number(item.net_amount ?? item.original_amount ?? 0).toLocaleString()}</strong>
+                                        </span>
+                                      ))}
+                                      {(inv.arrears_amount || 0) > 0 && (
+                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded border border-amber-200 text-[10px] font-mono text-amber-800 whitespace-nowrap">
+                                          <span>Arrears:</span>
+                                          <strong>{Number(inv.arrears_amount || 0).toLocaleString()}</strong>
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
+                                    {inv.due_date}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                                    PKR {inv.net_amount.toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right text-emerald-700 font-semibold whitespace-nowrap">
+                                    PKR {(inv.paid_amount || 0).toLocaleString()}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-bold whitespace-nowrap">
+                                    <span className={inv.balance_amount > 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                                      PKR {inv.balance_amount.toLocaleString()}
                                     </span>
-                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
+                                  </td>
+                                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
                                       inv.status === 'paid'
                                         ? 'bg-emerald-100 text-emerald-800'
                                         : inv.status === 'partially_paid'
                                         ? 'bg-amber-100 text-amber-800'
-                                        : inv.status === 'cancelled'
-                                        ? 'bg-slate-200 text-slate-700'
                                         : 'bg-rose-100 text-rose-800'
                                     }`}>
-                                      {inv.status}
+                                      {inv.status?.replace('_', ' ')}
                                     </span>
-                                    <span className="text-[11px] text-slate-400 font-mono">
-                                      Due: <strong className="text-slate-600">{inv.due_date}</strong>
-                                    </span>
-                                  </div>
-
-                                  {/* Actions on this Challan */}
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    {inv.balance_amount > 0 && inv.status !== 'cancelled' && (
-                                      <>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-sans whitespace-nowrap">
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      {inv.balance_amount > 0 && (
                                         <button
                                           type="button"
                                           onClick={() => handleOpenCashierDrawer(inv)}
-                                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-2xs flex items-center gap-1 transition-colors"
+                                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md shadow-2xs flex items-center gap-1 transition-colors cursor-pointer"
+                                          title="Receive fee payment"
                                         >
                                           <CreditCard className="w-3.5 h-3.5" />
                                           <span>Receive Fee</span>
                                         </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveInvoice(inv);
+                                          setShowPrintModal(true);
+                                        }}
+                                        className="px-2 py-1.5 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 text-xs font-medium rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                                        title="Print fee challan"
+                                      >
+                                        <Printer className="w-3.5 h-3.5" />
+                                        <span>Print</span>
+                                      </button>
+                                      {inv.balance_amount > 0 && (
                                         <button
                                           type="button"
-                                          onClick={() => handleOpenDiscountModalForStudent(selectedStudent.id, inv.id)}
-                                          className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
-                                          title="Grant concession"
+                                          onClick={() => handleDispatchWhatsAppSlip(inv)}
+                                          className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs rounded-md transition-colors border border-emerald-200 flex items-center gap-1 cursor-pointer"
+                                          title="Send WhatsApp fee slip"
                                         >
-                                          <Percent className="w-3.5 h-3.5" />
-                                          <span>Discount</span>
+                                          <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                                          <span>WA</span>
                                         </button>
-                                      </>
-                                    )}
-
-
-
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setActiveInvoice(inv);
-                                        setShowPrintModal(true);
-                                      }}
-                                      className="px-2.5 py-1.5 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 text-xs font-medium rounded-lg transition-colors flex items-center gap-1"
-                                      title="Print 3-part bank challan"
-                                    >
-                                      <Printer className="w-3.5 h-3.5" />
-                                      <span>Print</span>
-                                    </button>
-
-                                    {inv.balance_amount > 0 && inv.status !== 'cancelled' && (
+                                      )}
+                                      {inv.paid_amount > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleViewReceiptFromInvoice(inv)}
+                                          className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs rounded-md transition-colors border border-emerald-200 flex items-center gap-1 cursor-pointer"
+                                          title="View payment receipt"
+                                        >
+                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                          <span>Receipt</span>
+                                        </button>
+                                      )}
                                       <button
                                         type="button"
-                                        onClick={() => handleDispatchWhatsAppSlip(inv)}
-                                        className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs rounded-lg transition-colors border border-emerald-200 flex items-center gap-1"
-                                        title="WhatsApp fee slip"
+                                        onClick={() => handlePreviewSlipPicture(inv)}
+                                        className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md transition-colors cursor-pointer"
+                                        title="Preview fee slip picture"
                                       >
-                                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span>WA</span>
+                                        <Eye className="w-3.5 h-3.5" />
                                       </button>
-                                    )}
-
-                                    {inv.paid_amount > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleViewReceiptFromInvoice(inv)}
-                                        className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs rounded-lg transition-colors border border-emerald-200 flex items-center gap-1"
-                                        title="View official payment receipt"
-                                      >
-                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                        <span>Receipt</span>
-                                      </button>
-                                    )}
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handlePreviewSlipPicture(inv)}
-                                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
-                                      title="Preview official fee slip picture"
-                                    >
-                                      <Eye className="w-3.5 h-3.5" />
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenEditInvoice(inv)}
-                                      className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors"
-                                      title="Edit fee challan due date and notes"
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Itemized Fee Heads Breakdown */}
-                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                                  {inv.items.map((item, i) => (
-                                    <div key={i} className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-xs">
-                                      <span className="text-[10px] text-slate-500 block truncate">{item.head_name}</span>
-                                      <span className="font-mono font-bold text-slate-800">PKR {Number(item.net_amount ?? item.original_amount ?? 0).toLocaleString()}</span>
                                     </div>
-                                  ))}
-                                  {(inv.arrears_amount || 0) > 0 && (
-                                    <div className="bg-amber-50 p-2 rounded-lg border border-amber-200 text-xs">
-                                      <span className="text-[10px] text-amber-700 block">Arrears Brought Fwd</span>
-                                      <span className="font-mono font-bold text-amber-800">PKR {Number(inv.arrears_amount || 0).toLocaleString()}</span>
-                                    </div>
-                                  )}
-                                  {(inv.discount_amount || 0) > 0 && (
-                                    <div className="bg-indigo-50 p-2 rounded-lg border border-indigo-200 text-xs">
-                                      <span className="text-[10px] text-indigo-700 block">Concession</span>
-                                      <span className="font-mono font-bold text-indigo-800">-PKR {inv.discount_amount.toLocaleString()}</span>
-                                    </div>
-                                  )}
-                                </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                                {/* Financial Total Strip */}
-                                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs border-t border-slate-100">
-                                  <div className="flex items-center gap-3 text-slate-600 font-mono">
-                                    <span>Net: <strong className="text-slate-900">PKR {inv.net_amount.toLocaleString()}</strong></span>
-                                    <span>Paid: <strong className="text-emerald-700">PKR {(inv.paid_amount || 0).toLocaleString()}</strong></span>
-                                  </div>
-                                  <div className="font-mono text-right">
-                                    <span className="text-slate-500 mr-2">Balance Due:</span>
-                                    <span className={`font-bold text-sm ${inv.balance_amount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                                      PKR {inv.balance_amount.toLocaleString()}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* SECTION 2: FAMILY SIBLINGS */}
-                    <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-2xs space-y-3">
-                      <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900">Family Siblings</h4>
-                          <p className="text-xs text-slate-500">
-                            Siblings sharing a CNIC or guardian phone.
-                          </p>
-                        </div>
-                        {siblings.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => handleOpenFamilyModal(selectedStudent)}
-                            className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5"
-                          >
-                            <Users className="w-3.5 h-3.5" />
-                            <span>Settle All Family Dues</span>
-                          </button>
-                        )}
+                {/* TAB 2: PAYMENT HISTORY & FEE LEDGER */}
+                {studentDeskTab === 'history' && (
+                  <div className="bg-white border border-slate-200 rounded-lg p-3.5 sm:p-4 shadow-2xs space-y-4">
+                    {/* Header & Sub-Toggle */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900">Payment History & Fee Ledger</h4>
+                        <p className="text-xs text-slate-500">
+                          {historyViewMode === 'receipts'
+                            ? 'Cleared payment receipts recorded for this student'
+                            : 'Chronological double-entry statement showing fee charges (debits), payments (credits), and balance'}
+                        </p>
                       </div>
 
-                      {siblings.length === 0 ? (
-                        <div className="py-6 text-center text-slate-400 text-xs">
-                          No other siblings detected for this student (matching phone or CNIC).
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {siblings.map(sib => {
-                            const sibInvoices = invoices.filter(i => i.student_id === sib.id);
-                            const sibUnpaid = sibInvoices.filter(i => i.status !== 'paid' && i.balance_amount > 0);
-                            const sibDue = sibUnpaid.reduce((s, i) => s + i.balance_amount, 0);
-                            const sibBatch = batches.find(b => b.id === sib.batch_id);
-
-                            return (
-                              <div key={sib.id} className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/50 space-y-3">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <h5 className="font-bold text-slate-900 text-xs">{sib.full_name}</h5>
-                                    <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                                      Roll #{sib.roll_number || '—'} • {getProgramName(sib.program_id)} {sibBatch?.name ? `(${sibBatch.name})` : ''}
-                                    </p>
-                                  </div>
-                                  <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
-                                    sibDue > 0 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
-                                  }`}>
-                                    {sibDue > 0 ? `PKR ${sibDue.toLocaleString()} Due` : 'All Cleared'}
-                                  </span>
-                                </div>
-
-                                <div className="flex items-center gap-2 pt-1 border-t border-slate-200">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenDiscountModalForStudent(sib.id, undefined, 'Sibling Concession')}
-                                    className="flex-1 py-1.5 px-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1 shadow-2xs"
-                                  >
-                                    <Percent className="w-3 h-3" />
-                                    <span>Grant Sibling Discount</span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedCashierStudentId(sib.id);
-                                      setLedgerStudentId(sib.id);
-                                    }}
-                                    className="py-1.5 px-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
-                                  >
-                                    <span>Open Dossier</span>
-                                    <ArrowRight className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => setHistoryViewMode('receipts')}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                            historyViewMode === 'receipts'
+                              ? 'bg-white text-indigo-700 shadow-2xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Payment Receipts ({studentPayments.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setHistoryViewMode('ledger')}
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                            historyViewMode === 'ledger'
+                              ? 'bg-white text-indigo-700 shadow-2xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          Fee Ledger Statement ({activeLedgerEntries.length})
+                        </button>
+                      </div>
                     </div>
 
-                    {/* SECTION 3: FULL PAYMENT HISTORY (SINGLE-LINE CLEAR RECORDS) */}
-                    <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-2xs space-y-3">
-                      <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900">Payment History</h4>
-                          <p className="text-xs text-slate-500">Receipts for this student</p>
-                        </div>
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-mono font-bold rounded-lg">
-                          {payments.filter(p => p.student_id === selectedStudent.id).length} Payment Record{payments.filter(p => p.student_id === selectedStudent.id).length !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-
-                      {payments.filter(p => p.student_id === selectedStudent.id).length === 0 ? (
+                    {/* Sub-View A: Payment Receipts */}
+                    {historyViewMode === 'receipts' && (
+                      studentPayments.length === 0 ? (
                         <div className="py-8 text-center text-slate-400 text-xs">
-                          No payment receipts recorded for this student yet.
+                          No cleared payment receipts recorded for this student yet.
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-xs text-slate-700">
-                            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase font-mono">
                               <tr>
                                 <th className="py-2.5 px-3">Receipt #</th>
                                 <th className="py-2.5 px-3">Date</th>
@@ -2518,118 +2844,109 @@ export const FeeDeskView: React.FC = () => {
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                              {payments
-                                .filter(p => p.student_id === selectedStudent.id)
-                                .map(pay => {
-                                  const isVoided = pay.status === 'voided';
-                                  const linkedInv = invoices.find(i => i.id === pay.invoice_id);
-                                  const allocSummary = (pay.allocations || [])
-                                    .map(a => `${a.head_name}: ${a.allocated_amount.toLocaleString()}`)
-                                    .join(', ') || 'General Allocation';
+                              {studentPayments.map(pay => {
+                                const linkedInv = invoices.find(i => i.id === pay.invoice_id);
+                                const allocSummary = (pay.allocations || [])
+                                  .map(a => `${a.head_name}: ${a.allocated_amount.toLocaleString()}`)
+                                  .join(', ') || 'General Allocation';
 
-                                  return (
-                                    <tr key={pay.id} className={isVoided ? 'bg-rose-50/20 text-slate-400' : 'hover:bg-slate-50'}>
-                                      <td className="py-2.5 px-3 font-bold text-slate-900">
-                                        {pay.receipt_number}
-                                      </td>
-                                      <td className="py-2.5 px-3 text-slate-600 font-sans">
-                                        {pay.payment_date}
-                                      </td>
-                                      <td className="py-2.5 px-3 font-sans font-medium text-slate-800">
-                                        {linkedInv?.billing_month || '—'}
-                                      </td>
-                                      <td className="py-2.5 px-3 capitalize font-sans">
-                                        {pay.payment_method?.replace('_', ' ')}
-                                      </td>
-                                      <td className="py-2.5 px-3 text-slate-500 font-sans text-[11px] truncate max-w-[120px]">
-                                        {pay.reference_number || pay.bank_name || '—'}
-                                      </td>
-                                      <td className={`py-2.5 px-3 text-right font-bold ${isVoided ? 'line-through text-slate-400' : 'text-emerald-700'}`}>
-                                        PKR {pay.amount_paid.toLocaleString()}
-                                      </td>
-                                      <td className="py-2.5 px-3 text-slate-600 font-sans text-[10px] max-w-[200px] truncate" title={allocSummary}>
-                                        {allocSummary}
-                                      </td>
-                                      <td className="py-2.5 px-3 text-right text-slate-700">
-                                        {linkedInv ? `PKR ${linkedInv.balance_amount.toLocaleString()}` : '—'}
-                                      </td>
-                                      <td className="py-2.5 px-3 text-center font-sans">
-                                        {isVoided ? (
-                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-100 text-rose-800">
-                                            Voided
-                                          </span>
-                                        ) : (
-                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800">
-                                            Cleared
-                                          </span>
-                                        )}
-                                      </td>
-                                      <td className="py-2.5 px-3 text-right font-sans">
-                                        <div className="flex items-center justify-end gap-1">
+                                return (
+                                  <tr key={pay.id} className="hover:bg-slate-50">
+                                    <td className="py-2.5 px-3 font-bold text-slate-900">
+                                      {pay.receipt_number}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-slate-600 font-sans">
+                                      {pay.payment_date}
+                                    </td>
+                                    <td className="py-2.5 px-3 font-sans font-medium text-slate-800">
+                                      {linkedInv?.billing_month || '—'}
+                                    </td>
+                                    <td className="py-2.5 px-3 capitalize font-sans">
+                                      {pay.payment_method?.replace('_', ' ')}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-slate-500 font-sans text-[11px] truncate max-w-[120px]">
+                                      {pay.reference_number || pay.bank_name || '—'}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-bold text-emerald-700">
+                                      PKR {pay.amount_paid.toLocaleString()}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-slate-600 font-sans text-[10px] max-w-[200px] truncate" title={allocSummary}>
+                                      {allocSummary}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right text-slate-700">
+                                      {linkedInv ? `PKR ${linkedInv.balance_amount.toLocaleString()}` : '—'}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center font-sans">
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800">
+                                        Cleared
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-sans">
+                                      <div className="flex items-center justify-end gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setActivePaymentReceipt(pay);
+                                            if (linkedInv) setActiveInvoice(linkedInv);
+                                            setShowReceiptModal(true);
+                                          }}
+                                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded transition-colors flex items-center gap-1 cursor-pointer"
+                                          title="View official payment receipt"
+                                        >
+                                          <Printer className="w-3 h-3" />
+                                          <span>Receipt</span>
+                                        </button>
+                                        {pay.receipt_number && (
                                           <button
                                             type="button"
-                                            onClick={() => {
-                                              setActivePaymentReceipt(pay);
-                                              if (linkedInv) setActiveInvoice(linkedInv);
-                                              setShowReceiptModal(true);
-                                            }}
-                                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
-                                            title="View / Print Official Receipt"
+                                            onClick={() => handleDownloadReceiptPicture(pay, linkedInv)}
+                                            className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors cursor-pointer"
+                                            title="Download receipt image"
                                           >
-                                            <Receipt className="w-3 h-3 text-slate-500" />
-                                            <span>Receipt</span>
+                                            <Download className="w-3 h-3" />
                                           </button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
+                                        )}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
-                      )}
-                    </div>
+                      )
+                    )}
 
-                    {/* 6. Student Fee Ledger */}
-                    <div className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5 shadow-2xs space-y-3">
-                      <div className="flex justify-between items-center border-b border-slate-100 pb-2.5">
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900">Student ledger</h4>
-                          <p className="text-xs text-slate-500">Charges, receipts, and running balance</p>
-                        </div>
-                        <span className="text-xs font-mono font-bold text-slate-700">
-                          Account #{selectedStudent.roll_number || selectedStudent.admission_number || selectedStudent.id.slice(0, 8)}
-                        </span>
-                      </div>
-
-                      {studentLedger.length === 0 ? (
-                        <div className="py-6 text-center text-slate-400 text-xs">
-                          No ledger transactions recorded yet.
+                    {/* Sub-View B: Fee Ledger Statement */}
+                    {historyViewMode === 'ledger' && (
+                      activeLedgerEntries.length === 0 ? (
+                        <div className="py-8 text-center text-slate-400 text-xs">
+                          No active ledger entries recorded for this student yet.
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-xs text-slate-700">
-                            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase font-mono">
                               <tr>
-                                <th className="py-2 px-3">Date</th>
-                                <th className="py-2 px-3">Description / Voucher</th>
-                                <th className="py-2 px-3 text-right">Debit (PKR)</th>
-                                <th className="py-2 px-3 text-right">Credit (PKR)</th>
-                                <th className="py-2 px-3 text-right">Balance (PKR)</th>
+                                <th className="py-2.5 px-3">Date</th>
+                                <th className="py-2.5 px-3">Description / Transaction</th>
+                                <th className="py-2.5 px-3 text-right">Debit (PKR)</th>
+                                <th className="py-2.5 px-3 text-right">Credit (PKR)</th>
+                                <th className="py-2.5 px-3 text-right">Running Balance (PKR)</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                              {studentLedger.map((entry, idx) => (
+                              {activeLedgerEntries.map((entry, idx) => (
                                 <tr key={entry.id || idx} className="hover:bg-slate-50">
-                                  <td className="py-2 px-3 text-slate-500">{entry.date}</td>
-                                  <td className="py-2 px-3 font-sans text-slate-800">{entry.description}</td>
-                                  <td className="py-2 px-3 text-right font-bold text-rose-700">
+                                  <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">{entry.date}</td>
+                                  <td className="py-2.5 px-3 font-sans text-slate-800">{entry.description}</td>
+                                  <td className="py-2.5 px-3 text-right font-bold text-rose-700 whitespace-nowrap">
                                     {entry.debit > 0 ? entry.debit.toLocaleString() : '—'}
                                   </td>
-                                  <td className="py-2 px-3 text-right font-bold text-emerald-700">
+                                  <td className="py-2.5 px-3 text-right font-bold text-emerald-700 whitespace-nowrap">
                                     {entry.credit > 0 ? entry.credit.toLocaleString() : '—'}
                                   </td>
-                                  <td className="py-2 px-3 text-right font-bold text-slate-900">
+                                  <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
                                     {entry.running_balance.toLocaleString()}
                                   </td>
                                 </tr>
@@ -2637,130 +2954,329 @@ export const FeeDeskView: React.FC = () => {
                             </tbody>
                           </table>
                         </div>
+                      )
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 3: FAMILY SIBLINGS */}
+                {studentDeskTab === 'siblings' && (
+                  <div className="bg-white border border-slate-200 rounded-lg p-3.5 sm:p-4 shadow-2xs space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                          <Users className="w-4 h-4 text-purple-600" />
+                          <span>Family Siblings Roster</span>
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          Guardian: <strong className="text-slate-800">{selectedStudent.father_name || selectedStudent.guardian_name || '—'}</strong>
+                          {(selectedStudent.guardian_phone || selectedStudent.phone) && ` • Phone: ${selectedStudent.guardian_phone || selectedStudent.phone}`}
+                          {selectedStudent.guardian_id_card && ` • CNIC: ${selectedStudent.guardian_id_card}`}
+                        </p>
+                      </div>
+
+                      {siblings.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenFamilyModal(selectedStudent)}
+                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          <span>1-Click Receive All Sibling Fees</span>
+                        </button>
                       )}
                     </div>
-                  </>
-                );
-              })()}
-            </div>
-          )}
+
+                    {siblings.length === 0 ? (
+                      <div className="py-8 text-center text-slate-400 text-xs">
+                        <Users className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                        <p className="font-semibold text-slate-700">No siblings detected for this student.</p>
+                        <p className="text-[11px] text-slate-400 mt-1">
+                          Siblings are automatically recognized when students share the same Father/Guardian phone number or CNIC.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                        {siblings.map(sib => {
+                          const sibInvoices = invoices.filter(i => i.student_id === sib.id && i.status !== 'cancelled' && i.status !== 'voided');
+                          const sibUnpaid = sibInvoices.filter(i => i.status !== 'paid' && i.balance_amount > 0);
+                          const sibDue = sibUnpaid.reduce((s, i) => s + i.balance_amount, 0);
+                          const sibBatch = batches.find(b => b.id === sib.batch_id);
+
+                          return (
+                            <div key={sib.id} className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/60 space-y-3">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h5 className="font-bold text-slate-900 text-xs">{sib.full_name}</h5>
+                                  <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                                    Roll #{sib.roll_number || '—'} • {getProgramName(sib.program_id)} {sibBatch?.name ? `(${sibBatch.name})` : ''}
+                                  </p>
+                                </div>
+                                <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
+                                  sibDue > 0 ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'
+                                }`}>
+                                  {sibDue > 0 ? `PKR ${sibDue.toLocaleString()} Due` : 'Cleared'}
+                                </span>
+                              </div>
+
+                              {/* Sibling Available Heads Preview */}
+                              {sibUnpaid.length > 0 && (
+                                <div className="space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200 text-[11px]">
+                                  <span className="text-[10px] text-slate-400 font-mono uppercase font-bold block">Outstanding Fee Heads</span>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {sibUnpaid.flatMap(inv => inv.items || []).map((it, idx) => (
+                                      <span key={idx} className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-mono">
+                                        {it.head_name}: <strong>PKR {it.balance_due.toLocaleString()}</strong>
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-2 pt-1 border-t border-slate-200">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenFamilyModal(sib)}
+                                  className="flex-1 py-1.5 px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                                >
+                                  <CreditCard className="w-3.5 h-3.5" />
+                                  <span>Receive Fees</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDiscountModalForStudent(sib.id, undefined, 'Sibling Concession')}
+                                  className="py-1.5 px-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                  title="Grant approved sibling concession"
+                                >
+                                  <Percent className="w-3 h-3" />
+                                  <span>Concession</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCashierStudentId(sib.id);
+                                    setLedgerStudentId(sib.id);
+                                    setStudentDeskTab('challans');
+                                  }}
+                                  className="py-1.5 px-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                                >
+                                  <span>Open Dossier</span>
+                                  <ArrowRight className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
       {/* TAB 2: DEFAULTERS LIST (Overdue Accounts & Follow-ups) */}
       {activeTab === 'defaulters' && (
-        <div className="space-y-4">
-          {/* Summary Strip */}
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-600" />
-                Fee Defaulters List
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Prior months unpaid. Current month unpaid is listed under Current dues until next month starts.
-              </p>
-            </div>
+        <div className="space-y-3.5">
+          {/* Top Header & Summary Bar */}
+          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600" />
+                    Fee Defaulters & Outstanding Dues
+                  </h3>
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                    {defaultersList.length} Active Records
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Track overdue fees, view unpaid challans, and issue payment notices.
+                </p>
+              </div>
 
-            <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-              <div className="text-right">
-                <span className="text-[10px] font-mono text-slate-400 uppercase block">Total Defaulters</span>
-                <span className="text-base font-bold font-mono text-slate-900">{defaultersList.length} Students</span>
+              <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+                {/* Summary Metrics */}
+                <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-slate-500 block font-semibold">
+                      Filtered Students
+                    </span>
+                    <span className="text-sm font-bold font-mono text-slate-900">
+                      {totalDefaultersCount} Students
+                    </span>
+                  </div>
+                  <div className="h-7 w-px bg-slate-200" />
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-rose-600 block font-semibold">
+                      Outstanding Amount
+                    </span>
+                    <span className="text-sm font-bold font-mono text-rose-600">
+                      PKR {totalDefaultersAmount.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* PDF Report Export Button */}
+                <button
+                  type="button"
+                  onClick={() => handleOpenReportPdf('defaulters')}
+                  disabled={isGeneratingPdf || defaultersList.length === 0}
+                  className="px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
+                  title="Generate printable PDF of currently filtered defaulters"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>{isGeneratingPdf ? 'Rendering PDF...' : 'Export Defaulters PDF'}</span>
+                </button>
               </div>
-              <div className="text-right border-l border-slate-200 pl-3">
-                <span className="text-[10px] font-mono text-rose-600 uppercase block font-semibold">Total Overdue</span>
-                <span className="text-base font-bold font-mono text-rose-600">PKR {totalDefaultersAmount.toLocaleString()}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleOpenReportPdf('defaulters')}
-                disabled={isGeneratingPdf}
-                className="ml-2 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-2xs transition-colors"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>{isGeneratingPdf ? 'Rendering PDF...' : 'Open Defaulters PDF'}</span>
-              </button>
             </div>
           </div>
 
-          {/* Controls */}
-          <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex p-0.5 bg-slate-100 rounded-lg border border-slate-200 text-xs font-semibold">
-                <button
-                  type="button"
-                  onClick={() => setDuesView('defaulters')}
-                  className={`px-3 py-1.5 rounded-md ${duesView === 'defaulters' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
-                >
-                  Defaulters
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDuesView('current_dues')}
-                  className={`px-3 py-1.5 rounded-md ${duesView === 'current_dues' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
-                >
-                  Current dues
-                </button>
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {(['any', '1', '2', '3+'] as const).map(opt => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setUnpaidMonthsFilter(opt)}
-                    className={`px-2 py-1 rounded-md text-[11px] font-medium border ${
-                      unpaidMonthsFilter === opt ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'
-                    }`}
-                  >
-                    {opt === 'any' ? 'Any months' : opt === '1' ? '1 month' : opt === '2' ? '2 months' : '3+ months'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {feeHeads.filter(h => h.code !== 'ARREARS').map(h => {
-                const on = defaulterHeadIds.includes(h.id);
-                return (
-                  <button
-                    key={h.id}
-                    type="button"
-                    onClick={() => setDefaulterHeadIds(prev => on ? prev.filter(id => id !== h.id) : [...prev, h.id])}
-                    className={`px-2 py-1 rounded-md text-[11px] border ${on ? 'bg-indigo-50 text-indigo-800 border-indigo-200' : 'bg-white text-slate-600 border-slate-200'}`}
-                  >
-                    {h.name}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-            <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search by name, roll #, or phone..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-
-            <select
-              value={selectedBatch}
-              onChange={e => setSelectedBatch(e.target.value)}
-              className="px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 text-slate-700 font-medium w-full sm:w-auto"
-            >
-              <option value="all">All Sections / Batches</option>
-              {batches.map(b => (
-                <option key={b.id} value={b.id}>
-                  {getProgramName(b.program_id) ? `${getProgramName(b.program_id)} • ` : ''}{b.name}
-                </option>
-              ))}
-            </select>
-            </div>
-          </div>
-
-          {/* Defaulters Table */}
+          {/* Defaulters Table & Controls Card */}
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+            {/* Integrated Toolbar */}
+            <div className="p-3 bg-slate-50/50 border-b border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-2.5">
+              {/* Left: Segmented View Selector */}
+              <div className="flex p-0.5 bg-slate-200/70 rounded-lg border border-slate-200 text-xs font-semibold shrink-0 self-start xl:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setDuesView('all')}
+                  className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                    duesView === 'all'
+                      ? 'bg-white text-slate-900 shadow-xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>All Outstanding</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                    duesView === 'all' ? 'bg-slate-100 text-slate-800' : 'bg-slate-200/80 text-slate-600'
+                  }`}>
+                    {duesSummary.allCount}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDuesView('overdue')}
+                  className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                    duesView === 'overdue'
+                      ? 'bg-white text-rose-700 shadow-xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <AlertCircle className="w-3 h-3 text-rose-600" />
+                  <span>Overdue Only</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                    duesView === 'overdue' ? 'bg-rose-100 text-rose-800' : 'bg-slate-200/80 text-slate-600'
+                  }`}>
+                    {duesSummary.overdueCount}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDuesView('current')}
+                  className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                    duesView === 'current'
+                      ? 'bg-white text-slate-900 shadow-xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>Current Month</span>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                    duesView === 'current' ? 'bg-slate-100 text-slate-800' : 'bg-slate-200/80 text-slate-600'
+                  }`}>
+                    {duesSummary.currentCount}
+                  </span>
+                </button>
+              </div>
+
+              {/* Right: Inline Dropdown Filters & Search */}
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                {/* Class & Batch Filter */}
+                <select
+                  value={selectedBatch}
+                  onChange={e => setSelectedBatch(e.target.value)}
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
+                >
+                  <option value="all">All Classes</option>
+                  {batches.map(b => (
+                    <option key={b.id} value={b.id}>
+                      {getProgramName(b.program_id) ? `${getProgramName(b.program_id)} • ` : ''}{b.name}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Duration Filter */}
+                <select
+                  value={unpaidMonthsFilter}
+                  onChange={e => setUnpaidMonthsFilter(e.target.value as any)}
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
+                >
+                  <option value="any">All Periods</option>
+                  <option value="1">1 Month</option>
+                  <option value="2">2 Months</option>
+                  <option value="3+">3+ Months</option>
+                </select>
+
+                {/* Fee Head Filter */}
+                <select
+                  value={selectedDefaulterHead}
+                  onChange={e => setSelectedDefaulterHead(e.target.value)}
+                  className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
+                >
+                  <option value="all">All Fee Heads</option>
+                  {feeHeads.filter(h => h.code !== 'ARREARS').map(h => (
+                    <option key={h.id} value={h.id}>
+                      {h.name}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Search Box */}
+                <div className="relative min-w-[180px] sm:w-56 flex-1 sm:flex-none">
+                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search student, roll #..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 font-medium placeholder:text-slate-400 shadow-2xs"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs p-0.5"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Clear Active Filters */}
+                {(selectedBatch !== 'all' || unpaidMonthsFilter !== 'any' || selectedDefaulterHead !== 'all' || searchQuery) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedBatch('all');
+                      setUnpaidMonthsFilter('any');
+                      setSelectedDefaulterHead('all');
+                      setSearchQuery('');
+                    }}
+                    className="px-2 py-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors font-semibold text-xs cursor-pointer shrink-0"
+                    title="Reset all filters"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Defaulters Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-700">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[11px] uppercase tracking-wider">
@@ -2772,15 +3288,29 @@ export const FeeDeskView: React.FC = () => {
                     <th className="py-2.5 px-3.5">Father / Guardian</th>
                     <th className="py-2.5 px-3.5">Phone</th>
                     <th className="py-2.5 px-3.5">Unpaid Challans</th>
-                    <th className="py-2.5 px-3.5 text-right">Unpaid Dues (PKR)</th>
+                    <th className="py-2.5 px-3.5 text-right">Outstanding (PKR)</th>
                     <th className="py-2.5 px-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {defaultersList.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-slate-400">
-                        No students with overdue fee dues found.
+                      <td colSpan={9} className="py-12 text-center">
+                        <div className="max-w-sm mx-auto text-center space-y-1.5">
+                          <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto opacity-80" />
+                          <p className="text-sm font-bold text-slate-800">
+                            {duesView === 'overdue'
+                              ? 'No Overdue Defaulters'
+                              : duesView === 'current'
+                              ? 'No Current Month Unpaid Dues'
+                              : 'No Outstanding Fee Dues Found'}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {searchQuery || selectedBatch !== 'all' || unpaidMonthsFilter !== 'any' || selectedDefaulterHead !== 'all'
+                              ? 'No records match the selected filter criteria. Click "Clear Filters" to view all records.'
+                              : 'All active student fee challans are cleared.'}
+                          </p>
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -2792,8 +3322,26 @@ export const FeeDeskView: React.FC = () => {
                         <React.Fragment key={def.student_id}>
                           <tr className="hover:bg-slate-50/70 transition-colors">
                             <td className="py-3 px-3.5 font-mono text-slate-400">{idx + 1}</td>
-                            <td className="py-3 px-3.5 font-mono font-bold text-slate-900">{def.roll_number}</td>
-                            <td className="py-3 px-3.5 font-bold text-slate-900">{def.student_name}</td>
+                            <td className="py-3 px-3.5 font-mono font-bold text-slate-900">
+                              <button
+                                type="button"
+                                onClick={() => handleViewStudentInDesk(def.student_id)}
+                                className="text-left text-slate-900 hover:text-indigo-600 transition-colors underline-offset-2 hover:underline font-mono font-bold cursor-pointer"
+                                title="Open Student Profile in Fees Desk"
+                              >
+                                {def.roll_number}
+                              </button>
+                            </td>
+                            <td className="py-3 px-3.5 font-bold text-slate-900">
+                              <button
+                                type="button"
+                                onClick={() => handleViewStudentInDesk(def.student_id)}
+                                className="text-left text-slate-900 hover:text-indigo-600 transition-colors underline-offset-2 hover:underline font-bold cursor-pointer"
+                                title="Open Student Profile in Fees Desk"
+                              >
+                                {def.student_name}
+                              </button>
+                            </td>
                             <td className="py-3 px-3.5">
                               <span className="font-semibold text-slate-900 block">{def.program_name}</span>
                               <span className="text-[11px] text-slate-500 font-mono">{def.batch_name}</span>
@@ -2801,53 +3349,78 @@ export const FeeDeskView: React.FC = () => {
                             <td className="py-3 px-3.5 text-slate-700">{def.father_name}</td>
                             <td className="py-3 px-3.5 font-mono text-slate-600">{def.guardian_phone || '—'}</td>
                             <td className="py-3 px-3.5 font-mono">
-                              <p className="text-slate-900 font-semibold">
-                                {def.overdue_invoices_count} Challan{def.overdue_invoices_count > 1 ? 's' : ''}
-                              </p>
-                              <p className="text-[10px] text-slate-500 truncate max-w-[170px]">
-                                {def.unpaid_months.join(', ')}
-                              </p>
-                              {def.invoices.length > 1 && (
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <button
                                   type="button"
-                                  onClick={() => setExpandedDefaulterId(expandedDefaulterId === def.student_id ? null : def.student_id)}
-                                  className="text-[10px] text-indigo-600 hover:text-indigo-800 font-sans font-medium flex items-center gap-0.5 mt-0.5"
+                                  onClick={() => setSelectedDefaulterModal(def)}
+                                  className="text-left font-semibold text-slate-900 hover:text-indigo-600 underline-offset-2 hover:underline cursor-pointer inline-flex items-center gap-1"
+                                  title="Click to view detailed dues breakdown"
                                 >
-                                  <span>{expandedDefaulterId === def.student_id ? 'Hide breakdown' : 'Show breakdown'}</span>
-                                  {expandedDefaulterId === def.student_id ? (
-                                    <ChevronUp className="w-3 h-3" />
-                                  ) : (
-                                    <ChevronDown className="w-3 h-3" />
-                                  )}
+                                  <span>{def.overdue_invoices_count} Challan{def.overdue_invoices_count > 1 ? 's' : ''}</span>
                                 </button>
-                              )}
+                                {(() => {
+                                  const instInvs = def.invoices.filter((i: any) => i.installment_number);
+                                  if (instInvs.length === 0) return null;
+                                  const latest = instInvs.reduce((max: any, cur: any) => ((cur.installment_number || 0) > (max.installment_number || 0) ? cur : max), instInvs[0]);
+                                  return (
+                                    <span className="px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-sans font-bold">
+                                      Installment {latest.installment_number}{latest.total_installments ? ` of ${latest.total_installments}` : ''}
+                                    </span>
+                                  );
+                                })()}
+                                {def.max_overdue_days > 0 ? (
+                                  <span className="px-1.5 py-0.2 rounded bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-mono font-bold">
+                                    {def.max_overdue_days}d overdue
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.2 rounded bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-mono font-bold">
+                                    Due cycle
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-slate-500 truncate max-w-[180px] mt-0.5">
+                                {def.unpaid_months.join(', ')}
+                              </p>
                             </td>
                             <td className="py-3 px-3.5 text-right font-mono font-bold text-rose-600 text-sm">
-                              {def.total_balance.toLocaleString()}
+                              PKR {def.total_balance.toLocaleString()}
                             </td>
                             <td className="py-3 px-3.5 text-right">
                               <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedDefaulterModal(def)}
+                                  className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-[11px] rounded border border-slate-300 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                                  title="View Itemized Pending Dues Breakdown"
+                                >
+                                  <Eye className="w-3 h-3 text-slate-600" />
+                                  <span>Details</span>
+                                </button>
                                 {siblings.length > 0 && stud && (
                                   <button
+                                    type="button"
                                     onClick={() => handleOpenFamilyModal(stud)}
-                                    className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold rounded border border-indigo-200 transition-colors flex items-center gap-1"
+                                    className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold rounded border border-indigo-200 transition-colors flex items-center gap-1 cursor-pointer"
                                     title={`Settle all ${siblings.length + 1} family members`}
                                   >
                                     <Users className="w-3 h-3 text-indigo-600" />
-                                    <span>Family</span>
+                                    <span>Family ({siblings.length + 1})</span>
                                   </button>
                                 )}
                                 <button
+                                  type="button"
                                   onClick={() => handleDispatchWhatsAppSlip(def.latest_invoice, def.guardian_phone)}
-                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-[11px] rounded border border-emerald-300 transition-colors inline-flex items-center gap-1"
+                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-[11px] rounded border border-emerald-300 transition-colors inline-flex items-center gap-1 cursor-pointer"
                                   title="Send Fee Slip via WhatsApp"
                                 >
                                   <MessageSquare className="w-3 h-3 text-emerald-600" />
                                   <span>Slip</span>
                                 </button>
                                 <button
+                                  type="button"
                                   onClick={() => handleOpenCashierDrawer(def.latest_invoice)}
-                                  className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[11px] rounded transition-colors inline-flex items-center gap-1"
+                                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-[11px] rounded transition-colors inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                                  title="Open Cashier to Receive Fee"
                                 >
                                   <CreditCard className="w-3 h-3" />
                                   <span>Receive</span>
@@ -2855,45 +3428,6 @@ export const FeeDeskView: React.FC = () => {
                               </div>
                             </td>
                           </tr>
-                          {expandedDefaulterId === def.student_id && def.invoices.length > 1 && (
-                            <tr className="bg-slate-50/80">
-                              <td colSpan={9} className="py-2.5 px-6 border-b border-slate-200">
-                                <div className="space-y-1.5">
-                                  <p className="text-[11px] font-bold text-slate-700 uppercase font-mono tracking-wider">
-                                    Unpaid Challans Breakdown for {def.student_name}:
-                                  </p>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                                    {def.invoices.map(inv => (
-                                      <div key={inv.id} className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs space-y-1 text-xs">
-                                        <div className="flex justify-between items-center font-mono">
-                                          <span className="font-bold text-slate-900">{inv.invoice_number}</span>
-                                          <span className="text-rose-600 font-bold">{inv.balance_amount.toLocaleString()} PKR</span>
-                                        </div>
-                                        <div className="flex justify-between text-[11px] text-slate-500 font-mono">
-                                          <span>Month: {inv.billing_month}</span>
-                                          <span>Due: {inv.due_date} ({inv.overdue_days}d overdue)</span>
-                                        </div>
-                                        <div className="flex justify-end gap-1.5 pt-1">
-                                          <button
-                                            onClick={() => handleOpenCashierDrawer(inv)}
-                                            className="px-2 py-0.5 bg-slate-900 text-white rounded text-[10px] font-semibold"
-                                          >
-                                            Receive
-                                          </button>
-                                          <button
-                                            onClick={() => handleDispatchWhatsAppSlip(inv, def.guardian_phone)}
-                                            className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded text-[10px] font-semibold"
-                                          >
-                                            Slip
-                                          </button>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
                         </React.Fragment>
                       );
                     })
@@ -2950,7 +3484,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={() => handleOpenReportPdf('defaulters')}
                 disabled={isGeneratingPdf}
-                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Open Defaulters PDF</span>
@@ -2980,7 +3514,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={() => setSiblingReportOpen(true)}
                 disabled={isGeneratingPdf}
-                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Open Family PDF</span>
@@ -3010,7 +3544,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={() => handleOpenReportPdf('class_wise')}
                 disabled={isGeneratingPdf}
-                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Open Class-wise PDF</span>
@@ -3056,7 +3590,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={() => handleOpenReportPdf('date_range')}
                 disabled={isGeneratingPdf}
-                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Open Cashbook PDF</span>
@@ -3092,7 +3626,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={() => handleOpenReportPdf('month_wise')}
                 disabled={isGeneratingPdf}
-                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Open Monthly PDF</span>
@@ -3150,7 +3684,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={() => handleOpenReportPdf('daily_closing')}
                 disabled={isGeneratingPdf}
-                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Open Daily Close PDF</span>
@@ -3180,7 +3714,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={() => handleOpenReportPdf('fee_heads')}
                 disabled={isGeneratingPdf}
-                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Open Fee Heads PDF</span>
@@ -3210,7 +3744,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={() => setShowConcessionReportModal(true)}
                 disabled={isGeneratingPdf}
-                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Configure & Generate PDF</span>
@@ -3250,7 +3784,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={() => handleOpenReportPdf('student_ledger')}
                 disabled={isGeneratingPdf || !ledgerStudentId}
-                className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Open Ledger PDF</span>
@@ -3324,17 +3858,37 @@ export const FeeDeskView: React.FC = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">Amount Received (PKR) *</label>
                     <input
                       type="number"
                       min="1"
-                      max={activeInvoice.balance_amount}
                       value={collectionAmount}
                       onChange={e => handleAmountChange(e.target.value === '' ? '' : Number(e.target.value))}
-                      className="w-full px-3 py-2 text-sm font-mono font-bold bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
+                      className="w-full px-3 py-2 text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600 text-slate-900"
+                      placeholder="e.g. 1400"
                       required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                      Discount / Concession (PKR)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={activeInvoice.balance_amount}
+                      value={quickDiscountAmount === 0 ? '' : quickDiscountAmount}
+                      placeholder="0"
+                      onChange={e => {
+                        const disc = Math.min(activeInvoice.balance_amount, Math.max(0, Number(e.target.value) || 0));
+                        setQuickDiscountAmount(disc);
+                        const payable = Math.max(0, activeInvoice.balance_amount - disc);
+                        setCollectionAmount(payable);
+                        void handleAmountChange(payable);
+                      }}
+                      className="w-full px-3 py-2 text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600 text-indigo-700"
                     />
                   </div>
                   <div>
@@ -3343,7 +3897,7 @@ export const FeeDeskView: React.FC = () => {
                       type="date"
                       value={paymentDate}
                       onChange={e => setPaymentDate(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-mono font-semibold bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
+                      className="w-full px-3 py-2 text-xs font-mono font-semibold bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600"
                       required
                     />
                   </div>
@@ -3352,7 +3906,7 @@ export const FeeDeskView: React.FC = () => {
                     <select
                       value={paymentMethod}
                       onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600 text-slate-800 font-semibold"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600 text-slate-800 font-semibold"
                     >
                       <option value="cash">Cash (Counter)</option>
                       <option value="bank_transfer">Online Bank Transfer / Meezan IBFT</option>
@@ -3363,12 +3917,37 @@ export const FeeDeskView: React.FC = () => {
                   </div>
                 </div>
 
+                {quickDiscountAmount > 0 && (
+                  <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-indigo-900 flex items-center gap-1.5">
+                        <Percent className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Discount Applied: PKR {quickDiscountAmount.toLocaleString()}</span>
+                      </span>
+                      <span className="text-[11px] text-indigo-700 font-mono">
+                        Net Payable: PKR {Math.max(0, activeInvoice.balance_amount - quickDiscountAmount).toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-indigo-900 mb-1">Mandatory Discount Reason *</label>
+                      <input
+                        type="text"
+                        placeholder="State reason (e.g. Approved by Director, Hardship concession, Staff discount)..."
+                        value={counterDiscountReason}
+                        onChange={e => setCounterDiscountReason(e.target.value)}
+                        className="w-full px-3 py-1.5 text-xs bg-white border border-indigo-300 rounded-lg text-slate-800"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Head-Wise Counter Concession Option */}
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
                   <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex justify-between items-center">
                     <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                       <Percent className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Counter Concession / Discount (Optional)</span>
+                      <span>Itemized Head-Wise Concession (Advanced)</span>
                     </span>
                     <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
                       <input
@@ -3377,7 +3956,7 @@ export const FeeDeskView: React.FC = () => {
                         onChange={e => setShowCounterDiscount(e.target.checked)}
                         className="rounded text-indigo-600"
                       />
-                      <span>Apply Concession</span>
+                      <span>Head-Wise Breakdown</span>
                     </label>
                   </div>
 
@@ -3587,8 +4166,8 @@ export const FeeDeskView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Official Fee Payment Receipt (A6 Vertical)</h3>
-                  <p className="text-[11px] text-slate-500">Verified institutional receipt voucher • Auto-credited to ledger</p>
+                  <h3 className="font-bold text-slate-900 text-sm">Official Fee Payment Receipt</h3>
+                  <p className="text-[11px] text-slate-500 font-mono">A6 Portrait Receipt</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -3665,8 +4244,8 @@ export const FeeDeskView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-rose-600" />
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Fee Due Reminder Slip (A6 Vertical)</h3>
-                  <p className="text-[11px] text-slate-500">Official student dues voucher • Bank deposit channels</p>
+                  <h3 className="font-bold text-slate-900 text-sm">Fee Due Reminder Slip</h3>
+                  <p className="text-[11px] text-slate-500 font-mono">A6 Portrait Slip</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -3817,7 +4396,7 @@ export const FeeDeskView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: 3-PART PRINTABLE BANK CHALLAN (A4 SHEET) WITH DYNAMIC BANK INFO */}
+      {/* MODAL: PRINTABLE FEE CHALLAN (A4 SHEET) WITH DYNAMIC BANK INFO */}
       {/* ========================================================================= */}
       {showPrintModal && activeInvoice && (
         <>
@@ -3855,7 +4434,7 @@ export const FeeDeskView: React.FC = () => {
               <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden challan-no-print">
                 <div className="flex items-center gap-2">
                   <Printer className="w-5 h-5 text-indigo-600" />
-                  <h3 className="font-bold text-slate-900 text-sm">3-Part Fee Challan (A4 Sheet Preview)</h3>
+                  <h3 className="font-bold text-slate-900 text-sm">Official Fee Challan (A4 Sheet Preview)</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -3890,14 +4469,14 @@ export const FeeDeskView: React.FC = () => {
                       });
                       await downloadPdfBytes(bytes, `challan-${activeInvoice.invoice_number}.pdf`);
                     }}
-                    className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
+                    className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
                   >
                     <Download className="w-3.5 h-3.5" />
                     Download PDF Challan
                   </button>
                   <button
                     onClick={() => window.print()}
-                    className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg flex items-center gap-1.5"
+                    className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold text-xs rounded-lg flex items-center gap-1.5 transition-colors"
                   >
                     <Printer className="w-3.5 h-3.5" />
                     Print A4
@@ -4188,7 +4767,7 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSavingHead}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg shadow-xs"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition-colors"
                 >
                   {isSavingHead ? 'Saving...' : 'Save Fee Head'}
                 </button>
@@ -4388,7 +4967,7 @@ export const FeeDeskView: React.FC = () => {
 
               <form onSubmit={handleExecuteBulkRevision} id="bulkRevForm" className="space-y-4 mt-4 overflow-y-auto max-h-[60vh] pr-1">
                 <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-700">Target Cohort Scope</label>
+                  <label className="block text-xs font-bold text-slate-700">Target Scope</label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {[
                       { id: 'all', label: 'Entire Academy' },
@@ -4519,7 +5098,7 @@ export const FeeDeskView: React.FC = () => {
                 type="submit"
                 form="bulkRevForm"
                 disabled={isSubmittingBulkRev || affectedStudents.length === 0}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs"
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition-colors"
               >
                 {isSubmittingBulkRev ? 'Applying...' : `Apply Revision to ${affectedStudents.length} Students`}
               </button>
@@ -4560,8 +5139,50 @@ export const FeeDeskView: React.FC = () => {
             </div>
 
             <form onSubmit={handleCommitFamilyPayment} className="space-y-4">
-              {/* Sibling Members Roster & Amount Inputs */}
-              <div className="space-y-3 max-h-[48vh] overflow-y-auto pr-1">
+              {/* 1. Lump-Sum Total Amount Input with Priority Auto-Distribution */}
+              <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3.5 space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="block text-xs font-bold text-purple-950">
+                      Total Family Amount Received (PKR) *
+                    </label>
+                    <p className="text-[11px] text-purple-700 mt-0.5">
+                      Enter total lump sum. System automatically distributes across all children and fee heads by priority order.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleFamilyTotalAmountChange(selectedFamily.totalFamilyDue)}
+                      className="px-2.5 py-1 text-xs font-bold bg-white hover:bg-purple-100 text-purple-800 border border-purple-300 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                    >
+                      Full Due (PKR {selectedFamily.totalFamilyDue.toLocaleString()})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleFamilyTotalAmountChange('')}
+                      className="px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400 font-mono">PKR</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder={`Enter total payment (e.g. ${selectedFamily.totalFamilyDue})`}
+                    value={familyTotalInput}
+                    onChange={e => handleFamilyTotalAmountChange(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full pl-12 pr-4 py-2 text-base font-bold font-mono bg-white border border-purple-300 rounded-lg focus:outline-none focus:border-purple-600 text-slate-900 shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              {/* 2. Sibling Members Roster & Head-Wise Cells */}
+              <div className="space-y-3.5 max-h-[46vh] overflow-y-auto pr-1">
                 {selectedFamily.members.map(member => {
                   const s = member.student;
                   const batch = batches.find(b => b.id === s.batch_id);
@@ -4569,7 +5190,8 @@ export const FeeDeskView: React.FC = () => {
 
                   return (
                     <div key={s.id} className="bg-slate-50/80 border border-slate-200 rounded-xl p-3.5 space-y-3">
-                      <div className="flex justify-between items-center">
+                      {/* Sibling Header */}
+                      <div className="flex justify-between items-center border-b border-slate-200 pb-2">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-800 font-bold flex items-center justify-center text-xs">
                             {s.full_name?.charAt(0) || 'S'}
@@ -4577,76 +5199,69 @@ export const FeeDeskView: React.FC = () => {
                           <div>
                             <h4 className="font-bold text-slate-900 text-xs">{s.full_name}</h4>
                             <p className="text-[11px] text-slate-500 font-mono">
-                              Roll #{s.roll_number || '—'} • {progName} ({batch?.name || 'Section'})
+                              Roll #{s.roll_number || '—'} • {progName} {batch?.name ? `(${batch.name})` : ''}
                             </p>
                           </div>
                         </div>
 
-                        <div className="text-right">
-                          <span className="text-[10px] font-mono text-slate-400 uppercase block">Total Outstanding</span>
-                          <span className="text-xs font-bold font-mono text-rose-600">
-                            PKR {member.totalDue.toLocaleString()}
+                        <div className="text-right font-mono">
+                          <span className="text-[10px] text-slate-400 uppercase font-bold block">Outstanding</span>
+                          <span className={`text-xs font-bold ${member.totalDue > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                            {member.totalDue > 0 ? `PKR ${member.totalDue.toLocaleString()}` : 'Cleared'}
                           </span>
                         </div>
                       </div>
 
                       {member.unpaidInvoices.length === 0 ? (
                         <p className="text-[11px] text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-lg font-medium">
-                          No outstanding fee vouchers for this student.
+                          No outstanding dues for this student.
                         </p>
                       ) : (
-                        <div className="space-y-2">
+                        <div className="space-y-2.5">
                           {member.unpaidInvoices.map(inv => (
-                            <div key={inv.id} className="flex items-center justify-between gap-3 bg-white p-2.5 rounded-lg border border-slate-200/80 text-xs">
-                              <div>
-                                <span className="font-bold font-mono text-slate-800">{inv.invoice_number}</span>
-                                <span className="text-slate-400 mx-1.5">•</span>
-                                <span className="text-slate-600">{inv.billing_month}</span>
-                                <span className="text-slate-400 text-[10px] ml-1.5 font-mono">(Due: PKR {inv.balance_amount.toLocaleString()})</span>
+                            <div key={inv.id} className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-2">
+                              <div className="flex justify-between items-center text-xs">
+                                <div className="flex items-center gap-1.5 font-mono">
+                                  <span className="font-bold text-slate-800">{inv.invoice_number}</span>
+                                  <span className="text-slate-400">•</span>
+                                  <span className="text-slate-600 font-sans font-medium">{inv.billing_month}</span>
+                                </div>
+                                <span className="text-[11px] text-slate-500 font-mono">
+                                  Balance Due: <strong className="text-rose-600">PKR {inv.balance_amount.toLocaleString()}</strong>
+                                </span>
                               </div>
 
-                              <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-[10px] font-mono text-slate-400">PKR</span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    max={inv.balance_amount}
-                                    value={familyAllocations[inv.id] ?? ''}
-                                    onChange={e => {
-                                      const val = e.target.value === '' ? 0 : Number(e.target.value);
-                                      setFamilyAllocations(prev => ({
-                                        ...prev,
-                                        [inv.id]: val,
-                                      }));
-                                    }}
-                                    className="w-28 px-2.5 py-1 text-right font-mono font-bold text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500"
-                                  />
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setFamilyAllocations(prev => ({
-                                      ...prev,
-                                      [inv.id]: inv.balance_amount,
-                                    }));
-                                  }}
-                                  className="px-2 py-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded border border-indigo-200"
-                                >
-                                  Full
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setFamilyAllocations(prev => ({
-                                      ...prev,
-                                      [inv.id]: 0,
-                                    }));
-                                  }}
-                                  className="px-2 py-1 text-[10px] font-semibold text-slate-500 hover:bg-slate-100 rounded"
-                                >
-                                  Clear
-                                </button>
+                              {/* Available Fee Head Cells in a Row */}
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                {inv.items.map(it => {
+                                  const key = `${inv.id}_${it.fee_head_id}`;
+                                  const allocVal = familyHeadAllocations[key] ?? 0;
+
+                                  return (
+                                    <div key={it.fee_head_id} className="bg-slate-50 border border-slate-200 rounded-lg p-2 space-y-1">
+                                      <div className="flex justify-between items-center text-[11px]">
+                                        <span className="font-semibold text-slate-700 truncate" title={it.head_name}>
+                                          {it.head_name}
+                                        </span>
+                                        <span className="text-[9px] font-mono text-slate-400">
+                                          Due: {it.balance_due.toLocaleString()}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-[10px] font-mono text-slate-400">PKR</span>
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max={it.balance_due}
+                                          value={allocVal === 0 ? '' : allocVal}
+                                          placeholder="0"
+                                          onChange={e => handleManualSiblingHeadChange(inv.id, it.fee_head_id, Math.min(it.balance_due, Math.max(0, Number(e.target.value) || 0)))}
+                                          className="w-full px-2 py-1 text-right font-mono font-bold text-xs bg-white border border-slate-200 rounded focus:border-indigo-500 focus:outline-none text-slate-900"
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           ))}
@@ -4657,8 +5272,8 @@ export const FeeDeskView: React.FC = () => {
                 })}
               </div>
 
-              {/* Total & Payment Parameters */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              {/* 3. Total & Payment Parameters */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-3">
                 <div className="flex justify-between items-center pb-2 border-b border-slate-200">
                   <span className="text-xs font-bold text-slate-700 uppercase font-mono">Total Family Collection</span>
                   <span className="text-lg font-bold font-mono text-emerald-600">
@@ -4672,13 +5287,13 @@ export const FeeDeskView: React.FC = () => {
                     <select
                       value={familyPaymentMethod}
                       onChange={e => setFamilyPaymentMethod(e.target.value as PaymentMethod)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-medium"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-medium text-slate-800"
                     >
                       <option value="cash">Cash Counter</option>
-                      <option value="bank_transfer">Bank IBFT / Raast</option>
+                      <option value="bank_transfer">Bank IBFT / Meezan</option>
                       <option value="easypaisa">EasyPaisa</option>
                       <option value="jazzcash">JazzCash</option>
-                      <option value="cheque">Cheque</option>
+                      <option value="cheque">Bank Cheque</option>
                     </select>
                   </div>
 
@@ -4689,7 +5304,7 @@ export const FeeDeskView: React.FC = () => {
                       placeholder="e.g. 982341 or Chq #4091"
                       value={familyReference}
                       onChange={e => setFamilyReference(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono text-slate-800"
                     />
                   </div>
 
@@ -4700,7 +5315,7 @@ export const FeeDeskView: React.FC = () => {
                       placeholder="e.g. Meezan Bank"
                       value={familyBankName}
                       onChange={e => setFamilyBankName(e.target.value)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-800"
                     />
                   </div>
                 </div>
@@ -4718,7 +5333,7 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmittingFamily || Object.values(familyAllocations).reduce((sum, v) => sum + (Number(v) || 0), 0) <= 0}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2"
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>
@@ -4832,7 +5447,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setFamilyReceiptData(null)}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl"
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
               >
                 Done
               </button>
@@ -4912,6 +5527,8 @@ export const FeeDeskView: React.FC = () => {
                       onClick={() => {
                         setSelectedCashierStudentId(student.id);
                         setLedgerStudentId(student.id);
+                        setStudentDeskTab('challans');
+                        setCashierSearch('');
                         setShowSearchPopup(false);
                       }}
                       className="p-3 bg-white hover:bg-slate-50 border border-slate-200 hover:border-indigo-300 rounded-xl cursor-pointer transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
@@ -4970,7 +5587,7 @@ export const FeeDeskView: React.FC = () => {
 
                         <button
                           type="button"
-                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors shadow-2xs flex items-center gap-1"
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-lg transition-colors shadow-xs flex items-center gap-1"
                         >
                           <span>Select</span>
                           <ArrowRight className="w-3 h-3" />
@@ -4996,120 +5613,6 @@ export const FeeDeskView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL: EDIT CHALLAN */}
-      {/* ========================================================================= */}
-      {editingInvoice && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <Edit2 className="w-4 h-4 text-indigo-600" />
-                  <span>Edit Fee Challan #{editingInvoice.invoice_number}</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Student: <strong>{editingInvoice.student_name}</strong> • Month: <strong className="font-mono">{editingInvoice.billing_month}</strong>
-                </p>
-              </div>
-              <button onClick={() => setEditingInvoice(null)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveEditInvoice} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    value={editDueDate}
-                    onChange={e => setEditDueDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Status</label>
-                  <div className="px-3 py-2 text-xs bg-slate-100 border border-slate-200 rounded-lg font-mono font-bold capitalize text-slate-700">
-                    {editingInvoice.status} (Paid: PKR {editingInvoice.paid_amount.toLocaleString()})
-                  </div>
-                </div>
-              </div>
-
-              {/* Itemized Heads Editing */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-700">Challan Fee Heads Breakdown</span>
-                  {editingInvoice.paid_amount > 0 && (
-                    <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      Amounts locked (partial payment received)
-                    </span>
-                  )}
-                </div>
-                <div className="divide-y divide-slate-100 max-h-48 overflow-y-auto p-2">
-                  {editItems.map((item, idx) => (
-                    <div key={idx} className="py-1.5 px-1 flex items-center justify-between gap-3 text-xs">
-                      <span className="font-medium text-slate-700">{item.head_name}</span>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="number"
-                          min="0"
-                          disabled={editingInvoice.paid_amount > 0 || item.fee_head_id === 'ARREARS'}
-                          value={item.amount}
-                          onChange={e => {
-                            const val = Number(e.target.value) || 0;
-                            setEditItems(prev =>
-                              prev.map((it, i) => i === idx ? { ...it, amount: val } : it)
-                            );
-                          }}
-                          className="w-24 px-2.5 py-1 text-right font-mono font-bold text-xs bg-slate-50 border border-slate-200 rounded disabled:opacity-60"
-                        />
-                        <span className="text-[10px] text-slate-400 font-mono">PKR</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="bg-slate-50 p-2 border-t border-slate-200 flex justify-between items-center text-xs">
-                  <span className="font-bold text-slate-700">Subtotal:</span>
-                  <span className="font-mono font-bold text-slate-900">
-                    PKR {editItems.reduce((s, it) => s + (Number(it.amount) || 0), 0).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Administrative Notes</label>
-                <textarea
-                  rows={2}
-                  value={editNotes}
-                  onChange={e => setEditNotes(e.target.value)}
-                  placeholder="e.g. Due date extended by Director permission"
-                  className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setEditingInvoice(null)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSavingEditInvoice}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg shadow-xs"
-                >
-                  {isSavingEditInvoice ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
       {/* MODAL: FEE HEADS & PAYMENT ALLOCATION PRIORITY DRAWER / MODAL */}
       {/* ========================================================================= */}
       {showFeeHeadsModal && (
@@ -5129,7 +5632,7 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleOpenNewHead}
-                  className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-2xs"
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>New Fee Head</span>
@@ -5310,7 +5813,7 @@ export const FeeDeskView: React.FC = () => {
                     onClick={() => setConcessionPeriodType('monthly')}
                     className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
                       concessionPeriodType === 'monthly'
-                        ? 'bg-slate-900 text-white font-bold'
+                        ? 'bg-amber-600 text-white font-bold border-amber-600 shadow-xs'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -5321,7 +5824,7 @@ export const FeeDeskView: React.FC = () => {
                     onClick={() => setConcessionPeriodType('yearly')}
                     className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
                       concessionPeriodType === 'yearly'
-                        ? 'bg-slate-900 text-white font-bold'
+                        ? 'bg-amber-600 text-white font-bold border-amber-600 shadow-xs'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -5332,7 +5835,7 @@ export const FeeDeskView: React.FC = () => {
                     onClick={() => setConcessionPeriodType('date_range')}
                     className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
                       concessionPeriodType === 'date_range'
-                        ? 'bg-slate-900 text-white font-bold'
+                        ? 'bg-amber-600 text-white font-bold border-amber-600 shadow-xs'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -5420,7 +5923,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={handleGenerateConcessionReport}
                 disabled={isGeneratingPdf}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-2xs flex items-center gap-1.5"
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>{isGeneratingPdf ? 'Rendering PDF...' : 'Generate & Open PDF'}</span>
@@ -5484,7 +5987,7 @@ export const FeeDeskView: React.FC = () => {
                   setSiblingReportOpen(false);
                   void handleOpenReportPdf('family');
                 }}
-                className="px-3 py-1.5 text-xs bg-slate-900 text-white rounded-md font-medium"
+                className="px-3 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md font-semibold transition-colors shadow-xs"
               >
                 Open PDF
               </button>
@@ -5492,6 +5995,354 @@ export const FeeDeskView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: DEFAULTER ITEMISED PENDING DUES BREAKDOWN (Fee Heads & Month-Wise) */}
+      {/* ========================================================================= */}
+      {selectedDefaulterModal && (() => {
+        const def = selectedDefaulterModal;
+
+        // Aggregate fee head breakdown across all unpaid invoices of this student
+        const headMap = new Map<string, {
+          head_id: string;
+          head_name: string;
+          total_billed: number;
+          total_discount: number;
+          total_paid: number;
+          balance_due: number;
+          challan_count: number;
+        }>();
+
+        for (const inv of def.invoices) {
+          const items = inv.items && inv.items.length > 0 ? inv.items : [];
+          if (items.length > 0) {
+            for (const it of items) {
+              const headId = it.fee_head_id || it.head_name || 'general';
+              const headName = it.head_name || feeHeads.find(h => h.id === headId)?.name || 'Tuition Fee';
+              const billed = Number(it.net_amount ?? it.original_amount ?? 0);
+              const discount = Number(it.discount_amount ?? 0);
+              const paid = Number(it.paid_amount ?? 0);
+              const balance = Number(it.balance_due ?? Math.max(0, billed - paid));
+
+              if (!headMap.has(headId)) {
+                headMap.set(headId, {
+                  head_id: headId,
+                  head_name: headName,
+                  total_billed: 0,
+                  total_discount: 0,
+                  total_paid: 0,
+                  balance_due: 0,
+                  challan_count: 0,
+                });
+              }
+              const entry = headMap.get(headId)!;
+              entry.total_billed += billed;
+              entry.total_discount += discount;
+              entry.total_paid += paid;
+              entry.balance_due += balance;
+              if (balance > 0) {
+                entry.challan_count += 1;
+              }
+            }
+          } else {
+            const headId = 'tuition_composite';
+            const headName = 'Tuition Fee / Composite';
+            if (!headMap.has(headId)) {
+              headMap.set(headId, {
+                head_id: headId,
+                head_name: headName,
+                total_billed: 0,
+                total_discount: 0,
+                total_paid: 0,
+                balance_due: 0,
+                challan_count: 0,
+              });
+            }
+            const entry = headMap.get(headId)!;
+            entry.total_billed += inv.net_amount;
+            entry.total_discount += inv.discount_amount || 0;
+            entry.total_paid += inv.paid_amount || 0;
+            entry.balance_due += inv.balance_amount;
+            entry.challan_count += 1;
+          }
+        }
+
+        const headList = Array.from(headMap.values()).filter(h => h.balance_due > 0 || h.total_billed > 0);
+
+        // Chronologically sorted invoices
+        const sortedInvoices = [...def.invoices].sort((a, b) => {
+          return new Date(a.due_date || a.issue_date || 0).getTime() - new Date(b.due_date || b.issue_date || 0).getTime();
+        });
+
+        return (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+            <div className="bg-white rounded-lg max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-6 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+              {/* Modal Header */}
+              <div className="flex justify-between items-start border-b border-slate-200 pb-3 shrink-0">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-mono font-bold text-sm shrink-0">
+                    {def.roll_number}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-bold text-slate-900">{def.student_name}</h3>
+                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                        {def.program_name} • {def.batch_name}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Father / Guardian: <strong className="text-slate-800">{def.father_name}</strong>
+                      {def.guardian_phone && (
+                        <span> • Phone: <span className="font-mono text-slate-700">{def.guardian_phone}</span></span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDefaulterModal(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 cursor-pointer transition-colors"
+                  title="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Scrollable Modal Content */}
+              <div className="overflow-y-auto pr-1 space-y-4 flex-1">
+                {/* Summary KPI Strip */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="p-3 bg-rose-50/70 border border-rose-200 rounded-lg">
+                    <span className="text-[10px] font-bold uppercase font-mono tracking-wider text-rose-700 block">Total Pending</span>
+                    <span className="text-lg font-bold font-mono text-rose-700">
+                      PKR {def.total_balance.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-[10px] font-bold uppercase font-mono tracking-wider text-slate-500 block">Unpaid Challans</span>
+                    <span className="text-lg font-bold font-mono text-slate-900">
+                      {def.overdue_invoices_count} Challan{def.overdue_invoices_count > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-[10px] font-bold uppercase font-mono tracking-wider text-slate-500 block">Status / Overdue</span>
+                    <span className={`text-sm font-bold font-mono block mt-0.5 ${def.max_overdue_days > 0 ? 'text-rose-600' : 'text-amber-600'}`}>
+                      {def.max_overdue_days > 0 ? `${def.max_overdue_days} Days Overdue` : 'Current Due Cycle'}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-[10px] font-bold uppercase font-mono tracking-wider text-slate-500 block">Billing Cycles</span>
+                    <span className="text-xs font-semibold text-slate-800 block truncate mt-0.5" title={def.unpaid_months.join(', ')}>
+                      {def.unpaid_months.join(', ')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Section 1: Types of Pending Fees (Aggregated Head-Wise Breakdown) */}
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-800 uppercase font-mono tracking-wider">
+                      1. Pending Dues by Fee Head / Type
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {headList.length} Fee Head{headList.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-100/60 text-slate-600 font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="py-2 px-3 text-left">Fee Head / Type</th>
+                        <th className="py-2 px-3 text-center">Unpaid Cycles</th>
+                        <th className="py-2 px-3 text-right">Total Billed</th>
+                        <th className="py-2 px-3 text-right">Paid</th>
+                        <th className="py-2 px-3 text-right font-bold text-slate-900">Pending Due</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 font-mono">
+                      {headList.map((h, i) => (
+                        <tr key={i} className="hover:bg-slate-50/50">
+                          <td className="py-2 px-3 font-sans font-semibold text-slate-800">{h.head_name}</td>
+                          <td className="py-2 px-3 text-center text-slate-500">
+                            {h.challan_count} Challan{h.challan_count > 1 ? 's' : ''}
+                          </td>
+                          <td className="py-2 px-3 text-right text-slate-600">PKR {h.total_billed.toLocaleString()}</td>
+                          <td className="py-2 px-3 text-right text-emerald-600">PKR {h.total_paid.toLocaleString()}</td>
+                          <td className="py-2 px-3 text-right font-bold text-rose-600">PKR {h.balance_due.toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-slate-50/80 font-mono font-bold border-t border-slate-200 text-xs">
+                      <tr>
+                        <td colSpan={2} className="py-2 px-3 text-slate-800 font-sans">Total Outstanding</td>
+                        <td className="py-2 px-3 text-right text-slate-700">
+                          PKR {headList.reduce((s, h) => s + h.total_billed, 0).toLocaleString()}
+                        </td>
+                        <td className="py-2 px-3 text-right text-emerald-700">
+                          PKR {headList.reduce((s, h) => s + h.total_paid, 0).toLocaleString()}
+                        </td>
+                        <td className="py-2 px-3 text-right text-rose-700">
+                          PKR {def.total_balance.toLocaleString()}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {/* Section 2: Month-Wise & Challan-Wise Breakdown */}
+                <div className="space-y-2.5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-800 uppercase font-mono tracking-wider">
+                      2. Challan-Wise & Month-Wise Breakdown
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      {sortedInvoices.length} Challan{sortedInvoices.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {sortedInvoices.map((inv) => (
+                      <div key={inv.id} className="border border-slate-200 rounded-lg p-3 bg-white shadow-2xs space-y-2.5">
+                        {/* Challan Card Top Bar */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 pb-2 border-b border-slate-100">
+                          <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
+                            <span className="font-bold text-slate-900">{inv.invoice_number}</span>
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 font-semibold font-sans">
+                              {inv.billing_month}
+                            </span>
+                            {inv.installment_number && (
+                              <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold font-sans text-[11px]">
+                                Installment {inv.installment_number}{inv.total_installments ? ` of ${inv.total_installments}` : ''}
+                              </span>
+                            )}
+                            <span className="text-slate-500">Due: {inv.due_date}</span>
+                            {inv.overdue_days > 0 ? (
+                              <span className="px-1.5 py-0.5 rounded bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-bold">
+                                {inv.overdue_days}d Overdue
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold">
+                                Current Cycle
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-auto font-mono">
+                            <span className="text-xs text-slate-500 font-sans">Challan Balance:</span>
+                            <span className="font-bold text-rose-600 text-sm">PKR {inv.balance_amount.toLocaleString()}</span>
+                          </div>
+                        </div>
+
+                        {/* Itemized heads inside this challan */}
+                        <div className="bg-slate-50/60 rounded border border-slate-100 p-2">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-[10px] uppercase font-mono tracking-wider text-slate-500 border-b border-slate-200/80 pb-1">
+                                <th className="text-left font-semibold pb-1">Fee Head</th>
+                                <th className="text-right font-semibold pb-1">Net Amount</th>
+                                <th className="text-right font-semibold pb-1">Paid</th>
+                                <th className="text-right font-semibold pb-1">Balance Due</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                              {(inv.items && inv.items.length > 0) ? (
+                                inv.items.map((it: any, idx: number) => (
+                                  <tr key={idx}>
+                                    <td className="py-1 text-slate-800 font-sans font-medium">{it.head_name}</td>
+                                    <td className="py-1 text-right text-slate-600">PKR {Number(it.net_amount ?? it.original_amount ?? 0).toLocaleString()}</td>
+                                    <td className="py-1 text-right text-emerald-600">PKR {Number(it.paid_amount ?? 0).toLocaleString()}</td>
+                                    <td className="py-1 text-right font-bold text-rose-600">PKR {Number(it.balance_due ?? (Number(it.net_amount ?? 0) - Number(it.paid_amount ?? 0))).toLocaleString()}</td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr>
+                                  <td className="py-1 text-slate-800 font-sans font-medium">Tuition / General</td>
+                                  <td className="py-1 text-right text-slate-600">PKR {inv.net_amount.toLocaleString()}</td>
+                                  <td className="py-1 text-right text-emerald-600">PKR {inv.paid_amount.toLocaleString()}</td>
+                                  <td className="py-1 text-right font-bold text-rose-600">PKR {inv.balance_amount.toLocaleString()}</td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Challan Actions */}
+                        <div className="flex justify-end items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleDispatchWhatsAppSlip(inv, def.guardian_phone)}
+                            className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 rounded text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                            title="Send WhatsApp Fee Slip for this challan"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>WhatsApp Slip</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedDefaulterModal(null);
+                              handleOpenCashierDrawer(inv);
+                            }}
+                            className="px-3 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-xs font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                            title="Receive payment for this specific challan"
+                          >
+                            <CreditCard className="w-3.5 h-3.5" />
+                            <span>Receive This Challan</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="border-t border-slate-200 pt-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 shrink-0">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDefaulterModal(null)}
+                    className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition-colors cursor-pointer w-full sm:w-auto"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const studId = def.student_id;
+                      setSelectedDefaulterModal(null);
+                      handleViewStudentInDesk(studId);
+                    }}
+                    className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-md transition-colors cursor-pointer w-full sm:w-auto flex items-center justify-center gap-1.5"
+                    title="Open full student profile & ledger"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Full Student Profile</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                  <div className="text-right hidden sm:block">
+                    <span className="text-[10px] text-slate-500 uppercase font-mono block">Total Pending</span>
+                    <span className="font-mono font-bold text-rose-600 text-sm">PKR {def.total_balance.toLocaleString()}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const latestInv = def.latest_invoice;
+                      setSelectedDefaulterModal(null);
+                      handleOpenCashierDrawer(latestInv);
+                    }}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-md shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 w-full sm:w-auto"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span>Receive Fee (Cashier)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* In-Portal Direct PDF Viewer Modal */}
       <InPortalPdfViewerModal

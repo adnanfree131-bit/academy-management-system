@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Menu, Search, ChevronRight, ChevronDown, LogOut, Shield, Settings, Users } from 'lucide-react';
+import { Menu, Search, ChevronDown, LogOut, Shield, Settings, Users, Bell } from 'lucide-react';
 import { hapticLight } from '../lib/haptics';
 
 interface HeaderProps {
@@ -13,10 +13,9 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  section,
-  currentScreenTitle,
   onOpenSidebar,
   onOpenSearch,
+  onNewAdmission: _onNewAdmission,
   onSwitchScreen,
 }) => {
   const { user, tenant, logout } = useAuth();
@@ -33,69 +32,62 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="bg-white border-b border-slate-200/90 min-h-[3.5rem] flex items-center justify-between px-3 sm:px-6 sticky top-0 z-30 pt-[env(safe-area-inset-top)] select-none">
-      <div className="flex items-center gap-2 min-w-0">
+    <header className="bg-white border-b border-[#E6ECF2] h-14 flex items-center justify-between px-4 sm:px-6 lg:px-7 sticky top-0 z-30 pt-[env(safe-area-inset-top)] select-none">
+      {/* Left: Mobile Toggle & Behance Slide 11 Search Input */}
+      <div className="flex items-center gap-3 min-w-0">
         <button 
           onClick={handleOpenNav}
-          className="md:hidden text-slate-700 hover:text-slate-950 p-2 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl border border-slate-200 hover:bg-slate-100 touch-press transition-colors"
+          className="md:hidden text-slate-700 hover:text-slate-950 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl border border-[#E6ECF2] hover:bg-slate-100 touch-press transition-colors"
           aria-label="Open Navigation"
         >
           <Menu className="w-4 h-4" />
         </button>
-        <div className="flex items-center gap-1.5 text-xs min-w-0">
-          {section && (
-            <>
-              <span className="text-slate-400 font-medium hidden sm:inline truncate">
-                {section}
-              </span>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-300 hidden sm:inline shrink-0" />
-            </>
-          )}
-          <span className="font-semibold text-slate-800 truncate text-xs sm:text-sm">
-            {currentScreenTitle || 'Dashboard'}
-          </span>
-        </div>
-      </div>
 
-      <div className="flex items-center gap-2 sm:gap-3">
         <button
           type="button"
           onClick={handleOpenSearchModal}
-          className="hidden lg:flex items-center gap-2.5 w-52 xl:w-64 px-3 py-1.5 h-8.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-lg text-slate-400 text-xs text-left transition-colors group cursor-pointer"
+          className="flex items-center gap-3 w-64 sm:w-80 lg:w-96 px-3.5 py-2 h-9 bg-slate-50 hover:bg-slate-100/70 border border-[#E6ECF2] rounded-xl text-slate-400 text-xs text-left transition-colors group cursor-pointer"
         >
-          <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 shrink-0 transition-colors" />
-          <span className="truncate">Search records...</span>
+          <Search className="w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0 transition-colors" />
+          <span className="truncate">Search students, batches, challans...</span>
         </button>
+      </div>
 
-        <button 
+      {/* Right: Notification Bell, Session Badge & User Profile */}
+      <div className="flex items-center gap-2.5 sm:gap-3">
+
+        {/* Notification Bell (Behance Slide 11) */}
+        <button
           type="button"
-          onClick={handleOpenSearchModal}
-          className="relative p-2 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors lg:hidden border border-slate-200 touch-press" 
-          title="Search"
-          aria-label="Search records"
+          onClick={() => onSwitchScreen?.('absentee')}
+          className="relative w-9 h-9 flex items-center justify-center rounded-xl border border-[#E6ECF2] text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+          title="Notifications"
+          aria-label="Notifications"
         >
-          <Search className="w-4 h-4" />
+          <Bell className="w-4 h-4" />
+          <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-rose-500" />
         </button>
 
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium text-slate-600 bg-slate-50 border border-slate-200">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+        {/* Academic Session Pill */}
+        <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 h-9 rounded-xl text-[11px] font-medium text-slate-600 bg-slate-50 border border-[#E6ECF2]">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
           <span>Session {tenant?.academic_session || '2026–2027'}</span>
         </div>
 
-        {/* User Profile & Sign Out Menu */}
+        {/* User Profile & Sign Out Menu (Behance Slide 11) */}
         <div className="relative">
           <button
             onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-            className="flex items-center gap-2 px-2 py-1 rounded-lg text-xs font-medium hover:bg-slate-50 text-slate-800 border border-slate-200 transition-colors"
+            className="flex items-center gap-2.5 px-2 py-1 h-9 rounded-xl text-xs font-medium hover:bg-slate-50 text-slate-800 transition-colors"
           >
-            <div className="w-6 h-6 rounded bg-slate-900 text-white flex items-center justify-center font-bold text-[11px]">
+            <div className="w-8 h-8 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs">
               {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'A'}
             </div>
             <div className="hidden sm:block text-left">
-              <p className="font-semibold text-slate-800 leading-none text-xs truncate max-w-[110px]">{user?.full_name || 'Administrator'}</p>
-              <p className="text-[10px] text-slate-400 leading-none mt-0.5 capitalize">{user?.role === 'tenant_admin' ? 'Admin' : user?.role || 'Staff'}</p>
+              <p className="font-semibold text-slate-800 leading-tight text-xs truncate max-w-[120px]">{user?.full_name || 'Administrator'}</p>
+              <p className="text-[10px] text-slate-400 leading-tight mt-0.5 capitalize">{user?.role === 'tenant_admin' ? 'Administrator' : user?.role || 'Staff'}</p>
             </div>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            <ChevronDown className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
           </button>
 
           {profileMenuOpen && (

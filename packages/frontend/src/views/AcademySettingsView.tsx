@@ -18,8 +18,14 @@ import {
   EyeOff,
   Users,
   Plus,
+  Trash2,
+  FileCheck,
+  ArrowUp,
+  ArrowDown,
+  Edit2,
+  FileText,
 } from 'lucide-react';
-import { AcademicSession, TenantSettings, defaultAcademicSessions } from '@apex/shared-types';
+import { AcademicSession, TenantSettings, defaultAcademicSessions, DocumentChecklistHead } from '@apex/shared-types';
 import { compressImageFile } from '../components/LoginModal';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
@@ -28,7 +34,7 @@ export const AcademySettingsView: React.FC = () => {
   const { token, tenant, user, applySession, refreshSession } = useAuth();
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'profile' | 'departments' | 'challan' | 'shifts' | 'security'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'departments' | 'challan' | 'documents' | 'shifts' | 'security'>('profile');
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -86,6 +92,87 @@ export const AcademySettingsView: React.FC = () => {
   const [editingHeadName, setEditingHeadName] = useState('');
   const [otpModal, setOtpModal] = useState<'change' | 'reset' | null>(null);
 
+  // Kinship Rules State
+  const [kinshipEnabled, setKinshipEnabled] = useState<boolean>(true);
+  const [kinshipDiscountPercentage, setKinshipDiscountPercentage] = useState<number>(20);
+  const [kinshipApplicableTo, setKinshipApplicableTo] = useState<string>('2nd child onwards');
+  const [kinshipRuleDescription, setKinshipRuleDescription] = useState<string>('20% concession on monthly tuition for second and subsequent siblings enrolled in the academy.');
+  const [kinshipRequireActiveSibling, setKinshipRequireActiveSibling] = useState<boolean>(true);
+
+  // Document Checklist Heads State
+  const [documentChecklistHeads, setDocumentChecklistHeads] = useState<DocumentChecklistHead[]>([]);
+  const [newDocTitle, setNewDocTitle] = useState('');
+  const [newDocCode, setNewDocCode] = useState('');
+  const [newDocRequired, setNewDocRequired] = useState(false);
+  const [editingDocId, setEditingDocId] = useState<string | null>(null);
+  const [editingDocTitle, setEditingDocTitle] = useState('');
+  const [editingDocRequired, setEditingDocRequired] = useState(false);
+
+  const handleAddDocHead = () => {
+    if (!newDocTitle.trim()) return;
+    const code = newDocCode.trim()
+      ? newDocCode.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_')
+      : newDocTitle.trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_').substring(0, 20);
+
+    if (documentChecklistHeads.some(h => h.code === code)) {
+      alert(`A document head with code "${code}" already exists.`);
+      return;
+    }
+
+    const newHead: DocumentChecklistHead = {
+      id: `doc-${Date.now()}`,
+      code,
+      title: newDocTitle.trim(),
+      is_required: newDocRequired,
+    };
+
+    setDocumentChecklistHeads(prev => [...prev, newHead]);
+    setNewDocTitle('');
+    setNewDocCode('');
+    setNewDocRequired(false);
+  };
+
+  const handleDeleteDocHead = (id: string) => {
+    setDocumentChecklistHeads(prev => prev.filter(h => h.id !== id));
+  };
+
+  const handleToggleDocRequired = (id: string) => {
+    setDocumentChecklistHeads(prev => prev.map(h => h.id === id ? { ...h, is_required: !h.is_required } : h));
+  };
+
+  const handleMoveDocHead = (index: number, direction: 'up' | 'down') => {
+    if ((direction === 'up' && index === 0) || (direction === 'down' && index === documentChecklistHeads.length - 1)) return;
+    const targetIdx = direction === 'up' ? index - 1 : index + 1;
+    const next = [...documentChecklistHeads];
+    const temp = next[index];
+    next[index] = next[targetIdx];
+    next[targetIdx] = temp;
+    setDocumentChecklistHeads(next);
+  };
+
+  const handleStartEditDocHead = (head: DocumentChecklistHead) => {
+    setEditingDocId(head.id);
+    setEditingDocTitle(head.title);
+    setEditingDocRequired(Boolean(head.is_required));
+  };
+
+  const handleSaveEditDocHead = () => {
+    if (!editingDocId || !editingDocTitle.trim()) return;
+    setDocumentChecklistHeads(prev => prev.map(h => h.id === editingDocId ? {
+      ...h,
+      title: editingDocTitle.trim(),
+      is_required: editingDocRequired,
+    } : h));
+    setEditingDocId(null);
+    setEditingDocTitle('');
+  };
+
+  const handleClearAllDocHeads = () => {
+    if (confirm('Clear all document requirements? Enrolling students will not have any document requirements.')) {
+      setDocumentChecklistHeads([]);
+    }
+  };
+
 
   // Shifts
   const [morningStart, setMorningStart] = useState<string>('08:00');
@@ -107,13 +194,16 @@ export const AcademySettingsView: React.FC = () => {
         const s = t.settings || {};
         setAcademyName(t.name || tenant?.name || '');
         setCampusName(s.campus_name || tenant?.campus_name || '');
-        const sessionName = s.academic_session || tenant?.academic_session || '';
+        const sessionName = s.academic_session || tenant?.academic_session || '2026-2027';
         setAcademicSession(sessionName);
-        setAcademicSessions(
-          Array.isArray(s.academic_sessions) && s.academic_sessions.length > 0
-            ? s.academic_sessions
-            : defaultAcademicSessions(sessionName)
-        );
+        const rawSessions: AcademicSession[] = Array.isArray(s.academic_sessions) && s.academic_sessions.length > 0
+          ? (s.academic_sessions as AcademicSession[])
+          : defaultAcademicSessions(sessionName);
+        const nowYear = new Date().getFullYear();
+        const activeSess = rawSessions.find((sess: AcademicSession) => sess.is_active);
+        const minYear = activeSess?.start_year ? Math.min(nowYear, activeSess.start_year) : nowYear;
+        const filtered = rawSessions.filter((sess: AcademicSession) => sess.start_year >= minYear || sess.is_active);
+        setAcademicSessions(filtered.length > 0 ? filtered : defaultAcademicSessions(sessionName));
         const dummyEmail = !s.email || s.email === 'info@kampus.pk';
         const dummyAff = !s.affiliation_number || String(s.affiliation_number).includes('BISE/LHR-2026');
         const dummyAddr = !s.address || String(s.address).includes('Campus Avenue');
@@ -138,6 +228,13 @@ export const AcademySettingsView: React.FC = () => {
         if (feeRules) {
           if (feeRules.due_day) setDueDay(feeRules.due_day);
           if (feeRules.grace_days) setGraceDays(feeRules.grace_days);
+          if (feeRules.kinship_rules) {
+            setKinshipEnabled(feeRules.kinship_rules.enabled ?? true);
+            setKinshipDiscountPercentage(feeRules.kinship_rules.discount_percentage ?? 20);
+            setKinshipApplicableTo(feeRules.kinship_rules.applicable_to ?? '2nd child onwards');
+            setKinshipRuleDescription(feeRules.kinship_rules.description ?? '20% concession on monthly tuition for second and subsequent siblings enrolled in the academy.');
+            setKinshipRequireActiveSibling(feeRules.kinship_rules.require_active_sibling ?? true);
+          }
         }
 
         if (s.shifts) {
@@ -149,6 +246,13 @@ export const AcademySettingsView: React.FC = () => {
             setEveningStart(s.shifts.evening.start || '15:00');
             setEveningEnd(s.shifts.evening.end || '19:30');
           }
+        }
+
+        const rawDocs = s.document_checklist_heads;
+        if (Array.isArray(rawDocs)) {
+          setDocumentChecklistHeads(rawDocs);
+        } else {
+          setDocumentChecklistHeads([]);
         }
         if (s.departments && Array.isArray(s.departments) && s.departments.length > 0) {
           setDepartments(s.departments);
@@ -425,12 +529,20 @@ export const AcademySettingsView: React.FC = () => {
         due_day: dueDay,
         grace_days: graceDays,
         priority_order: paymentAllocationPriority,
+        kinship_rules: {
+          enabled: kinshipEnabled,
+          discount_percentage: kinshipDiscountPercentage,
+          applicable_to: kinshipApplicableTo,
+          description: kinshipRuleDescription,
+          require_active_sibling: kinshipRequireActiveSibling,
+        },
       },
       shifts: {
         morning: { start: morningStart, end: morningEnd },
         evening: { start: eveningStart, end: eveningEnd },
       },
       departments: departments,
+      document_checklist_heads: documentChecklistHeads,
     };
 
     try {
@@ -506,11 +618,12 @@ export const AcademySettingsView: React.FC = () => {
               }}
               className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
             >
-              <option value="profile">🏫 Campus Profile</option>
-              <option value="departments">👥 Academic Departments</option>
-              <option value="challan">🏦 Bank & Challan Rules</option>
-              <option value="shifts">⏰ Shift Timings</option>
-              <option value="security">🛡️ Security & Sessions</option>
+              <option value="profile">Campus Profile</option>
+              <option value="departments">Academic Departments</option>
+              <option value="challan">Bank & Challan Rules</option>
+              <option value="documents">Admission Document Heads</option>
+              <option value="shifts">Shift Timings</option>
+              <option value="security">Security & Sessions</option>
             </select>
           </div>
 
@@ -553,6 +666,19 @@ export const AcademySettingsView: React.FC = () => {
             >
               <Landmark className="w-3.5 h-3.5 text-emerald-600" />
               <span>Bank & Challan</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setActiveTab('documents'); setSuccessMsg(null); setErrorMsg(null); }}
+              className={`flex-1 min-w-[140px] py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press ${
+                activeTab === 'documents'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <FileCheck className="w-3.5 h-3.5 text-teal-600" />
+              <span>Admission Documents</span>
             </button>
 
             <button
@@ -619,7 +745,7 @@ export const AcademySettingsView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => logoInputRef.current?.click()}
-                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
                         >
                           <UploadCloud className="w-3.5 h-3.5" />
                           <span>{logoUrl ? 'Change Logo' : 'Upload Logo'}</span>
@@ -691,26 +817,49 @@ export const AcademySettingsView: React.FC = () => {
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Academic sessions</label>
-                      <p className="text-[11px] text-slate-500 mb-2">Five years are listed by default. Set one active. Admission numbers use that year (ADM-2027-001).</p>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Academic Sessions</label>
+                      <p className="text-[11px] text-slate-500 mb-2">
+                        The active academic session is the global default across all batches, admissions, and fee challans. Inactive sessions can be removed.
+                      </p>
                       <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white">
                         {academicSessions.map(sess => (
                           <div key={sess.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
-                            <span className="font-mono font-semibold text-slate-800">{sess.name}</span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setAcademicSessions(prev => prev.map(s => ({ ...s, is_active: s.id === sess.id })));
-                                setAcademicSession(sess.name);
-                              }}
-                              className={`px-2 py-1 rounded-md text-[11px] font-medium border ${
-                                sess.is_active
-                                  ? 'bg-slate-900 text-white border-slate-900'
-                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                              }`}
-                            >
-                              {sess.is_active ? 'Active' : 'Set active'}
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-semibold text-slate-800">{sess.name}</span>
+                              {sess.is_active && (
+                                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                  Global Default
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAcademicSessions(prev => prev.map(s => ({ ...s, is_active: s.id === sess.id })));
+                                  setAcademicSession(sess.name);
+                                }}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                                  sess.is_active
+                                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                }`}
+                              >
+                                {sess.is_active ? 'Active' : 'Set Active'}
+                              </button>
+                              {!sess.is_active && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setAcademicSessions(prev => prev.filter(s => s.id !== sess.id));
+                                  }}
+                                  className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
+                                  title={`Remove session ${sess.name}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -740,7 +889,7 @@ export const AcademySettingsView: React.FC = () => {
                             }].sort((a, b) => a.start_year - b.start_year));
                             setNewSessionStart('');
                           }}
-                          className="px-3 py-2 bg-slate-900 text-white rounded-md text-xs font-medium flex items-center gap-1"
+                          className="px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md text-xs font-semibold flex items-center gap-1 shadow-xs transition-colors"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           Add
@@ -831,7 +980,7 @@ export const AcademySettingsView: React.FC = () => {
                           setNewDeptInput('');
                         }
                       }}
-                      className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                      className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Department</span>
@@ -884,7 +1033,7 @@ export const AcademySettingsView: React.FC = () => {
                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <SectionInfo
                         title="Fee Challan Bank Accounts"
-                        description="Banking details rendered on all 3-part fee challans (Bank, Academy, Student copies)"
+                        description="Banking details rendered on institutional fee challans (Bank, Academy, Student copies)"
                       />
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
                         Printed on Challans
@@ -1002,7 +1151,7 @@ export const AcademySettingsView: React.FC = () => {
                             onChange={e => setNewHeadName(e.target.value)}
                             className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5"
                           />
-                          <button type="button" onClick={handleAddFeeHead} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white">
+                          <button type="button" onClick={handleAddFeeHead} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors">
                             Add head
                           </button>
                         </div>
@@ -1080,7 +1229,324 @@ export const AcademySettingsView: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Institutional Kinship / Sibling Concession Policy */}
+                  <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <SectionInfo
+                        title="Kinship / Sibling Concession Policy"
+                        description="Define the institutional tuition discount rules applied to siblings at admission"
+                      />
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold">
+                        Shown at Admission
+                      </span>
+                    </div>
+
+                    <div className="space-y-3.5">
+                      <label className="flex items-center gap-2.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={kinshipEnabled}
+                          onChange={e => setKinshipEnabled(e.target.checked)}
+                          className="w-4 h-4 rounded text-slate-900 border-slate-300 focus:ring-slate-900"
+                        />
+                        <span className="text-xs font-bold text-slate-800">
+                          Enable Institutional Sibling / Kinship Concession Policy
+                        </span>
+                      </label>
+
+                      {kinshipEnabled && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                              Standard Sibling Concession Rate (%)
+                            </label>
+                            <div className="relative">
+                              <input
+                                type="number"
+                                min={1}
+                                max={100}
+                                value={kinshipDiscountPercentage}
+                                onChange={e => setKinshipDiscountPercentage(Number(e.target.value) || 0)}
+                                className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-mono text-slate-900 font-bold"
+                              />
+                              <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-bold">%</span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-1">Default percentage deducted from monthly tuition.</p>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                              Applicable Sibling Tier
+                            </label>
+                            <input
+                              type="text"
+                              value={kinshipApplicableTo}
+                              onChange={e => setKinshipApplicableTo(e.target.value)}
+                              placeholder="e.g. 2nd child onwards"
+                              className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 font-medium"
+                            />
+                            <p className="text-[10px] text-slate-500 mt-1">Institutional eligibility criteria.</p>
+                          </div>
+
+                          <div className="sm:col-span-2">
+                            <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                              Policy Terms & Official Description
+                            </label>
+                            <input
+                              type="text"
+                              value={kinshipRuleDescription}
+                              onChange={e => setKinshipRuleDescription(e.target.value)}
+                              placeholder="Official wording displayed on admission desk..."
+                              className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                            />
+                            <p className="text-[10px] text-slate-500 mt-1">Rendered on the admission form when kinship discount is selected.</p>
+                          </div>
+
+                          <div className="sm:col-span-2 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                            <label className="flex items-start gap-2.5 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={kinshipRequireActiveSibling}
+                                onChange={e => setKinshipRequireActiveSibling(e.target.checked)}
+                                className="mt-0.5 w-4 h-4 rounded text-slate-900 border-slate-300 focus:ring-slate-900"
+                              />
+                              <div>
+                                <span className="text-xs font-bold text-slate-800 block">
+                                  Enforce Sibling Verification at Admission
+                                </span>
+                                <span className="text-[10px] text-slate-500 block mt-0.5">
+                                  Requires receptionists to search and link an actively enrolled sibling record before applying kinship rates.
+                                </span>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </>
+              )}
+
+              {/* SECTION: ADMISSION DOCUMENT CHECKLIST HEADS */}
+              {activeTab === 'documents' && (
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                    <SectionInfo
+                      title="Admission Document Checklist Heads"
+                      description="Configure institutional document requirements collected during student admission. Custom heads dynamically update the admission desk checklist and student verification profiles."
+                    />
+                    <button
+                      type="button"
+                      onClick={handleClearAllDocHeads}
+                      disabled={documentChecklistHeads.length === 0}
+                      className="text-xs text-rose-600 hover:text-rose-700 border border-rose-200 hover:bg-rose-50 px-3 py-1.5 rounded-lg font-medium transition-colors shrink-0 self-start sm:self-auto disabled:opacity-40"
+                    >
+                      Clear All Document Heads
+                    </button>
+                  </div>
+
+                  {/* Add New Document Head Form */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                      Add Document Head
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                      <div className="sm:col-span-6">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Document Title <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={newDocTitle}
+                          onChange={e => setNewDocTitle(e.target.value)}
+                          placeholder="e.g. Birth Certificate, Immunization Record, Previous School SLC, National ID"
+                          className="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-3">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          Identifier Code (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={newDocCode}
+                          onChange={e => setNewDocCode(e.target.value)}
+                          placeholder="e.g. BIRTH_CERT"
+                          className="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-3 flex items-center gap-3">
+                        <label className="flex items-center gap-2 cursor-pointer pb-2 sm:pb-0">
+                          <input
+                            type="checkbox"
+                            checked={newDocRequired}
+                            onChange={e => setNewDocRequired(e.target.checked)}
+                            className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500"
+                          />
+                          <span className="text-xs font-bold text-slate-700">Mandatory</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleAddDocHead}
+                          disabled={!newDocTitle.trim()}
+                          className="flex-1 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 disabled:opacity-40 shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Head</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Configured Document Heads Table */}
+                  {documentChecklistHeads.length === 0 ? (
+                    <div className="text-center py-8 bg-slate-50 border border-dashed border-slate-200 rounded-xl p-4 text-slate-500 text-xs">
+                      <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="font-semibold text-slate-700">No document requirements defined yet.</p>
+                      <p className="text-[11px] text-slate-500 mt-1 max-w-md mx-auto">
+                        Institutions have unique requirements. Add document heads using the form above to require specific documents from enrolling students.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-600 border-b border-slate-200 text-[10px] uppercase font-mono tracking-wider">
+                            <th className="py-2.5 px-3 text-left font-semibold w-16">Order</th>
+                            <th className="py-2.5 px-3 text-left font-semibold">Document Title</th>
+                            <th className="py-2.5 px-3 text-left font-semibold w-36">Code Identifier</th>
+                            <th className="py-2.5 px-3 text-left font-semibold w-28">Requirement</th>
+                            <th className="py-2.5 px-3 text-right font-semibold w-28">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {documentChecklistHeads.map((head, idx) => (
+                            <tr key={head.id} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="py-2.5 px-3">
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveDocHead(idx, 'up')}
+                                    disabled={idx === 0}
+                                    className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20"
+                                    title="Move Up"
+                                  >
+                                    <ArrowUp className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveDocHead(idx, 'down')}
+                                    disabled={idx === documentChecklistHeads.length - 1}
+                                    className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-20"
+                                    title="Move Down"
+                                  >
+                                    <ArrowDown className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </td>
+
+                              <td className="py-2.5 px-3">
+                                {editingDocId === head.id ? (
+                                  <input
+                                    type="text"
+                                    value={editingDocTitle}
+                                    onChange={e => setEditingDocTitle(e.target.value)}
+                                    className="w-full px-2.5 py-1 text-xs bg-white border border-indigo-400 rounded focus:outline-none"
+                                  />
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    <span className="font-semibold text-slate-900">{head.title}</span>
+                                  </div>
+                                )}
+                              </td>
+
+                              <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600">
+                                <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                  {head.code}
+                                </span>
+                              </td>
+
+                              <td className="py-2.5 px-3">
+                                {editingDocId === head.id ? (
+                                  <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={editingDocRequired}
+                                      onChange={e => setEditingDocRequired(e.target.checked)}
+                                      className="w-3.5 h-3.5 rounded text-indigo-600"
+                                    />
+                                    <span className="text-[11px] font-semibold text-slate-700">Mandatory</span>
+                                  </label>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleDocRequired(head.id)}
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors cursor-pointer ${
+                                      head.is_required
+                                        ? 'text-rose-700 bg-rose-50 border-rose-200 hover:bg-rose-100'
+                                        : 'text-slate-600 bg-slate-100 border-slate-200 hover:bg-slate-200'
+                                    }`}
+                                    title="Click to toggle Mandatory / Optional"
+                                  >
+                                    {head.is_required ? 'Mandatory' : 'Optional'}
+                                  </button>
+                                )}
+                              </td>
+
+                            <td className="py-2.5 px-3 text-right">
+                              {editingDocId === head.id ? (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={handleSaveEditDocHead}
+                                    className="px-2 py-1 bg-emerald-600 text-white rounded text-[11px] font-bold hover:bg-emerald-700"
+                                  >
+                                    Save
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingDocId(null)}
+                                    className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[11px] hover:bg-slate-200"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditDocHead(head)}
+                                    className="p-1 text-slate-400 hover:text-indigo-600 rounded"
+                                    title="Edit Document Head"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteDocHead(head.id)}
+                                    className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                                    title="Delete Document Head"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  <p className="text-[11px] text-slate-500">
+                    <strong>Tip:</strong> Document heads defined here appear directly in the Student Admission checklist and on the Student Profile verification desk. Remember to click <strong>Save Academy Settings</strong> below to persist your changes.
+                  </p>
+                </div>
               )}
 
               {/* SECTION 4: CAMPUS SHIFTS */}
@@ -1150,7 +1616,7 @@ export const AcademySettingsView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                  className="flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-extrabold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   <span>{isSaving ? 'Saving Configuration...' : 'Save Academy Settings'}</span>
@@ -1265,7 +1731,7 @@ export const AcademySettingsView: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isChangingPassword || !currentPassword || !newPassword}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-extrabold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-extrabold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
                   >
                     {isChangingPassword ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                     <span>{isChangingPassword ? 'Sending code…' : 'Update password'}</span>
@@ -1315,7 +1781,7 @@ export const AcademySettingsView: React.FC = () => {
                 type="button"
                 onClick={handleConfirmOtp}
                 disabled={isChangingPassword || otpCode.length !== 6}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-900 text-white disabled:opacity-50"
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white disabled:opacity-50 shadow-xs transition-colors"
               >
                 {isChangingPassword ? 'Checking…' : 'Confirm'}
               </button>

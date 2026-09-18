@@ -126,7 +126,7 @@ export const InPortalPdfViewerModal: React.FC<InPortalPdfViewerModalProps> = ({
               type="button"
               onClick={handleDownload}
               disabled={loading || !blobUrl}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg transition-colors shadow-xs disabled:opacity-50"
               title="Download PDF"
             >
               <Download className="w-3.5 h-3.5" />

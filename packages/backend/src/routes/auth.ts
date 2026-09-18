@@ -130,8 +130,9 @@ export function authRoutes(
             status: tenant.status,
             academic_session: tenant.settings?.academic_session || '2026-2027',
             campus_name: tenant.settings?.campus_name || 'Main Campus',
-            logo_url: tenant.settings?.logo_url || null,
+            logo_url: tenant.settings?.logo_url || (tenant.slug === 'tsa' ? '/tsa-logo.png' : null),
             city: tenant.settings?.city || null,
+            settings: tenant.settings || null,
           },
         };
 
@@ -357,6 +358,7 @@ export function authRoutes(
             campus_name: tenant.settings?.campus_name || 'Main Campus',
             logo_url: tenant.settings?.logo_url || null,
             city: tenant.settings?.city || null,
+            settings: tenant.settings || null,
           },
         };
 
@@ -557,6 +559,7 @@ export function authRoutes(
               campus_name: tenant.settings?.campus_name || 'Main Campus',
               logo_url: tenant.settings?.logo_url || null,
               city: tenant.settings?.city || null,
+              settings: tenant.settings || null,
             },
           },
           timestamp: new Date().toISOString(),
@@ -722,6 +725,7 @@ export function authRoutes(
             campus_name: tenant.settings?.campus_name || 'Main Campus',
             logo_url: tenant.settings?.logo_url || null,
             city: tenant.settings?.city || null,
+            settings: tenant.settings || null,
           },
         };
 
@@ -773,7 +777,12 @@ export function authRoutes(
             permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
             designation: (user.metadata?.designation as string) || undefined,
           },
-          tenant,
+          tenant: {
+            ...tenant,
+            logo_url: tenant.settings?.logo_url || (tenant.slug === 'tsa' ? '/tsa-logo.png' : null),
+            academic_session: tenant.settings?.academic_session || '2026-2027',
+            campus_name: tenant.settings?.campus_name || 'Main Campus',
+          },
         },
         timestamp: new Date().toISOString(),
       });

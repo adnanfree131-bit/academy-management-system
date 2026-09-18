@@ -90,30 +90,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Native Mobile App Drawer & Desktop Sticky Sidebar Container */}
+      {/* Desktop Full-Height Sticky Sidebar & Mobile Drawer */}
       <div 
-        className={`fixed md:sticky top-0 h-screen p-0 md:p-3 md:pr-0 flex flex-col justify-start z-50 md:z-40 transition-transform duration-300 ease-out ${
+        className={`fixed md:sticky top-0 h-screen flex flex-col justify-start z-50 md:z-40 transition-transform duration-300 ease-out shrink-0 md:[background:linear-gradient(to_bottom,#ffffff_56px,#F4F8FC_56px)] ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <aside className="w-[84vw] max-w-[320px] md:w-64 bg-white border-r md:border border-slate-200/90 rounded-r-3xl md:rounded-2xl p-4 shadow-2xl md:shadow-xl flex flex-col justify-between h-full md:h-[calc(100vh-1.5rem)] pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <aside className="w-[84vw] max-w-[320px] md:w-[280px] bg-[#081A2F] rounded-tr-[28px] rounded-br-[28px] border border-[#152F4F]/70 border-l-0 flex flex-col justify-between h-screen text-slate-300 p-4.5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[4px_0_24px_rgba(8,26,47,0.12)] overflow-hidden">
           
           {/* Institutional Brand Header (Pinned Static Top) */}
-          <div className="border-b border-slate-100 pb-3 shrink-0">
+          <div className="border-b border-[#152F4F]/60 pb-3 shrink-0">
             <div className="flex items-center justify-between gap-2">
               {role === 'super_admin' ? (
                 <img src="/kampus-logo.png?v=official2" alt="Kampus" className="h-9 w-auto max-w-[180px] object-contain object-left" />
               ) : (
-                <div className="min-w-0 flex-1 flex flex-col items-center text-center pr-0">
-                  <AcademyLogo src={tenant?.logo_url} name={tenant?.name || 'Academy'} size={56} className="!rounded-2xl mb-2.5" />
-                  <p className="font-academy text-[20px] leading-[1.2] text-slate-900 break-words">
-                    {tenant?.name || 'Academy'}
-                  </p>
+                <div className="min-w-0 flex-1 flex items-center gap-3">
+                  <AcademyLogo 
+                    src={tenant?.logo_url || tenant?.settings?.logo_url || (tenant?.slug === 'tsa' ? '/tsa-logo.png' : undefined)} 
+                    name={tenant?.name || 'Apex Academy'} 
+                    size={40} 
+                    className="!rounded-xl shrink-0 shadow-xs" 
+                  />
+                  <div className="min-w-0">
+                    <p className="font-sans font-bold text-sm text-white tracking-tight truncate leading-snug">
+                      {tenant?.name || 'Apex Academy'}
+                    </p>
+                    <p className="text-[10px] text-slate-400 tracking-wider uppercase font-semibold">
+                      ERP System
+                    </p>
+                  </div>
                 </div>
               )}
               <button 
                 onClick={onClose} 
-                className="md:hidden text-slate-400 hover:text-slate-700 p-2 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-lg hover:bg-slate-100 transition-colors"
+                className="md:hidden text-slate-400 hover:text-slate-200 p-2 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors"
                 aria-label="Close navigation"
               >
                 <X className="w-5 h-5" />
@@ -121,8 +131,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </div>
 
-          {/* Scrollable Navigation Body */}
-          <div className="flex-1 min-h-0 py-3 space-y-4 overflow-y-auto pr-1 -mr-1">
+          {/* Scrollable Navigation Body (Scrollbar hidden via no-scrollbar) */}
+          <div className="flex-1 min-h-0 py-3 space-y-4 overflow-y-auto no-scrollbar scrollbar-none">
 
             {/* Real-World Role Scoped Navigation Hierarchy */}
             <nav className="space-y-4 text-xs">
@@ -141,11 +151,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('teacher')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'teacher'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <LayoutDashboard className={`w-4 h-4 ${currentScreen === 'teacher' ? 'text-white' : 'text-slate-400'}`} />
+                        <LayoutDashboard className={`w-4 h-4 ${currentScreen === 'teacher' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Faculty Overview</span>
                       </button>
 
@@ -153,11 +163,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('timetable')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'timetable'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-slate-400'}`} />
+                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Class Schedule</span>
                       </button>
 
@@ -165,11 +175,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('attendance')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'attendance'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-white' : 'text-slate-400'}`} />
+                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Take Attendance</span>
                       </button>
 
@@ -177,11 +187,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('homework')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'homework'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-slate-400'}`} />
+                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Homework & Notebooks</span>
                       </button>
 
@@ -189,11 +199,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('exams')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'exams'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <Award className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-slate-400'}`} />
+                        <Award className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Grade Examinations</span>
                       </button>
 
@@ -201,11 +211,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('geofence')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'geofence'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <MapPin className={`w-4 h-4 ${currentScreen === 'geofence' ? 'text-white' : 'text-slate-400'}`} />
+                        <MapPin className={`w-4 h-4 ${currentScreen === 'geofence' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Staff Attendance</span>
                       </button>
                     </div>
@@ -220,11 +230,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('complaints')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'complaints'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-slate-400'}`} />
+                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Faculty Feedback</span>
                       </button>
                     </div>
@@ -247,11 +257,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('student_portal')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'student_portal'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <UserCheck className={`w-4 h-4 ${currentScreen === 'student_portal' ? 'text-white' : 'text-slate-400'}`} />
+                        <UserCheck className={`w-4 h-4 ${currentScreen === 'student_portal' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>{role === 'parent' ? 'Child Overview' : 'Overview'}</span>
                       </button>
 
@@ -259,11 +269,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('timetable')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'timetable'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-slate-400'}`} />
+                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Class Timetable</span>
                       </button>
 
@@ -271,11 +281,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('attendance')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'attendance'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-white' : 'text-slate-400'}`} />
+                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Attendance & Leaves</span>
                       </button>
 
@@ -283,11 +293,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('voucher')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'voucher'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-white' : 'text-slate-400'}`} />
+                        <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Fees & Payments</span>
                       </button>
 
@@ -295,11 +305,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('homework')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'homework'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-slate-400'}`} />
+                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Homework Diary</span>
                       </button>
 
@@ -307,11 +317,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('exams')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'exams'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <Award className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-slate-400'}`} />
+                        <Award className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Exams & Results</span>
                       </button>
 
@@ -319,11 +329,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('complaints')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'complaints'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-slate-400'}`} />
+                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Help & Messages</span>
                       </button>
                     </div>
@@ -345,11 +355,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onClick={() => handleNavClick('superadmin')}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                         currentScreen === 'superadmin'
-                          ? 'bg-slate-900 text-white font-bold shadow-xs'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                          ? 'bg-[#152F4F] text-white font-semibold shadow-xs'
+                          : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                       }`}
                     >
-                      <ShieldAlert className={`w-4 h-4 ${currentScreen === 'superadmin' ? 'text-white' : 'text-slate-400'}`} />
+                      <ShieldAlert className={`w-4 h-4 ${currentScreen === 'superadmin' ? 'text-amber-400' : 'text-slate-400'}`} />
                       <span>Academy Directory</span>
                     </button>
                   </div>
@@ -370,11 +380,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('dashboard')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'dashboard'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <LayoutDashboard className={`w-4 h-4 ${currentScreen === 'dashboard' ? 'text-white' : 'text-slate-400'}`} />
+                        <LayoutDashboard className={`w-4 h-4 ${currentScreen === 'dashboard' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Dashboard</span>
                       </button>
                     </div>
@@ -389,11 +399,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('enrollment')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'enrollment'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <UserPlus className={`w-4 h-4 ${currentScreen === 'enrollment' ? 'text-white' : 'text-slate-400'}`} />
+                        <UserPlus className={`w-4 h-4 ${currentScreen === 'enrollment' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Students</span>
                       </button>}
 
@@ -401,11 +411,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('classes')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'classes'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <Layers className={`w-4 h-4 ${currentScreen === 'classes' ? 'text-white' : 'text-slate-400'}`} />
+                        <Layers className={`w-4 h-4 ${currentScreen === 'classes' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Classes & Batches</span>
                       </button>}
 
@@ -413,11 +423,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('timetable')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'timetable'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-white' : 'text-slate-400'}`} />
+                        <Calendar className={`w-4 h-4 ${currentScreen === 'timetable' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Timetables</span>
                       </button>}
                     </div>
@@ -432,11 +442,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('attendance')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'attendance'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-white' : 'text-slate-400'}`} />
+                        <CheckSquare className={`w-4 h-4 ${currentScreen === 'attendance' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Attendance</span>
                       </button>}
 
@@ -444,12 +454,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('absentee')}
                         className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'absentee'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <PhoneForwarded className={`w-4 h-4 ${currentScreen === 'absentee' ? 'text-white' : 'text-slate-400'}`} />
+                          <PhoneForwarded className={`w-4 h-4 ${currentScreen === 'absentee' ? 'text-amber-400' : 'text-slate-400'}`} />
                           <span>Absence Follow-Up</span>
                         </div>
                         {absenteePending > 0 && (
@@ -465,11 +475,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('homework')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'homework'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-white' : 'text-slate-400'}`} />
+                        <BookOpen className={`w-4 h-4 ${currentScreen === 'homework' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Homework & Notebooks</span>
                       </button>}
 
@@ -477,11 +487,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('geofence')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'geofence'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <MapPin className={`w-4 h-4 ${currentScreen === 'geofence' ? 'text-white' : 'text-slate-400'}`} />
+                        <MapPin className={`w-4 h-4 ${currentScreen === 'geofence' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Staff Attendance</span>
                       </button>}
 
@@ -489,11 +499,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('complaints')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'complaints'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-white' : 'text-slate-400'}`} />
+                        <MessageSquare className={`w-4 h-4 ${currentScreen === 'complaints' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Feedback</span>
                       </button>}
                     </div>
@@ -508,11 +518,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('exams')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'exams'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <GraduationCap className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-white' : 'text-slate-400'}`} />
+                        <GraduationCap className={`w-4 h-4 ${currentScreen === 'exams' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Examinations</span>
                       </button>}
                     </div>
@@ -527,11 +537,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('voucher')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'voucher'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-white' : 'text-slate-400'}`} />
+                        <Receipt className={`w-4 h-4 ${currentScreen === 'voucher' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Fees Receiving</span>
                       </button>}
 
@@ -539,11 +549,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('challans')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'challans'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <FileText className={`w-4 h-4 ${currentScreen === 'challans' ? 'text-white' : 'text-slate-400'}`} />
+                        <FileText className={`w-4 h-4 ${currentScreen === 'challans' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Fee Challans</span>
                       </button>}
 
@@ -551,11 +561,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('fee_reversals')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'fee_reversals'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <RotateCcw className={`w-4 h-4 ${currentScreen === 'fee_reversals' ? 'text-white' : 'text-slate-400'}`} />
+                        <RotateCcw className={`w-4 h-4 ${currentScreen === 'fee_reversals' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Fee Reversals</span>
                       </button>}
 
@@ -563,11 +573,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('expenses')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'expenses'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <TrendingUp className={`w-4 h-4 ${currentScreen === 'expenses' ? 'text-white' : 'text-slate-400'}`} />
+                        <TrendingUp className={`w-4 h-4 ${currentScreen === 'expenses' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Income & Expenses</span>
                       </button>}
 
@@ -575,11 +585,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('payroll')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'payroll'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <Wallet className={`w-4 h-4 ${currentScreen === 'payroll' ? 'text-white' : 'text-slate-400'}`} />
+                        <Wallet className={`w-4 h-4 ${currentScreen === 'payroll' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Payroll</span>
                       </button>}
                     </div>
@@ -595,11 +605,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('staff')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'staff'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <Users className={`w-4 h-4 ${currentScreen === 'staff' ? 'text-white' : 'text-slate-400'}`} />
+                        <Users className={`w-4 h-4 ${currentScreen === 'staff' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Staff</span>
                       </button>
                       )}
@@ -608,11 +618,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onClick={() => handleNavClick('settings')}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
                           currentScreen === 'settings'
-                            ? 'bg-slate-900 text-white font-bold shadow-xs'
-                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 font-medium'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
                         }`}
                       >
-                        <Settings className={`w-4 h-4 ${currentScreen === 'settings' ? 'text-white' : 'text-slate-400'}`} />
+                        <Settings className={`w-4 h-4 ${currentScreen === 'settings' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Settings</span>
                       </button>
                       )}
@@ -626,19 +636,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* User Profile Card (Pinned Static Bottom) */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-between shrink-0">
+          <div className="pt-3 border-t border-[#152F4F]/60 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5 truncate">
               <div className={`w-8 h-8 rounded-xl text-white font-mono text-xs font-bold flex items-center justify-center shadow-2xs flex-shrink-0 ${
                 role === 'teacher' ? 'bg-emerald-600' :
                 role === 'student' ? 'bg-sky-600' :
                 role === 'parent' ? 'bg-amber-600' :
                 role === 'super_admin' ? 'bg-purple-600' :
-                'bg-slate-900'
+                'bg-amber-600'
               }`}>
                 {(user?.full_name?.includes('Physics') ? 'ST' : user?.full_name?.includes('Director') ? 'AR' : user?.full_name?.substring(0, 2).toUpperCase()) || 'AR'}
               </div>
               <div className="truncate">
-                <p className="text-xs font-bold text-slate-900 leading-tight truncate">
+                <p className="text-xs font-bold text-white leading-tight truncate">
                   {user?.full_name || 'Administrator'}
                 </p>
                 <p className="text-[10px] text-slate-400 flex items-center gap-1 capitalize">
@@ -647,7 +657,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     role === 'student' ? 'bg-sky-500' :
                     role === 'parent' ? 'bg-amber-500' :
                     role === 'super_admin' ? 'bg-purple-500' :
-                    'bg-indigo-500'
+                    'bg-amber-500'
                   }`} />
                   {role === 'tenant_admin' ? 'Campus Administrator' :
                    role === 'teacher' ? 'Faculty Member' :
@@ -660,7 +670,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button 
               onClick={logout}
               title="Sign Out" 
-              className="text-slate-400 hover:text-slate-700 p-1.5 rounded-md hover:bg-slate-100 transition-colors flex-shrink-0"
+              className="text-rose-400 hover:text-rose-300 p-1.5 rounded-md hover:bg-rose-950/40 transition-colors flex-shrink-0"
             >
               <LogOut className="w-4 h-4" />
             </button>

@@ -565,8 +565,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
   const isPastDate = selectedDate < todayStr;
 
   return (
-    <div className="space-y-4">
-      {/* Top Header */}
+    <div className="space-y-2.5 sm:space-y-3">
       {/* Top Header */}
       <PageHeading
         title="Student Attendance"
@@ -589,58 +588,60 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
         </select>
       </div>
 
-      {/* Desktop/Tablet Tab Bar */}
-      <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold overflow-x-auto no-scrollbar max-w-full whitespace-nowrap">
+      {/* Desktop/Tablet Tab Bar - Segmented Control matching Image 1 */}
+      <div className="hidden sm:flex items-center overflow-x-auto no-scrollbar max-w-full whitespace-nowrap bg-white p-0.5 rounded-xl border border-slate-200 text-xs font-semibold shadow-2xs">
         <button
           onClick={() => setActiveTab('roster')}
-          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press ${
+          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press cursor-pointer ${
             activeTab === 'roster'
-              ? 'bg-white text-slate-900 shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <Calendar className="w-3.5 h-3.5 text-slate-500" />
+          <Calendar className={`w-3.5 h-3.5 ${activeTab === 'roster' ? 'text-white' : 'text-slate-500'}`} />
           <span>Daily Roster</span>
         </button>
         <button
           onClick={() => setActiveTab('monthly')}
-          className={`flex-1 min-w-[100px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press ${
+          className={`flex-1 min-w-[100px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press cursor-pointer ${
             activeTab === 'monthly'
-              ? 'bg-white text-slate-900 shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <CalendarDays className="w-3.5 h-3.5 text-slate-500" />
+          <CalendarDays className={`w-3.5 h-3.5 ${activeTab === 'monthly' ? 'text-white' : 'text-slate-500'}`} />
           <span>Monthly Register</span>
         </button>
         <button
           onClick={() => setActiveTab('defaulters')}
-          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press ${
+          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press cursor-pointer ${
             activeTab === 'defaulters'
-              ? 'bg-white text-slate-900 shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <BarChart2 className="w-3.5 h-3.5 text-slate-500" />
+          <BarChart2 className={`w-3.5 h-3.5 ${activeTab === 'defaulters' ? 'text-white' : 'text-slate-500'}`} />
           <span>Defaulters</span>
           {defaultersList.filter(d => d.isDefaulter).length > 0 && (
-            <span className="px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 text-[10px] font-mono font-bold">
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+              activeTab === 'defaulters' ? 'bg-white text-amber-700' : 'bg-rose-100 text-rose-700'
+            }`}>
               {defaultersList.filter(d => d.isDefaulter).length}
             </span>
           )}
         </button>
         <button
           onClick={() => setActiveTab('leaves')}
-          className={`flex-1 min-w-[80px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press ${
+          className={`flex-1 min-w-[80px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press cursor-pointer ${
             activeTab === 'leaves'
-              ? 'bg-white text-slate-900 shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
+          <ShieldCheck className={`w-3.5 h-3.5 ${activeTab === 'leaves' ? 'text-white' : 'text-slate-500'}`} />
           <span>Leaves</span>
           {leaves.filter(l => l.status === 'pending').length > 0 && (
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+            <span className={`w-2 h-2 rounded-full animate-pulse ${activeTab === 'leaves' ? 'bg-white' : 'bg-rose-500'}`}></span>
           )}
         </button>
       </div>
@@ -721,16 +722,16 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
           </div>
 
           {/* Desktop Controls Bar (>= 640px) */}
-          <div className="hidden sm:block bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="hidden sm:block bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-2xs space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
               {/* Academic Hierarchy: Program & Batch Selectors */}
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-bold text-slate-600">Class:</span>
                   <select
                     value={selectedProgramId}
                     onChange={e => setSelectedProgramId(e.target.value)}
-                    className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:border-indigo-600"
+                    className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 font-medium text-slate-800 focus:outline-none focus:border-indigo-600"
                   >
                     <option value="ALL">All Classes / Programs</option>
                     {programs.map(p => (
@@ -745,7 +746,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                     value={selectedBatchId}
                     onChange={e => setSelectedBatchId(e.target.value)}
                     disabled={filteredBatches.length === 0}
-                    className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:border-indigo-600"
+                    className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 font-medium text-slate-800 focus:outline-none focus:border-indigo-600"
                   >
                     {filteredBatches.length === 0 ? (
                       <option value="">No batches found</option>
@@ -763,21 +764,21 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 </div>
 
                 {activeBatchObj && (
-                  <span className="text-[11px] font-mono px-2 py-1 bg-slate-100 border border-slate-200 rounded-md text-slate-600 font-medium">
+                  <span className="text-[10.5px] font-mono px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-slate-600 font-medium">
                     {students.length} Enrolled
                   </span>
                 )}
               </div>
 
               {/* Temporal Navigation: < Previous Day, Date Picker, Today, Next Day > */}
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl p-1">
+              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg p-0.5">
                 <button
                   type="button"
                   onClick={handlePrevDay}
                   title="Previous Day"
-                  className="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-lg transition-colors"
+                  className="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded transition-colors"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
                 <input
                   type="date"
@@ -789,15 +790,15 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                   type="button"
                   onClick={handleNextDay}
                   title="Next Day"
-                  className="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-lg transition-colors"
+                  className="p-1 text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded transition-colors"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </button>
                 <button
                   type="button"
                   onClick={handleToday}
                   disabled={selectedDate === todayStr}
-                  className="px-2 py-0.5 text-[11px] font-bold rounded-lg transition-colors disabled:opacity-40 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                  className="px-2 py-0.5 text-[10.5px] font-bold rounded transition-colors disabled:opacity-40 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
                 >
                   Today
                 </button>
@@ -805,7 +806,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
             </div>
 
             {/* Action Bar & Quick Marking Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -883,7 +884,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                   type="button"
                   onClick={handleSaveAttendance}
                   disabled={isSaving || students.length === 0}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all disabled:bg-slate-300"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] active:scale-95 transition-all disabled:opacity-40"
                 >
                   {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   <span>{isSaving ? 'Recording...' : 'Save Roster'}</span>
@@ -932,17 +933,17 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
           )}
 
           {/* HIGH-DENSITY SUMMARY STRIP (Desktop only, mobile has session strip) */}
-          <div className="hidden sm:flex bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-2xs flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex flex-wrap items-center gap-4">
+          <div className="hidden sm:flex bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs flex-wrap items-center justify-between gap-2.5 text-xs">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                <Users className="w-4 h-4 text-slate-500" />
+                <Users className="w-3.5 h-3.5 text-slate-500" />
                 <span>Roster Strength:</span>
                 <span className="font-mono text-indigo-600">{stats.total}</span>
               </div>
 
-              <div className="h-4 w-px bg-slate-200 hidden sm:block"></div>
+              <div className="h-3.5 w-px bg-slate-200 hidden sm:block"></div>
 
-              <div className="flex flex-wrap items-center gap-3 font-mono">
+              <div className="flex flex-wrap items-center gap-2.5 font-mono text-[11px]">
                 <span className="flex items-center gap-1.5 text-emerald-700">
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                   Present: <strong className="text-slate-900 font-bold">{stats.present}</strong>
@@ -960,18 +961,18 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                   Excused: <strong className="text-slate-900 font-bold">{stats.excused}</strong>
                 </span>
                 {stats.unmarked > 0 && (
-                  <span className="flex items-center gap-1.5 text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                  <span className="flex items-center gap-1 text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                     Unmarked: <strong>{stats.unmarked}</strong>
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
-                <span className="text-[11px] text-slate-500 font-medium">Rate:</span>
-                <span className="font-mono font-bold text-slate-900">
+            <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
+                <span className="text-[10.5px] text-slate-500 font-medium">Rate:</span>
+                <span className="font-mono font-bold text-slate-900 text-xs">
                   {stats.attendancePct === null ? '—' : `${stats.attendancePct}%`}
                 </span>
               </div>
@@ -979,7 +980,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 <button
                   type="button"
                   onClick={() => onNavigate('absentee')}
-                  className="text-[11px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-0.5 transition-colors"
+                  className="text-[10.5px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-0.5 transition-colors"
                 >
                   <span>{stats.absent} Absent (Follow-Up)</span>
                   <ArrowUpRight className="w-3 h-3" />
@@ -989,7 +990,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
           </div>
 
           {/* Search & Status Filter Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2.5">
             <div className="relative flex-1 min-w-[200px] max-w-md">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -1008,20 +1009,20 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 const isSel = statusFilter === s;
                 let label = s.toUpperCase();
                 if (s === 'ALL') label = `ALL (${stats.total})`;
-                if (s === 'present') label = `P (${stats.present})`;
-                if (s === 'absent') label = `A (${stats.absent})`;
-                if (s === 'late') label = `L (${stats.late})`;
-                if (s === 'excused') label = `E (${stats.excused})`;
-                if (s === 'unmarked') label = `U (${stats.unmarked})`;
+                else if (s === 'present') label = `P (${stats.present})`;
+                else if (s === 'absent') label = `A (${stats.absent})`;
+                else if (s === 'late') label = `L (${stats.late})`;
+                else if (s === 'excused') label = `E (${stats.excused})`;
+                else if (s === 'unmarked') label = `U (${stats.unmarked})`;
 
                 return (
                   <button
                     key={s}
                     type="button"
                     onClick={() => setStatusFilter(s)}
-                    className={`px-2 py-1 rounded-md text-[11px] font-mono transition-colors ${
-                      isSel 
-                        ? 'bg-slate-900 text-white font-bold' 
+                    className={`px-2 py-1 rounded text-[11px] font-bold transition-all ${
+                      isSel
+                        ? 'bg-amber-600 text-white font-bold shadow-xs' 
                         : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -1033,14 +1034,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
           </div>
 
           {/* Student Roster Table */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
             {isLoading ? (
-              <div className="p-12 text-center text-slate-400">
+              <div className="p-8 text-center text-slate-400">
                 <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
                 <p className="text-xs font-mono">Loading batch student roster...</p>
               </div>
             ) : batches.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 space-y-3">
+              <div className="p-8 text-center text-slate-400 space-y-3">
                 <Users className="w-8 h-8 mx-auto text-slate-300" />
                 <div>
                   <p className="text-sm font-bold text-slate-700">No academic batches yet</p>
@@ -1050,14 +1051,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                   <button
                     type="button"
                     onClick={() => onNavigate('classes')}
-                    className="px-3.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors"
+                    className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold transition-colors shadow-xs"
                   >
                     Go to Classes & Batches
                   </button>
                 )}
               </div>
             ) : students.length === 0 ? (
-              <div className="p-12 text-center text-slate-400 space-y-3">
+              <div className="p-8 text-center text-slate-400 space-y-3">
                 <Users className="w-8 h-8 mx-auto text-slate-300" />
                 <div>
                   <p className="text-sm font-bold text-slate-700">No active students enrolled in this batch</p>
@@ -1067,14 +1068,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                   <button
                     type="button"
                     onClick={() => onNavigate('enrollment')}
-                    className="px-3.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors"
+                    className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold transition-colors shadow-xs"
                   >
                     Go to Admissions Desk
                   </button>
                 )}
               </div>
             ) : displayedStudents.length === 0 ? (
-              <div className="p-8 text-center text-slate-400">
+              <div className="p-6 text-center text-slate-400">
                 <p className="text-xs">No students matching the search query or status filter.</p>
               </div>
             ) : (
@@ -1083,12 +1084,12 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-500 font-mono text-[11px] uppercase tracking-wider">
-                      <th className="py-3 px-4 w-24">Roll No</th>
-                      <th className="py-3 px-4">Student & Guardian Info</th>
-                      <th className="py-3 px-4 w-32">Quick Contact</th>
-                      <th className="py-3 px-4 text-center w-72">Status Action</th>
-                      <th className="py-3 px-4">Administrative Reason & Remarks</th>
+                    <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-500 font-mono text-[10px] uppercase tracking-wider">
+                      <th className="py-2 px-3 w-20">Roll No</th>
+                      <th className="py-2 px-3">Student & Guardian Info</th>
+                      <th className="py-2 px-3 w-28">Quick Contact</th>
+                      <th className="py-2 px-3 text-center w-64">Status Action</th>
+                      <th className="py-2 px-3">Administrative Reason & Remarks</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1101,12 +1102,12 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                       return (
                         <tr key={student.id} className="hover:bg-slate-50/60 transition-colors">
                           {/* Roll Number */}
-                          <td className="py-3 px-4 font-mono font-bold text-slate-700">
+                          <td className="py-2 px-3 font-mono font-bold text-slate-700">
                             {student.roll_number}
                           </td>
 
                           {/* Student & Guardian Info */}
-                          <td className="py-3 px-4">
+                          <td className="py-2 px-3">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-bold text-slate-900">{student.full_name}</span>
                               {isUnmarked && (
@@ -1151,13 +1152,13 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                           </td>
 
                           {/* Quick Contact Options */}
-                          <td className="py-3 px-4">
+                          <td className="py-2 px-3">
                             <div className="flex items-center gap-1.5">
                               {student.guardian_phone ? (
                                 <a
                                   href={`tel:${student.guardian_phone}`}
                                   title={`Call Guardian: ${student.guardian_phone}`}
-                                  className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
+                                  className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md transition-colors"
                                 >
                                   <Phone className="w-3.5 h-3.5" />
                                 </a>
@@ -1171,7 +1172,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                                     window.open(`https://wa.me/${cleanGuardianPhone}?text=${encodeURIComponent(text)}`, '_blank');
                                   }}
                                   title={`WhatsApp Guardian: ${cleanGuardianPhone}`}
-                                  className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors"
+                                  className="p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md transition-colors"
                                 >
                                   <MessageSquare className="w-3.5 h-3.5" />
                                 </button>
@@ -1184,7 +1185,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                           </td>
 
                           {/* Status Action Buttons */}
-                          <td className="py-3 px-4">
+                          <td className="py-2 px-3">
                             <div className="flex items-center justify-center gap-1">
                               {(['present', 'absent', 'late', 'excused'] as AttendanceStatus[]).map(status => {
                                 const isSelected = record.status === status;
@@ -1199,7 +1200,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                                     key={status}
                                     type="button"
                                     onClick={() => updateStudentStatus(student.id, status)}
-                                    className={`px-2.5 py-1.5 rounded-lg text-xs capitalize transition-all border border-transparent ${
+                                    className={`px-2 py-1 rounded text-xs capitalize transition-all border border-transparent ${
                                       isSelected ? `${activeStyles} shadow-2xs` : `bg-slate-100 ${activeStyles}`
                                     }`}
                                   >
@@ -1211,9 +1212,9 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                           </td>
 
                           {/* Administrative Reason & Remarks */}
-                          <td className="py-3 px-4">
+                          <td className="py-2 px-3">
                             {isAutoExcused ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                                 <ShieldCheck className="w-3.5 h-3.5" /> Approved Leave Auto-Excused
                               </span>
                             ) : (
@@ -1221,7 +1222,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                                 <select
                                   value={record.reasonCategory || ''}
                                   onChange={e => updateStudentReasonCategory(student.id, e.target.value)}
-                                  className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 focus:outline-none max-w-[140px]"
+                                  className="text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-700 focus:outline-none max-w-[140px]"
                                 >
                                   <option value="">-- Reason --</option>
                                   {COMMON_REASONS.map(r => (
@@ -1233,7 +1234,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                                   placeholder="Specific note / remarks..."
                                   value={record.remarks}
                                   onChange={e => updateStudentRemarks(student.id, e.target.value)}
-                                  className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800 focus:outline-none focus:border-indigo-500"
+                                  className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded px-2.5 py-1 text-slate-800 focus:outline-none focus:border-amber-500"
                                 />
                               </div>
                             )}
@@ -1385,9 +1386,9 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               handleSaveAttendance();
             }}
             disabled={isSaving}
-            className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 active:scale-95 transition-transform"
+            className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center gap-1.5 active:scale-95 transition-all"
           >
-            {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+            {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
             <span>{isSaving ? 'Saving...' : 'Save Roster'}</span>
           </button>
         </div>
@@ -1634,7 +1635,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
             <h2 className="text-sm font-bold text-slate-900">Student Formal Leave Applications</h2>
             <button
               onClick={() => setShowNewLeaveModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold transition-all shadow-xs"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Submit Leave Application</span>
@@ -1808,7 +1809,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 <button
                   type="submit"
                   disabled={isSubmittingLeave}
-                  className="px-4 py-1.5 text-xs text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-bold disabled:opacity-50 transition-colors"
+                  className="px-4 py-1.5 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg font-bold disabled:opacity-50 transition-colors shadow-xs"
                 >
                   {isSubmittingLeave ? 'Submitting...' : 'Submit Leave'}
                 </button>

@@ -98,7 +98,7 @@ describe('Phase 4: Finance, Fee Vouchers, Priority Auto-Distribution & Staff Pay
   });
 
   // =========================================================================
-  // 2. INVOICE GENERATION & 3-PART VOUCHERS
+  // 2. INVOICE GENERATION & FEE CHALLANS
   // =========================================================================
   describe('Module 7: Multi-Head Invoicing & Challan Generation', () => {
     it('retrieves seeded invoice for student Muhammad Ali Raza', async () => {

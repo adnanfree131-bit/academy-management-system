@@ -302,7 +302,7 @@ const MainLayout: React.FC = () => {
           </p>
           <button
             onClick={logout}
-            className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold transition-colors"
+            className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
           >
             Sign Out
           </button>
@@ -312,7 +312,7 @@ const MainLayout: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-50 relative">
+    <div className="min-h-screen flex bg-[#F4F8FC] relative font-sans text-slate-800">
       {/* 30-Day Trial Expired Lockout & Billing Settlement Desk */}
       {(isTenantLocked || (isTenantSuspended && user.role === 'tenant_admin')) && (
         <TrialExpiredLockoutModal onUnlocked={refreshSession} />
@@ -334,16 +334,17 @@ const MainLayout: React.FC = () => {
         onClose={() => setSidebarOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen bg-[#F4F8FC]">
         <Header
           section={getScreenMeta(currentScreen, user?.role).section}
           currentScreenTitle={getScreenMeta(currentScreen, user?.role).title}
           onOpenSidebar={() => setSidebarOpen(true)}
           onSwitchScreen={handleSwitchScreen}
           onOpenSearch={() => setSearchOpen(true)}
+          onNewAdmission={() => handleSwitchScreen('new_admission')}
         />
 
-        <main className="flex-1 p-3 sm:p-6 pb-24 md:pb-6 w-full space-y-4 sm:space-y-5 overflow-y-auto min-w-0">
+        <main className="flex-1 px-3 sm:px-5 lg:px-6 py-3 sm:py-3.5 pb-20 md:pb-6 w-full space-y-3 overflow-y-auto min-w-0">
           <Suspense fallback={<ViewLoadingSkeleton />}>
             <ErrorBoundary key={`${currentScreen}-${screenNavKey}`} onReset={() => handleSwitchScreen('dashboard')}>
             {/* ROLE: STUDENT / PARENT VIEW ROUTING */}

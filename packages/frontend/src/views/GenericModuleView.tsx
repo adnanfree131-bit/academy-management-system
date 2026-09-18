@@ -17,7 +17,7 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
             </h1>
             <p className="text-xs text-slate-500">Record class attendance and send parent notifications</p>
           </div>
-          <button className="px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl hover:bg-indigo-700 shadow-xs">
+          <button className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors">
             Save Attendance
           </button>
         </div>
@@ -35,10 +35,10 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {[
-                { roll: 'A-101', name: 'Muhammad Ali Raza', batch: 'MDCAT Morning (A)', status: 'Present' },
-                { roll: 'A-102', name: 'Zainab Bibi', batch: 'MDCAT Morning (A)', status: 'Present' },
-                { roll: 'A-103', name: 'Usman Farooq', batch: 'MDCAT Morning (A)', status: 'Absent' },
-                { roll: 'A-104', name: 'Hamza Shahid', batch: 'MDCAT Morning (A)', status: 'Late' },
+                { roll: 'A-101', name: 'Muhammad Ali Raza', batch: 'Morning Batch 1', status: 'Present' },
+                { roll: 'A-102', name: 'Zainab Bibi', batch: 'Morning Batch 1', status: 'Present' },
+                { roll: 'A-103', name: 'Usman Farooq', batch: 'Morning Batch 1', status: 'Absent' },
+                { roll: 'A-104', name: 'Hamza Shahid', batch: 'Morning Batch 1', status: 'Late' },
               ].map((row, i) => (
                 <tr key={i} className="hover:bg-slate-50/80">
                   <td className="px-4 py-3 font-mono font-bold text-slate-700">{row.roll}</td>
@@ -92,7 +92,7 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
             </h1>
             <p className="text-xs text-slate-500">Standard 3-copy printable fee vouchers (Academy, Student, Bank)</p>
           </div>
-          <button className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 shadow-xs">
+          <button className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors">
             Print Batch Vouchers (PDF)
           </button>
         </div>
@@ -111,7 +111,7 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
             </h1>
             <p className="text-xs text-slate-500">Calculate salaries and generate staff payslips</p>
           </div>
-          <button className="px-4 py-2 bg-slate-900 text-white font-bold text-xs rounded-xl hover:bg-slate-800 shadow-xs">
+          <button className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors">
             Generate Monthly Pay Slips
           </button>
         </div>
@@ -130,7 +130,7 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
             </h1>
             <p className="text-xs text-slate-500">Register new students, review inquiries, and update records</p>
           </div>
-          <button className="px-4 py-2 bg-indigo-600 text-white font-bold text-xs rounded-xl hover:bg-indigo-700 shadow-xs">
+          <button className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors">
             New Student Registration
           </button>
         </div>

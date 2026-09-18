@@ -213,7 +213,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                   type="button"
                   onClick={() => handleAction('in')}
                   disabled={isProcessing}
-                  className="px-3 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   {isProcessing ? (
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -282,7 +282,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Today's Lectures</span>
             <span className="text-2xl font-black font-mono text-slate-900 mt-0.5 block">{schedule.length} Classes</span>
-            <span className="text-[10px] text-slate-500">MDCAT & FSc Tracks</span>
+            <span className="text-[10px] text-slate-500">Academic Tracks</span>
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
@@ -350,7 +350,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                     <div className="flex items-center gap-2 self-end sm:self-auto">
                       <button
                         onClick={() => onNavigate('attendance')}
-                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1 transition-all"
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1 transition-all cursor-pointer"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                         Mark Attendance
@@ -433,7 +433,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                   </div>
                   <button
                     onClick={() => onNavigate('exams')}
-                    className="w-full py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[11px] rounded-lg shadow-xs flex items-center justify-center gap-1 transition-all"
+                    className="w-full py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-[11px] rounded-lg shadow-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
                   >
                     <span>Enter Marks & Remarks</span>
                     <ArrowRight className="w-3 h-3" />

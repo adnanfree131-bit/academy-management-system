@@ -159,7 +159,7 @@ export const AnnouncementPopupModal: React.FC = () => {
           <button
             onClick={handleDismiss}
             disabled={dismissing}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all"
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-400 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
           >
             <Check className="w-3.5 h-3.5" />
             <span>{dismissing ? 'Acknowledging...' : 'Acknowledge & Close'}</span>

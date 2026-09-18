@@ -290,7 +290,7 @@ describe('ERP Audit Remediation: RBAC, Isolation, Financial Linkage & Student Li
     const exam = await store.createExam(tenantId, {
       title: 'Midterm Physics Exam',
       batch_id: 'b0000000-0000-0000-0000-000000000001',
-      subject_id: 's0000000-0000-0000-0000-000000000001',
+      subject_id: 's1',
       exam_date: '2026-09-15',
       total_marks: 100,
       passing_marks: 33,

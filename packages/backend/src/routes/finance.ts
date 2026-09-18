@@ -588,34 +588,28 @@ export function financeRoutes(store: IDataStore) {
     };
     fastify.get('/payments', getPaymentsHandler);
 
+    const getAuditLogsHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const { student_id } = request.query as { student_id?: string };
+      const logs = await store.getFeeAuditLogs(user.tenant_id, student_id);
+      return reply.send({ success: true, data: logs, timestamp: new Date().toISOString() });
+    };
+    fastify.get('/audit-logs', getAuditLogsHandler);
+    fastify.get('/reversals-log', getAuditLogsHandler);
+
     const voidPaymentHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       const { id } = request.params as { id: string };
-      const schema = z.object({
-        void_reason: z.string().min(3).optional(),
-        reason: z.string().min(3).optional(),
-      }).refine(data => !!(data.void_reason || data.reason), {
-        message: 'A clear reason is required to void a payment receipt',
-        path: ['void_reason']
-      });
 
-      const parse = schema.safeParse(request.body);
-      if (!parse.success) {
-        return reply.status(400).send({
-          success: false,
-          error: { code: 'VALIDATION_ERROR', message: 'Invalid payment void request', details: parse.error.flatten() },
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      const effectiveReason = (parse.data.void_reason || parse.data.reason || '').trim();
+      const body = (typeof request.body === 'object' && request.body !== null) ? request.body : {};
+      const reason = (body.void_reason || body.reason || body.remarks || '').trim() || 'Payment reversed by administrator';
 
       try {
         const result = await store.voidPayment(
           user.tenant_id,
           id,
-          effectiveReason,
+          reason,
           user.email || 'Finance Administrator'
         );
         return reply.status(200).send({ success: true, data: result, timestamp: new Date().toISOString() });

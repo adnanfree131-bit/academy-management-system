@@ -6,7 +6,7 @@ import {
   TrendingDown,
   Plus,
   Search,
-  DollarSign,
+  Scale,
   Tag,
   ArrowUpRight,
   ArrowDownRight,
@@ -301,7 +301,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
   const relevantHeadsForVoucher = accountHeads.filter(h => h.type === voucherType);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2.5 sm:space-y-3">
       {/* Header Banner */}
       <PageHeading
         title="Income & Expenses"
@@ -321,9 +321,9 @@ export const IncomeExpenseDeskView: React.FC = () => {
             setVoucherType('expense');
             setShowVoucherModal(true);
           }}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium shadow-sm transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium shadow-sm transition-colors"
         >
-          <ArrowDownRight className="w-4 h-4" />
+          <ArrowDownRight className="w-3.5 h-3.5" />
           <span>Record Expense</span>
         </button>
 
@@ -332,87 +332,90 @@ export const IncomeExpenseDeskView: React.FC = () => {
             setVoucherType('income');
             setShowVoucherModal(true);
           }}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium shadow-sm transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium shadow-sm transition-colors"
         >
-          <ArrowUpRight className="w-4 h-4" />
+          <ArrowUpRight className="w-3.5 h-3.5" />
           <span>Record Income</span>
         </button>
       </PageHeading>
 
-      {/* Mobile Native 3-Stat Compact Strip (< 640px) */}
-      <div className="sm:hidden bg-white border border-slate-200 rounded-lg p-3 shadow-xs grid grid-cols-3 divide-x divide-slate-100 text-center">
-        <div className="px-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Income</span>
-          <span className="text-xs font-bold font-mono text-emerald-600 truncate block mt-0.5">+{totalIncome.toLocaleString()}</span>
+      {/* High-Density Compact Financial KPI Strip (Finalized Enterprise Design) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        {/* Card 1: Total Income */}
+        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Total Income
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
+                PKR {totalIncome.toLocaleString()}
+              </span>
+              <span className="text-xs font-medium text-slate-500 leading-none">
+                Inflow
+              </span>
+            </div>
+          </div>
+          <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
+            <TrendingUp className="w-3.5 h-3.5 text-emerald-700" />
+          </span>
         </div>
-        <div className="px-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Expense</span>
-          <span className="text-xs font-bold font-mono text-rose-600 truncate block mt-0.5">-{totalExpense.toLocaleString()}</span>
+
+        {/* Card 2: Total Expenses */}
+        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Total Expenses
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="font-mono font-bold text-rose-700 text-sm leading-none">
+                PKR {totalExpense.toLocaleString()}
+              </span>
+              <span className="text-xs font-medium text-slate-500 leading-none">
+                Outflow
+              </span>
+            </div>
+          </div>
+          <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
+            <TrendingDown className="w-3.5 h-3.5 text-rose-700" />
+          </span>
         </div>
-        <div className="px-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Net</span>
-          <span className={`text-xs font-bold font-mono truncate block mt-0.5 ${netBalance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-            {netBalance >= 0 ? `+${netBalance.toLocaleString()}` : netBalance.toLocaleString()}
+
+        {/* Card 3: Net Balance */}
+        <div className={`bg-white border border-slate-200/85 ${
+          netBalance >= 0 ? 'border-l-emerald-600' : 'border-l-rose-600'
+        } border-l-[3.5px] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all`}>
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Net Balance
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className={`font-mono font-bold text-sm leading-none ${netBalance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                PKR {netBalance.toLocaleString()}
+              </span>
+              <span className="text-xs font-medium text-slate-500 leading-none">
+                {netBalance >= 0 ? 'Surplus' : 'Deficit'}
+              </span>
+            </div>
+          </div>
+          <span className={`w-7 h-7 rounded-lg flex items-center justify-center border shrink-0 shadow-2xs ${
+            netBalance >= 0 
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70' 
+              : 'bg-rose-50 text-rose-700 border-rose-200/70'
+          }`}>
+            <Scale className="w-3.5 h-3.5" />
           </span>
         </div>
       </div>
 
-      {/* Desktop KPI Stats Overview (>= 640px) */}
-      <div className="hidden sm:grid grid-cols-3 gap-4">
-        <div className="bg-white border border-slate-200/90 rounded-lg p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Total Income</span>
-            <span className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-              <TrendingUp className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-slate-900 tabular-nums">PKR {totalIncome.toLocaleString()}</span>
-          </div>
-          <span className="text-[11px] text-emerald-600 font-semibold mt-1 block">Cash and bank receipts</span>
-        </div>
-
-        <div className="bg-white border border-slate-200/90 rounded-lg p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider font-mono">Total Expenses</span>
-            <span className="p-2 rounded-xl bg-rose-50 text-rose-600">
-              <TrendingDown className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className="text-2xl font-bold text-slate-900 tabular-nums">PKR {totalExpense.toLocaleString()}</span>
-          </div>
-          <span className="text-[11px] text-rose-600 font-semibold mt-1 block">Operational bills & payments</span>
-        </div>
-
-        <div className={`border rounded-lg p-4 shadow-xs ${
-          netBalance >= 0 ? 'bg-emerald-50/60 border-emerald-200' : 'bg-rose-50/60 border-rose-200'
-        }`}>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-600 uppercase tracking-wider font-mono">Net Balance</span>
-            <span className={`p-2 rounded-xl ${netBalance >= 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
-              <DollarSign className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="mt-2 flex items-baseline gap-1">
-            <span className={`text-2xl font-bold tabular-nums ${netBalance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-              PKR {netBalance.toLocaleString()}
-            </span>
-          </div>
-          <span className="text-[11px] font-semibold opacity-80 mt-1 block">
-            {netBalance >= 0 ? 'Surplus' : 'Deficit'}
-          </span>
-        </div>
-      </div>
-
-      {/* Tabs Navigation - Native Segmented Grid (Eliminates horizontal sliding) */}
-      <div className="grid grid-cols-3 bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold">
+      {/* Tabs Navigation - Segmented Control (Image 1 Style) */}
+      <div className="flex items-center gap-1 bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs text-xs font-semibold w-full sm:w-fit">
         <button
           onClick={() => setActiveTab('cashbook')}
-          className={`py-2 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
+          className={`flex-1 sm:flex-initial py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
             activeTab === 'cashbook'
-              ? 'bg-white text-slate-900 shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
           <FileText className="w-3.5 h-3.5 shrink-0" />
@@ -421,10 +424,10 @@ export const IncomeExpenseDeskView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('heads')}
-          className={`py-2 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
+          className={`flex-1 sm:flex-initial py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
             activeTab === 'heads'
-              ? 'bg-white text-slate-900 shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
           <Tag className="w-3.5 h-3.5 shrink-0" />
@@ -433,10 +436,10 @@ export const IncomeExpenseDeskView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('pl_report')}
-          className={`py-2 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
+          className={`flex-1 sm:flex-initial py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
             activeTab === 'pl_report'
-              ? 'bg-white text-slate-900 shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
           <PieChart className="w-3.5 h-3.5 shrink-0" />
@@ -448,16 +451,16 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {/* TAB 1: DAILY CASHBOOK LEDGER */}
       {/* ========================================================================= */}
       {activeTab === 'cashbook' && (
-        <div className="bg-white border border-slate-200/90 rounded-lg shadow-xs overflow-hidden space-y-4 p-4 sm:p-5">
+        <div className="bg-white border border-slate-200/90 rounded-xl shadow-2xs overflow-hidden space-y-2.5 p-3 sm:p-3.5">
           {/* Controls Bar */}
-          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
             <div className="relative w-full md:w-80">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-3" />
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-900"
               />
             </div>
 
@@ -465,7 +468,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
               <select
                 value={typeFilter}
                 onChange={e => setTypeFilter(e.target.value as any)}
-                className="flex-1 sm:flex-initial min-w-[120px] max-w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-semibold truncate"
+                className="flex-1 sm:flex-initial min-w-[120px] max-w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 font-semibold truncate"
               >
                 <option value="all">All Types</option>
                 <option value="income">Income (+)</option>
@@ -475,7 +478,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
               <select
                 value={selectedHeadFilter}
                 onChange={e => setSelectedHeadFilter(e.target.value)}
-                className="flex-1 sm:flex-initial min-w-[120px] max-w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 font-semibold truncate"
+                className="flex-1 sm:flex-initial min-w-[120px] max-w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-700 font-semibold truncate"
               >
                 <option value="all">All heads</option>
                 {accountHeads.map(h => (
@@ -488,7 +491,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
               <button
                 onClick={printCashbookPdf}
                 disabled={isPrinting}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold shrink-0"
+                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold shrink-0"
                 title="Download cashbook PDF"
               >
                 <Printer className="w-3.5 h-3.5" />
@@ -499,15 +502,15 @@ export const IncomeExpenseDeskView: React.FC = () => {
 
           {/* Table */}
           {isLoading ? (
-            <div className="p-12 text-center text-slate-400">
-              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+            <div className="p-8 text-center text-slate-400">
+              <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-500" />
               <p className="text-xs font-mono">Loading transaction ledger...</p>
             </div>
           ) : filteredTransactions.length === 0 ? (
-            <div className="p-12 text-center text-slate-400">
-              <Wallet className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+            <div className="p-8 text-center text-slate-400">
+              <Wallet className="w-7 h-7 mx-auto mb-2 text-slate-300" />
               <p className="text-sm font-bold text-slate-700">No transactions this month</p>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-400 mt-0.5">
                 Use Record Expense or Record Income.
               </p>
             </div>
@@ -517,24 +520,24 @@ export const IncomeExpenseDeskView: React.FC = () => {
             <div className="hidden md:block overflow-x-auto border border-slate-100 rounded-xl">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 font-mono text-[11px] uppercase tracking-wider">
-                    <th className="py-3 px-4">Date</th>
-                    <th className="py-3 px-4">Account Head</th>
-                    <th className="py-3 px-4">Payee / Payer</th>
-                    <th className="py-3 px-4">Payment Method</th>
-                    <th className="py-3 px-4">Reference #</th>
-                    <th className="py-3 px-4">Description</th>
-                    <th className="py-3 px-4 text-right">Debit (Expense)</th>
-                    <th className="py-3 px-4 text-right">Credit (Income)</th>
+                  <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 font-mono text-[10px] uppercase tracking-wider">
+                    <th className="py-2 px-3">Date</th>
+                    <th className="py-2 px-3">Account Head</th>
+                    <th className="py-2 px-3">Payee / Payer</th>
+                    <th className="py-2 px-3">Payment Method</th>
+                    <th className="py-2 px-3">Reference #</th>
+                    <th className="py-2 px-3">Description</th>
+                    <th className="py-2 px-3 text-right">Debit (Expense)</th>
+                    <th className="py-2 px-3 text-right">Credit (Income)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredTransactions.map(t => (
                     <tr key={t.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3 px-4 font-mono text-[11px] text-slate-700 whitespace-nowrap">
+                      <td className="py-2 px-3 font-mono text-[11px] text-slate-700 whitespace-nowrap">
                         {t.transaction_date || t.date}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-2 px-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
                           t.type === 'income' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
                         }`}>
@@ -542,22 +545,22 @@ export const IncomeExpenseDeskView: React.FC = () => {
                           {t.head_name || 'General'}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-bold text-slate-800">
+                      <td className="py-2 px-3 font-bold text-slate-800">
                         {t.payee_payer || t.paid_to_or_received_from || '—'}
                       </td>
-                      <td className="py-3 px-4 capitalize font-mono text-[11px] text-slate-600">
+                      <td className="py-2 px-3 capitalize font-mono text-[11px] text-slate-600">
                         {t.payment_method.replace('_', ' ')}
                       </td>
-                      <td className="py-3 px-4 font-mono text-[11px] text-slate-500">
+                      <td className="py-2 px-3 font-mono text-[11px] text-slate-500">
                         {t.reference_number || '—'}
                       </td>
-                      <td className="py-3 px-4 text-slate-600 max-w-xs truncate">
+                      <td className="py-2 px-3 text-slate-600 max-w-xs truncate">
                         {t.description || '—'}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-rose-600">
+                      <td className="py-2 px-3 text-right font-mono font-bold text-rose-600">
                         {t.type === 'expense' ? `PKR ${Number(t.amount).toLocaleString()}` : '—'}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-emerald-600">
+                      <td className="py-2 px-3 text-right font-mono font-bold text-emerald-600">
                         {t.type === 'income' ? `PKR ${Number(t.amount).toLocaleString()}` : '—'}
                       </td>
                     </tr>
@@ -625,7 +628,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 setVoucherType('expense');
                 setShowVoucherModal(true);
               }}
-              className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 bg-slate-900 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-800 active:scale-95 transition-transform"
+              className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
               title="Add Voucher"
             >
               <Plus className="w-6 h-6" />
@@ -647,7 +650,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
             />
             <button
               onClick={() => setShowHeadModal(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Head</span>
@@ -1066,7 +1069,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmittingHead}
-                  className="px-3.5 py-2 rounded-md text-xs font-medium bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition-colors"
+                  className="px-3.5 py-2 rounded-md text-xs font-medium bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors cursor-pointer"
                 >
                   {isSubmittingHead ? 'Saving...' : 'Save Account Head'}
                 </button>

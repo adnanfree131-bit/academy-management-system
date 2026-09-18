@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   X, 
@@ -24,8 +25,11 @@ import {
   Key,
   Copy,
   Check,
-  Eye,
-  EyeOff
+  Archive,
+  Trash2,
+  RotateCcw,
+  AlertTriangle,
+  FileCheck
 } from 'lucide-react';
 import { 
   Student, 
@@ -33,13 +37,14 @@ import {
   AcademicProgram, 
   Subject, 
   SubjectGroup, 
-  StudentInvoice,
-  StudentStatus,
-  StudentAttendanceRecord
+  StudentInvoice, 
+  StudentStatus, 
+  StudentAttendanceRecord,
+  DocumentChecklistHead
 } from '@apex/shared-types';
 import { StudentIDCardModal } from './StudentIDCardModal';
 
-interface Student360ModalProps {
+interface StudentProfileModalProps {
   student: Student;
   programs: AcademicProgram[];
   batches: Batch[];
@@ -47,10 +52,9 @@ interface Student360ModalProps {
   subjectGroups: SubjectGroup[];
   onClose: () => void;
   onStudentUpdated?: () => void;
-  onPreviewPortal?: (studentId: string) => void;
 }
 
-export const Student360Modal: React.FC<Student360ModalProps> = ({
+export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   student,
   programs,
   batches,
@@ -58,7 +62,6 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
   subjectGroups,
   onClose,
   onStudentUpdated,
-  onPreviewPortal,
 }) => {
   const { token, tenant } = useAuth();
   const [currentStudent, setCurrentStudent] = useState<Student>(student);
@@ -66,6 +69,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
     setCurrentStudent(student);
     setStatusTarget(student.status || 'active');
     setResetGuardianCnic(student.guardian_id_card || '');
+    setEditSubjectIds(student.subjects || []);
   }, [student]);
 
   // Portal Credentials & Admin Password Reset State
@@ -77,8 +81,114 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [resetSuccessData, setResetSuccessData] = useState<{ username: string; password: string } | null>(null);
   const [resetErrorMsg, setResetErrorMsg] = useState<string | null>(null);
-  const [showCredentialsPassword, setShowCredentialsPassword] = useState(false);
   const [copiedCredentials, setCopiedCredentials] = useState(false);
+
+  // Modal Archive & Delete States
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [archiveModalReason, setArchiveModalReason] = useState('Administrative student record archival');
+  const [archiveModalCancelUnpaid, setArchiveModalCancelUnpaid] = useState(false);
+  const [isArchivingStudent, setIsArchivingStudent] = useState(false);
+
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteModalReason, setDeleteModalReason] = useState('Administrative permanent student deletion');
+  const [deleteModalForce, setDeleteModalForce] = useState(false);
+  const [deleteModalRequiresForce, setDeleteModalRequiresForce] = useState(false);
+  const [deleteModalError, setDeleteModalError] = useState<string | null>(null);
+  const [isDeletingStudent, setIsDeletingStudent] = useState(false);
+
+  const handleArchiveFromModal = async () => {
+    if (!token) return;
+    setIsArchivingStudent(true);
+    try {
+      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/archive`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          reason: archiveModalReason.trim() || 'Administrative student record archival',
+          cancel_unpaid_invoices: archiveModalCancelUnpaid,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCurrentStudent(prev => ({ ...prev, status: 'archived' }));
+        setStatusTarget('archived');
+        setShowArchiveDialog(false);
+        onStudentUpdated?.();
+      } else {
+        alert(data.error?.message || 'Failed to archive student');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Network error while archiving student');
+    } finally {
+      setIsArchivingStudent(false);
+    }
+  };
+
+  const handleUnarchiveFromModal = async () => {
+    if (!token) return;
+    setIsArchivingStudent(true);
+    try {
+      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/unarchive`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          reason: 'Restored from archive to active standing',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCurrentStudent(prev => ({ ...prev, status: 'active' }));
+        setStatusTarget('active');
+        onStudentUpdated?.();
+      } else {
+        alert(data.error?.message || 'Failed to restore student');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Network error while restoring student');
+    } finally {
+      setIsArchivingStudent(false);
+    }
+  };
+
+  const handleDeleteFromModal = async () => {
+    if (!token) return;
+    setIsDeletingStudent(true);
+    setDeleteModalError(null);
+    try {
+      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          force: deleteModalForce,
+          reason: deleteModalReason.trim() || 'Administrative permanent student deletion',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setShowDeleteDialog(false);
+        onStudentUpdated?.();
+        onClose();
+      } else {
+        if (res.status === 409 || data.error?.hasPaidTransactions) {
+          setDeleteModalRequiresForce(true);
+        }
+        setDeleteModalError(data.error?.message || 'Failed to delete student');
+      }
+    } catch (err: any) {
+      setDeleteModalError(err.message || 'Network error while deleting student');
+    } finally {
+      setIsDeletingStudent(false);
+    }
+  };
 
   const handleResetStudentPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,26 +306,104 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
   };
 
   // Enrolled Subjects Management
-  const [showEditSubjectsModal, setShowEditSubjectsModal] = useState(false);
-  const [editSubjectIds, setEditSubjectIds] = useState<string[]>([]);
+  const [editSubjectIds, setEditSubjectIds] = useState<string[]>(student.subjects || []);
   const [isSavingSubjects, setIsSavingSubjects] = useState(false);
   const [editSubjectsSuccess, setEditSubjectsSuccess] = useState<string | null>(null);
+  const [editSubjectsError, setEditSubjectsError] = useState<string | null>(null);
 
   // Student Particulars Management
   const [showEditParticularsModal, setShowEditParticularsModal] = useState(false);
+  const [editRollNumber, setEditRollNumber] = useState(student.roll_number || '');
   const [editFullName, setEditFullName] = useState(student.full_name);
   const [editPhone, setEditPhone] = useState(student.phone || '');
   const [editEmail, setEditEmail] = useState(student.email || '');
+  const [editStudentWhatsapp, setEditStudentWhatsapp] = useState(student.student_whatsapp || '');
+  const [editDob, setEditDob] = useState(student.date_of_birth || '');
+  const [editGender, setEditGender] = useState(student.gender || 'male');
+  const [editStudentBForm, setEditStudentBForm] = useState(student.student_b_form || '');
+  const [editReligion, setEditReligion] = useState(student.religion || 'Muslim');
+  const [editPreviousSchool, setEditPreviousSchool] = useState(student.previous_school || (student.custom_field_values as any)?.previous_school || '');
+  const [editResidentialAddress, setEditResidentialAddress] = useState(student.residential_address || '');
+  const [editCity, setEditCity] = useState(student.city || '');
+  const [editFatherName, setEditFatherName] = useState(student.father_name || '');
+  const [editFatherCnic, setEditFatherCnic] = useState(student.father_cnic || '');
+  const [editFatherPhone, setEditFatherPhone] = useState(student.father_phone || '');
+  const [editFatherOccupation, setEditFatherOccupation] = useState(student.father_occupation || '');
+  const [editMotherName, setEditMotherName] = useState(student.mother_name || '');
+  const [editMotherCnic, setEditMotherCnic] = useState(student.mother_cnic || '');
+  const [editMotherPhone, setEditMotherPhone] = useState(student.mother_phone || '');
+  const [editMotherOccupation, setEditMotherOccupation] = useState(student.mother_occupation || '');
+  const [editPrimaryContact, setEditPrimaryContact] = useState<'father' | 'mother' | 'guardian' | string>(student.primary_contact || 'father');
   const [editGuardianName, setEditGuardianName] = useState(student.guardian_name);
   const [editGuardianPhone, setEditGuardianPhone] = useState(student.guardian_phone);
   const [editGuardianEmail, setEditGuardianEmail] = useState(student.guardian_email || '');
   const [editGuardianIdCard, setEditGuardianIdCard] = useState(student.guardian_id_card || '');
   const [editGuardianWhatsapp, setEditGuardianWhatsapp] = useState(student.guardian_whatsapp || '');
   const [editGuardianRelation, setEditGuardianRelation] = useState(student.guardian_relation || 'Father');
+  const [editEmergencyName, setEditEmergencyName] = useState(student.emergency_contact_name || '');
+  const [editEmergencyPhone, setEditEmergencyPhone] = useState(student.emergency_contact_phone || '');
+  const [editEmergencyRelation, setEditEmergencyRelation] = useState(student.emergency_contact_relation || 'Uncle');
   const [editBloodGroup, setEditBloodGroup] = useState(student.blood_group || '');
   const [editPhotoUrl, setEditPhotoUrl] = useState(student.photo_url || '');
   const [editCustomFields, setEditCustomFields] = useState<Record<string, any>>(student.custom_field_values || {});
   const [isSavingParticulars, setIsSavingParticulars] = useState(false);
+
+  // Document Verification Quick Switcher State
+  const [updatingDocCode, setUpdatingDocCode] = useState<string | null>(null);
+
+  const handleUpdateDocumentStatus = async (headCode: string, newStatus: 'submitted' | 'pending' | 'exempted') => {
+    if (!token || updatingDocCode) return;
+    const currentDocs = currentStudent.submitted_documents || {};
+    if (currentDocs[headCode] === newStatus) return;
+
+    const updatedDocs = {
+      ...currentDocs,
+      [headCode]: newStatus,
+    };
+
+    setUpdatingDocCode(headCode);
+    try {
+      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          submitted_documents: updatedDocs,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setCurrentStudent(data.data);
+        if (onStudentUpdated) onStudentUpdated();
+      } else {
+        alert(data.error?.message || 'Failed to update document status');
+      }
+    } catch (err) {
+      console.error('Error updating document status:', err);
+      alert('Failed to update document status');
+    } finally {
+      setUpdatingDocCode(null);
+    }
+  };
+
+  const studentDocHeads = useMemo<DocumentChecklistHead[]>(() => {
+    const configured = (tenant?.settings?.document_checklist_heads || []) as DocumentChecklistHead[];
+    const result = [...configured];
+    const studentDocs = currentStudent.submitted_documents || {};
+    Object.keys(studentDocs).forEach(code => {
+      if (!result.some(h => h.code === code)) {
+        result.push({
+          id: `doc-${code}`,
+          code,
+          title: code.replace(/_/g, ' '),
+          is_required: false,
+        });
+      }
+    });
+    return result;
+  }, [tenant?.settings?.document_checklist_heads, currentStudent.submitted_documents]);
 
   // Student Profile Change Audit History
   const [showAuditLogsModal, setShowAuditLogsModal] = useState(false);
@@ -241,15 +429,36 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
   };
 
   useEffect(() => {
+    setEditRollNumber(currentStudent.roll_number || '');
     setEditFullName(currentStudent.full_name);
     setEditPhone(currentStudent.phone || '');
     setEditEmail(currentStudent.email || '');
+    setEditStudentWhatsapp(currentStudent.student_whatsapp || '');
+    setEditDob(currentStudent.date_of_birth || '');
+    setEditGender(currentStudent.gender || 'male');
+    setEditStudentBForm(currentStudent.student_b_form || '');
+    setEditReligion(currentStudent.religion || 'Muslim');
+    setEditPreviousSchool(currentStudent.previous_school || (currentStudent.custom_field_values as any)?.previous_school || '');
+    setEditResidentialAddress(currentStudent.residential_address || '');
+    setEditCity(currentStudent.city || '');
+    setEditFatherName(currentStudent.father_name || '');
+    setEditFatherCnic(currentStudent.father_cnic || '');
+    setEditFatherPhone(currentStudent.father_phone || '');
+    setEditFatherOccupation(currentStudent.father_occupation || '');
+    setEditMotherName(currentStudent.mother_name || '');
+    setEditMotherCnic(currentStudent.mother_cnic || '');
+    setEditMotherPhone(currentStudent.mother_phone || '');
+    setEditMotherOccupation(currentStudent.mother_occupation || '');
+    setEditPrimaryContact(currentStudent.primary_contact || 'father');
     setEditGuardianName(currentStudent.guardian_name);
     setEditGuardianPhone(currentStudent.guardian_phone);
     setEditGuardianEmail(currentStudent.guardian_email || '');
     setEditGuardianIdCard(currentStudent.guardian_id_card || '');
     setEditGuardianWhatsapp(currentStudent.guardian_whatsapp || '');
     setEditGuardianRelation(currentStudent.guardian_relation || 'Father');
+    setEditEmergencyName(currentStudent.emergency_contact_name || '');
+    setEditEmergencyPhone(currentStudent.emergency_contact_phone || '');
+    setEditEmergencyRelation(currentStudent.emergency_contact_relation || 'Uncle');
     setEditBloodGroup(currentStudent.blood_group || '');
     setEditPhotoUrl(currentStudent.photo_url || '');
     setEditCustomFields(currentStudent.custom_field_values || {});
@@ -281,18 +490,42 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          full_name: editFullName,
-          phone: editPhone,
-          email: editEmail || undefined,
-          guardian_name: editGuardianName,
-          guardian_phone: editGuardianPhone,
-          guardian_email: editGuardianEmail || undefined,
-          guardian_id_card: editGuardianIdCard || undefined,
-          guardian_whatsapp: editGuardianWhatsapp || undefined,
+          roll_number: editRollNumber.trim() || undefined,
+          full_name: editFullName.trim(),
+          phone: editPhone.trim() || undefined,
+          student_whatsapp: editStudentWhatsapp.trim() || undefined,
+          email: editEmail.trim() || undefined,
+          date_of_birth: editDob || undefined,
+          gender: editGender || undefined,
+          student_b_form: editStudentBForm.trim() || undefined,
+          religion: editReligion.trim() || undefined,
+          previous_school: editPreviousSchool.trim() || undefined,
+          residential_address: editResidentialAddress.trim() || undefined,
+          city: editCity.trim() || undefined,
+          father_name: editFatherName.trim() || undefined,
+          father_cnic: editFatherCnic.trim() || undefined,
+          father_phone: editFatherPhone.trim() || undefined,
+          father_occupation: editFatherOccupation.trim() || undefined,
+          mother_name: editMotherName.trim() || undefined,
+          mother_cnic: editMotherCnic.trim() || undefined,
+          mother_phone: editMotherPhone.trim() || undefined,
+          mother_occupation: editMotherOccupation.trim() || undefined,
+          primary_contact: editPrimaryContact || undefined,
+          guardian_name: editGuardianName.trim(),
+          guardian_phone: editGuardianPhone.trim(),
+          guardian_email: editGuardianEmail.trim() || undefined,
+          guardian_id_card: editGuardianIdCard.trim() || undefined,
+          guardian_whatsapp: editGuardianWhatsapp.trim() || undefined,
           guardian_relation: editGuardianRelation,
+          emergency_contact_name: editEmergencyName.trim() || undefined,
+          emergency_contact_phone: editEmergencyPhone.trim() || undefined,
+          emergency_contact_relation: editEmergencyRelation || undefined,
           blood_group: editBloodGroup || undefined,
           photo_url: editPhotoUrl || undefined,
-          custom_field_values: editCustomFields,
+          custom_field_values: {
+            ...editCustomFields,
+            ...(editPreviousSchool.trim() ? { previous_school: editPreviousSchool.trim() } : {}),
+          },
         }),
       });
       const data = await res.json();
@@ -330,6 +563,10 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
   // Resolution
   const activeProgram = useMemo(() => programs.find(p => p.id === currentStudent.program_id), [programs, currentStudent]);
   const activeBatch = useMemo(() => batches.find(b => b.id === currentStudent.batch_id), [batches, currentStudent]);
+  const isBatchSection = useMemo(() => {
+    if (!activeBatch) return true;
+    return (activeBatch.cohort_type || (/section/i.test(activeBatch.name) ? 'section' : 'batch')) === 'section';
+  }, [activeBatch]);
   const activeElectiveGroup = useMemo(() => subjectGroups.find(g => g.id === currentStudent.elective_group_id), [subjectGroups, currentStudent]);
   const activeCompulsoryGroup = useMemo(() => {
     return subjectGroups.find(g => g.program_id === currentStudent.program_id && g.type === 'compulsory');
@@ -339,10 +576,69 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
     return subjectGroups.filter(g => g.program_id === currentStudent.program_id);
   }, [subjectGroups, currentStudent.program_id]);
 
+  const availableClassSubjectIds = useMemo(() => {
+    const idSet = new Set<string>();
+    for (const group of allProgramSubjectGroups) {
+      for (const sid of (group.subject_ids || [])) {
+        idSet.add(sid);
+      }
+    }
+    for (const sid of (currentStudent.subjects || [])) {
+      idSet.add(sid);
+    }
+    if (idSet.size === 0 && subjects.length > 0) {
+      for (const s of subjects) {
+        idSet.add(s.id);
+      }
+    }
+    return Array.from(idSet);
+  }, [allProgramSubjectGroups, currentStudent.subjects, subjects]);
+
+  const hasSubjectChanges = useMemo(() => {
+    const orig = currentStudent.subjects || [];
+    if (orig.length !== editSubjectIds.length) return true;
+    const origSet = new Set(orig);
+    return editSubjectIds.some(id => !origSet.has(id));
+  }, [currentStudent.subjects, editSubjectIds]);
+
+  const handleToggleSubject = (subId: string) => {
+    setEditSubjectsSuccess(null);
+    setEditSubjectsError(null);
+    setEditSubjectIds(prev => 
+      prev.includes(subId) ? prev.filter(id => id !== subId) : [...prev, subId]
+    );
+  };
+
+  const handleSelectAllSubjects = () => {
+    setEditSubjectsSuccess(null);
+    setEditSubjectsError(null);
+    setEditSubjectIds([...availableClassSubjectIds]);
+  };
+
+  const handleSelectCompulsorySubjects = () => {
+    setEditSubjectsSuccess(null);
+    setEditSubjectsError(null);
+    const compIds = activeCompulsoryGroup?.subject_ids || [];
+    setEditSubjectIds(compIds);
+  };
+
+  const handleClearAllSubjects = () => {
+    setEditSubjectsSuccess(null);
+    setEditSubjectsError(null);
+    setEditSubjectIds([]);
+  };
+
+  const handleDiscardSubjectChanges = () => {
+    setEditSubjectsSuccess(null);
+    setEditSubjectsError(null);
+    setEditSubjectIds(currentStudent.subjects || []);
+  };
+
   const handleSaveSubjects = async () => {
     if (!token) return;
     setIsSavingSubjects(true);
     setEditSubjectsSuccess(null);
+    setEditSubjectsError(null);
 
     try {
       const res = await fetch(`/api/v1/sis/students/${currentStudent.id}`, {
@@ -353,24 +649,25 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
         },
         body: JSON.stringify({
           subjects: editSubjectIds,
+          audit_reason: 'Updated enrolled subjects roster',
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
         setCurrentStudent(data.data);
+        setEditSubjectIds(data.data.subjects || []);
         setEditSubjectsSuccess('Enrolled subjects updated successfully.');
         if (onStudentUpdated) onStudentUpdated();
         setTimeout(() => {
-          setShowEditSubjectsModal(false);
           setEditSubjectsSuccess(null);
-        }, 1000);
+        }, 3500);
       } else {
-        alert(data.error?.message || 'Failed to update subjects');
+        setEditSubjectsError(data.error?.message || 'Failed to update enrolled subjects');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating subjects:', err);
-      alert('Failed to update subjects');
+      setEditSubjectsError(err?.message || 'Network error updating enrolled subjects');
     } finally {
       setIsSavingSubjects(false);
     }
@@ -579,8 +876,8 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
       });
   }, [token, currentStudent.id]);
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 m-0">
+  return createPortal(
+    <div className="fixed inset-0 w-screen h-screen z-[9990] overflow-y-auto bg-white/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 animate-in fade-in duration-150">
       {/* Print Stylesheet (rendered only when viewing a challan to avoid overriding global page prints) */}
       {challanInvoice && (
         <style>{`
@@ -616,230 +913,197 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
         {/* Mobile Swipe / Grab Handle Pill */}
         <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
         
-        {/* Header */}
-        <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 shrink-0">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            
-            {/* Student Details + Mobile Close Button */}
-            <div className="flex items-start justify-between w-full lg:w-auto gap-3">
-              <div className="flex items-start sm:items-center gap-3 sm:gap-4">
-                {/* Photo Box */}
-              <div className="w-14 h-16 sm:w-16 sm:h-20 rounded border border-slate-300 bg-slate-100 flex items-center justify-center font-mono font-bold text-slate-700 text-sm overflow-hidden shrink-0">
-                {currentStudent.photo_url ? (
-                  <img 
-                    src={currentStudent.photo_url} 
-                    alt={currentStudent.full_name} 
-                    className="w-full h-full object-cover" 
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-slate-400">
-                    <User className="w-6 h-6 stroke-1 mb-0.5" />
-                    <span className="text-[9px] uppercase font-sans">Photo</span>
+        {/* Header - Deep Navy Hero Card (Behance Slide 17) */}
+        <div className="bg-[#0E2A47] text-white border-b border-[#163a5f] px-5 sm:px-6 py-5 shrink-0 relative overflow-hidden">
+          {/* Subtle background ambient accents */}
+          <div className="absolute -top-24 -right-24 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-[#B88634]/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative z-10 space-y-4">
+            {/* Top Tier: Identity & Primary Actions */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4 min-w-0">
+                {/* 3:4 Passport Portrait Frame */}
+                <div className="w-14 h-18 sm:w-16 sm:h-20 rounded-xl border border-white/20 bg-white/10 flex items-center justify-center font-mono font-bold text-white text-sm overflow-hidden shrink-0 shadow-inner">
+                  {currentStudent.photo_url ? (
+                    <img 
+                      src={currentStudent.photo_url} 
+                      alt={currentStudent.full_name} 
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-white/40">
+                      <User className="w-6 h-6 stroke-1 mb-0.5" />
+                      <span className="text-[9px] uppercase tracking-widest font-sans font-medium text-white/50">Photo</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white leading-tight">
+                      {currentStudent.full_name}
+                    </h1>
+
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border flex items-center gap-1.5 ${
+                      currentStudent.status === 'active'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        currentStudent.status === 'active' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                      }`} />
+                      <span className="capitalize">{currentStudent.status === 'active' ? 'Active' : currentStudent.status}</span>
+                    </span>
+
+                    {currentStudent.blood_group && (
+                      <span className="px-2 py-0.5 rounded text-xs font-mono bg-white/10 text-white/90 border border-white/15">
+                        {currentStudent.blood_group}
+                      </span>
+                    )}
                   </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-white/80">
+                    <span className="px-2 py-0.5 rounded bg-white/10 text-white font-mono font-semibold border border-white/15">
+                      Roll: {currentStudent.roll_number}
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-white/10 text-white/80 font-mono border border-white/15">
+                      Adm: {currentStudent.admission_number}
+                    </span>
+                    <span className="text-white/30">•</span>
+                    <span className="text-white font-medium">
+                      {activeProgram?.name || '—'}
+                    </span>
+                    <span className="text-white/30">•</span>
+                    <span className="text-white/80">
+                      {isBatchSection ? 'Section:' : 'Batch:'} {activeBatch?.name || '—'} ({activeBatch?.shift || 'Morning'})
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Primary Action Buttons Right */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => {
+                    setActiveTab('finance');
+                    setIsCashierOpen(true);
+                  }}
+                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Receive Fee</span>
+                </button>
+
+                <button
+                  onClick={() => setShowEditParticularsModal(true)}
+                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Edit Student Particulars & Photo"
+                >
+                  <Edit3 className="w-3.5 h-3.5 text-white/80" />
+                  <span>Edit Profile</span>
+                </button>
+
+                <button
+                  onClick={() => setShowIdCardModal(true)}
+                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Print Student ID Card"
+                >
+                  <CreditCard className="w-3.5 h-3.5 text-white/80" />
+                  <span>ID Card</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors ml-1 cursor-pointer"
+                  title="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Tier: Guardian Contact Details & Secondary Actions */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2.5 border-t border-white/10 text-xs">
+              <div className="text-white/75 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span>Guardian: <strong className="text-white font-medium">{currentStudent.guardian_name}</strong> <span className="text-white/40">({guardianRelation})</span></span>
+                <span className="text-white/20">•</span>
+                <span className="font-mono text-white/90">{currentStudent.guardian_phone}</span>
+                {currentStudent.guardian_id_card && (
+                  <>
+                    <span className="text-white/20">•</span>
+                    <span className="text-white/50 text-[11px]">CNIC:</span>
+                    <span className="font-mono text-white font-bold">{currentStudent.guardian_id_card}</span>
+                  </>
                 )}
               </div>
 
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-lg font-bold text-slate-900 leading-tight">
-                    {currentStudent.full_name}
-                  </h1>
-                  
-                  <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
-                    currentStudent.status === 'active'
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                      : 'bg-amber-50 text-amber-800 border-amber-300'
-                  }`}>
-                    {currentStudent.status === 'active' ? 'Active' : currentStudent.status}
-                  </span>
-
-                  {currentStudent.blood_group && (
-                    <span className="px-1.5 py-0.5 rounded text-[11px] font-mono bg-slate-100 text-slate-700 border border-slate-200">
-                      {currentStudent.blood_group}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-600">
-                  <div>
-                    <span className="text-slate-400 text-[11px] mr-1">Roll #:</span>
-                    <span className="font-mono font-bold text-slate-900">{currentStudent.roll_number}</span>
-                  </div>
-                  <span className="text-slate-300">•</span>
-                  <div>
-                    <span className="text-slate-400 text-[11px] mr-1">Admission #:</span>
-                    <span className="font-mono text-slate-900">{currentStudent.admission_number}</span>
-                  </div>
-                  <span className="text-slate-300">•</span>
-                  <div>
-                    <span className="text-slate-400 text-[11px] mr-1">Class:</span>
-                    <span className="font-medium text-slate-900">{activeProgram?.name || '—'}</span>
-                  </div>
-                  <span className="text-slate-300">•</span>
-                  <div>
-                    <span className="text-slate-400 text-[11px] mr-1">Section:</span>
-                    <span className="font-medium text-slate-900">{activeBatch?.name || '—'}</span>
-                  </div>
-                  <span className="text-slate-300">•</span>
-                  <div>
-                    <span className="text-slate-400 text-[11px] mr-1">Shift:</span>
-                    <span className="font-medium text-slate-800 capitalize">{activeBatch?.shift || 'Morning'}</span>
-                  </div>
-                </div>
-
-                <div className="text-xs text-slate-500 flex flex-wrap items-center gap-2 pt-0.5">
-                  <span>Guardian: <strong className="text-slate-800 font-medium">{currentStudent.guardian_name}</strong></span>
-                  <span className="text-slate-300">|</span>
-                  <span className="font-mono text-slate-700">{currentStudent.guardian_phone}</span>
-                  <span className="text-slate-400 text-[11px]">({currentStudent.guardian_relation || (currentStudent.custom_field_values?.relation as string) || (currentStudent.custom_field_values?.guardian_relation as string) || 'Guardian'})</span>
-                  {currentStudent.guardian_id_card && (
-                    <>
-                      <span className="text-slate-300">|</span>
-                      <span className="text-slate-400 text-[11px]">CNIC:</span>
-                      <span className="font-mono text-slate-900 font-bold">{currentStudent.guardian_id_card}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Mobile Close Button */}
-              <button
-                type="button"
-                onClick={onClose}
-                className="lg:hidden p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors shrink-0"
-                title="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Actions: Horizontally Scrollable on Mobile */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 w-full lg:w-auto shrink-0">
-              <button
-                onClick={() => {
-                  setActiveTab('finance');
-                  setIsCashierOpen(true);
-                }}
-                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors"
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>Receive Fee</span>
-              </button>
-
-              <button
-                onClick={() => setShowEditParticularsModal(true)}
-                className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                title="Edit Student Particulars & Photo"
-              >
-                <Edit3 className="w-3.5 h-3.5 text-slate-600" />
-                <span>Edit Particulars</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  fetchAuditLogs();
-                  setShowAuditLogsModal(true);
-                }}
-                className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                title="View Student Profile Audit Trail"
-              >
-                <History className="w-3.5 h-3.5 text-slate-600" />
-                <span>Audit Trail</span>
-              </button>
-
-              <button
-                onClick={() => setShowIdCardModal(true)}
-                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors"
-              >
-                <CreditCard className="w-3.5 h-3.5 text-slate-300" />
-                <span>ID Card</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setResetGuardianCnic(currentStudent.guardian_id_card || '');
-                  setShowResetPasswordModal(true);
-                  setResetSuccessData(null);
-                  setResetErrorMsg(null);
-                }}
-                className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Reset Student & Guardian Portal Login Password"
-              >
-                <Key className="w-3.5 h-3.5 text-slate-600" />
-                <span>Reset Password</span>
-              </button>
-
-              {/* Contact Options: Call & WhatsApp */}
-              <div className="relative">
+              {/* Secondary Actions Row */}
+              <div className="flex items-center gap-1.5 flex-wrap shrink-0">
                 <button
-                  type="button"
-                  onClick={() => setShowContactPopup(!showContactPopup)}
-                  className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-medium flex items-center gap-1.5 transition-colors"
+                  onClick={() => {
+                    fetchAuditLogs();
+                    setShowAuditLogsModal(true);
+                  }}
+                  className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white/90 border border-white/15 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="View Student Profile Audit Trail"
                 >
-                  <Phone className="w-3.5 h-3.5 text-slate-600" />
-                  <span>Call</span>
+                  <History className="w-3 h-3 text-white/70" />
+                  <span>Audit Trail</span>
                 </button>
 
-                {showContactPopup && (
-                  <div className="absolute right-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-xs space-y-3 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <span className="font-bold text-slate-900">Contact Options</span>
-                      <button onClick={() => setShowContactPopup(false)} className="text-slate-400 hover:text-slate-600">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                <button
+                  onClick={() => {
+                    setResetGuardianCnic(currentStudent.guardian_id_card || '');
+                    setShowResetPasswordModal(true);
+                    setResetSuccessData(null);
+                    setResetErrorMsg(null);
+                  }}
+                  className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white/90 border border-white/15 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Reset Student & Guardian Portal Login Password"
+                >
+                  <Key className="w-3 h-3 text-white/70" />
+                  <span>Password</span>
+                </button>
 
-                    {/* Guardian Contact */}
-                    <div className="space-y-1.5 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">{student.guardian_name}</span>
-                        <span className="text-[10px] text-slate-500 font-mono">({guardianRelation})</span>
-                      </div>
-                      <p className="font-mono text-[11px] text-slate-600 font-medium">{student.guardian_phone}</p>
-                      <div className="flex items-center gap-1.5 pt-1">
-                        <a
-                          href={`tel:${student.guardian_phone.replace(/[^0-9+]/g, '')}`}
-                          className="flex-1 py-1.5 px-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
-                        >
-                          <Phone className="w-3 h-3" />
-                          <span>Call</span>
-                        </a>
-                        <a
-                          href={`https://wa.me/${(student.guardian_whatsapp || student.guardian_phone).replace(/[^0-9]/g, '')}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
-                        >
-                          <MessageSquare className="w-3 h-3" />
-                          <span>WhatsApp</span>
-                        </a>
-                      </div>
-                      {student.guardian_whatsapp && student.guardian_whatsapp !== student.guardian_phone && (
-                        <p className="text-[10px] text-slate-500 mt-1">
-                          WhatsApp: <span className="font-mono font-medium text-slate-700">{student.guardian_whatsapp}</span>
-                        </p>
-                      )}
-                    </div>
+                {/* Contact Options: Call & WhatsApp */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowContactPopup(!showContactPopup)}
+                    className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white/90 border border-white/15 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Phone className="w-3 h-3 text-white/70" />
+                    <span>Call</span>
+                  </button>
 
-                    {/* Student Direct Contact (if provided) */}
-                    {student.phone && (
+                  {showContactPopup && (
+                    <div className="absolute right-0 mt-1.5 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 p-3 z-50 text-xs space-y-3 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <span className="font-bold text-slate-900">Contact Options</span>
+                        <button onClick={() => setShowContactPopup(false)} className="text-slate-400 hover:text-slate-600">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Guardian Contact */}
                       <div className="space-y-1.5 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-slate-900">{student.full_name}</span>
-                          <span className="text-[10px] text-slate-500">Student</span>
+                          <span className="font-bold text-slate-900">{student.guardian_name}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">({guardianRelation})</span>
                         </div>
-                        <p className="font-mono text-[11px] text-slate-600 font-medium">{student.phone}</p>
+                        <p className="font-mono text-[11px] text-slate-600 font-medium">{student.guardian_phone}</p>
                         <div className="flex items-center gap-1.5 pt-1">
                           <a
-                            href={`tel:${student.phone.replace(/[^0-9+]/g, '')}`}
-                            className="flex-1 py-1.5 px-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+                            href={`tel:${student.guardian_phone.replace(/[^0-9+]/g, '')}`}
+                            className="flex-1 py-1.5 px-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
                           >
                             <Phone className="w-3 h-3" />
                             <span>Call</span>
                           </a>
                           <a
-                            href={`https://wa.me/${student.phone.replace(/[^0-9]/g, '')}`}
+                            href={`https://wa.me/${(student.guardian_whatsapp || student.guardian_phone).replace(/[^0-9]/g, '')}`}
                             target="_blank"
                             rel="noreferrer"
                             className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
@@ -848,75 +1112,148 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                             <span>WhatsApp</span>
                           </a>
                         </div>
+                        {student.guardian_whatsapp && student.guardian_whatsapp !== student.guardian_phone && (
+                          <p className="text-[10px] text-slate-500 mt-1">
+                            WhatsApp: <span className="font-mono font-medium text-slate-700">{student.guardian_whatsapp}</span>
+                          </p>
+                        )}
                       </div>
-                    )}
-                  </div>
+
+                      {/* Student Direct Contact (if provided) */}
+                      {student.phone && (
+                        <div className="space-y-1.5 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-900">{student.full_name}</span>
+                            <span className="text-[10px] text-slate-500">Student</span>
+                          </div>
+                          <p className="font-mono text-[11px] text-slate-600 font-medium">{student.phone}</p>
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <a
+                              href={`tel:${student.phone.replace(/[^0-9+]/g, '')}`}
+                              className="flex-1 py-1.5 px-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+                            >
+                              <Phone className="w-3 h-3" />
+                              <span>Call</span>
+                            </a>
+                            <a
+                              href={`https://wa.me/${student.phone.replace(/[^0-9]/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+                            >
+                              <MessageSquare className="w-3 h-3" />
+                              <span>WhatsApp</span>
+                            </a>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Emergency Contact (if provided) */}
+                      {(student.emergency_contact_phone || student.emergency_contact_name) && (
+                        <div className="space-y-1.5 p-2.5 bg-rose-50/50 rounded-lg border border-rose-200">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-900">{student.emergency_contact_name || 'Emergency Contact'}</span>
+                            <span className="text-[10px] text-rose-700 font-medium">({student.emergency_contact_relation || 'Emergency'})</span>
+                          </div>
+                          {student.emergency_contact_phone && (
+                            <p className="font-mono text-[11px] text-slate-600 font-medium">{student.emergency_contact_phone}</p>
+                          )}
+                          {student.emergency_contact_phone && (
+                            <div className="flex items-center gap-1.5 pt-1">
+                              <a
+                                href={`tel:${student.emergency_contact_phone.replace(/[^0-9+]/g, '')}`}
+                                className="flex-1 py-1.5 px-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+                              >
+                                <Phone className="w-3 h-3" />
+                                <span>Call Emergency</span>
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <a
+                  href={`https://wa.me/${(student.guardian_whatsapp || student.guardian_phone).replace(/[^0-9]/g, '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2.5 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/30 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors"
+                  title="Send WhatsApp Message"
+                >
+                  <MessageSquare className="w-3 h-3 text-emerald-300" />
+                  <span>WhatsApp</span>
+                </a>
+
+                {currentStudent.status === 'archived' ? (
+                  <button
+                    type="button"
+                    onClick={handleUnarchiveFromModal}
+                    disabled={isArchivingStudent}
+                    className="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Restore Student to Active Standing"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Restore</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowArchiveDialog(true)}
+                    className="px-2.5 py-1.5 bg-white/10 hover:bg-amber-500/20 text-white/80 hover:text-amber-200 border border-white/15 hover:border-amber-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Archive Student Record"
+                  >
+                    <Archive className="w-3 h-3" />
+                    <span>Archive</span>
+                  </button>
                 )}
-              </div>
 
-              <a
-                href={`https://wa.me/${(student.guardian_whatsapp || student.guardian_phone).replace(/[^0-9]/g, '')}`}
-                target="_blank"
-                rel="noreferrer"
-                className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-medium flex items-center gap-1.5 transition-colors"
-              >
-                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="hidden sm:inline">WhatsApp</span>
-              </a>
-
-              {onPreviewPortal && (
                 <button
                   type="button"
                   onClick={() => {
-                    onClose();
-                    onPreviewPortal(currentStudent.id);
+                    setDeleteModalForce(false);
+                    setDeleteModalRequiresForce(false);
+                    setDeleteModalError(null);
+                    setShowDeleteDialog(true);
                   }}
-                  className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Preview Student & Parent Portal"
+                  className="px-2.5 py-1.5 bg-white/10 hover:bg-rose-500/20 text-white/80 hover:text-rose-200 border border-white/15 hover:border-rose-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Permanently Delete Student Record"
                 >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Preview Portal</span>
+                  <Trash2 className="w-3 h-3" />
+                  <span>Delete</span>
                 </button>
-              )}
-
-              <button
-                type="button"
-                onClick={onClose}
-                className="hidden lg:flex p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors ml-1"
-                title="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Navigation Tabs (Smooth kinetic horizontal scroll on mobile) */}
-        <div className="flex items-center overflow-x-auto no-scrollbar border-b border-slate-200 px-4 sm:px-6 bg-slate-50 text-xs font-medium gap-1 whitespace-nowrap shrink-0">
+        {/* Navigation Tabs (Behance Slide 17 Unnumbered Segmented Bar) */}
+        <div className="flex items-center overflow-x-auto no-scrollbar border-b border-slate-200 px-6 bg-[#F8FAFC] text-xs font-medium gap-1 whitespace-nowrap shrink-0">
           <button
             onClick={() => setActiveTab('academic')}
-            className={`py-2.5 px-3 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all ${
               activeTab === 'academic'
-                ? 'border-slate-900 text-slate-900 font-semibold bg-white'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
+                ? 'border-amber-600 text-amber-700 font-bold bg-white -mb-px shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <GraduationCap className="w-4 h-4 text-slate-500" />
-            <span>Academic Details</span>
+            <GraduationCap className={`w-4 h-4 ${activeTab === 'academic' ? 'text-amber-600' : 'text-slate-400'}`} />
+            <span>Academic Placement</span>
           </button>
 
           <button
             onClick={() => setActiveTab('finance')}
-            className={`py-2.5 px-3 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all ${
               activeTab === 'finance'
-                ? 'border-slate-900 text-slate-900 font-semibold bg-white'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
+                ? 'border-amber-600 text-amber-700 font-bold bg-white -mb-px shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <DollarSign className="w-4 h-4 text-slate-500" />
-            <span>Fees & Challans</span>
+            <DollarSign className={`w-4 h-4 ${activeTab === 'finance' ? 'text-amber-600' : 'text-slate-400'}`} />
+            <span>Fee Ledger & Invoices</span>
             {totalOutstanding > 0 && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-100 text-rose-800 border border-rose-200">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-50 text-rose-700 border border-rose-200">
                 Due: PKR {totalOutstanding.toLocaleString()}
               </span>
             )}
@@ -924,37 +1261,37 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
 
           <button
             onClick={() => setActiveTab('attendance')}
-            className={`py-2.5 px-3 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all ${
               activeTab === 'attendance'
-                ? 'border-slate-900 text-slate-900 font-semibold bg-white'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
+                ? 'border-amber-600 text-amber-700 font-bold bg-white -mb-px shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <Clock className="w-4 h-4 text-slate-500" />
+            <Clock className={`w-4 h-4 ${activeTab === 'attendance' ? 'text-amber-600' : 'text-slate-400'}`} />
             <span>Attendance History</span>
           </button>
 
           <button
             onClick={() => setActiveTab('exams')}
-            className={`py-2.5 px-3 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all ${
               activeTab === 'exams'
-                ? 'border-slate-900 text-slate-900 font-semibold bg-white'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
+                ? 'border-amber-600 text-amber-700 font-bold bg-white -mb-px shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <TrendingUp className="w-4 h-4 text-slate-500" />
+            <TrendingUp className={`w-4 h-4 ${activeTab === 'exams' ? 'text-amber-600' : 'text-slate-400'}`} />
             <span>Examination Results</span>
           </button>
 
           <button
             onClick={() => setActiveTab('notebook')}
-            className={`py-2.5 px-3 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all ${
               activeTab === 'notebook'
-                ? 'border-slate-900 text-slate-900 font-semibold bg-white'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
+                ? 'border-amber-600 text-amber-700 font-bold bg-white -mb-px shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <BookOpen className="w-4 h-4 text-slate-500" />
+            <BookOpen className={`w-4 h-4 ${activeTab === 'notebook' ? 'text-amber-600' : 'text-slate-400'}`} />
             <span>Notebook Checking</span>
           </button>
 
@@ -963,16 +1300,16 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
               setActiveTab('status');
               setStatusTarget(currentStudent.status || 'active');
             }}
-            className={`py-2.5 px-3 border-b-2 flex items-center gap-2 transition-colors ${
+            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all ${
               activeTab === 'status'
-                ? 'border-slate-900 text-slate-900 font-semibold bg-white'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
+                ? 'border-amber-600 text-amber-700 font-bold bg-white -mb-px shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <ShieldAlert className="w-4 h-4 text-slate-500" />
-            <span>Status & Exit</span>
+            <ShieldAlert className={`w-4 h-4 ${activeTab === 'status' ? 'text-amber-600' : 'text-slate-400'}`} />
+            <span>Status & Standing</span>
             {currentStudent.status !== 'active' && (
-              <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-200 capitalize">
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-200 capitalize">
                 {currentStudent.status}
               </span>
             )}
@@ -1003,7 +1340,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                         <td className="py-2 font-semibold text-slate-900">{activeProgram?.name || '—'}</td>
                       </tr>
                       <tr>
-                        <td className="py-2 text-slate-500">Section</td>
+                        <td className="py-2 text-slate-500">{isBatchSection ? 'Section' : 'Batch'}</td>
                         <td className="py-2 font-semibold text-slate-900">{activeBatch?.name || '—'}</td>
                       </tr>
                       <tr>
@@ -1016,6 +1353,44 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                         <td className="py-2 text-slate-500">Admission Date</td>
                         <td className="py-2 font-mono text-slate-800">{student.admission_date}</td>
                       </tr>
+                      {student.date_of_birth && (
+                        <tr>
+                          <td className="py-2 text-slate-500">Date of Birth</td>
+                          <td className="py-2 font-mono text-slate-800">{student.date_of_birth}</td>
+                        </tr>
+                      )}
+                      {student.gender && (
+                        <tr>
+                          <td className="py-2 text-slate-500">Gender</td>
+                          <td className="py-2 capitalize text-slate-800">{student.gender}</td>
+                        </tr>
+                      )}
+                      {student.student_b_form && (
+                        <tr>
+                          <td className="py-2 text-slate-500">B-Form / CRC</td>
+                          <td className="py-2 font-mono text-slate-800">{student.student_b_form}</td>
+                        </tr>
+                      )}
+                      {student.religion && (
+                        <tr>
+                          <td className="py-2 text-slate-500">Religion</td>
+                          <td className="py-2 text-slate-800 font-medium">{student.religion}</td>
+                        </tr>
+                      )}
+                      {student.previous_school && (
+                        <tr>
+                          <td className="py-2 text-slate-500">Previous School</td>
+                          <td className="py-2 text-slate-800 font-medium">{student.previous_school}</td>
+                        </tr>
+                      )}
+                      {(student.residential_address || student.city) && (
+                        <tr>
+                          <td className="py-2 text-slate-500">Address</td>
+                          <td className="py-2 text-slate-800">
+                            {student.residential_address}{student.city ? `, ${student.city}` : ''}
+                          </td>
+                        </tr>
+                      )}
                       <tr>
                         <td className="py-2 text-slate-500">Status</td>
                         <td className="py-2 capitalize text-slate-800">{student.status}</td>
@@ -1029,15 +1404,33 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                   <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                     <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-2">
                       <Phone className="w-4 h-4 text-slate-500" />
-                      Guardian Particulars
+                      Family & Guardian Particulars
                     </h3>
                     <span className="text-[10px] text-slate-500 font-mono">({guardianRelation})</span>
                   </div>
 
                   <table className="w-full text-xs text-left border-collapse">
                     <tbody className="divide-y divide-slate-100">
+                      {student.father_name && (
+                        <tr>
+                          <td className="py-2 text-slate-500 w-2/5">Father</td>
+                          <td className="py-2 text-slate-900">
+                            <span className="font-semibold">{student.father_name}</span>
+                            {student.father_cnic && <span className="text-[10px] font-mono text-slate-500 ml-1.5">({student.father_cnic})</span>}
+                          </td>
+                        </tr>
+                      )}
+                      {student.mother_name && (
+                        <tr>
+                          <td className="py-2 text-slate-500 w-2/5">Mother</td>
+                          <td className="py-2 text-slate-900">
+                            <span className="font-semibold">{student.mother_name}</span>
+                            {student.mother_cnic && <span className="text-[10px] font-mono text-slate-500 ml-1.5">({student.mother_cnic})</span>}
+                          </td>
+                        </tr>
+                      )}
                       <tr>
-                        <td className="py-2 text-slate-500 w-2/5">Guardian Name</td>
+                        <td className="py-2 text-slate-500 w-2/5">Primary Guardian</td>
                         <td className="py-2 font-semibold text-slate-900">{student.guardian_name}</td>
                       </tr>
                       <tr>
@@ -1087,9 +1480,13 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                             <span className="font-mono font-bold text-slate-900 text-xs">{currentStudent.guardian_id_card}</span>
                             <button
                               type="button"
-                              onClick={() => handleCopyCredentials(currentStudent.guardian_id_card!, 'Student@123')}
+                              onClick={() => {
+                                navigator.clipboard.writeText(currentStudent.guardian_id_card!);
+                                setCopiedCredentials(true);
+                                setTimeout(() => setCopiedCredentials(false), 2000);
+                              }}
                               className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
-                              title="Copy Credentials"
+                              title="Copy Login Identifier"
                             >
                               {copiedCredentials ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                             </button>
@@ -1105,38 +1502,20 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                         )}
                       </div>
 
-                      {/* Default Password */}
+                      {/* Password Security Status */}
                       <div>
                         <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium mb-1">
-                          <span>Default Password</span>
-                          <span className="text-[10px] text-slate-400 font-sans">Default Access</span>
+                          <span>Portal Password</span>
+                          <span className="text-[10px] text-slate-400 font-sans">Security</span>
                         </div>
                         <div className="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200">
-                          <span className="font-mono font-bold text-slate-800 text-xs">
-                            {showCredentialsPassword ? 'Student@123' : '••••••••'}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setShowCredentialsPassword(!showCredentialsPassword)}
-                              className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
-                              title={showCredentialsPassword ? 'Hide password' : 'Show password'}
-                            >
-                              {showCredentialsPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigator.clipboard.writeText('Student@123');
-                                setCopiedCredentials(true);
-                                setTimeout(() => setCopiedCredentials(false), 2000);
-                              }}
-                              className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
-                              title="Copy password"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                            <span className="font-mono text-xs text-slate-700">••••••••••••</span>
                           </div>
+                          <span className="text-[10px] text-slate-500 font-medium bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                            Encrypted
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1152,7 +1531,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                         setResetSuccessData(null);
                         setResetErrorMsg(null);
                       }}
-                      className="w-full py-1.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      className="w-full py-1.5 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                     >
                       <Key className="w-3.5 h-3.5 text-indigo-300" />
                       <span>Reset Password</span>
@@ -1160,93 +1539,156 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
 
                     {currentStudent.guardian_id_card && (
                       <a
-                        href={getWhatsAppCredentialsUrl(currentStudent.guardian_id_card, 'Student@123')}
+                        href={getWhatsAppCredentialsUrl(currentStudent.guardian_id_card, '[As provided upon admission/reset]')}
                         target="_blank"
                         rel="noreferrer"
                         className="w-full py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
                       >
                         <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Send to Guardian (WhatsApp)</span>
+                        <span>Share Portal Login (WhatsApp)</span>
                       </a>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* Subject Table */}
+              {/* Enrolled Subjects Card */}
               <div className="bg-white border border-slate-200 rounded overflow-hidden">
-                <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-slate-600" />
                       Enrolled Subjects
                     </h3>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Core and elective subjects for this class.
+                      Class curriculum subjects. Active enrollments govern examination marksheets and attendance.
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        setEditSubjectIds([...(currentStudent.subjects || [])]);
-                        setShowEditSubjectsModal(true);
-                      }}
-                      className="px-2.5 py-1 text-xs font-bold rounded bg-slate-900 text-white hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-2xs"
-                    >
-                      <BookOpen className="w-3.5 h-3.5 text-indigo-300" />
-                      <span>Update Enrolled Subjects</span>
-                    </button>
+                  <div className="flex items-center flex-wrap gap-2">
                     <span className="font-mono text-xs font-semibold px-2 py-1 bg-white border border-slate-200 rounded text-slate-700">
                       Track: {activeElectiveGroup?.name || 'General Stream'}
                     </span>
-                    <span className="font-mono text-xs font-semibold px-2 py-1 bg-white border border-slate-200 rounded text-slate-700">
-                      {currentStudent.subjects?.length || 0} Subjects
+                    <span className="font-mono text-xs font-bold px-2 py-1 bg-white border border-slate-200 rounded text-slate-800">
+                      {editSubjectIds.length} of {availableClassSubjectIds.length} Enrolled
                     </span>
+                    {hasSubjectChanges && (
+                      <button
+                        type="button"
+                        onClick={handleDiscardSubjectChanges}
+                        disabled={isSavingSubjects}
+                        className="px-2.5 py-1 text-xs font-semibold rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
+                      >
+                        Discard
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSaveSubjects}
+                      disabled={isSavingSubjects || !hasSubjectChanges}
+                      className="px-3 py-1 text-xs font-bold rounded bg-amber-600 text-white hover:bg-amber-700 active:bg-amber-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      {isSavingSubjects ? 'Saving...' : 'Save Subject Changes'}
+                    </button>
                   </div>
                 </div>
 
+                {/* Quick Selection Toolbar */}
+                <div className="px-5 py-2 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-[11px] text-slate-600">
+                    <span className="font-medium text-slate-500">Quick Selection:</span>
+                    {activeCompulsoryGroup && (
+                      <button
+                        type="button"
+                        onClick={handleSelectCompulsorySubjects}
+                        className="font-semibold text-amber-700 hover:text-amber-800 hover:underline"
+                      >
+                        Compulsory Only
+                      </button>
+                    )}
+                    <span className="text-slate-300">•</span>
+                    <button
+                      type="button"
+                      onClick={handleSelectAllSubjects}
+                      className="font-semibold text-amber-700 hover:text-amber-800 hover:underline"
+                    >
+                      Select All
+                    </button>
+                    <span className="text-slate-300">•</span>
+                    <button
+                      type="button"
+                      onClick={handleClearAllSubjects}
+                      className="text-slate-500 hover:text-slate-800 hover:underline"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+
+                  {hasSubjectChanges && (
+                    <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      Unsaved enrollment changes
+                    </span>
+                  )}
+                </div>
+
+                {/* Notifications */}
+                {editSubjectsSuccess && (
+                  <div className="px-5 py-2.5 bg-emerald-50 border-b border-emerald-200 text-emerald-900 text-xs flex items-center gap-2 font-medium">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>{editSubjectsSuccess}</span>
+                  </div>
+                )}
+                {editSubjectsError && (
+                  <div className="px-5 py-2.5 bg-rose-50 border-b border-rose-200 text-rose-900 text-xs flex items-center gap-2 font-medium">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{editSubjectsError}</span>
+                  </div>
+                )}
+
+                {/* Subjects Table */}
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left border-collapse">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                        <th className="py-2.5 px-4 w-12 text-center">Enrolled</th>
                         <th className="py-2.5 px-4">Subject Code</th>
                         <th className="py-2.5 px-4">Subject Title</th>
                         <th className="py-2.5 px-4">Type</th>
-                        <th className="py-2.5 px-4">Stream</th>
-                        <th className="py-2.5 px-4 text-center">Periods / Week</th>
+                        <th className="py-2.5 px-4">Curriculum Group</th>
                         <th className="py-2.5 px-4 text-right">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {(() => {
-                        const enrolledIds = currentStudent.subjects || [];
-                        const programSubIds = [
-                          ...(activeCompulsoryGroup?.subject_ids || []),
-                          ...(activeElectiveGroup?.subject_ids || [])
-                        ];
-                        const displayIds = Array.from(new Set([
-                          ...enrolledIds,
-                          ...programSubIds
-                        ]));
-
-                        if (displayIds.length === 0) {
-                          return (
-                            <tr>
-                              <td colSpan={6} className="py-6 text-center text-slate-400 text-xs italic">
-                                No subjects currently assigned. Click "Update Enrolled Subjects" above to enroll.
-                              </td>
-                            </tr>
-                          );
-                        }
-
-                        return displayIds.map(subId => {
-                          const isEnrolled = enrolledIds.includes(subId);
+                      {availableClassSubjectIds.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-6 text-center text-slate-400 text-xs italic">
+                            No subjects configured for this class program.
+                          </td>
+                        </tr>
+                      ) : (
+                        availableClassSubjectIds.map(subId => {
+                          const isEnrolled = editSubjectIds.includes(subId);
                           const isCore = activeCompulsoryGroup?.subject_ids.includes(subId) ?? true;
                           const name = getSubjectName(subId);
                           const code = getSubjectCode(subId);
+                          const groupName = allProgramSubjectGroups.find(g => g.subject_ids.includes(subId))?.name || (isCore ? 'Core Curriculum' : (activeElectiveGroup?.name || 'Elective Stream'));
 
                           return (
-                            <tr key={subId} className="hover:bg-slate-50/80 transition-colors">
-                              <td className="py-2.5 px-4 font-mono text-slate-700">{code}</td>
+                            <tr
+                              key={subId}
+                              onClick={() => handleToggleSubject(subId)}
+                              className={`cursor-pointer transition-colors ${
+                                isEnrolled ? 'bg-indigo-50/20 hover:bg-indigo-50/40' : 'hover:bg-slate-50'
+                              }`}
+                            >
+                              <td className="py-2.5 px-4 text-center" onClick={e => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={isEnrolled}
+                                  onChange={() => handleToggleSubject(subId)}
+                                  className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-4 h-4 cursor-pointer"
+                                />
+                              </td>
+                              <td className="py-2.5 px-4 font-mono font-semibold text-slate-700">{code}</td>
                               <td className="py-2.5 px-4 font-semibold text-slate-900">{name}</td>
                               <td className="py-2.5 px-4">
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
@@ -1257,10 +1699,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                                   {isCore ? 'Core' : 'Elective'}
                                 </span>
                               </td>
-                              <td className="py-2.5 px-4 text-slate-600 font-medium">
-                                {isCore ? 'Standard Core' : (activeElectiveGroup?.name || 'Elective Stream')}
-                              </td>
-                              <td className="py-2.5 px-4 text-center font-mono text-slate-600">6</td>
+                              <td className="py-2.5 px-4 text-slate-600 font-medium">{groupName}</td>
                               <td className="py-2.5 px-4 text-right">
                                 {isEnrolled ? (
                                   <span className="text-emerald-700 font-medium inline-flex items-center gap-1 text-xs">
@@ -1274,11 +1713,113 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                               </td>
                             </tr>
                           );
-                        });
-                      })()}
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
+
+                {/* Card Footer */}
+                <div className="px-5 py-3 bg-slate-50/60 border-t border-slate-200 flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-medium">
+                    Showing {availableClassSubjectIds.length} subjects available for {activeProgram?.name || 'this class'}.
+                  </span>
+                  {hasSubjectChanges && (
+                    <button
+                      type="button"
+                      onClick={handleSaveSubjects}
+                      disabled={isSavingSubjects}
+                      className="px-3 py-1 text-xs font-bold rounded bg-amber-600 text-white hover:bg-amber-700 active:bg-amber-800 disabled:opacity-40 transition-colors shadow-xs cursor-pointer"
+                    >
+                      {isSavingSubjects ? 'Saving...' : 'Save Subject Changes'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Document Submission & Verification Status */}
+              <div className="bg-white border border-slate-200 rounded overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                      <FileCheck className="w-4 h-4 text-slate-600" />
+                      Document Submission & Verification Status
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Verification status of legal certificates, CNICs, and photographs required upon admission.
+                    </p>
+                  </div>
+                </div>
+
+                {studentDocHeads.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50 text-slate-500 text-xs">
+                    <FileCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="font-semibold text-slate-700">No document checklist heads defined for this institution.</p>
+                    <p className="text-[11px] text-slate-400 mt-1">Configure required certificates and documents in Academy Settings to track verification status.</p>
+                  </div>
+                ) : (
+                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {studentDocHeads.map((head: DocumentChecklistHead) => {
+                      const status = currentStudent.submitted_documents?.[head.code] || 'pending';
+                      const isBusy = updatingDocCode === head.code;
+                      return (
+                        <div
+                          key={head.code}
+                          className="p-3 rounded-lg border border-slate-200 bg-slate-50 flex flex-col justify-between gap-2.5"
+                        >
+                          <div className="flex items-start justify-between gap-1.5">
+                            <div>
+                              <span className="text-xs font-bold text-slate-800 block">{head.title}</span>
+                              <span className="text-[10px] font-mono text-slate-400 block">{head.code}</span>
+                            </div>
+                            {head.is_required && (
+                              <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1 py-0.5 rounded shrink-0">Mandatory</span>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-1 bg-white p-1 rounded-lg border border-slate-200 text-[11px] font-bold">
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleUpdateDocumentStatus(head.code, 'submitted')}
+                              className={`py-1 rounded text-center transition-colors cursor-pointer ${
+                                status === 'submitted'
+                                  ? 'bg-emerald-600 text-white shadow-2xs'
+                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                              }`}
+                            >
+                              Submitted
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleUpdateDocumentStatus(head.code, 'pending')}
+                              className={`py-1 rounded text-center transition-colors cursor-pointer ${
+                                status === 'pending'
+                                  ? 'bg-amber-500 text-white shadow-2xs'
+                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                              }`}
+                            >
+                              Pending
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleUpdateDocumentStatus(head.code, 'exempted')}
+                              className={`py-1 rounded text-center transition-colors cursor-pointer ${
+                                status === 'exempted'
+                                  ? 'bg-slate-700 text-white shadow-2xs'
+                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                              }`}
+                            >
+                              Exempted
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1577,7 +2118,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
 
                               <button
                                 onClick={() => setChallanInvoice(inv)}
-                                className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded text-[11px] font-medium inline-flex items-center gap-1 transition-colors"
+                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-[11px] font-medium inline-flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
                               >
                                 <Printer className="w-3 h-3 text-slate-300" />
                                 <span>Challan</span>
@@ -1903,6 +2444,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                         <option value="suspended">Suspended (Disciplinary / Admin Hold)</option>
                         <option value="alumni">Alumni (Course Completed / Graduated)</option>
                         <option value="withdrawn">Withdrawn (Formal Clearance Issued)</option>
+                        <option value="archived">Archived (Archived Record / Inactive Roster)</option>
                       </select>
                       <p className="text-[11px] text-slate-500 mt-1">
                         Withdrawn and suspended students are excluded from daily attendance registers.
@@ -1948,7 +2490,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                     <button
                       type="submit"
                       disabled={isUpdatingStatus || !statusReason.trim()}
-                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
                     >
                       <ShieldAlert className="w-3.5 h-3.5" />
                       <span>{isUpdatingStatus ? 'Updating Status...' : 'Apply Status Transition'}</span>
@@ -2030,23 +2572,23 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-500 shrink-0">
+        <div className="p-3.5 px-6 pb-[max(0.875rem,env(safe-area-inset-bottom))] border-t border-slate-200 bg-white flex items-center justify-between text-xs text-slate-500 shrink-0">
           <div className="flex items-center gap-2">
             <span>Admission Date:</span>
-            <span className="font-mono text-slate-700 font-medium">{student.admission_date}</span>
+            <span className="font-mono text-slate-900 font-semibold">{student.admission_date}</span>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => window.print()}
-              className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded text-xs font-medium flex items-center gap-1.5 transition-colors"
+              className="px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5" />
+              <Printer className="w-3.5 h-3.5 text-slate-500" />
               <span>Print</span>
             </button>
             <button
               onClick={onClose}
-              className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded text-xs font-semibold transition-colors"
+              className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
             >
               Close
             </button>
@@ -2054,7 +2596,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
         </div>
       </div>
 
-      {/* 3-PART BANK CHALLAN PRINT MODAL */}
+      {/* FEE CHALLAN PRINT MODAL */}
       {challanInvoice && (
         <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto m-0">
           <div className="bg-white rounded-lg max-w-5xl w-full p-6 shadow-2xl border border-slate-300 space-y-4 my-auto print:border-none print:shadow-none print:p-0">
@@ -2088,7 +2630,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
               </div>
             </div>
 
-            {/* Printable 3-Part Grid: Stacks on mobile viewport, 3 columns on desktop and print */}
+            {/* Printable Fee Challan Grid: Stacks on mobile viewport, columns on desktop and print */}
             <div id="printable-challan-area" className="grid grid-cols-1 md:grid-cols-3 print:grid-cols-3 gap-3 text-[10px] font-sans">
               {['BANK COPY', 'ACADEMY COPY', 'STUDENT COPY'].map((copyTitle, copyIdx) => (
                 <div 
@@ -2131,7 +2673,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                     <div className="pt-1 border-t border-slate-200">
                       <div className="text-slate-950 font-bold truncate">Student: {student.full_name}</div>
                       <div className="text-slate-700 font-mono text-[8px]">Roll: {student.roll_number} | Adm: {student.admission_number}</div>
-                      <div className="text-slate-700 text-[8px]">Class: {activeProgram?.name || '—'} • Section: {activeBatch?.name || '—'}</div>
+                      <div className="text-slate-700 text-[8px]">Class: {activeProgram?.name || '—'} • {isBatchSection ? 'Section' : 'Batch'}: {activeBatch?.name || '—'}</div>
                     </div>
                   </div>
 
@@ -2198,177 +2740,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
         </div>
       )}
 
-      {/* UPDATE ENROLLED SUBJECTS MODAL */}
-      {showEditSubjectsModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 m-0">
-          <div className="bg-white rounded-lg max-w-lg w-full p-6 shadow-2xl border border-slate-300 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-slate-800" />
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Update Enrolled Subjects</h3>
-                  <p className="text-[11px] text-slate-500 font-mono">
-                    {currentStudent.full_name} • Roll: {currentStudent.roll_number}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowEditSubjectsModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            <p className="text-xs text-slate-600">
-              Select or deselect subjects for this student. Changes will immediately update examination grading eligibility and attendance records.
-            </p>
-
-            <div className="flex items-center justify-between py-1 border-y border-slate-100 text-xs">
-              <span className="font-semibold text-slate-700">
-                Selected: <strong className="text-indigo-600 font-mono">{editSubjectIds.length}</strong> subjects
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const allIds = [
-                      ...(activeCompulsoryGroup ? activeCompulsoryGroup.subject_ids : []),
-                      ...(activeElectiveGroup ? activeElectiveGroup.subject_ids : [])
-                    ];
-                    setEditSubjectIds([...new Set(allIds)]);
-                  }}
-                  className="text-[11px] text-indigo-600 hover:underline font-bold"
-                >
-                  Select All
-                </button>
-                <span className="text-slate-300">•</span>
-                <button
-                  type="button"
-                  onClick={() => setEditSubjectIds([])}
-                  className="text-[11px] text-slate-500 hover:underline"
-                >
-                  Clear All
-                </button>
-              </div>
-            </div>
-
-            <div className="max-h-64 overflow-y-auto space-y-3 pr-1">
-              {/* Compulsory Core */}
-              {activeCompulsoryGroup && activeCompulsoryGroup.subject_ids.length > 0 && (
-                <div className="space-y-1.5">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span>Compulsory Core Subjects</span>
-                  </div>
-                  <div className="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                    {activeCompulsoryGroup.subject_ids.map(subId => {
-                      const isChecked = editSubjectIds.includes(subId);
-                      return (
-                        <label
-                          key={subId}
-                          className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
-                            isChecked ? 'bg-white shadow-2xs border border-indigo-200' : 'hover:bg-slate-100/70 border border-transparent'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {
-                                setEditSubjectIds(prev => 
-                                  prev.includes(subId) ? prev.filter(id => id !== subId) : [...prev, subId]
-                                );
-                              }}
-                              className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                            />
-                            <div>
-                              <span className="font-semibold text-slate-900">{getSubjectName(subId)}</span>
-                              <span className="text-[10px] font-mono text-slate-500 ml-2">({getSubjectCode(subId)})</span>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                            Core
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Elective Tracks */}
-              {allProgramSubjectGroups.filter(g => g.type === 'elective_track').map(group => (
-                <div key={group.id} className="space-y-1.5">
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                    <span>{group.name}</span>
-                  </div>
-                  <div className="space-y-1 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                    {group.subject_ids.map(subId => {
-                      const isChecked = editSubjectIds.includes(subId);
-                      return (
-                        <label
-                          key={subId}
-                          className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
-                            isChecked ? 'bg-white shadow-2xs border border-indigo-200' : 'hover:bg-slate-100/70 border border-transparent'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {
-                                setEditSubjectIds(prev => 
-                                  prev.includes(subId) ? prev.filter(id => id !== subId) : [...prev, subId]
-                                );
-                              }}
-                              className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                            />
-                            <div>
-                              <span className="font-semibold text-slate-900">{getSubjectName(subId)}</span>
-                              <span className="text-[10px] font-mono text-slate-500 ml-2">({getSubjectCode(subId)})</span>
-                            </div>
-                          </div>
-                          <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
-                            Elective
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {editSubjectsSuccess && (
-              <div className="p-2.5 bg-emerald-50 text-emerald-800 text-xs rounded-lg flex items-center gap-2 font-medium">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>{editSubjectsSuccess}</span>
-              </div>
-            )}
-
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
-              <button
-                type="button"
-                onClick={() => setShowEditSubjectsModal(false)}
-                disabled={isSavingSubjects}
-                className="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveSubjects}
-                disabled={isSavingSubjects}
-                className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
-              >
-                {isSavingSubjects ? 'Saving...' : 'Save Subject Changes'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* EDIT PARTICULARS MODAL */}
       {showEditParticularsModal && (
@@ -2438,7 +2810,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Student Phone</label>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Student Phone (Optional)</label>
                     <input
                       type="text"
                       value={editPhone}
@@ -2449,6 +2821,17 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                   </div>
 
                   <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Student WhatsApp (Optional)</label>
+                    <input
+                      type="text"
+                      value={editStudentWhatsapp}
+                      onChange={e => setEditStudentWhatsapp(e.target.value)}
+                      placeholder="0300-1234567"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">Student Email (Portal Login)</label>
                     <input
                       type="email"
@@ -2456,6 +2839,17 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                       onChange={e => setEditEmail(e.target.value)}
                       placeholder="student@example.com"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Batch Roll Number</label>
+                    <input
+                      type="text"
+                      value={editRollNumber}
+                      onChange={e => setEditRollNumber(e.target.value)}
+                      placeholder="101"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono font-bold"
                     />
                   </div>
 
@@ -2471,6 +2865,204 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                         <option key={bg} value={bg}>{bg}</option>
                       ))}
                     </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Student Demographics & Identification */}
+              <div className="space-y-3 pb-3 border-b border-slate-200">
+                <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Demographics & Academic Background</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Date of Birth</label>
+                    <input
+                      type="date"
+                      value={editDob}
+                      onChange={e => setEditDob(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Gender</label>
+                    <select
+                      value={editGender}
+                      onChange={e => setEditGender(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium bg-white"
+                    >
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Student B-Form / CNIC</label>
+                    <input
+                      type="text"
+                      value={editStudentBForm}
+                      onChange={e => setEditStudentBForm(e.target.value)}
+                      placeholder="35201-1234567-1"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Religion</label>
+                    <input
+                      type="text"
+                      value={editReligion}
+                      onChange={e => setEditReligion(e.target.value)}
+                      placeholder="Religion"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Previous School / Academy</label>
+                    <input
+                      type="text"
+                      value={editPreviousSchool}
+                      onChange={e => setEditPreviousSchool(e.target.value)}
+                      placeholder="Previous school name"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Residential Location */}
+              <div className="space-y-3 pb-3 border-b border-slate-200">
+                <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Residential Location</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Street Address</label>
+                    <input
+                      type="text"
+                      value={editResidentialAddress}
+                      onChange={e => setEditResidentialAddress(e.target.value)}
+                      placeholder="House / Street / Sector"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">City</label>
+                    <input
+                      type="text"
+                      value={editCity}
+                      onChange={e => setEditCity(e.target.value)}
+                      placeholder="City"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Dual Parent Particulars */}
+              <div className="space-y-3 pb-3 border-b border-slate-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Parent Particulars</h4>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10.5px] font-semibold text-slate-600">Primary Contact:</span>
+                    <select
+                      value={editPrimaryContact}
+                      onChange={e => setEditPrimaryContact(e.target.value)}
+                      className="px-2 py-1 border border-slate-300 rounded text-xs font-semibold bg-white text-slate-800"
+                    >
+                      <option value="father">Father</option>
+                      <option value="mother">Mother</option>
+                      <option value="guardian">Guardian</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Father Details */}
+                <div className="bg-slate-50/70 p-3 rounded-lg border border-slate-200 space-y-2">
+                  <span className="text-[11px] font-bold text-slate-700 block">Father Particulars</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Father Name</label>
+                      <input
+                        type="text"
+                        value={editFatherName}
+                        onChange={e => setEditFatherName(e.target.value)}
+                        placeholder="Father full name"
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Father CNIC</label>
+                      <input
+                        type="text"
+                        value={editFatherCnic}
+                        onChange={e => setEditFatherCnic(e.target.value)}
+                        placeholder="35201-XXXXXXX-X"
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Father Phone</label>
+                      <input
+                        type="text"
+                        value={editFatherPhone}
+                        onChange={e => setEditFatherPhone(e.target.value)}
+                        placeholder="0300-1234567"
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Occupation</label>
+                      <input
+                        type="text"
+                        value={editFatherOccupation}
+                        onChange={e => setEditFatherOccupation(e.target.value)}
+                        placeholder="Occupation"
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mother Details */}
+                <div className="bg-slate-50/70 p-3 rounded-lg border border-slate-200 space-y-2">
+                  <span className="text-[11px] font-bold text-slate-700 block">Mother Particulars</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Mother Name</label>
+                      <input
+                        type="text"
+                        value={editMotherName}
+                        onChange={e => setEditMotherName(e.target.value)}
+                        placeholder="Mother full name"
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Mother CNIC</label>
+                      <input
+                        type="text"
+                        value={editMotherCnic}
+                        onChange={e => setEditMotherCnic(e.target.value)}
+                        placeholder="35201-XXXXXXX-X"
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Mother Phone</label>
+                      <input
+                        type="text"
+                        value={editMotherPhone}
+                        onChange={e => setEditMotherPhone(e.target.value)}
+                        placeholder="0300-1234567"
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Occupation</label>
+                      <input
+                        type="text"
+                        value={editMotherOccupation}
+                        onChange={e => setEditMotherOccupation(e.target.value)}
+                        placeholder="Occupation"
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2539,7 +3131,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
 
                   <div className="sm:col-span-2">
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Guardian CNIC / ID Card (Parent Portal Login)
+                      Guardian CNIC
                     </label>
                     <input
                       type="text"
@@ -2548,9 +3140,48 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                       placeholder="35201-1234567-1"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
                     />
-                    <p className="text-[10px] text-slate-500 mt-1">
-                      Primary login identifier for the parent portal. Enter 13-digit CNIC with or without dashes.
-                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Emergency Contact */}
+              <div className="space-y-2 pb-3 border-b border-slate-200">
+                <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                  Emergency Contact Details
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Contact Person</label>
+                    <input
+                      type="text"
+                      value={editEmergencyName}
+                      onChange={e => setEditEmergencyName(e.target.value)}
+                      placeholder="Contact Full Name"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Contact Phone</label>
+                    <input
+                      type="text"
+                      value={editEmergencyPhone}
+                      onChange={e => setEditEmergencyPhone(e.target.value)}
+                      placeholder="0300-1234567"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Relationship</label>
+                    <select
+                      value={editEmergencyRelation}
+                      onChange={e => setEditEmergencyRelation(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden bg-white"
+                    >
+                      {['Uncle', 'Aunt', 'Mother', 'Father', 'Brother', 'Sister', 'Grandfather', 'Grandmother', 'Relative', 'Neighbor', 'Family Friend', 'Other'].map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
@@ -2560,13 +3191,13 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                 <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Custom Profile Attributes</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Previous School</label>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Board Registration / Enrollment No.</label>
                     <input
                       type="text"
-                      value={editCustomFields.previous_school || ''}
-                      onChange={e => setEditCustomFields(prev => ({ ...prev, previous_school: e.target.value }))}
-                      placeholder="e.g. Army Public School"
-                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
+                      value={editCustomFields.board_registration || ''}
+                      onChange={e => setEditCustomFields(prev => ({ ...prev, board_registration: e.target.value }))}
+                      placeholder="Board registration number"
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
                     />
                   </div>
                   <div>
@@ -2575,7 +3206,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                       type="text"
                       value={editCustomFields.previous_marks || ''}
                       onChange={e => setEditCustomFields(prev => ({ ...prev, previous_marks: e.target.value }))}
-                      placeholder="e.g. 980/1100 (A+)"
+                      placeholder="Grade or marks"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
                     />
                   </div>
@@ -2594,7 +3225,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                 <button
                   type="submit"
                   disabled={isSavingParticulars}
-                  className="px-4 py-2 rounded bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors flex items-center gap-1.5"
+                  className="px-4 py-2 rounded bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   {isSavingParticulars ? 'Saving...' : 'Save Particulars'}
                 </button>
@@ -2695,7 +3326,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                       setShowResetPasswordModal(false);
                       setResetSuccessData(null);
                     }}
-                    className="px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors cursor-pointer"
+                    className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs"
                   >
                     Done
                   </button>
@@ -2721,12 +3352,9 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                     required
                     value={resetGuardianCnic}
                     onChange={e => setResetGuardianCnic(e.target.value)}
-                    placeholder="e.g. 35201-1234567-1"
+                    placeholder="35201-1234567-1"
                     className="w-full px-3 py-2 bg-slate-50/50 border border-slate-300 rounded-lg font-mono font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all"
                   />
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    The student uses this Father/Guardian CNIC as their unique username to log into the academy portal.
-                  </p>
                 </div>
 
                 {/* Password Selection */}
@@ -2789,7 +3417,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                     required
                     value={resetReason}
                     onChange={e => setResetReason(e.target.value)}
-                    placeholder="e.g. Parent requested password reset at front desk"
+                    placeholder="Reason for password reset"
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-800"
                   />
                 </div>
@@ -2806,7 +3434,7 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
                   <button
                     type="submit"
                     disabled={isResettingPassword || !resetGuardianCnic.trim()}
-                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <Key className="w-3.5 h-3.5" />
                     <span>{isResettingPassword ? 'Resetting Password...' : 'Confirm & Reset Password'}</span>
@@ -2904,13 +3532,196 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowAuditLogsModal(false)}
-                className="px-4 py-1.5 rounded bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
+                className="px-4 py-1.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-semibold transition-colors cursor-pointer"
               >
                 Close
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* ARCHIVE STUDENT CONFIRMATION MODAL */}
+      {showArchiveDialog && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[10000] bg-white/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 m-0 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-amber-300 ring-1 ring-amber-900/10 overflow-hidden flex flex-col">
+            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Archive className="w-4 h-4 text-amber-400" />
+                <h2 className="text-sm font-bold">Archive Student Record</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowArchiveDialog(false)}
+                className="text-slate-400 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs text-slate-700">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Archiving Student: {currentStudent.full_name}</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-amber-800">
+                  Admission No: <strong className="font-mono">{currentStudent.admission_number}</strong> • Roll No: <strong className="font-mono">{currentStudent.roll_number}</strong>
+                </p>
+                <p className="text-[11px] leading-relaxed text-amber-700">
+                  Archiving marks this student as inactive and releases their seat in the batch roster. All academic history, exam marks, and fee ledgers remain preserved.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Administrative Reason <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={archiveModalReason}
+                  onChange={e => setArchiveModalReason(e.target.value)}
+                  placeholder="Reason for archival"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 font-sans"
+                />
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={archiveModalCancelUnpaid}
+                    onChange={e => setArchiveModalCancelUnpaid(e.target.checked)}
+                    className="mt-0.5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                  />
+                  <span className="text-xs text-slate-800 font-medium leading-relaxed">
+                    Cancel outstanding unpaid invoices for this student
+                    <span className="block text-[11px] text-slate-500 font-normal mt-0.5">
+                      Sets unpaid/partial balance to zero with an administrative cancellation remark.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 p-3.5 border-t border-slate-200 bg-slate-50">
+              <button
+                type="button"
+                onClick={() => setShowArchiveDialog(false)}
+                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleArchiveFromModal}
+                disabled={isArchivingStudent || !archiveModalReason.trim()}
+                className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Archive className="w-3.5 h-3.5" />
+                <span>{isArchivingStudent ? 'Archiving...' : 'Confirm Archival'}</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* DELETE STUDENT CONFIRMATION MODAL */}
+      {showDeleteDialog && createPortal(
+        <div className="fixed inset-0 w-screen h-screen z-[10000] bg-white/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 m-0 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-rose-300 ring-1 ring-rose-900/10 overflow-hidden flex flex-col">
+            <div className="bg-rose-700 text-white px-5 py-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-white" />
+                <h2 className="text-sm font-bold">Permanently Delete Student Record</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDeleteDialog(false)}
+                className="text-white/80 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs text-slate-700">
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Warning: Permanent Deletion of {currentStudent.full_name}</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-rose-800">
+                  Admission No: <strong className="font-mono">{currentStudent.admission_number}</strong> • Roll No: <strong className="font-mono">{currentStudent.roll_number}</strong>
+                </p>
+                <p className="text-[11px] leading-relaxed text-rose-700">
+                  This action permanently removes the student from the database, deletes associated attendance registers, exam evaluations, and portal credentials.
+                </p>
+              </div>
+
+              {deleteModalError && (
+                <div className="p-3 bg-rose-100 border border-rose-300 rounded-lg text-rose-900 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-semibold">{deleteModalError}</p>
+                    <p className="text-[11px] text-rose-700">
+                      Recommendation: Use the <strong>Archive</strong> button instead to preserve institutional fee registers and accounting records.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {deleteModalRequiresForce && (
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-lg text-xs text-amber-900">
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={deleteModalForce}
+                      onChange={e => setDeleteModalForce(e.target.checked)}
+                      className="mt-0.5 rounded border-amber-400 text-rose-600 focus:ring-rose-500"
+                    />
+                    <span className="font-semibold leading-relaxed">
+                      Administrative Override: Force delete this student despite recorded financial transactions.
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Reason for Deletion <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={deleteModalReason}
+                  onChange={e => setDeleteModalReason(e.target.value)}
+                  placeholder="Reason for deletion"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 font-sans"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 p-3.5 border-t border-slate-200 bg-slate-50">
+              <button
+                type="button"
+                onClick={() => setShowDeleteDialog(false)}
+                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteFromModal}
+                disabled={isDeletingStudent || !deleteModalReason.trim() || (deleteModalRequiresForce && !deleteModalForce)}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingStudent ? 'Deleting...' : 'Confirm Permanent Deletion'}</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* SINGLE ID CARD MODAL */}
@@ -2924,6 +3735,9 @@ export const Student360Modal: React.FC<Student360ModalProps> = ({
           onClose={() => setShowIdCardModal(false)}
         />
       )}
-    </div>
+    </div>,
+    document.body
   );
 };
+
+export const Student360Modal = StudentProfileModal;

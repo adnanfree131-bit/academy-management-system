@@ -236,11 +236,11 @@ export interface IDataStore {
   incrementOTPAttempts(id: string): Promise<void>;
   markOTPUsed(id: string): Promise<void>;
 
-  // Academic Hierarchy (Phase 2)
   getPrograms(tenantId: string): Promise<AcademicProgram[]>;
   createProgram(data: Omit<AcademicProgram, 'id' | 'created_at' | 'updated_at'>): Promise<AcademicProgram>;
   updateProgram(tenantId: string, id: string, data: Partial<Omit<AcademicProgram, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>): Promise<AcademicProgram | null>;
   deleteProgram(tenantId: string, id: string, transferToProgramId?: string): Promise<boolean>;
+  reorderPrograms(tenantId: string, orderedIds: string[]): Promise<void>;
   
   getSubjects(tenantId: string): Promise<Subject[]>;
   createSubject(data: Omit<Subject, 'id' | 'created_at'>): Promise<Subject>;
@@ -250,7 +250,7 @@ export interface IDataStore {
   createSubjectGroup(data: Omit<SubjectGroup, 'id' | 'created_at'>): Promise<SubjectGroup>;
   deleteSubjectGroup(tenantId: string, id: string): Promise<boolean>;
 
-  getBatches(tenantId: string, programId?: string): Promise<Batch[]>;
+  getBatches(tenantId: string, programId?: string, cohortType?: 'section' | 'batch'): Promise<Batch[]>;
   createBatch(data: Omit<Batch, 'id' | 'created_at' | 'updated_at' | 'current_enrollment'>): Promise<Batch>;
   updateBatch(tenantId: string, id: string, data: Partial<Omit<Batch, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>): Promise<Batch | null>;
   deleteBatch(tenantId: string, id: string, transferToBatchId?: string): Promise<boolean>;
@@ -281,6 +281,11 @@ export interface IDataStore {
   createStudent(data: Omit<Student, 'id' | 'admission_number' | 'roll_number' | 'admission_date' | 'created_at' | 'updated_at'>): Promise<Student>;
   updateStudent(tenantId: string, id: string, data: Partial<Student>): Promise<Student | null>;
   updateStudentStatus(tenantId: string, studentId: string, status: StudentStatus, reason: string, cancelUnpaidInvoices?: boolean, changedBy?: string): Promise<Student | null>;
+  archiveStudent(tenantId: string, studentId: string, reason?: string, cancelUnpaidInvoices?: boolean, changedBy?: string): Promise<Student | null>;
+  unarchiveStudent(tenantId: string, studentId: string, reason?: string, changedBy?: string): Promise<Student | null>;
+  deleteStudent(tenantId: string, studentId: string, options?: { force?: boolean; reason?: string; deletedBy?: string }): Promise<{ success: boolean; message?: string; error?: string; hasPaidTransactions?: boolean }>;
+  bulkArchiveStudents(tenantId: string, studentIds: string[], reason?: string, cancelUnpaidInvoices?: boolean, changedBy?: string): Promise<{ archived_count: number; errors?: string[] }>;
+  bulkDeleteStudents(tenantId: string, studentIds: string[], options?: { force?: boolean; reason?: string; deletedBy?: string }): Promise<{ deleted_count: number; skipped_count: number; errors?: string[] }>;
   admitInquiry(
     tenantId: string,
     inquiryId: string,
@@ -293,7 +298,7 @@ export interface IDataStore {
   ): Promise<Student>;
   promoteStudents(tenantId: string, params: {
     student_ids: string[];
-    target_program_id: string;
+    target_program_id?: string;
     target_batch_id: string;
     target_session?: string;
     fee_adjustment_type: 'keep' | 'target_baseline' | 'percentage' | 'fixed';
@@ -514,6 +519,7 @@ export interface IDataStore {
   }>;
   voidPayment(tenantId: string, paymentId: string, voidReason: string, voidedBy: string): Promise<{ payment: FeePayment; invoice: StudentInvoice }>;
   deletePayment(tenantId: string, paymentId: string, deletedBy: string): Promise<{ success: boolean; deleted_payment_id: string; invoice?: StudentInvoice }>;
+  getFeeAuditLogs(tenantId: string, studentId?: string): Promise<any[]>;
 
   // --- Phase 4: Discounts & Audit Trail ---
   getDiscounts(tenantId: string, studentId?: string): Promise<FeeDiscount[]>;
@@ -701,6 +707,39 @@ export function isSameBillingMonth(a: string | null | undefined, b: string | nul
   return normalizeBillingMonth(a).toLowerCase() === normalizeBillingMonth(b).toLowerCase();
 }
 
+export function getBillingMonthStartIso(billingMonth: string | null | undefined): string | null {
+  if (!billingMonth || !billingMonth.trim()) return null;
+  const norm = normalizeBillingMonth(billingMonth);
+  const parts = norm.split(' ');
+  if (parts.length === 2) {
+    const monthIdx = MONTH_NAMES.indexOf(parts[0]);
+    const year = parseInt(parts[1], 10);
+    if (monthIdx >= 0 && !isNaN(year)) {
+      return `${year}-${String(monthIdx + 1).padStart(2, '0')}-01`;
+    }
+  }
+  const isoMatch = billingMonth.trim().match(/^(\d{4})[-/](\d{1,2})/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-01`;
+  }
+  return null;
+}
+
+export function isBatchEndedForBillingMonth(batchEndDate: string | null | undefined, billingMonth: string): boolean {
+  if (!batchEndDate || !batchEndDate.trim()) return false;
+
+  const monthStartIso = getBillingMonthStartIso(billingMonth);
+  if (!monthStartIso) return false;
+
+  const trimmedEnd = batchEndDate.trim().split('T')[0];
+  let endIso = trimmedEnd;
+  if (/^\d{4}-\d{2}$/.test(trimmedEnd)) {
+    endIso = `${trimmedEnd}-31`;
+  }
+  return endIso < monthStartIso;
+}
+
+
 export class InMemoryDataStore implements IDataStore {
   private tenants: Map<string, Tenant> = new Map();
   private users: Map<string, User> = new Map();
@@ -752,6 +791,7 @@ export class InMemoryDataStore implements IDataStore {
   // Phase 6 Collections
   private whatsappTemplates: WhatsAppTemplate[] = [];
   private whatsappAuditLogs: WhatsAppAuditLog[] = [];
+  private feeAuditLogs: any[] = [];
   private absenteeFollowups: AbsenteeFollowupItem[] = [];
   private retentionCases: RetentionCounselingCase[] = [];
 
@@ -871,6 +911,7 @@ export class InMemoryDataStore implements IDataStore {
       studentExamEvaluations: this.studentExamEvaluations,
       whatsappTemplates: this.whatsappTemplates,
       whatsappAuditLogs: this.whatsappAuditLogs,
+      feeAuditLogs: this.feeAuditLogs,
       absenteeFollowups: this.absenteeFollowups,
       retentionCases: this.retentionCases,
       platformBankingConfig: this.platformBankingConfig,
@@ -888,6 +929,9 @@ export class InMemoryDataStore implements IDataStore {
 
     if (payload.tenants) {
       for (const [k, v] of asEntries<string, Tenant>(payload.tenants)) {
+        if (v && (v.slug === 'tsa' || v.name === 'The Smart Academy') && !v.settings?.logo_url) {
+          v.settings = { ...v.settings, logo_url: '/tsa-logo.png' } as any;
+        }
         this.tenants.set(k, v);
       }
     }
@@ -914,6 +958,9 @@ export class InMemoryDataStore implements IDataStore {
     }
     if (payload.batches) {
       for (const b of asArray<any>(payload.batches)) {
+        if (!b.cohort_type) {
+          b.cohort_type = b.name && /section/i.test(b.name) ? 'section' : 'batch';
+        }
         if (!this.batches.some(existing => existing.id === b.id)) this.batches.push(b);
       }
     }
@@ -982,6 +1029,7 @@ export class InMemoryDataStore implements IDataStore {
     if (payload.studentExamEvaluations) this.studentExamEvaluations = asArray(payload.studentExamEvaluations);
     if (payload.whatsappTemplates) this.whatsappTemplates = asArray(payload.whatsappTemplates);
     if (payload.whatsappAuditLogs) this.whatsappAuditLogs = asArray(payload.whatsappAuditLogs);
+    if (payload.feeAuditLogs) this.feeAuditLogs = asArray(payload.feeAuditLogs);
     if (payload.absenteeFollowups) this.absenteeFollowups = asArray(payload.absenteeFollowups);
     if (payload.retentionCases) this.retentionCases = asArray(payload.retentionCases);
     if (payload.platformBankingConfig) this.platformBankingConfig = payload.platformBankingConfig as PlatformBankingConfig;
@@ -1027,6 +1075,22 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
 
+    const tenant = this.tenants.get(tenantId);
+    const isTSA = tenantId === '1944a64d-41f8-42e1-ada7-fb1bfd7d6e75' || tenant?.slug === 'tsa';
+    if (isTSA && !this.feeHeads.some(h => h.tenant_id === tenantId && (h.name.toLowerCase() === 'asd' || h.code === 'ASD'))) {
+      this.feeHeads.push({
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        name: 'asd',
+        code: 'ASD',
+        is_system_default: false,
+        default_amount: 2500,
+        priority_order: 7,
+        show_at_admission: true,
+        created_at: now,
+      });
+    }
+
     if (!this.accountHeads.some(h => h.tenant_id === tenantId)) {
       this.accountHeads.push(
         { id: crypto.randomUUID(), tenant_id: tenantId, code: 'REV-01', name: 'Student Tuition Revenue', type: 'income', is_active: true, created_at: now },
@@ -1061,6 +1125,349 @@ export class InMemoryDataStore implements IDataStore {
     }
   }
 
+  /** Restore / provision foundational academic catalog (subjects, starter class, section) when empty. */
+  private ensureDefaultAcademicCatalog(tenantId: string): void {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant || tenant.settings?.is_platform) return;
+
+    const now = new Date().toISOString();
+    const isTSA = tenantId === '1944a64d-41f8-42e1-ada7-fb1bfd7d6e75' || tenant.slug === 'tsa';
+
+    if (isTSA) {
+      // 1. Ensure TSA has the authentic 14 subjects from user's setup
+      const tsaSubjectsList = [
+        { name: 'URDU', code: 'SUB', is_core: true },
+        { name: 'ENGLISH', code: '2', is_core: true },
+        { name: 'Math', code: '1', is_core: true },
+        { name: 'Physics', code: 'PHY', is_core: true },
+        { name: 'Chemistry', code: 'CHM', is_core: true },
+        { name: 'Biology', code: 'BIO', is_core: true },
+        { name: 'Computer Science', code: 'CS', is_core: true },
+        { name: 'Islamiyat', code: 'ISL', is_core: true },
+        { name: 'Pakistan Studies', code: 'PST', is_core: true },
+        { name: 'General Science', code: 'SCI', is_core: false },
+        { name: 'Social Studies', code: 'SST', is_core: false },
+        { name: 'Arabic', code: 'ARA', is_core: false },
+        { name: 'Tarjuma-tul-Quran', code: 'TQ', is_core: false },
+        { name: 'Art & Drawing', code: 'ART', is_core: false },
+      ];
+
+      for (const ds of tsaSubjectsList) {
+        const existing = this.subjects.find(
+          s => s.tenant_id === tenantId && (
+            s.name.toLowerCase() === ds.name.toLowerCase() ||
+            (s.code && ds.code && s.code.toLowerCase() === ds.code.toLowerCase())
+          )
+        );
+        if (!existing) {
+          this.subjects.push({
+            id: crypto.randomUUID(),
+            tenant_id: tenantId,
+            name: ds.name,
+            code: ds.code,
+            is_core: ds.is_core,
+            created_at: now,
+          });
+        } else {
+          if (ds.code === 'SUB' && existing.name.toUpperCase() === 'URDU') existing.code = 'SUB';
+          if (ds.code === '2' && existing.name.toUpperCase() === 'ENGLISH') existing.code = '2';
+          if (ds.code === '1' && existing.name.toUpperCase() === 'MATH') existing.code = '1';
+        }
+      }
+
+      // 2. Check TSA classes: authentic classes are '7th', '1', '2'
+      const existingTSAPrograms = this.programs.filter(p => p.tenant_id === tenantId);
+      const has7th = existingTSAPrograms.some(p => p.name.trim() === '7th');
+      const onlyHasDummyMatric = existingTSAPrograms.length === 1 && existingTSAPrograms[0].name.includes('Class 10');
+
+      if (!has7th || onlyHasDummyMatric) {
+        if (onlyHasDummyMatric) {
+          const dummyId = existingTSAPrograms[0].id;
+          this.programs = this.programs.filter(p => p.id !== dummyId);
+          this.batches = this.batches.filter(b => b.program_id !== dummyId);
+          this.subjectGroups = this.subjectGroups.filter(g => g.program_id !== dummyId);
+        }
+
+        const heads = this.feeHeads.filter(h => h.tenant_id === tenantId);
+        const tuitionHead = heads.find(h => h.code === 'TUITION');
+        const admHead = heads.find(h => h.code === 'ADMISSION');
+        const asdHead = heads.find(h => h.code === 'ASD' || h.name.toLowerCase() === 'asd');
+
+        const fee_schedule: any[] = [];
+        if (tuitionHead) {
+          fee_schedule.push({
+            fee_head_id: tuitionHead.id,
+            head_name: tuitionHead.name,
+            fee_type: 'tuition',
+            name: tuitionHead.name,
+            amount: 5000,
+            is_monthly: true,
+            is_recurring: true,
+          });
+        }
+        if (admHead) {
+          fee_schedule.push({
+            fee_head_id: admHead.id,
+            head_name: admHead.name,
+            fee_type: 'admission',
+            name: admHead.name,
+            amount: 10000,
+            is_monthly: false,
+            is_recurring: false,
+          });
+        }
+        if (asdHead) {
+          fee_schedule.push({
+            fee_head_id: asdHead.id,
+            head_name: asdHead.name,
+            fee_type: 'custom',
+            name: asdHead.name,
+            amount: 2500,
+            is_monthly: false,
+            is_recurring: false,
+          });
+        }
+
+        // Program 1: '7th'
+        const prog7th: AcademicProgram = {
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          name: '7th',
+          code: '7th',
+          description: 'Class 7',
+          sort_order: 1,
+          fee_schedule,
+          created_at: now,
+          updated_at: now,
+        };
+        this.programs.push(prog7th);
+
+        // Program 2: '1'
+        const prog1: AcademicProgram = {
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          name: '1',
+          code: '1',
+          description: 'Class 1',
+          sort_order: 2,
+          fee_schedule,
+          created_at: now,
+          updated_at: now,
+        };
+        this.programs.push(prog1);
+
+        // Program 3: '2'
+        const prog2: AcademicProgram = {
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          name: '2',
+          code: '2',
+          description: 'Class 2',
+          sort_order: 3,
+          fee_schedule,
+          created_at: now,
+          updated_at: now,
+        };
+        this.programs.push(prog2);
+
+        // Class Subjects for 7th: URDU, ENGLISH, Math
+        const currentSubs = this.subjects.filter(s => s.tenant_id === tenantId);
+        const urduSub = currentSubs.find(s => s.name.toUpperCase().includes('URDU'));
+        const engSub = currentSubs.find(s => s.name.toUpperCase().includes('ENG'));
+        const mathSub = currentSubs.find(s => s.name.toUpperCase().includes('MATH'));
+        const compSubIds = [urduSub?.id, engSub?.id, mathSub?.id].filter(Boolean) as string[];
+
+        if (compSubIds.length > 0) {
+          this.subjectGroups.push({
+            id: crypto.randomUUID(),
+            tenant_id: tenantId,
+            program_id: prog7th.id,
+            name: 'Class Subjects',
+            type: 'compulsory',
+            subject_ids: compSubIds,
+            created_at: now,
+          });
+        }
+
+        // Section for 7th: Section A (Capacity 40, Occupancy 1/40)
+        const secA: Batch = {
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          program_id: prog7th.id,
+          name: 'Section A',
+          cohort_type: 'section',
+          shift: 'morning',
+          start_time: '08:00 AM',
+          end_time: '01:30 PM',
+          room_number: 'Room 1',
+          academic_session: tenant.settings?.academic_session || '2026-2027',
+          max_capacity: 40,
+          current_enrollment: 1,
+          created_at: now,
+          updated_at: now,
+        };
+        this.batches.push(secA);
+
+        // Relink student Ameer Syed to 7th & Section A
+        const ameer = this.students.find(s => s.tenant_id === tenantId && s.full_name.includes('Ameer'));
+        if (ameer) {
+          ameer.program_id = prog7th.id;
+          ameer.batch_id = secA.id;
+          ameer.subjects = [...compSubIds];
+          ameer.updated_at = now;
+        }
+      }
+      return;
+    }
+
+    // 1. Ensure core foundational subjects exist
+    const tenantSubjects = this.subjects.filter(s => s.tenant_id === tenantId);
+    if (tenantSubjects.length === 0) {
+      const defaultSubjectsList = [
+        { name: 'English', code: 'ENG', is_core: true },
+        { name: 'Urdu', code: 'URD', is_core: true },
+        { name: 'Mathematics', code: 'MTH', is_core: true },
+        { name: 'Physics', code: 'PHY', is_core: true },
+        { name: 'Chemistry', code: 'CHM', is_core: true },
+        { name: 'Biology', code: 'BIO', is_core: true },
+        { name: 'Computer Science', code: 'CS', is_core: true },
+        { name: 'Islamiyat', code: 'ISL', is_core: true },
+        { name: 'Pakistan Studies', code: 'PST', is_core: true },
+      ];
+      for (const ds of defaultSubjectsList) {
+        this.subjects.push({
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          name: ds.name,
+          code: ds.code,
+          is_core: ds.is_core,
+          created_at: now,
+        });
+      }
+    }
+
+    // 2. Ensure at least one academic class/program exists
+    const tenantPrograms = this.programs.filter(p => p.tenant_id === tenantId);
+    if (tenantPrograms.length === 0) {
+      // Find fee heads for baseline
+      const heads = this.feeHeads.filter(h => h.tenant_id === tenantId);
+      const tuitionHead = heads.find(h => h.code === 'TUITION');
+      const admHead = heads.find(h => h.code === 'ADMISSION');
+
+      const fee_schedule: any[] = [];
+      if (tuitionHead) {
+        fee_schedule.push({
+          fee_head_id: tuitionHead.id,
+          head_name: tuitionHead.name,
+          fee_type: 'tuition',
+          name: tuitionHead.name,
+          amount: tuitionHead.default_amount || 5000,
+          is_monthly: true,
+          is_recurring: true,
+        });
+      }
+      if (admHead) {
+        fee_schedule.push({
+          fee_head_id: admHead.id,
+          head_name: admHead.name,
+          fee_type: 'admission',
+          name: admHead.name,
+          amount: admHead.default_amount || 5000,
+          is_monthly: false,
+          is_recurring: false,
+        });
+      }
+
+      const starterProg: AcademicProgram = {
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        name: 'Class 10 - Matric',
+        code: 'MATRIC-10',
+        description: 'Secondary School Certificate (Matriculation)',
+        sort_order: 1,
+        fee_schedule,
+        created_at: now,
+        updated_at: now,
+      };
+      this.programs.push(starterProg);
+
+      // Create Compulsory Subject Group
+      const currentSubs = this.subjects.filter(s => s.tenant_id === tenantId);
+      const compCodes = ['ENG', 'URD', 'ISL', 'PST'];
+      const compSubIds = currentSubs.filter(s => compCodes.includes(s.code || '')).map(s => s.id);
+      if (compSubIds.length > 0) {
+        this.subjectGroups.push({
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          program_id: starterProg.id,
+          name: 'Compulsory Core Group',
+          type: 'compulsory',
+          subject_ids: compSubIds,
+          created_at: now,
+        });
+      }
+
+      // Create Elective Groups (Pre-Medical & Computer Science)
+      const medCodes = ['PHY', 'CHM', 'BIO'];
+      const medSubIds = currentSubs.filter(s => medCodes.includes(s.code || '')).map(s => s.id);
+      if (medSubIds.length > 0) {
+        this.subjectGroups.push({
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          program_id: starterProg.id,
+          name: 'Science (Pre-Medical)',
+          type: 'elective_track',
+          subject_ids: medSubIds,
+          created_at: now,
+        });
+      }
+
+      const csCodes = ['PHY', 'MTH', 'CS'];
+      const csSubIds = currentSubs.filter(s => csCodes.includes(s.code || '')).map(s => s.id);
+      if (csSubIds.length > 0) {
+        this.subjectGroups.push({
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          program_id: starterProg.id,
+          name: 'Science (Computer Science)',
+          type: 'elective_track',
+          subject_ids: csSubIds,
+          created_at: now,
+        });
+      }
+
+      // Create a default Class Section
+      const secA: Batch = {
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        program_id: starterProg.id,
+        name: 'Section A',
+        cohort_type: 'section',
+        shift: 'morning',
+        start_time: '08:00 AM',
+        end_time: '01:30 PM',
+        room_number: 'Room 1',
+        academic_session: tenant.settings?.academic_session || '2026-2027',
+        max_capacity: 40,
+        current_enrollment: 0,
+        created_at: now,
+        updated_at: now,
+      };
+      this.batches.push(secA);
+
+      // Relink any students in this tenant that had dangling or cross-tenant program/batch IDs
+      const tenantStudents = this.students.filter(s => s.tenant_id === tenantId);
+      for (const s of tenantStudents) {
+        if (!this.programs.some(p => p.tenant_id === tenantId && p.id === s.program_id)) {
+          s.program_id = starterProg.id;
+          s.batch_id = secA.id;
+          s.subjects = compSubIds.concat(medSubIds.slice(0, 2));
+          s.updated_at = now;
+        }
+      }
+    }
+  }
+
   async hydrateFromDatabase(): Promise<void> {
     if (!persistenceEnabled()) return;
     try {
@@ -1075,10 +1482,12 @@ export class InMemoryDataStore implements IDataStore {
         for (const tenant of this.tenants.values()) {
           if (tenant.settings?.is_platform) continue;
           this.ensureDefaultFeeCatalog(tenant.id);
+          this.ensureDefaultAcademicCatalog(tenant.id);
         }
         this.persistAllowed = true;
         this.persistQueued = true;
         console.log(`[Store] Restored snapshot with ${this.tenants.size} academies`);
+        await this.flushPersist();
         return;
       }
       const existingCount = countRealAcademies(payload);
@@ -1088,6 +1497,11 @@ export class InMemoryDataStore implements IDataStore {
         return;
       }
       this.persistAllowed = true;
+      for (const tenant of this.tenants.values()) {
+        if (tenant.settings?.is_platform) continue;
+        this.ensureDefaultFeeCatalog(tenant.id);
+        this.ensureDefaultAcademicCatalog(tenant.id);
+      }
       this.persistQueued = true;
       await this.flushPersist();
       console.log('[Store] No snapshot found; seeded state persisted');
@@ -1298,6 +1712,7 @@ export class InMemoryDataStore implements IDataStore {
         academic_session: '2026-2027',
         campus_name: 'Main Campus',
         phone_country_code: '+92',
+        logo_url: '/tsa-logo.png',
         features: {
           mobile_pwa_enabled: true,
           whatsapp_rapid_queue: true,
@@ -1308,6 +1723,60 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     };
     this.tenants.set(tenantTSA.id, tenantTSA);
+
+    const tsaProg7: AcademicProgram = {
+      id: 'tsa-prog-7',
+      tenant_id: tenantTSA.id,
+      name: 'Class 7',
+      code: '7TH',
+      description: '',
+      sort_order: 1,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const tsaProg9: AcademicProgram = {
+      id: 'tsa-prog-9',
+      tenant_id: tenantTSA.id,
+      name: 'Class 9',
+      code: '9TH',
+      description: '',
+      sort_order: 2,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const tsaProg10: AcademicProgram = {
+      id: 'tsa-prog-10',
+      tenant_id: tenantTSA.id,
+      name: 'Class 10',
+      code: '10TH',
+      description: '',
+      sort_order: 3,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.programs.push(tsaProg7, tsaProg9, tsaProg10);
+
+    const tsaBatchComp: Batch = {
+      id: 'tsa-batch-computer',
+      tenant_id: tenantTSA.id,
+      program_id: tsaProg7.id,
+      name: 'computer course',
+      academic_session: '2026-2027',
+      shift: 'morning',
+      start_time: '08:00 AM',
+      end_time: '01:30 PM',
+      start_date: '2026-09-17',
+      end_date: '2026-11-17',
+      billing_mode: 'installment',
+      fee_amount: 10000,
+      max_capacity: 40,
+      current_enrollment: 0,
+      status: 'active',
+      cohort_type: 'batch',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.batches.push(tsaBatchComp);
 
     this.subscriptionReceipts.push({
       id: 'sub-rec-1',
@@ -1486,7 +1955,7 @@ export class InMemoryDataStore implements IDataStore {
       tenant_id: tenantAId,
       name: 'Class 7',
       code: 'CLASS-7',
-      description: 'Middle school grade 7 curriculum',
+      description: '',
       sort_order: 3,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -1525,9 +1994,15 @@ export class InMemoryDataStore implements IDataStore {
       tenant_id: tenantAId,
       program_id: mdcatProg.id,
       name: 'Batch 2026-A',
+      cohort_type: 'batch',
       shift: 'morning',
       start_time: '08:00 AM',
       end_time: '01:30 PM',
+      start_date: '2026-08-01',
+      end_date: '2027-05-31',
+      billing_mode: 'monthly',
+      fee_amount: 10000,
+      room_number: 'Hall A',
       academic_session: '2026-2027',
       max_capacity: 50,
       current_enrollment: 1,
@@ -1539,9 +2014,15 @@ export class InMemoryDataStore implements IDataStore {
       tenant_id: tenantAId,
       program_id: fscProg.id,
       name: 'FSc Morning - Alpha',
+      cohort_type: 'batch',
       shift: 'morning',
       start_time: '08:00 AM',
       end_time: '01:30 PM',
+      start_date: '2026-08-01',
+      end_date: '2027-05-31',
+      billing_mode: 'monthly',
+      fee_amount: 8000,
+      room_number: 'Room 102',
       academic_session: '2026-2027',
       max_capacity: 40,
       current_enrollment: 0,
@@ -1553,9 +2034,15 @@ export class InMemoryDataStore implements IDataStore {
       tenant_id: tenantAId,
       program_id: class7Prog.id,
       name: 'Section A',
+      cohort_type: 'section',
       shift: 'morning',
       start_time: '08:00 AM',
       end_time: '01:30 PM',
+      start_date: '2026-08-01',
+      end_date: '2027-05-31',
+      billing_mode: 'monthly',
+      fee_amount: 6000,
+      room_number: 'Room 201',
       academic_session: '2026-2027',
       max_capacity: 40,
       current_enrollment: 0,
@@ -1567,9 +2054,15 @@ export class InMemoryDataStore implements IDataStore {
       tenant_id: tenantB.id,
       program_id: crescentProg.id,
       name: 'O-Levels Morning Section 1',
+      cohort_type: 'section',
       shift: 'morning',
       start_time: '08:30 AM',
       end_time: '01:45 PM',
+      start_date: '2026-08-01',
+      end_date: '2027-05-31',
+      billing_mode: 'monthly',
+      fee_amount: 12000,
+      room_number: 'Room 301',
       academic_session: '2026-2027',
       max_capacity: 30,
       current_enrollment: 1,
@@ -2351,6 +2844,10 @@ export class InMemoryDataStore implements IDataStore {
     const clean = slug.toLowerCase().trim();
     for (const tenant of this.tenants.values()) {
       if (tenant.slug.toLowerCase() === clean) {
+        if ((tenant.slug === 'tsa' || tenant.name === 'The Smart Academy') && !tenant.settings?.logo_url) {
+          if (!tenant.settings) tenant.settings = {} as any;
+          tenant.settings.logo_url = '/tsa-logo.png';
+        }
         return { tenant, is_alias: false, primary_slug: tenant.slug };
       }
     }
@@ -2358,6 +2855,10 @@ export class InMemoryDataStore implements IDataStore {
     if (alias) {
       const tenant = this.tenants.get(alias.tenant_id);
       if (tenant) {
+        if ((tenant.slug === 'tsa' || tenant.name === 'The Smart Academy') && !tenant.settings?.logo_url) {
+          if (!tenant.settings) tenant.settings = {} as any;
+          tenant.settings.logo_url = '/tsa-logo.png';
+        }
         return { tenant, is_alias: true, primary_slug: tenant.slug };
       }
     }
@@ -2366,7 +2867,13 @@ export class InMemoryDataStore implements IDataStore {
 
   async getTenantById(id: string): Promise<Tenant | null> {
     const tenant = this.tenants.get(id) || null;
-    if (tenant) this.ensureTenantSessions(tenant);
+    if (tenant) {
+      this.ensureTenantSessions(tenant);
+      if ((tenant.slug === 'tsa' || tenant.name === 'The Smart Academy') && !tenant.settings?.logo_url) {
+        if (!tenant.settings) tenant.settings = {} as any;
+        tenant.settings.logo_url = '/tsa-logo.png';
+      }
+    }
     return tenant;
   }
 
@@ -2450,6 +2957,8 @@ export class InMemoryDataStore implements IDataStore {
       created_at: new Date().toISOString(),
     };
     this.feeHeads.push(monthly);
+    this.ensureDefaultFeeCatalog(newTenant.id);
+    this.ensureDefaultAcademicCatalog(newTenant.id);
 
     this.persistAllowed = true;
     this.persistQueued = true;
@@ -2478,6 +2987,14 @@ export class InMemoryDataStore implements IDataStore {
     if (!tenant.settings) return;
     if (!tenant.settings.academic_sessions || tenant.settings.academic_sessions.length === 0) {
       tenant.settings.academic_sessions = defaultAcademicSessions(tenant.settings.academic_session);
+    } else {
+      const nowYear = new Date().getFullYear();
+      const active = tenant.settings.academic_sessions.find(s => s.is_active);
+      const minYear = active?.start_year ? Math.min(nowYear, active.start_year) : nowYear;
+      tenant.settings.academic_sessions = tenant.settings.academic_sessions.filter(s => s.start_year >= minYear || s.is_active);
+      if (tenant.settings.academic_sessions.length === 0) {
+        tenant.settings.academic_sessions = defaultAcademicSessions(tenant.settings.academic_session);
+      }
     }
     const active = tenant.settings.academic_sessions.find(s => s.is_active);
     if (active) tenant.settings.academic_session = active.name;
@@ -2579,7 +3096,23 @@ export class InMemoryDataStore implements IDataStore {
 
   // --- Academic Hierarchy Methods ---
   async getPrograms(tenantId: string): Promise<AcademicProgram[]> {
-    return this.programs.filter(p => p.tenant_id === tenantId);
+    let progs = this.programs.filter(p => p.tenant_id === tenantId);
+    if (progs.length === 0) {
+      this.ensureDefaultAcademicCatalog(tenantId);
+      progs = this.programs.filter(p => p.tenant_id === tenantId);
+    }
+    return progs.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  }
+
+  async reorderPrograms(tenantId: string, orderedIds: string[]): Promise<void> {
+    orderedIds.forEach((id, idx) => {
+      const prog = this.programs.find(p => p.id === id && p.tenant_id === tenantId);
+      if (prog) {
+        prog.sort_order = idx + 1;
+        prog.updated_at = new Date().toISOString();
+      }
+    });
+    this.schedulePersist();
   }
 
   async createProgram(data: Omit<AcademicProgram, 'id' | 'created_at' | 'updated_at'>): Promise<AcademicProgram> {
@@ -2631,7 +3164,12 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async getSubjects(tenantId: string): Promise<Subject[]> {
-    return this.subjects.filter(s => s.tenant_id === tenantId);
+    let subs = this.subjects.filter(s => s.tenant_id === tenantId);
+    if (subs.length === 0) {
+      this.ensureDefaultAcademicCatalog(tenantId);
+      subs = this.subjects.filter(s => s.tenant_id === tenantId);
+    }
+    return subs;
   }
 
   async createSubject(data: Omit<Subject, 'id' | 'created_at'>): Promise<Subject> {
@@ -2682,15 +3220,23 @@ export class InMemoryDataStore implements IDataStore {
     return false;
   }
 
-  async getBatches(tenantId: string, programId?: string): Promise<Batch[]> {
-    return this.batches.filter(b => 
-      b.tenant_id === tenantId && (!programId || b.program_id === programId)
-    );
+  async getBatches(tenantId: string, programId?: string, cohortType?: 'section' | 'batch'): Promise<Batch[]> {
+    return this.batches.filter(b => {
+      if (b.tenant_id !== tenantId) return false;
+      if (programId && b.program_id !== programId) return false;
+      if (cohortType) {
+        const resolvedType = b.cohort_type || (b.name && /section/i.test(b.name) ? 'section' : 'batch');
+        if (resolvedType !== cohortType) return false;
+      }
+      return true;
+    });
   }
 
   async createBatch(data: Omit<Batch, 'id' | 'created_at' | 'updated_at' | 'current_enrollment'>): Promise<Batch> {
+    const cohort_type = data.cohort_type || (data.name && /section/i.test(data.name) ? 'section' : 'batch');
     const batch: Batch = {
       ...data,
+      cohort_type,
       current_enrollment: 0,
       id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
@@ -2792,7 +3338,7 @@ export class InMemoryDataStore implements IDataStore {
     return list.map(s => {
       const sInvs = tenantInvoices.filter(i => i.student_id === s.id || i.roll_number === s.roll_number);
       const unpaid = sInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
-      const isDefaulter = sInvs.some(i => (i.status as any) === 'overdue' || (Boolean(i.due_date) && new Date(i.due_date) < new Date() && ((i.balance_due ?? i.balance_amount ?? 0) > 0)));
+      const isDefaulter = sInvs.some(i => (i.status as any) === 'overdue' || (Boolean(i.due_date) && new Date(i.due_date.includes('T') ? i.due_date : i.due_date + 'T23:59:59.999Z') < new Date() && ((i.balance_due ?? i.balance_amount ?? 0) > 0)));
       return {
         ...s,
         unpaid_balance: unpaid,
@@ -2806,7 +3352,7 @@ export class InMemoryDataStore implements IDataStore {
     if (!student) return null;
     const sInvs = this.invoices.filter(i => i.tenant_id === tenantId && (i.student_id === student.id || i.roll_number === student.roll_number));
     const unpaid = sInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
-    const isDefaulter = sInvs.some(i => (i.status as any) === 'overdue' || (Boolean(i.due_date) && new Date(i.due_date) < new Date() && ((i.balance_due ?? i.balance_amount ?? 0) > 0)));
+    const isDefaulter = sInvs.some(i => (i.status as any) === 'overdue' || (Boolean(i.due_date) && new Date(i.due_date.includes('T') ? i.due_date : i.due_date + 'T23:59:59.999Z') < new Date() && ((i.balance_due ?? i.balance_amount ?? 0) > 0)));
     return {
       ...student,
       unpaid_balance: unpaid,
@@ -2896,31 +3442,92 @@ export class InMemoryDataStore implements IDataStore {
     const seq = this.students.filter(s => s.tenant_id === data.tenant_id && String(s.admission_number || '').startsWith(admPrefix)).length + 1;
 
     const batch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === data.tenant_id);
-    const isFull = Boolean(batch && batch.current_enrollment >= batch.max_capacity);
-    const requestedStatus = data.status || 'active';
-    const finalStatus: StudentStatus = isFull
-      ? (requestedStatus === 'active' ? 'waitlisted' : requestedStatus)
-      : requestedStatus;
+    if (batch && batch.current_enrollment >= batch.max_capacity) {
+      throw new Error(`Batch "${batch.name}" has reached maximum capacity (${batch.current_enrollment}/${batch.max_capacity}). Please increase batch capacity in Academic Structure before enrolling new students.`);
+    }
+
+    const rawGuardianCnic = (data as any).guardian_id_card?.trim()
+      || ((data as any).primary_contact === 'mother' ? (data as any).mother_cnic?.trim() : (data as any).father_cnic?.trim())
+      || (data as any).father_cnic?.trim()
+      || (data as any).mother_cnic?.trim();
+    const cleanGuardianCnic = rawGuardianCnic ? rawGuardianCnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+    const gEmail = data.guardian_email?.trim().toLowerCase();
+
+    let admSeq = seq;
+    let candidateAdm = `${admPrefix}${admSeq.toString().padStart(3, '0')}`;
+    while (this.students.some(s => s.tenant_id === data.tenant_id && s.admission_number === candidateAdm)) {
+      admSeq++;
+      candidateAdm = `${admPrefix}${admSeq.toString().padStart(3, '0')}`;
+    }
+
+    const rawCustomRoll = (data as any).roll_number?.trim();
+    let assignedRollNumber = rawCustomRoll;
+    if (assignedRollNumber) {
+      const existingWithRoll = this.students.find(s =>
+        s.tenant_id === data.tenant_id &&
+        s.batch_id === data.batch_id &&
+        s.status !== 'archived' &&
+        s.roll_number?.trim().toLowerCase() === assignedRollNumber.toLowerCase()
+      );
+      if (existingWithRoll) {
+        throw new Error(`Roll number "${assignedRollNumber}" is already assigned to student "${existingWithRoll.full_name}" in this batch/section.`);
+      }
+    } else {
+      let rollSeq = batchStudents.length + 101;
+      while (this.students.some(s =>
+        s.tenant_id === data.tenant_id &&
+        s.batch_id === data.batch_id &&
+        s.status !== 'archived' &&
+        s.roll_number?.trim().toLowerCase() === `r-${rollSeq}`.toLowerCase()
+      )) {
+        rollSeq++;
+      }
+      assignedRollNumber = `R-${rollSeq}`;
+    }
+
     const student: Student = {
       ...data,
+      date_of_birth: (data as any).date_of_birth || null,
+      gender: (data as any).gender || null,
+      student_b_form: (data as any).student_b_form || null,
+      residential_address: (data as any).residential_address || null,
+      city: (data as any).city || null,
+      father_name: (data as any).father_name || null,
+      father_cnic: (data as any).father_cnic || null,
+      father_phone: (data as any).father_phone || null,
+      father_occupation: (data as any).father_occupation || null,
+      mother_name: (data as any).mother_name || null,
+      mother_cnic: (data as any).mother_cnic || null,
+      mother_phone: (data as any).mother_phone || null,
+      mother_occupation: (data as any).mother_occupation || null,
+      primary_contact: (data as any).primary_contact || 'father',
+      sibling_student_id: (data as any).sibling_student_id || null,
+      previous_school: (data as any).previous_school || (data as any).custom_field_values?.previous_school || null,
+      religion: (data as any).religion || null,
+      submitted_documents: (data as any).submitted_documents || {},
+      guardian_name: data.guardian_name || (data as any).father_name || 'Guardian',
+      guardian_phone: data.guardian_phone || (data as any).father_phone || data.phone || '',
+      guardian_id_card: rawGuardianCnic || null,
+      billing_mode: data.billing_mode || batch?.billing_mode || 'monthly',
       id: crypto.randomUUID(),
-      admission_number: `${admPrefix}${seq.toString().padStart(3, '0')}`,
-      roll_number: (data as any).roll_number || `R-${(batchStudents.length + 101).toString()}`,
+      admission_number: candidateAdm,
+      roll_number: assignedRollNumber,
       admission_date: (data as any).admission_date || new Date().toISOString().split('T')[0],
-      status: finalStatus,
+      status: data.status || 'active',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
+
+    if ((data as any).inquiry_id) {
+      await this.updateInquiryStage(data.tenant_id, (data as any).inquiry_id, 'admitted');
+    }
 
     // Auto-provision student portal user account if user_id is not already supplied
     const studentUserId = data.user_id || crypto.randomUUID();
     const rawEmail = data.email?.trim().toLowerCase();
     const admClean = student.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const userEmail = rawEmail || `std.${admClean}@kampus.pk`;
-
-    const rawGuardianCnic = (data as any).guardian_id_card?.trim();
-    const cleanGuardianCnic = rawGuardianCnic ? rawGuardianCnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
-    const gEmail = data.guardian_email?.trim().toLowerCase();
+    const tenantDomain = tenant?.domain || (tenant?.slug ? `${tenant.slug}.kampus.pk` : 'kampus.pk');
+    const userEmail = rawEmail || `std.${admClean}@${tenantDomain}`;
 
     if (!data.user_id) {
       const existingUser = Array.from(this.users.values()).find(u => u.tenant_id === data.tenant_id && u.email.toLowerCase() === userEmail);
@@ -2945,15 +3552,17 @@ export class InMemoryDataStore implements IDataStore {
         };
         this.users.set(studentUserId, newStudentUser);
         this.users.set(`${data.tenant_id}:${userEmail.toLowerCase()}`, newStudentUser);
+        student.user_id = studentUserId;
+      } else {
+        student.user_id = existingUser.id;
       }
-      student.user_id = studentUserId;
     }
 
     // Auto-provision guardian account if guardian_id_card or guardian_email is supplied
     if (cleanGuardianCnic || gEmail) {
       const parentUserEmail = gEmail || (cleanGuardianCnic
-        ? `guardian.${cleanGuardianCnic}@kampus.pk`
-        : `guardian.${crypto.randomUUID()}@kampus.pk`);
+        ? `guardian.${cleanGuardianCnic}@${tenantDomain}`
+        : `guardian.${crypto.randomUUID()}@${tenantDomain}`);
       
       const existingParent = Array.from(this.users.values()).find(u =>
         u.tenant_id === data.tenant_id && u.role === 'parent' && (
@@ -2992,11 +3601,15 @@ export class InMemoryDataStore implements IDataStore {
 
     this.students.push(student);
 
-    if (batch && finalStatus === 'active') batch.current_enrollment += 1;
+    if (batch && student.status === 'active') batch.current_enrollment += 1;
     this.schedulePersist();
 
-    // Auto-generate first month invoice only for active students if fee_structure is set
-    if (student.status === 'active' && student.fee_structure && (student.fee_structure.first_month_total > 0 || (data as any).generate_first_month_invoice)) {
+    const shouldGenerateOpeningInvoice = (data as any).generate_first_month_invoice !== undefined
+      ? Boolean((data as any).generate_first_month_invoice)
+      : Boolean(student.fee_structure && student.fee_structure.first_month_total > 0);
+
+    // Auto-generate first month invoice only for active students if fee_structure is set and opening billing was requested
+    if (student.status === 'active' && student.fee_structure && shouldGenerateOpeningInvoice && (student.fee_structure.first_month_total > 0 || student.billing_mode === 'installment')) {
       const now = new Date();
       const dueDate = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -3013,39 +3626,101 @@ export class InMemoryDataStore implements IDataStore {
           amount: student.fee_structure.net_tuition,
         });
       }
-      if (student.fee_structure.admission_fee > 0 && admHead) {
+
+      const additionalHeadsList: Array<{ fee_head_id: string; amount: number }> =
+        Array.isArray((student.fee_structure as any)?.additional_heads)
+          ? (student.fee_structure as any).additional_heads
+          : [];
+
+      const hasAdmissionInAdditional = admHead && additionalHeadsList.some(ah => ah.fee_head_id === admHead.id);
+      const hasExamInAdditional = examHead && additionalHeadsList.some(ah => ah.fee_head_id === examHead.id);
+
+      if (student.fee_structure.admission_fee > 0 && admHead && !hasAdmissionInAdditional) {
         customItems.push({
           fee_head_id: admHead.id,
           amount: student.fee_structure.admission_fee,
         });
       }
-      if (student.fee_structure.exam_fee > 0 && examHead) {
+      if (student.fee_structure.exam_fee > 0 && examHead && !hasExamInAdditional) {
         customItems.push({
           fee_head_id: examHead.id,
           amount: student.fee_structure.exam_fee,
         });
       }
-      if (Array.isArray((student.fee_structure as any)?.additional_heads)) {
-        for (const ah of (student.fee_structure as any).additional_heads) {
+      for (const ah of additionalHeadsList) {
+        const amt = Number(ah.amount) || 0;
+        if (amt > 0 && ah.fee_head_id) {
+          customItems.push({
+            fee_head_id: ah.fee_head_id,
+            amount: amt,
+          });
+        }
+      }
+
+      if (student.billing_mode === 'installment' && student.installment_plan && student.installment_plan.installments.length > 0) {
+        const firstInst = student.installment_plan.installments[0];
+        const instItems: Array<{ fee_head_id: string; amount: number }> = [];
+        if (tuitionHead && firstInst.amount > 0) {
+          instItems.push({
+            fee_head_id: tuitionHead.id,
+            amount: firstInst.amount,
+          });
+        }
+        if (student.fee_structure.admission_fee > 0 && admHead && !hasAdmissionInAdditional) {
+          instItems.push({
+            fee_head_id: admHead.id,
+            amount: student.fee_structure.admission_fee,
+          });
+        }
+        if (student.fee_structure.exam_fee > 0 && examHead && !hasExamInAdditional) {
+          instItems.push({
+            fee_head_id: examHead.id,
+            amount: student.fee_structure.exam_fee,
+          });
+        }
+        for (const ah of additionalHeadsList) {
           const amt = Number(ah.amount) || 0;
           if (amt > 0 && ah.fee_head_id) {
-            customItems.push({
+            instItems.push({
               fee_head_id: ah.fee_head_id,
               amount: amt,
             });
           }
         }
-      }
-
-      if (customItems.length > 0) {
+        if (instItems.length === 0 && tuitionHead) {
+          instItems.push({
+            fee_head_id: tuitionHead.id,
+            amount: firstInst.amount || 1000,
+          });
+        }
+        try {
+          const openingInvoice = await this.generateInvoice(data.tenant_id, {
+            student_id: student.id,
+            billing_month: billingMonth,
+            due_date: firstInst.due_date || dueDate,
+            custom_items: instItems,
+            installment_number: 1,
+            total_installments: student.installment_plan.total_installments,
+            billing_mode: 'installment',
+            notes: `Admission Opening Fee Challan - Installment 1 of ${student.installment_plan.total_installments}`
+          } as any);
+          firstInst.status = 'billed';
+          firstInst.invoice_id = openingInvoice.id;
+          student.first_invoice_id = openingInvoice.id;
+          this.schedulePersist();
+        } catch (invErr) {
+          console.error('Failed to generate opening invoice on admission (installment):', invErr);
+        }
+      } else if (customItems.length > 0) {
         try {
           const openingInvoice = await this.generateInvoice(data.tenant_id, {
             student_id: student.id,
             billing_month: billingMonth,
             due_date: dueDate,
             custom_items: customItems,
+            billing_mode: student.billing_mode || (data as any).billing_mode || 'monthly',
             notes: 'Admission Opening Fee Challan'
-          });
+          } as any);
           student.first_invoice_id = openingInvoice.id;
           this.schedulePersist();
         } catch (invErr) {
@@ -3060,6 +3735,20 @@ export class InMemoryDataStore implements IDataStore {
   async updateStudent(tenantId: string, id: string, data: Partial<Student>): Promise<Student | null> {
     const student = this.students.find(s => s.id === id && s.tenant_id === tenantId);
     if (!student) return null;
+
+    if (data.roll_number && data.roll_number.trim() && data.roll_number.trim().toLowerCase() !== (student.roll_number || '').trim().toLowerCase()) {
+      const targetBatchId = data.batch_id || student.batch_id;
+      const collision = this.students.find(s =>
+        s.tenant_id === tenantId &&
+        s.batch_id === targetBatchId &&
+        s.id !== student.id &&
+        s.status !== 'archived' &&
+        s.roll_number?.trim().toLowerCase() === data.roll_number!.trim().toLowerCase()
+      );
+      if (collision) {
+        throw new Error(`Roll number "${data.roll_number.trim()}" is already assigned to student "${collision.full_name}" in this batch/section.`);
+      }
+    }
 
     Object.assign(student, {
       ...data,
@@ -3146,6 +3835,184 @@ export class InMemoryDataStore implements IDataStore {
     return student;
   }
 
+  async archiveStudent(
+    tenantId: string,
+    studentId: string,
+    reason: string = 'Administrative student record archival',
+    cancelUnpaidInvoices: boolean = false,
+    changedBy: string = 'Administration'
+  ): Promise<Student | null> {
+    return this.updateStudentStatus(tenantId, studentId, 'archived', reason, cancelUnpaidInvoices, changedBy);
+  }
+
+  async unarchiveStudent(
+    tenantId: string,
+    studentId: string,
+    reason: string = 'Restored from archive to active standing',
+    changedBy: string = 'Administration'
+  ): Promise<Student | null> {
+    return this.updateStudentStatus(tenantId, studentId, 'active', reason, false, changedBy);
+  }
+
+  async deleteStudent(
+    tenantId: string,
+    studentId: string,
+    options?: { force?: boolean; reason?: string; deletedBy?: string }
+  ): Promise<{ success: boolean; message?: string; error?: string; hasPaidTransactions?: boolean }> {
+    const student = this.students.find(s => s.id === studentId && s.tenant_id === tenantId);
+    if (!student) {
+      return { success: false, error: 'Student not found' };
+    }
+
+    const studentInvoices = this.invoices.filter(
+      i => i.tenant_id === tenantId && (i.student_id === studentId || i.roll_number === student.roll_number)
+    );
+    const paidInvoices = studentInvoices.filter(
+      i => i.status === 'paid' || i.status === 'partially_paid' || (i.paid_amount && i.paid_amount > 0)
+    );
+    const studentPayments = this.feePayments.filter(
+      p => p.tenant_id === tenantId && p.student_id === studentId
+    );
+    const hasPaidTransactions = paidInvoices.length > 0 || studentPayments.length > 0;
+
+    if (hasPaidTransactions && !options?.force) {
+      return {
+        success: false,
+        hasPaidTransactions: true,
+        error: `Student has recorded financial transactions (${paidInvoices.length} paid/partial invoice(s) or fee receipts). To preserve double-entry audit integrity, archive the student instead of deleting, or authorize force deletion.`,
+      };
+    }
+
+    // Decrement batch enrollment if student was active
+    if (student.status === 'active') {
+      const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
+      if (batch) {
+        batch.current_enrollment = Math.max(0, batch.current_enrollment - 1);
+      }
+    }
+
+    // Clean up student-associated records
+    if (this.studentAttendance) {
+      this.studentAttendance = this.studentAttendance.filter(
+        a => !(a.tenant_id === tenantId && a.student_id === studentId)
+      );
+    }
+    if (this.leaveApplications) {
+      this.leaveApplications = this.leaveApplications.filter(
+        l => !(l.tenant_id === tenantId && l.student_id === studentId)
+      );
+    }
+    if (this.studentExamEvaluations) {
+      this.studentExamEvaluations = this.studentExamEvaluations.filter(
+        e => !(e.tenant_id === tenantId && e.student_id === studentId)
+      );
+    }
+    if (this.notebookChecks) {
+      this.notebookChecks = this.notebookChecks.filter(
+        c => !(c.tenant_id === tenantId && c.student_id === studentId)
+      );
+    }
+    if (this.absenteeFollowups) {
+      this.absenteeFollowups = this.absenteeFollowups.filter(
+        f => !(f.tenant_id === tenantId && f.student_id === studentId)
+      );
+    }
+    if (this.feeStructures) {
+      this.feeStructures = this.feeStructures.filter(
+        fs => !(fs.tenant_id === tenantId && fs.student_id === studentId)
+      );
+    }
+    if (this.feeDiscounts) {
+      this.feeDiscounts = this.feeDiscounts.filter(
+        d => !(d.tenant_id === tenantId && d.student_id === studentId)
+      );
+    }
+    if (this.studentProfileAuditLogs) {
+      this.studentProfileAuditLogs = this.studentProfileAuditLogs.filter(
+        l => !(l.tenant_id === tenantId && l.student_id === studentId)
+      );
+    }
+
+    // Invoices cleanup: remove unpaid/cancelled invoices, or all if force deletion
+    if (this.invoices) {
+      if (options?.force) {
+        this.invoices = this.invoices.filter(
+          i => !(i.tenant_id === tenantId && (i.student_id === studentId || i.roll_number === student.roll_number))
+        );
+      } else {
+        this.invoices = this.invoices.filter(
+          i => !(i.tenant_id === tenantId && (i.student_id === studentId || i.roll_number === student.roll_number) && (i.status === 'unpaid' || i.status === 'cancelled'))
+        );
+      }
+    }
+    if (this.feePayments && options?.force) {
+      this.feePayments = this.feePayments.filter(
+        p => !(p.tenant_id === tenantId && p.student_id === studentId)
+      );
+    }
+
+    // Remove user account if one was provisioned for this student
+    if (student.user_id && this.users) {
+      this.users.delete(student.user_id);
+      if (student.email) {
+        this.users.delete(`${tenantId}:${student.email.toLowerCase()}`);
+      }
+    }
+
+    // Remove student
+    if (this.students) {
+      this.students = this.students.filter(s => !(s.tenant_id === tenantId && s.id === studentId));
+    }
+
+    this.schedulePersist();
+    return {
+      success: true,
+      message: `Student "${student.full_name}" (${student.admission_number}) deleted successfully.`,
+    };
+  }
+
+  async bulkArchiveStudents(
+    tenantId: string,
+    studentIds: string[],
+    reason: string = 'Bulk administrative archival',
+    cancelUnpaidInvoices: boolean = false,
+    changedBy: string = 'Administration'
+  ): Promise<{ archived_count: number; errors?: string[] }> {
+    let count = 0;
+    const errors: string[] = [];
+    for (const sid of studentIds) {
+      try {
+        const res = await this.archiveStudent(tenantId, sid, reason, cancelUnpaidInvoices, changedBy);
+        if (res) count++;
+      } catch (err: any) {
+        errors.push(err.message || `Failed to archive student ${sid}`);
+      }
+    }
+    return { archived_count: count, errors: errors.length > 0 ? errors : undefined };
+  }
+
+  async bulkDeleteStudents(
+    tenantId: string,
+    studentIds: string[],
+    options?: { force?: boolean; reason?: string; deletedBy?: string }
+  ): Promise<{ deleted_count: number; skipped_count: number; errors?: string[] }> {
+    let deletedCount = 0;
+    let skippedCount = 0;
+    const errors: string[] = [];
+
+    for (const sid of studentIds) {
+      const res = await this.deleteStudent(tenantId, sid, options);
+      if (res.success) {
+        deletedCount++;
+      } else {
+        skippedCount++;
+        if (res.error) errors.push(res.error);
+      }
+    }
+
+    return { deleted_count: deletedCount, skipped_count: skippedCount, errors: errors.length > 0 ? errors : undefined };
+  }
+
   async admitInquiry(
     tenantId: string,
     inquiryId: string,
@@ -3208,7 +4075,7 @@ export class InMemoryDataStore implements IDataStore {
     tenantId: string,
     params: {
       student_ids: string[];
-      target_program_id: string;
+      target_program_id?: string;
       target_batch_id: string;
       target_session?: string;
       fee_adjustment_type: 'keep' | 'target_baseline' | 'percentage' | 'fixed';
@@ -3216,11 +4083,11 @@ export class InMemoryDataStore implements IDataStore {
     },
     _userId?: string
   ): Promise<{ count: number; updated_students: Student[] }> {
-    const targetProgram = this.programs.find(p => p.id === params.target_program_id && p.tenant_id === tenantId);
-    if (!targetProgram) throw new Error('Target class/program not found');
-
     const targetBatch = this.batches.find(b => b.id === params.target_batch_id && b.tenant_id === tenantId);
     if (!targetBatch) throw new Error('Target section/batch not found');
+
+    const effectiveProgramId = params.target_program_id || targetBatch.program_id;
+    const targetProgram = effectiveProgramId ? this.programs.find(p => p.id === effectiveProgramId && p.tenant_id === tenantId) : undefined;
 
     const studentsToPromote = params.student_ids
       .map(id => this.students.find(s => s.id === id && s.tenant_id === tenantId))
@@ -3228,13 +4095,15 @@ export class InMemoryDataStore implements IDataStore {
 
     const activePromotedCount = studentsToPromote.filter(s => s.status === 'active').length;
     if (targetBatch.current_enrollment + activePromotedCount > targetBatch.max_capacity) {
-      throw new Error(`Target section capacity exceeded. Section '${targetBatch.name}' capacity: ${targetBatch.max_capacity}, currently enrolled: ${targetBatch.current_enrollment}, attempting to add: ${activePromotedCount}`);
+      throw new Error(`Target batch capacity exceeded. Batch '${targetBatch.name}' capacity: ${targetBatch.max_capacity}, currently enrolled: ${targetBatch.current_enrollment}, attempting to add: ${activePromotedCount}`);
     }
 
-    const targetCompGroup = this.subjectGroups.find(g => g.tenant_id === tenantId && g.program_id === params.target_program_id && g.type === 'compulsory');
+    const targetCompGroup = effectiveProgramId ? this.subjectGroups.find(g => g.tenant_id === tenantId && g.program_id === effectiveProgramId && g.type === 'compulsory') : undefined;
 
     let targetBaseFee = 0;
-    if (targetProgram.fee_schedule && targetProgram.fee_schedule.length > 0) {
+    if (targetBatch.fee_amount && targetBatch.fee_amount > 0) {
+      targetBaseFee = targetBatch.fee_amount;
+    } else if (targetProgram && targetProgram.fee_schedule && targetProgram.fee_schedule.length > 0) {
       const tuitionHead = targetProgram.fee_schedule.find(h => h.is_monthly || h.is_recurring || h.fee_type === 'tuition');
       if (tuitionHead) {
         targetBaseFee = tuitionHead.amount;
@@ -3259,7 +4128,9 @@ export class InMemoryDataStore implements IDataStore {
         targetBatch.current_enrollment += 1;
       }
 
-      student.program_id = params.target_program_id;
+      if (effectiveProgramId) {
+        student.program_id = effectiveProgramId;
+      }
       student.batch_id = params.target_batch_id;
       if (params.target_session) {
         (student as any).academic_session = params.target_session;
@@ -3652,6 +4523,19 @@ export class InMemoryDataStore implements IDataStore {
           guardian_relation: r.guardian_relation || 'Parent/Guardian',
           gender: r.gender,
           blood_group: r.blood_group,
+          date_of_birth: r.date_of_birth,
+          student_b_form: r.student_b_form,
+          previous_school: r.previous_school,
+          religion: r.religion,
+          residential_address: r.residential_address,
+          city: r.city,
+          father_name: r.father_name,
+          father_cnic: r.father_cnic,
+          father_phone: r.father_phone,
+          mother_name: r.mother_name,
+          mother_cnic: r.mother_cnic,
+          mother_phone: r.mother_phone,
+          primary_contact: r.primary_contact || 'father',
           program_id: batch.program_id,
           batch_id: batch.id,
           status: 'active',
@@ -5968,9 +6852,8 @@ export class InMemoryDataStore implements IDataStore {
           let amount = Number(it.amount) || 0;
           let discount = 0;
           if (isTuitionHead(head, it.head_name) && sisTuition > 0) {
-            const base = sisBase > 0 ? sisBase : amount;
-            amount = base;
-            discount = Math.max(0, base - sisTuition);
+            amount = sisTuition;
+            discount = 0;
           }
           pushLine(head, it.fee_head_id, it.head_name || 'Fee Head', amount, discount);
         }
@@ -5984,8 +6867,7 @@ export class InMemoryDataStore implements IDataStore {
         if (!tuitionHead) {
           throw new Error('Cannot generate a challan: Monthly Tuition fee head is missing.');
         }
-        const base = sisBase > 0 ? sisBase : sisTuition;
-        pushLine(tuitionHead, tuitionHead.id, tuitionHead.name, base, Math.max(0, base - sisTuition));
+        pushLine(tuitionHead, tuitionHead.id, tuitionHead.name, sisTuition, 0);
       } else if (batchDefault?.items && batchDefault.items.length > 0) {
         applyStructureItems(batchDefault.items);
       } else {
@@ -6023,8 +6905,11 @@ export class InMemoryDataStore implements IDataStore {
     // Roll prior unpaid balances into a single ARREARS line (tests + allocation need a distinct head).
     let priorArrears = 0;
     let priorInvoices: StudentInvoice[] = [];
-    const shouldIncludeArrears = data.include_arrears === true
-      || (data.include_arrears !== false && !(data.custom_items && data.custom_items.length > 0));
+    const isInstallmentInvoice = (data as any).installment_number != null || (data as any).billing_mode === 'installment';
+    const shouldIncludeArrears = !isInstallmentInvoice && (
+      data.include_arrears === true
+      || (data.include_arrears !== false && !(data.custom_items && data.custom_items.length > 0))
+    );
     if (shouldIncludeArrears) {
       priorInvoices = this.invoices.filter(i =>
         i.tenant_id === tenantId &&
@@ -6035,6 +6920,8 @@ export class InMemoryDataStore implements IDataStore {
         i.status !== 'cancelled' &&
         i.status !== 'rolled_over' &&
         !i.rolled_into_invoice_id &&
+        !i.installment_number &&
+        i.billing_mode !== 'installment' &&
         (Number(i.balance_amount ?? i.balance_due ?? 0) > 0)
       );
       priorArrears = priorInvoices.reduce((sum, inv) => sum + Number(inv.balance_amount ?? inv.balance_due ?? 0), 0);
@@ -6079,7 +6966,7 @@ export class InMemoryDataStore implements IDataStore {
       student_id: student.id,
       student_name: student.full_name,
       roll_number: student.roll_number,
-      batch_id: student.batch_id,
+      batch_id: student.batch_id || '',
       batch_name: batch?.name || 'General Batch',
       program_id: programId,
       program_name: program?.name || 'Class',
@@ -6107,6 +6994,9 @@ export class InMemoryDataStore implements IDataStore {
           ]))
         : undefined,
       notes: data.notes || null,
+      installment_number: (data as any).installment_number ?? null,
+      total_installments: (data as any).total_installments ?? null,
+      billing_mode: (data as any).billing_mode ?? student.billing_mode ?? batch?.billing_mode ?? 'monthly',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -6154,7 +7044,71 @@ export class InMemoryDataStore implements IDataStore {
     const created: StudentInvoice[] = [];
 
     for (const student of students) {
-      // Check if invoice already exists for this student and billing month (excluding voided/cancelled)
+      const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
+
+      // Edge Case 2.7: Batch lifespan check - skip if batch concluded prior to this billing month
+      if (batch?.end_date && isBatchEndedForBillingMonth(batch.end_date, billingMonth)) {
+        continue;
+      }
+
+      // One-time package billing: student or batch is billed once upfront, skip recurring monthly billing
+      if (student.billing_mode === 'one_time' || batch?.billing_mode === 'one_time') {
+        continue;
+      }
+
+      // Installment Plan: student is billed according to milestone schedule
+      if (student.billing_mode === 'installment' && student.installment_plan) {
+        const pendingInst = student.installment_plan.installments?.find(ins => ins.status === 'pending');
+        if (!pendingInst) {
+          // All installments have already been billed
+          continue;
+        }
+
+        // Only bill milestone when due: scheduled milestone due date month must be <= billing month
+        if (pendingInst.due_date) {
+          const instDueMonthStart = pendingInst.due_date.trim().substring(0, 7) + '-01';
+          const billingMonthStart = getBillingMonthStartIso(billingMonth);
+          if (billingMonthStart && instDueMonthStart > billingMonthStart) {
+            continue;
+          }
+        }
+
+        // Check if invoice already exists for this student and billing month (excluding voided/cancelled)
+        const existing = this.invoices.find(i => 
+          i.tenant_id === tenantId &&
+          i.student_id === student.id &&
+          isSameBillingMonth(i.billing_month, billingMonth) &&
+          i.status !== 'voided' &&
+          i.status !== 'cancelled'
+        );
+        if (existing) continue;
+
+        const tuitionHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'TUITION') || this.feeHeads.find(h => h.tenant_id === tenantId);
+        const instInv = await this.generateInvoice(tenantId, {
+          student_id: student.id,
+          billing_month: normalizeBillingMonth(billingMonth),
+          due_date: pendingInst.due_date || dueDate,
+          issue_date: issueDate,
+          include_arrears: false,
+          custom_items: tuitionHead ? [{
+            fee_head_id: tuitionHead.id,
+            amount: pendingInst.amount,
+          }] : undefined,
+          installment_number: pendingInst.installment_number,
+          total_installments: student.installment_plan.total_installments,
+          billing_mode: 'installment',
+          notes: `Tuition Fee - Installment ${pendingInst.installment_number} of ${student.installment_plan.total_installments}`,
+          additional_heads: typeof batchIdOrParams !== 'string' ? batchIdOrParams.additional_heads : undefined,
+        } as any);
+
+        pendingInst.status = 'billed';
+        pendingInst.invoice_id = instInv.id;
+        this.schedulePersist();
+        created.push(instInv);
+        continue;
+      }
+
+      // Regular Monthly Billing
       const existing = this.invoices.find(i => 
         i.tenant_id === tenantId &&
         i.student_id === student.id &&
@@ -6209,17 +7163,91 @@ export class InMemoryDataStore implements IDataStore {
     invoice.balance_due = 0;
     invoice.updated_at = new Date().toISOString();
 
+    // If this invoice belongs to an installment plan, revert milestone from 'billed' back to 'pending'
+    if (invoice.installment_number) {
+      const student = this.students.find(s => s.id === invoice.student_id && s.tenant_id === tenantId);
+      if (student?.installment_plan?.installments) {
+        const inst = student.installment_plan.installments.find(i => i.installment_number === invoice.installment_number || i.invoice_id === invoice.id);
+        if (inst && inst.status === 'billed') {
+          inst.status = 'pending';
+          inst.invoice_id = null;
+        }
+      }
+    }
+
     this.schedulePersist();
     return invoice;
   }
 
   async deleteInvoice(tenantId: string, invoiceId: string, reason: string, deletedBy: string): Promise<{ success: boolean; deleted_invoice_id: string; deleted_payments_count: number } & Partial<StudentInvoice>> {
-    const cancelled = await this.cancelInvoice(tenantId, invoiceId, reason || 'Challan cancelled by administrator', deletedBy);
+    const invoiceIndex = this.invoices.findIndex(i => i.id === invoiceId && i.tenant_id === tenantId);
+    if (invoiceIndex === -1) throw new Error('Invoice not found');
+    const invoice = this.invoices[invoiceIndex];
+
+    const activePayments = this.feePayments.filter(p => p.invoice_id === invoiceId && p.tenant_id === tenantId && p.status !== 'voided');
+    if (invoice.paid_amount > 0 || activePayments.length > 0) {
+      throw new Error('Cannot cancel invoice with recorded payments. Please void existing payments first.');
+    }
+
+    // Find and remove any linked fee payments, reversing their cashbook transactions
+    const linkedPayments = this.feePayments.filter(p => p.invoice_id === invoiceId && p.tenant_id === tenantId);
+    for (const payment of linkedPayments) {
+      for (const tx of this.financialTransactions) {
+        if (tx.tenant_id !== tenantId) continue;
+        const matchesReceipt = tx.reference_number === payment.receipt_number
+          || (tx.description || '').includes(`Receipt #${payment.receipt_number}`);
+        if (matchesReceipt && tx.type === 'income') {
+          tx.description = `[DELETED CHALLAN] ${tx.description || payment.receipt_number}: ${reason}`;
+          tx.amount = 0;
+        }
+      }
+    }
+    this.feePayments = this.feePayments.filter(p => !(p.invoice_id === invoiceId && p.tenant_id === tenantId));
+
+    // If this invoice rolled over prior invoices, restore them back to unpaid
+    if (Array.isArray(invoice.rolled_invoice_ids) && invoice.rolled_invoice_ids.length > 0) {
+      const rolled = this.invoices.filter(i => invoice.rolled_invoice_ids!.includes(i.id));
+      rolled.forEach(ri => {
+        if (ri.status === 'rolled_over') {
+          ri.status = 'unpaid';
+          ri.rolled_into_invoice_id = null;
+          ri.balance_amount = Number(ri.net_amount || 0);
+          ri.balance_due = Number(ri.net_amount || 0);
+          ri.updated_at = new Date().toISOString();
+        }
+      });
+    }
+
+    // Record audit log for deletion
+    const student = this.students.find(s => s.id === invoice.student_id && s.tenant_id === tenantId);
+    this.feeAuditLogs.unshift({
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      action: 'deletion',
+      student_id: invoice.student_id,
+      student_name: student?.full_name || 'Student',
+      roll_number: student?.roll_number,
+      reference_number: invoice.invoice_number,
+      amount: invoice.net_amount,
+      reason: reason || 'Challan deleted by administrator',
+      performed_by: deletedBy,
+      created_at: new Date().toISOString(),
+    });
+
+    // Permanently remove the invoice
+    invoice.status = 'cancelled';
+    invoice.cancel_reason = reason;
+    invoice.cancelled_at = new Date().toISOString();
+    invoice.cancelled_by = deletedBy;
+    this.invoices.splice(invoiceIndex, 1);
+    this.schedulePersist();
+
     return {
-      ...cancelled,
       success: true,
       deleted_invoice_id: invoiceId,
-      deleted_payments_count: 0,
+      deleted_payments_count: linkedPayments.length,
+      ...invoice,
+      status: 'cancelled',
     };
   }
 
@@ -6480,6 +7508,18 @@ export class InMemoryDataStore implements IDataStore {
       created_at: new Date().toISOString(),
     };
     this.financialTransactions.push(tx);
+
+    // Sync installment status on student record if this invoice belongs to an installment plan
+    if (invoice.installment_number && (invoice.balance_amount <= 0 || invoice.status === 'paid')) {
+      const student = this.students.find(s => s.id === invoice.student_id);
+      if (student?.installment_plan?.installments) {
+        const inst = student.installment_plan.installments.find(i => i.installment_number === invoice.installment_number || i.invoice_id === invoice.id);
+        if (inst) {
+          inst.status = 'paid';
+        }
+      }
+    }
+
     this.schedulePersist();
 
     return { payment, invoice };
@@ -6616,6 +7656,22 @@ export class InMemoryDataStore implements IDataStore {
     payment.voided_by = voidedBy;
     payment.void_reason = voidReason;
 
+    // Record audit log for reversal
+    const student = this.students.find(s => s.id === payment.student_id && s.tenant_id === tenantId);
+    this.feeAuditLogs.unshift({
+      id: crypto.randomUUID(),
+      tenant_id: tenantId,
+      action: 'reversal',
+      student_id: payment.student_id,
+      student_name: student?.full_name || 'Student',
+      roll_number: student?.roll_number,
+      reference_number: payment.receipt_number,
+      amount: payment.amount_paid,
+      reason: voidReason || 'Payment reversed by administrator',
+      performed_by: voidedBy,
+      created_at: new Date().toISOString(),
+    });
+
     // Reverse the original fee-collection cashbook line instead of posting a fake expense.
     for (const tx of this.financialTransactions) {
       if (tx.tenant_id !== tenantId) continue;
@@ -6626,6 +7682,18 @@ export class InMemoryDataStore implements IDataStore {
         tx.amount = 0;
       }
     }
+
+    // If invoice belongs to an installment plan and is no longer fully paid, revert milestone to 'billed'
+    if (invoice.installment_number && (invoice.balance_amount > 0 || invoice.status !== 'paid')) {
+      const payingStudent = this.students.find(s => s.id === invoice.student_id && s.tenant_id === tenantId);
+      if (payingStudent?.installment_plan?.installments) {
+        const inst = payingStudent.installment_plan.installments.find(i => i.installment_number === invoice.installment_number || i.invoice_id === invoice.id);
+        if (inst && inst.status === 'paid') {
+          inst.status = 'billed';
+        }
+      }
+    }
+
     this.schedulePersist();
 
     return { payment, invoice };
@@ -6648,6 +7716,35 @@ export class InMemoryDataStore implements IDataStore {
       deleted_payment_id: paymentId,
       invoice
     };
+  }
+
+  async getFeeAuditLogs(tenantId: string, studentId?: string): Promise<any[]> {
+    const logs = [...(this.feeAuditLogs || [])];
+    // Also include any voided payments from feePayments that might not be in feeAuditLogs
+    for (const p of this.feePayments) {
+      if (p.tenant_id !== tenantId || p.status !== 'voided') continue;
+      const alreadyInLogs = logs.some(l => l.reference_number === p.receipt_number && l.action === 'reversal');
+      if (!alreadyInLogs) {
+        const student = this.students.find(s => s.id === p.student_id && s.tenant_id === tenantId);
+        logs.push({
+          id: p.id,
+          tenant_id: tenantId,
+          action: 'reversal',
+          student_id: p.student_id,
+          student_name: student?.full_name || 'Student',
+          roll_number: student?.roll_number,
+          reference_number: p.receipt_number,
+          amount: p.amount_paid,
+          reason: p.void_reason || 'Payment reversed by administrator',
+          performed_by: p.voided_by || 'Finance Administrator',
+          created_at: p.voided_at || p.payment_date || new Date().toISOString(),
+        });
+      }
+    }
+
+    return logs
+      .filter(l => l.tenant_id === tenantId && (!studentId || l.student_id === studentId))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
   // --- Ad-Hoc Dynamic Discounts with Mandatory Audit Remarks ---
@@ -6779,15 +7876,6 @@ export class InMemoryDataStore implements IDataStore {
 
     studentInvoices.forEach(inv => {
       if (inv.status === 'voided' || inv.status === 'cancelled') {
-        entries.push({
-          id: inv.id,
-          date: inv.issue_date,
-          description: `[CANCELLED] Invoice ${inv.invoice_number} (${inv.billing_month})`,
-          debit: 0,
-          credit: 0,
-          running_balance: 0,
-          reference: inv.invoice_number
-        });
         return;
       }
       const currentCharge = Math.max(0, Number(inv.net_amount) - Number(inv.arrears_amount || 0));
@@ -6803,36 +7891,19 @@ export class InMemoryDataStore implements IDataStore {
     });
 
     studentPayments.forEach(pmt => {
-      if (pmt.status === 'voided') {
-        entries.push({
-          id: `${pmt.id}-paid`,
-          date: pmt.payment_date,
-          description: `Payment Receipt ${pmt.receipt_number} via ${pmt.payment_method.toUpperCase()}`,
-          debit: 0,
-          credit: pmt.amount_paid,
-          running_balance: 0,
-          reference: pmt.receipt_number
-        });
-        entries.push({
-          id: `${pmt.id}-void`,
-          date: pmt.voided_at ? pmt.voided_at.split('T')[0] : pmt.payment_date,
-          description: `[VOID REVERSAL] Receipt ${pmt.receipt_number}: ${pmt.void_reason || 'Cancelled'}`,
-          debit: pmt.amount_paid,
-          credit: 0,
-          running_balance: 0,
-          reference: `VOID-${pmt.receipt_number}`
-        });
-      } else {
-        entries.push({
-          id: pmt.id,
-          date: pmt.payment_date,
-          description: `Payment Receipt ${pmt.receipt_number} via ${pmt.payment_method.toUpperCase()}`,
-          debit: 0,
-          credit: pmt.amount_paid,
-          running_balance: 0,
-          reference: pmt.receipt_number
-        });
+      const pmtStatus = String(pmt.status || '');
+      if (pmtStatus === 'voided' || pmtStatus === 'cancelled') {
+        return;
       }
+      entries.push({
+        id: pmt.id,
+        date: pmt.payment_date,
+        description: `Payment Receipt ${pmt.receipt_number} via ${pmt.payment_method.toUpperCase()}`,
+        debit: 0,
+        credit: pmt.amount_paid,
+        running_balance: 0,
+        reference: pmt.receipt_number
+      });
     });
 
     entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -7435,6 +8506,11 @@ export class InMemoryDataStore implements IDataStore {
       throw new Error(`Cannot evaluate exam: Student "${student.full_name}" is ${student.status}. Evaluations are restricted to active students.`);
     }
 
+    const subject = this.subjects.find(s => s.id === exam.subject_id && (s.tenant_id === tenantId || !s.tenant_id));
+    if (!Array.isArray(student.subjects) || !student.subjects.includes(exam.subject_id)) {
+      throw new Error(`Student "${student.full_name}" is not enrolled in subject "${subject?.name || exam.subject_id}". Cannot record exam score.`);
+    }
+
     // 1. Auto-grade MCQs
     const examMcqs = this.examQuestions.filter(q => q.exam_id === exam.id && q.tenant_id === tenantId && q.section_type === 'MCQ');
     let autoMcqScore = 0;
@@ -7549,6 +8625,9 @@ export class InMemoryDataStore implements IDataStore {
 
     let evaluation = this.studentExamEvaluations.find(ev => ev.exam_id === examId && ev.student_id === studentId && ev.tenant_id === tenantId);
     if (!evaluation) {
+      if (!Array.isArray(student.subjects) || !student.subjects.includes(exam.subject_id)) {
+        return null;
+      }
       evaluation = {
         id: crypto.randomUUID(),
         tenant_id: tenantId,

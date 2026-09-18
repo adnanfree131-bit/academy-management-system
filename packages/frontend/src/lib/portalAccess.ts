@@ -41,7 +41,7 @@ export const PORTAL_GROUPS: PortalGroup[] = [
     desks: [
       { id: 'voucher', label: 'Fees Receiving', hint: 'Collect fees, defaulters, reports' },
       { id: 'challans', label: 'Fee Challans', hint: 'Generate and print monthly challans' },
-      { id: 'fee_reversals', label: 'Fee Reversals', hint: 'Void receipts and cancel challans' },
+      { id: 'fee_reversals', label: 'Fee Reversals', hint: 'Reverse receipts and delete challans' },
       { id: 'expenses', label: 'Income & Expenses', hint: 'Cashbook and P&L' },
       { id: 'payroll', label: 'Staff Payroll', hint: 'Salaries and payslips' },
     ],

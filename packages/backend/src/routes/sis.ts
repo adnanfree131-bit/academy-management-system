@@ -174,22 +174,45 @@ export function sisRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin', 'academic_head', 'admissions_counselor'], reply)) return;
       const rawBody = request.body || {};
+      const derivedPhone = rawBody.phone || '';
       const derivedFullName = rawBody.full_name || `${rawBody.first_name || ''} ${rawBody.last_name || ''}`.trim() || 'Enrolled Student';
-      const derivedPhone = rawBody.phone || rawBody.guardian_phone || '+92 300 0000000';
+      const derivedFatherName = rawBody.father_name || '';
+      const derivedFatherPhone = rawBody.father_phone || '';
+      const derivedGuardianName = rawBody.guardian_name || derivedFatherName || 'Guardian';
+      const derivedGuardianPhone = rawBody.guardian_phone || derivedFatherPhone || derivedPhone;
 
       const schema = z.object({
         full_name: z.string().default(derivedFullName),
-        phone: z.string().default(derivedPhone),
+        date_of_birth: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        gender: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        student_b_form: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        residential_address: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        city: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        father_name: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        father_cnic: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        father_phone: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        father_occupation: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        mother_name: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        mother_cnic: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        mother_phone: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        mother_occupation: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        primary_contact: z.string().optional().or(z.literal('')).transform(v => v || 'father'),
+        sibling_student_id: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        phone: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        student_whatsapp: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        emergency_contact_name: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        emergency_contact_phone: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        emergency_contact_relation: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
-        guardian_name: z.string().min(1),
-        guardian_phone: z.string().min(1),
+        guardian_name: z.string().default(derivedGuardianName),
+        guardian_phone: z.string().default(derivedGuardianPhone),
         guardian_email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
         guardian_id_card: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         guardian_whatsapp: z.string().optional(),
         guardian_relation: z.string().optional(),
         photo_url: z.string().optional(),
-        program_id: z.string().min(1),
-        batch_id: z.string().min(1),
+        program_id: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        batch_id: z.string().min(1, 'Batch or Section is required'),
         elective_group_id: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         blood_group: z.string().optional(),
         fee_structure: z.object({
@@ -212,11 +235,12 @@ export function sisRoutes(store: IDataStore) {
           if (!fs) return undefined;
           const base = fs.base_tuition ?? fs.tuition_fee ?? 0;
           const net = fs.net_tuition !== undefined ? fs.net_tuition : base;
+          const cType = fs.concession_type === 'fixed' ? 'flat' : fs.concession_type;
           return {
             base_tuition: base,
             admission_fee: fs.admission_fee ?? 0,
             exam_fee: fs.exam_fee ?? fs.exam_lab_charges ?? 0,
-            concession_type: (fs.concession_type === 'percentage' || fs.concession_type === 'flat') ? fs.concession_type : 'percentage',
+            concession_type: (cType === 'percentage' || cType === 'flat') ? cType : 'percentage',
             concession_val: fs.concession_val ?? fs.concession_value ?? 0,
             concession_reason: fs.concession_reason,
             net_tuition: net,
@@ -225,10 +249,27 @@ export function sisRoutes(store: IDataStore) {
           };
         }).optional(),
         generate_first_month_invoice: z.boolean().optional(),
-        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted']).default('active'),
+        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted', 'archived']).default('active'),
         custom_field_values: z.record(z.any()).default({}),
         subjects: z.array(z.string()).default([]),
         admission_date: z.string().optional(),
+        billing_mode: z.enum(['monthly', 'one_time', 'installment', 'quarterly']).optional(),
+        roll_number: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        previous_school: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        religion: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        submitted_documents: z.record(z.enum(['submitted', 'pending', 'exempted'])).optional().default({}),
+        inquiry_id: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        installment_plan: z.object({
+          total_fee: z.number().nonnegative(),
+          total_installments: z.number().int().positive(),
+          installments: z.array(z.object({
+            installment_number: z.number().int().positive(),
+            due_date: z.string(),
+            amount: z.number().nonnegative(),
+            invoice_id: z.string().optional().nullable(),
+            status: z.enum(['pending', 'billed', 'paid']),
+          })),
+        }).optional(),
       });
 
       const parseResult = schema.safeParse({
@@ -244,12 +285,29 @@ export function sisRoutes(store: IDataStore) {
         });
       }
 
-      const student = await store.createStudent({
-        tenant_id: user.tenant_id,
-        ...parseResult.data,
-      });
+      try {
+        const student = await store.createStudent({
+          tenant_id: user.tenant_id,
+          ...parseResult.data,
+        });
 
-      return reply.status(201).send({ success: true, data: student, timestamp: new Date().toISOString() });
+        return reply.status(201).send({ success: true, data: student, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        const msg = err.message || '';
+        let errCode = 'STUDENT_CREATION_FAILED';
+        if (/capacity/i.test(msg)) {
+          errCode = 'BATCH_CAPACITY_EXCEEDED';
+        } else if (/already assigned/i.test(msg) || /duplicate roll/i.test(msg)) {
+          errCode = 'DUPLICATE_ROLL_NUMBER';
+        } else if (/admission number/i.test(msg)) {
+          errCode = 'DUPLICATE_ADMISSION_NUMBER';
+        }
+        return reply.status(400).send({
+          success: false,
+          error: { code: errCode, message: msg || 'Failed to create student' },
+          timestamp: new Date().toISOString(),
+        });
+      }
     });
 
     fastify.post('/students/bulk-import', async (request: any, reply) => {
@@ -269,6 +327,19 @@ export function sisRoutes(store: IDataStore) {
         blood_group: z.string().optional(),
         batch_id: z.string().optional(),
         roll_number: z.string().optional(),
+        previous_school: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        religion: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        date_of_birth: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        student_b_form: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        residential_address: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        city: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        father_name: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        father_cnic: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        father_phone: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        mother_name: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        mother_cnic: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        mother_phone: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        primary_contact: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         base_tuition: z.number().nonnegative().optional(),
         admission_fee: z.number().nonnegative().optional(),
       });
@@ -325,7 +396,11 @@ export function sisRoutes(store: IDataStore) {
 
       const schema = z.object({
         full_name: z.string().optional(),
-        phone: z.string().optional(),
+        phone: z.string().optional().nullable(),
+        student_whatsapp: z.string().optional().nullable(),
+        emergency_contact_name: z.string().optional().nullable(),
+        emergency_contact_phone: z.string().optional().nullable(),
+        emergency_contact_relation: z.string().optional().nullable(),
         email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
         guardian_name: z.string().optional(),
         guardian_phone: z.string().optional(),
@@ -335,11 +410,34 @@ export function sisRoutes(store: IDataStore) {
         guardian_relation: z.string().optional(),
         blood_group: z.string().optional(),
         photo_url: z.string().optional(),
-        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted']).optional(),
+        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted', 'archived']).optional(),
+        batch_id: z.string().optional(),
+        program_id: z.string().optional(),
         subjects: z.array(z.string()).optional(),
         fee_structure: z.any().optional(),
+        billing_mode: z.enum(['monthly', 'one_time', 'installment', 'quarterly']).optional(),
+        installment_plan: z.any().optional(),
         custom_field_values: z.record(z.any()).optional(),
         audit_reason: z.string().optional(),
+        roll_number: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        date_of_birth: z.string().optional().nullable(),
+        gender: z.string().optional().nullable(),
+        student_b_form: z.string().optional().nullable(),
+        residential_address: z.string().optional().nullable(),
+        city: z.string().optional().nullable(),
+        father_name: z.string().optional().nullable(),
+        father_cnic: z.string().optional().nullable(),
+        father_phone: z.string().optional().nullable(),
+        father_occupation: z.string().optional().nullable(),
+        mother_name: z.string().optional().nullable(),
+        mother_cnic: z.string().optional().nullable(),
+        mother_phone: z.string().optional().nullable(),
+        mother_occupation: z.string().optional().nullable(),
+        primary_contact: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        sibling_student_id: z.string().optional().nullable(),
+        previous_school: z.string().optional().nullable(),
+        religion: z.string().optional().nullable(),
+        submitted_documents: z.record(z.enum(['submitted', 'pending', 'exempted'])).optional(),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -363,8 +461,12 @@ export function sisRoutes(store: IDataStore) {
       // Track audit logs for modified fields
       const auditReason = parseResult.data.audit_reason || 'Administrative profile update';
       const fieldsToTrack: (keyof typeof parseResult.data)[] = [
-        'full_name', 'phone', 'email', 'guardian_name', 'guardian_phone', 
-        'guardian_email', 'guardian_id_card', 'blood_group', 'fee_structure'
+        'full_name', 'roll_number', 'phone', 'email', 'date_of_birth', 'gender', 'student_b_form', 'blood_group',
+        'residential_address', 'city', 'father_name', 'father_cnic', 'father_phone', 'father_occupation',
+        'mother_name', 'mother_cnic', 'mother_phone', 'mother_occupation', 'primary_contact',
+        'guardian_name', 'guardian_phone', 'guardian_email', 'guardian_id_card', 'guardian_relation', 'guardian_whatsapp',
+        'previous_school', 'religion', 'submitted_documents',
+        'batch_id', 'program_id', 'fee_structure', 'subjects', 'billing_mode', 'installment_plan'
       ];
 
       const changes: Record<string, { old: any; new: any }> = {};
@@ -389,16 +491,30 @@ export function sisRoutes(store: IDataStore) {
         });
       }
 
-      const updated = await store.updateStudent(user.tenant_id, id, parseResult.data);
-      if (!updated) {
-        return reply.status(404).send({
+      try {
+        const updated = await store.updateStudent(user.tenant_id, id, parseResult.data);
+        if (!updated) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Student not found' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        const msg = err.message || '';
+        let errCode = 'STUDENT_UPDATE_FAILED';
+        if (/already assigned/i.test(msg) || /duplicate roll/i.test(msg)) {
+          errCode = 'DUPLICATE_ROLL_NUMBER';
+        } else if (/capacity/i.test(msg)) {
+          errCode = 'BATCH_CAPACITY_EXCEEDED';
+        }
+        return reply.status(400).send({
           success: false,
-          error: { code: 'NOT_FOUND', message: 'Student not found' },
+          error: { code: errCode, message: msg || 'Failed to update student' },
           timestamp: new Date().toISOString(),
         });
       }
-
-      return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
     });
 
     // Administrative Student Portal Password Reset
@@ -459,7 +575,7 @@ export function sisRoutes(store: IDataStore) {
       const { id } = request.params as { id: string };
 
       const schema = z.object({
-        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted']),
+        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted', 'archived']),
         reason: z.string().min(1, 'Reason for status change is required'),
         cancel_unpaid_invoices: z.boolean().default(false),
       });
@@ -500,6 +616,226 @@ export function sisRoutes(store: IDataStore) {
       });
 
       return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+    });
+
+    // Dedicated Archive Student Endpoint
+    fastify.post('/students/:id/archive', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      const { id } = request.params as { id: string };
+
+      const schema = z.object({
+        reason: z.string().default('Administrative student record archival'),
+        cancel_unpaid_invoices: z.boolean().default(false),
+      });
+
+      const parseResult = schema.safeParse(request.body || {});
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid archival payload', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const updated = await store.archiveStudent(
+        user.tenant_id,
+        id,
+        parseResult.data.reason,
+        parseResult.data.cancel_unpaid_invoices,
+        user.email || user.sub
+      );
+
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Student not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      await store.logStudentProfileChange(user.tenant_id, {
+        student_id: id,
+        action: 'ARCHIVE_STUDENT',
+        changed_by_user_id: user.sub,
+        changed_by_name: user.email || 'Administrator',
+        changes: { status: { new: 'archived' } },
+        reason: parseResult.data.reason,
+      });
+
+      return reply.send({
+        success: true,
+        data: updated,
+        message: `Student "${updated.full_name}" archived successfully.`,
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    // Dedicated Unarchive / Restore Student Endpoint
+    fastify.post('/students/:id/unarchive', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      const { id } = request.params as { id: string };
+
+      const schema = z.object({
+        reason: z.string().default('Restored from archive to active standing'),
+      });
+
+      const parseResult = schema.safeParse(request.body || {});
+      try {
+        const updated = await store.unarchiveStudent(
+          user.tenant_id,
+          id,
+          parseResult.data?.reason,
+          user.email || user.sub
+        );
+
+        if (!updated) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Student not found' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        await store.logStudentProfileChange(user.tenant_id, {
+          student_id: id,
+          action: 'UNARCHIVE_STUDENT',
+          changed_by_user_id: user.sub,
+          changed_by_name: user.email || 'Administrator',
+          changes: { status: { new: 'active' } },
+          reason: parseResult.data?.reason || 'Restored from archive',
+        });
+
+        return reply.send({
+          success: true,
+          data: updated,
+          message: `Student "${updated.full_name}" restored to active standing successfully.`,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'UNARCHIVE_FAILED', message: err.message || 'Failed to restore student' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    // Permanent Student Record Deletion Endpoint
+    fastify.delete('/students/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin'], reply)) return;
+      const { id } = request.params as { id: string };
+
+      const querySchema = z.object({
+        force: z.preprocess(v => v === 'true' || v === true, z.boolean()).default(false),
+        reason: z.string().optional(),
+      });
+      const queryResult = querySchema.safeParse(request.query || {});
+
+      const bodySchema = z.object({
+        force: z.boolean().optional(),
+        reason: z.string().optional(),
+      }).optional();
+      const bodyResult = bodySchema.safeParse(request.body || {});
+
+      const force = bodyResult.data?.force ?? queryResult.data?.force ?? false;
+      const reason = bodyResult.data?.reason || queryResult.data?.reason || 'Administrative permanent student deletion';
+
+      const result = await store.deleteStudent(user.tenant_id, id, {
+        force,
+        reason,
+        deletedBy: user.email || user.sub,
+      });
+
+      if (!result.success) {
+        return reply.status(result.hasPaidTransactions ? 409 : 400).send({
+          success: false,
+          error: {
+            code: result.hasPaidTransactions ? 'FINANCIAL_TRANSACTIONS_EXIST' : 'DELETE_FAILED',
+            message: result.error || 'Failed to delete student record',
+            hasPaidTransactions: result.hasPaidTransactions,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.send({
+        success: true,
+        message: result.message || 'Student record deleted successfully.',
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    // Bulk Archive Students Endpoint
+    fastify.post('/students/bulk-archive', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+
+      const schema = z.object({
+        student_ids: z.array(z.string()).min(1, 'At least one student ID is required'),
+        reason: z.string().default('Bulk administrative student archival'),
+        cancel_unpaid_invoices: z.boolean().default(false),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid bulk archive payload', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const result = await store.bulkArchiveStudents(
+        user.tenant_id,
+        parseResult.data.student_ids,
+        parseResult.data.reason,
+        parseResult.data.cancel_unpaid_invoices,
+        user.email || user.sub
+      );
+
+      return reply.send({
+        success: true,
+        data: result,
+        message: `${result.archived_count} student(s) archived successfully.`,
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    // Bulk Delete Students Endpoint
+    fastify.post('/students/bulk-delete', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin'], reply)) return;
+
+      const schema = z.object({
+        student_ids: z.array(z.string()).min(1, 'At least one student ID is required'),
+        force: z.boolean().default(false),
+        reason: z.string().default('Bulk administrative student deletion'),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid bulk delete payload', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const result = await store.bulkDeleteStudents(user.tenant_id, parseResult.data.student_ids, {
+        force: parseResult.data.force,
+        reason: parseResult.data.reason,
+        deletedBy: user.email || user.sub,
+      });
+
+      return reply.send({
+        success: true,
+        data: result,
+        message: `${result.deleted_count} student(s) deleted successfully.${result.skipped_count > 0 ? ` (${result.skipped_count} skipped due to recorded payments)` : ''}`,
+        timestamp: new Date().toISOString(),
+      });
     });
   };
 }

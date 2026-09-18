@@ -151,7 +151,7 @@ export const ComplaintsDeskView: React.FC = () => {
       >
         <button
           onClick={() => setShowNewModal(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-all"
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs transition-all"
         >
           <Plus className="w-4 h-4" />
           <span>New Ticket</span>
@@ -279,7 +279,7 @@ export const ComplaintsDeskView: React.FC = () => {
                     setResolutionReply(ticket.resolution_reply || '');
                     setInternalNotes(ticket.internal_notes || '');
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all cursor-pointer"
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
                 >
                   {isStaff ? (ticket.status === 'resolved' ? 'View Resolution' : 'Update & Resolve') : (ticket.status === 'resolved' ? 'View Resolution' : 'View Ticket')}
                 </button>
@@ -367,7 +367,7 @@ export const ComplaintsDeskView: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors"
                 >
                   {isSubmitting ? 'Filing...' : 'Submit Ticket'}
                 </button>
@@ -443,7 +443,7 @@ export const ComplaintsDeskView: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isUpdating}
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-xs cursor-pointer"
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer transition-colors"
                   >
                     {isUpdating ? 'Saving...' : 'Save Resolution'}
                   </button>
@@ -495,7 +495,7 @@ export const ComplaintsDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedTicket(null)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white cursor-pointer shadow-xs"
+                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 cursor-pointer shadow-xs transition-colors"
                   >
                     Close
                   </button>

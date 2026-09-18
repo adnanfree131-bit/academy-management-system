@@ -657,7 +657,7 @@ export const LoginModal: React.FC = () => {
                       type="text"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Staff Email or Father/Guardian CNIC (e.g. 35201-1234567-1)"
+                      placeholder="Staff email or Father/Guardian CNIC"
                       required
                       autoFocus
                       className="w-full pl-10 pr-3.5 py-2.5 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
@@ -706,7 +706,7 @@ export const LoginModal: React.FC = () => {
                   id="login-submit-btn"
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -1028,7 +1028,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || !regName.trim() || !regSlug.trim() || !regEmail.trim() || !regPassword || slugAvailability.status !== 'available'}
-                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -1080,7 +1080,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== 6}
-                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -1196,7 +1196,7 @@ export const LoginModal: React.FC = () => {
                       applySession(registrationDetails.sessionData);
                     }
                   }}
-                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
                   <span>Go to Academy Portal</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -1245,7 +1245,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => { setStep('form'); setError(null); setMessage(null); }}
-                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
                   <ArrowLeft className="w-3.5 h-3.5" />
                   <span>Return to Sign In</span>
@@ -1288,7 +1288,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || !email.trim()}
-                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -1378,7 +1378,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== 6 || !resetNewPassword}
-                  className="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>

@@ -50,6 +50,13 @@ export interface TenantSettings {
         due_day?: number;
         grace_days?: number;
         priority_order?: string[];
+        kinship_rules?: {
+            enabled: boolean;
+            discount_percentage: number;
+            applicable_to?: string;
+            description?: string;
+            require_active_sibling?: boolean;
+        };
     };
     shifts?: {
         morning?: {
@@ -74,7 +81,15 @@ export interface TenantSettings {
     };
     grading_scale?: GradingTier[];
     departments?: string[];
+    document_checklist_heads?: DocumentChecklistHead[];
 }
+export interface DocumentChecklistHead {
+    id: string;
+    code: string;
+    title: string;
+    is_required?: boolean;
+}
+export declare const DEFAULT_DOCUMENT_CHECKLIST_HEADS: DocumentChecklistHead[];
 export interface AcademicSession {
     id: string;
     name: string;
@@ -223,6 +238,7 @@ export interface AuthSessionResponse {
         campus_name: string;
         logo_url?: string | null;
         city?: string | null;
+        settings?: TenantSettings | null;
     };
 }
 export interface LoginWithPasswordRequest {
@@ -337,14 +353,22 @@ export interface SubjectGroup {
     created_at: string;
 }
 export type BatchShift = 'morning' | 'afternoon' | 'evening' | 'weekend';
+export type BatchBillingMode = 'monthly' | 'one_time' | 'installment' | 'quarterly';
+export type CohortType = 'section' | 'batch';
 export interface Batch {
     id: string;
     tenant_id: string;
-    program_id: string;
+    program_id?: string | null;
     name: string;
+    cohort_type?: 'section' | 'batch';
     shift: BatchShift | string;
     start_time?: string | null;
     end_time?: string | null;
+    start_date?: string | null;
+    end_date?: string | null;
+    billing_mode?: BatchBillingMode;
+    fee_amount?: number | null;
+    room_number?: string | null;
     academic_session: string;
     max_capacity: number;
     current_enrollment: number;
@@ -390,7 +414,7 @@ export interface StudentInquiry {
     created_at: string;
     updated_at: string;
 }
-export type StudentStatus = 'active' | 'on_leave' | 'suspended' | 'alumni' | 'withdrawn' | 'waitlisted';
+export type StudentStatus = 'active' | 'on_leave' | 'suspended' | 'alumni' | 'withdrawn' | 'waitlisted' | 'archived';
 export interface Student {
     id: string;
     tenant_id: string;
@@ -400,6 +424,10 @@ export interface Student {
     full_name: string;
     email?: string | null;
     phone?: string | null;
+    student_whatsapp?: string | null;
+    emergency_contact_name?: string | null;
+    emergency_contact_phone?: string | null;
+    emergency_contact_relation?: string | null;
     guardian_name: string;
     guardian_phone: string;
     guardian_email?: string | null;
@@ -407,18 +435,48 @@ export interface Student {
     guardian_whatsapp?: string | null;
     guardian_relation?: string | null;
     photo_url?: string | null;
-    program_id: string;
-    batch_id: string;
+    program_id?: string | null;
+    batch_id?: string | null;
     elective_group_id?: string | null;
     status: StudentStatus;
+    date_of_birth?: string | null;
+    gender?: 'male' | 'female' | 'other' | string | null;
+    student_b_form?: string | null;
+    residential_address?: string | null;
+    city?: string | null;
+    father_name?: string | null;
+    father_cnic?: string | null;
+    father_phone?: string | null;
+    father_occupation?: string | null;
+    mother_name?: string | null;
+    mother_cnic?: string | null;
+    mother_phone?: string | null;
+    mother_occupation?: string | null;
+    primary_contact?: 'father' | 'mother' | 'guardian' | string;
+    sibling_student_id?: string | null;
     custom_field_values: Record<string, unknown>;
     subjects: string[];
     blood_group?: string | null;
+    religion?: string | null;
+    previous_school?: string | null;
+    submitted_documents?: Record<string, 'submitted' | 'pending' | 'exempted'>;
     fee_structure?: any;
     first_invoice_id?: string | null;
     unpaid_balance?: number;
     fee_clearance_status?: 'cleared' | 'partial' | 'defaulter';
     admission_date: string;
+    billing_mode?: BatchBillingMode;
+    installment_plan?: {
+        total_fee: number;
+        total_installments: number;
+        installments: Array<{
+            installment_number: number;
+            due_date: string;
+            amount: number;
+            invoice_id?: string | null;
+            status: 'pending' | 'billed' | 'paid';
+        }>;
+    } | null;
     status_reason?: string | null;
     status_change_history?: Array<{
         previous_status: StudentStatus;
@@ -818,6 +876,9 @@ export interface StudentInvoice {
     notes?: string | null;
     fine_amount?: number;
     arrears_amount?: number;
+    installment_number?: number | null;
+    total_installments?: number | null;
+    billing_mode?: BatchBillingMode;
     rolled_into_invoice_id?: string | null;
     rolled_invoice_ids?: string[];
     cancel_reason?: string | null;

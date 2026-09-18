@@ -334,4 +334,87 @@ describe('Phase 2: Academic Hierarchy, Custom Form Fields, Inquiries & SIS API',
     });
     expect(delGroupRes.statusCode).toBe(200);
   });
+
+  it('10. Cohort Separation: Supports cohort_type="section" vs "batch", query filtering, and auto-inference', async () => {
+    // 1. Create a section explicitly
+    const sectionRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/academic/batches',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        program_id: 'a2000000-0000-0000-0000-000000000007',
+        name: 'Boys Section A',
+        shift: 'morning',
+        room_number: 'Room 205',
+        cohort_type: 'section',
+        max_capacity: 35,
+      },
+    });
+    expect(sectionRes.statusCode).toBe(201);
+    const createdSection = JSON.parse(sectionRes.body).data;
+    expect(createdSection.cohort_type).toBe('section');
+
+    // 2. Create a batch explicitly
+    const batchRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/academic/batches',
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        program_id: 'a2000000-0000-0000-0000-000000000007',
+        name: 'Crash Course Batch 1',
+        shift: 'evening',
+        cohort_type: 'batch',
+        start_date: '2026-10-01',
+        end_date: '2027-02-28',
+        billing_mode: 'installment',
+        max_capacity: 50,
+      },
+    });
+    expect(batchRes.statusCode).toBe(201);
+    const createdBatch = JSON.parse(batchRes.body).data;
+    expect(createdBatch.cohort_type).toBe('batch');
+
+    // 3. Query filtered by cohort_type=section
+    const getSectionsRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/academic/batches?cohort_type=section',
+      headers: { authorization: `Bearer ${apexToken}` },
+    });
+    expect(getSectionsRes.statusCode).toBe(200);
+    const sections = JSON.parse(getSectionsRes.body).data;
+    expect(sections.some((s: any) => s.id === createdSection.id)).toBe(true);
+    expect(sections.some((s: any) => s.id === createdBatch.id)).toBe(false);
+
+    // 4. Query filtered by cohort_type=batch
+    const getBatchesRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/academic/batches?cohort_type=batch',
+      headers: { authorization: `Bearer ${apexToken}` },
+    });
+    expect(getBatchesRes.statusCode).toBe(200);
+    const batches = JSON.parse(getBatchesRes.body).data;
+    expect(batches.some((b: any) => b.id === createdBatch.id)).toBe(true);
+    expect(batches.some((b: any) => b.id === createdSection.id)).toBe(false);
+
+    // 5. Update cohort_type and program_id
+    const updateRes = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/academic/batches/${createdSection.id}`,
+      headers: { authorization: `Bearer ${apexToken}` },
+      payload: {
+        room_number: 'Room 206',
+        cohort_type: 'section',
+        program_id: 'a2000000-0000-0000-0000-000000000001',
+      },
+    });
+    expect(updateRes.statusCode).toBe(200);
+    const updatedSec = JSON.parse(updateRes.body).data;
+    expect(updatedSec.room_number).toBe('Room 206');
+    expect(updatedSec.cohort_type).toBe('section');
+    expect(updatedSec.program_id).toBe('a2000000-0000-0000-0000-000000000001');
+
+    // Clean up
+    await app.inject({ method: 'DELETE', url: `/api/v1/academic/batches/${createdSection.id}`, headers: { authorization: `Bearer ${apexToken}` } });
+    await app.inject({ method: 'DELETE', url: `/api/v1/academic/batches/${createdBatch.id}`, headers: { authorization: `Bearer ${apexToken}` } });
+  });
 });

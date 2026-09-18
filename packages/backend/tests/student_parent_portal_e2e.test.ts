@@ -219,7 +219,7 @@ describe('Student & Parent Portal End-to-End Operational Lifecycle Tests', () =>
       payload: {
         title: 'Physics Midterm Assessment',
         batch_id: 'a3000000-0000-0000-0000-000000000001',
-        subject_id: 'a4000000-0000-0000-0000-000000000001',
+        subject_id: 's1',
         exam_date: '2026-09-10',
         start_time: '09:00',
         end_time: '11:00',

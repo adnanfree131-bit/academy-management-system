@@ -41,3 +41,6 @@ google-services.json
 *.local-snapshot.json
 .school-erp-data/
 school-erp/.school-erp-data/
+scratch/
+*.backup.tsx
+*.before-claude-code

@@ -15,7 +15,12 @@ import {
   FileCheck,
   AlertTriangle,
   CheckCheck,
-  Users
+  Users,
+  UserX,
+  PhoneCall,
+  PhoneMissed,
+  Clock,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -415,89 +420,152 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         </div>
       </div>
 
-      {/* Desktop Stats Bar (>= 640px) */}
-      <div className="hidden sm:block bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs">
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
-            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Absentees</div>
-            <div className="text-2xl font-black text-slate-900 mt-1">{kpi.total_absentees}</div>
-            <div className="text-[10px] text-slate-400 mt-0.5">Recorded on {selectedDate}</div>
-          </div>
-
-          <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-200/80">
-            <div className="text-[11px] font-semibold text-emerald-800 uppercase tracking-wider flex items-center justify-between">
-              <span>Contacted Rate</span>
-              <span className="font-bold">{kpi.contacted_percentage}%</span>
-            </div>
-            <div className="text-2xl font-black text-emerald-900 mt-1">{kpi.contacted_count} <span className="text-xs font-normal text-emerald-700">/ {kpi.total_absentees}</span></div>
-            <div className="w-full bg-emerald-200 h-1.5 rounded-full mt-1.5 overflow-hidden">
-              <div className="bg-emerald-600 h-full rounded-full" style={{ width: `${Math.min(kpi.contacted_percentage, 100)}%` }} />
+      {/* 5-Card Metric Summary Strip (Finalized Enterprise Design) */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+        {/* Card 1: Total Absentees */}
+        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Total Absentees
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                {kpi.total_absentees}
+              </span>
+              <span className="text-xs font-medium text-slate-500 leading-none">
+                Recorded
+              </span>
             </div>
           </div>
-
-          <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/80">
-            <div className="text-[11px] font-semibold text-amber-800 uppercase tracking-wider">Unreachable / Rings</div>
-            <div className="text-2xl font-black text-amber-900 mt-1">{kpi.unreachable_count}</div>
-            <div className="text-[10px] text-amber-700 mt-0.5">Needs afternoon retry</div>
-          </div>
-
-          <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200/80">
-            <div className="text-[11px] font-semibold text-blue-800 uppercase tracking-wider">Pending Calls</div>
-            <div className="text-2xl font-black text-blue-900 mt-1">{kpi.pending_count}</div>
-            <div className="text-[10px] text-blue-700 mt-0.5">Awaiting staff action</div>
-          </div>
-
-          <div className="p-3 bg-purple-50/70 rounded-xl border border-purple-200/80 col-span-2 sm:col-span-1">
-            <div className="text-[11px] font-semibold text-purple-800 uppercase tracking-wider">Medical Leaves</div>
-            <div className="text-2xl font-black text-purple-900 mt-1">{kpi.excused_count}</div>
-            <div className="text-[10px] text-purple-700 mt-0.5">Excused absences</div>
-          </div>
+          <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
+            <UserX className="w-3.5 h-3.5 text-rose-700" />
+          </span>
         </div>
 
-        {/* Global Action Success Banner */}
-        {actionSuccessMsg && (
-          <div className="mt-3 p-2.5 bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold rounded-lg flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{actionSuccessMsg}</span>
+        {/* Card 2: Contacted Rate */}
+        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Contacted Rate
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
+                {kpi.contacted_percentage}%
+              </span>
+              <span className="text-xs font-medium text-slate-500 leading-none">
+                ({kpi.contacted_count}/{kpi.total_absentees})
+              </span>
+            </div>
           </div>
-        )}
+          <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
+            <PhoneCall className="w-3.5 h-3.5 text-emerald-700" />
+          </span>
+        </div>
+
+        {/* Card 3: Unreachable / Rings */}
+        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Unreachable
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="font-mono font-bold text-amber-700 text-sm leading-none">
+                {kpi.unreachable_count}
+              </span>
+              <span className="text-xs font-medium text-slate-500 leading-none">
+                Retry
+              </span>
+            </div>
+          </div>
+          <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
+            <PhoneMissed className="w-3.5 h-3.5 text-amber-700" />
+          </span>
+        </div>
+
+        {/* Card 4: Pending Calls */}
+        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-sky-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Pending Calls
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="font-mono font-bold text-sky-700 text-sm leading-none">
+                {kpi.pending_count}
+              </span>
+              <span className="text-xs font-medium text-slate-500 leading-none">
+                Awaiting
+              </span>
+            </div>
+          </div>
+          <span className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200/70 shrink-0 shadow-2xs">
+            <Clock className="w-3.5 h-3.5 text-sky-700" />
+          </span>
+        </div>
+
+        {/* Card 5: Medical Leaves */}
+        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-purple-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all col-span-2 sm:col-span-1">
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Excused Leaves
+            </span>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <span className="font-mono font-bold text-purple-700 text-sm leading-none">
+                {kpi.excused_count}
+              </span>
+              <span className="text-xs font-medium text-slate-500 leading-none">
+                Sanctioned
+              </span>
+            </div>
+          </div>
+          <span className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-200/70 shrink-0 shadow-2xs">
+            <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
+          </span>
+        </div>
       </div>
 
-      {/* Tabs Navigation - Native Segmented Grid (Eliminates horizontal sliding) */}
-      <div className="grid grid-cols-3 bg-slate-100 p-1 rounded-xl border border-slate-200 gap-1 text-xs font-semibold">
+      {/* Global Action Success Banner */}
+      {actionSuccessMsg && (
+        <div className="p-2.5 bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{actionSuccessMsg}</span>
+        </div>
+      )}
+
+      {/* Tabs Navigation - Segmented Grid matching Image 1 */}
+      <div className="grid grid-cols-3 bg-white p-0.5 rounded-xl border border-slate-200 gap-1 text-xs font-semibold shadow-2xs">
         <button
           onClick={() => setActiveTab('roster')}
-          className={`py-2 px-1.5 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
+          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
             activeTab === 'roster'
-              ? 'bg-white text-slate-900 shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <PhoneForwarded className="w-3.5 h-3.5 shrink-0" />
+          <PhoneForwarded className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'roster' ? 'text-white' : 'text-slate-500'}`} />
           <span className="truncate">Absentee</span>
         </button>
 
         <button
           onClick={() => setActiveTab('retention')}
-          className={`py-2 px-1.5 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
+          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
             activeTab === 'retention'
-              ? 'bg-white text-slate-900 shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <Users className="w-3.5 h-3.5 shrink-0" />
+          <Users className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'retention' ? 'text-white' : 'text-slate-500'}`} />
           <span className="truncate">Retention</span>
         </button>
 
         <button
           onClick={() => setActiveTab('templates')}
-          className={`py-2 px-1.5 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate ${
+          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
             activeTab === 'templates'
-              ? 'bg-white text-slate-900 shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+          <MessageCircle className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'templates' ? 'text-white' : 'text-slate-500'}`} />
           <span className="truncate">Templates</span>
         </button>
       </div>
@@ -632,7 +700,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                                 onClick={() => setPhoneSelectionMap(prev => ({ ...prev, [item.id]: 'PRIMARY' }))}
                                 className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all ${
                                   currentPhoneChoice === 'PRIMARY'
-                                    ? 'bg-slate-900 text-white shadow-xs'
+                                    ? 'bg-amber-600 text-white shadow-xs'
                                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                 }`}
                               >
@@ -647,7 +715,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                                   !hasBackup
                                     ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400'
                                     : currentPhoneChoice === 'BACKUP'
-                                      ? 'bg-indigo-600 text-white shadow-xs'
+                                      ? 'bg-amber-600 text-white shadow-xs'
                                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                                 }`}
                               >
@@ -724,7 +792,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                               {/* 3. Log Call Response & 1-Click Medical Leave */}
                               <button
                                 onClick={() => handleOpenLogModal(item)}
-                                className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs flex items-center gap-1 transition-all shadow-2xs"
+                                className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg text-xs flex items-center gap-1 transition-all shadow-xs"
                                 title="Log Call Outcome & Medical Leave"
                               >
                                 <FileCheck className="w-3.5 h-3.5" />
@@ -812,7 +880,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleOpenLogModal(item)}
-                        className="py-2 px-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all touch-press shadow-xs"
+                        className="py-2 px-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all touch-press shadow-xs"
                       >
                         <FileCheck className="w-3.5 h-3.5" />
                         <span>Log</span>
@@ -896,7 +964,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
                   <button
                     onClick={() => setActiveRetentionCase(c)}
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1"
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1 transition-colors"
                   >
                     <Calendar className="w-3.5 h-3.5" />
                     Schedule Meeting
@@ -922,7 +990,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
             </div>
             <button
               onClick={() => setShowCreateTemplateModal(true)}
-              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5"
+              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors"
             >
               <Plus className="w-4 h-4" /> New Template
             </button>
@@ -1060,10 +1128,10 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setPhoneSelectionMap(prev => ({ ...prev, [activeWhatsAppFollowup.id]: 'PRIMARY' }))}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-lg ${
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
                       (phoneSelectionMap[activeWhatsAppFollowup.id] || 'PRIMARY') === 'PRIMARY'
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-white border border-slate-300 text-slate-700'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     Primary
@@ -1072,12 +1140,12 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                     type="button"
                     disabled={!activeWhatsAppFollowup.backup_phone}
                     onClick={() => setPhoneSelectionMap(prev => ({ ...prev, [activeWhatsAppFollowup.id]: 'BACKUP' }))}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-lg ${
+                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
                       !activeWhatsAppFollowup.backup_phone
                         ? 'opacity-40 cursor-not-allowed bg-slate-100'
                         : (phoneSelectionMap[activeWhatsAppFollowup.id] || 'PRIMARY') === 'BACKUP'
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-white border border-slate-300 text-slate-700'
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
                     }`}
                   >
                     Backup
@@ -1228,7 +1296,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg shadow-xs"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg shadow-xs transition-colors"
                 >
                   Save Call Record
                 </button>
@@ -1327,7 +1395,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   type="button"
                   disabled={rapidQueueIndex >= followups.length - 1}
                   onClick={() => setRapidQueueIndex(prev => prev + 1)}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-30 text-white font-bold rounded-lg shadow-xs text-xs flex items-center gap-1"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-30 text-white font-bold rounded-lg shadow-xs text-xs flex items-center gap-1 transition-colors"
                 >
                   Next Student <ChevronRight className="w-4 h-4" />
                 </button>
@@ -1394,7 +1462,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-xs"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg shadow-xs transition-colors"
                 >
                   Confirm & Schedule
                 </button>

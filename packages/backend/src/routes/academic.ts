@@ -27,6 +27,24 @@ export function academicRoutes(store: IDataStore) {
       return reply.send({ success: true, data: programs, timestamp: new Date().toISOString() });
     });
 
+    fastify.put('/programs/reorder', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      const schema = z.object({
+        ordered_ids: z.array(z.string()),
+      });
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid reorder data', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      await store.reorderPrograms(user.tenant_id, parseResult.data.ordered_ids);
+      return reply.send({ success: true, timestamp: new Date().toISOString() });
+    });
+
     fastify.post('/programs', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
@@ -228,8 +246,8 @@ export function academicRoutes(store: IDataStore) {
     // --- Batches ---
     fastify.get('/batches', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      const { program_id } = request.query as { program_id?: string };
-      const batches = await store.getBatches(user.tenant_id, program_id);
+      const { program_id, cohort_type } = request.query as { program_id?: string; cohort_type?: 'section' | 'batch' };
+      const batches = await store.getBatches(user.tenant_id, program_id, cohort_type);
       return reply.send({ success: true, data: batches, timestamp: new Date().toISOString() });
     });
 
@@ -237,11 +255,17 @@ export function academicRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const schema = z.object({
-        program_id: z.string().min(1),
+        program_id: z.string().optional().nullable().or(z.literal('')).transform(v => v || undefined),
         name: z.string().min(1),
+        cohort_type: z.enum(['section', 'batch']).optional(),
         shift: z.enum(['morning', 'afternoon', 'evening', 'weekend']),
         start_time: z.string().optional().nullable(),
         end_time: z.string().optional().nullable(),
+        start_date: z.string().optional().nullable(),
+        end_date: z.string().optional().nullable(),
+        billing_mode: z.enum(['monthly', 'one_time', 'installment', 'quarterly']).default('monthly').optional(),
+        fee_amount: z.coerce.number().min(0).optional().nullable(),
+        room_number: z.string().optional().nullable(),
         academic_session: z.string().min(1).default('2026-2027'),
         max_capacity: z.coerce.number().int().min(1).default(40),
         class_teacher_id: z.string().optional().nullable(),
@@ -267,9 +291,11 @@ export function academicRoutes(store: IDataStore) {
         });
       }
 
+      const cohort_type = parseResult.data.cohort_type || (/section/i.test(parseResult.data.name) ? 'section' : 'batch');
       const batch = await store.createBatch({
         tenant_id: user.tenant_id,
         ...parseResult.data,
+        cohort_type,
       });
 
       return reply.status(201).send({ success: true, data: batch, timestamp: new Date().toISOString() });
@@ -281,10 +307,17 @@ export function academicRoutes(store: IDataStore) {
       const { id } = request.params as { id: string };
 
       const schema = z.object({
+        program_id: z.string().optional().nullable().or(z.literal('')).transform(v => v || undefined),
         name: z.string().min(1).optional(),
+        cohort_type: z.enum(['section', 'batch']).optional(),
         shift: z.enum(['morning', 'afternoon', 'evening', 'weekend']).optional(),
         start_time: z.string().optional().nullable(),
         end_time: z.string().optional().nullable(),
+        start_date: z.string().optional().nullable(),
+        end_date: z.string().optional().nullable(),
+        billing_mode: z.enum(['monthly', 'one_time', 'installment', 'quarterly']).optional(),
+        fee_amount: z.coerce.number().min(0).optional().nullable(),
+        room_number: z.string().optional().nullable(),
         academic_session: z.string().optional(),
         max_capacity: z.coerce.number().int().min(1).optional(),
         class_teacher_id: z.string().optional().nullable(),
@@ -345,7 +378,7 @@ export function academicRoutes(store: IDataStore) {
 
       const schema = z.object({
         student_ids: z.array(z.string().min(1)).min(1, 'At least one student must be selected'),
-        target_program_id: z.string().min(1, 'Target program/class is required'),
+        target_program_id: z.string().optional().nullable().or(z.literal('')).transform(v => v || undefined),
         target_batch_id: z.string().min(1, 'Target batch/section is required'),
         target_session: z.string().optional(),
         fee_adjustment_type: z.enum(['keep', 'target_baseline', 'percentage', 'fixed']).default('keep'),
@@ -441,10 +474,15 @@ export function academicRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin'], reply)) return;
       const { name, slug, settings } = request.body || {};
+      const settingsToUpdate = settings !== undefined ? settings : { ...request.body };
+      if (settingsToUpdate && typeof settingsToUpdate === 'object') {
+        delete (settingsToUpdate as any).name;
+        delete (settingsToUpdate as any).slug;
+      }
       const updated = await store.updateTenantSettings(user.tenant_id, {
         name,
         slug,
-        settings,
+        settings: Object.keys(settingsToUpdate).length > 0 ? settingsToUpdate : undefined,
       });
 
       if (!updated) {

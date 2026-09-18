@@ -2,11 +2,15 @@
  * @apex/shared-types
  * Core domain types and API contract definitions for Apex Academy Management System
  */
+export const DEFAULT_DOCUMENT_CHECKLIST_HEADS = [];
 export function defaultAcademicSessions(activeName) {
     const now = new Date().getFullYear();
     const sessions = [];
-    for (let i = 0; i < 5; i++) {
-        const y = now - 2 + i;
+    const wanted = (activeName || '').trim();
+    const m = wanted.match(/^(\d{4})/);
+    const startY = m ? Math.max(now, parseInt(m[1], 10)) : now;
+    for (let i = 0; i < 3; i++) {
+        const y = startY + i;
         const name = `${y}-${y + 1}`;
         sessions.push({
             id: `session-${y}`,
@@ -16,8 +20,7 @@ export function defaultAcademicSessions(activeName) {
             is_active: false,
         });
     }
-    const wanted = (activeName || '').trim();
-    const match = sessions.find(s => s.name === wanted) || sessions.find(s => s.start_year === now) || sessions[2];
+    const match = sessions.find(s => s.name === wanted) || sessions[0];
     if (match)
         match.is_active = true;
     return sessions;

@@ -82,7 +82,7 @@ export const FeeChallansView: React.FC = () => {
   const [genProgramId, setGenProgramId] = useState<string>('all');
   const [genBatchId, setGenBatchId] = useState<string>('all');
   const [singleAdmissionSearch, setSingleAdmissionSearch] = useState<string>('');
-  const [additionalHeadsToAdd, setAdditionalHeadsToAdd] = useState<Array<{ fee_head_id: string; amount: number }>>([]);
+  const [additionalHeadsToAdd, setAdditionalHeadsToAdd] = useState<Array<{ fee_head_id: string; amount: number | '' }>>([]);
   const [selectedHeadId, setSelectedHeadId] = useState<string>('');
   const [genYear, setGenYear] = useState<number>(() => new Date().getFullYear());
   const [genMonthName, setGenMonthName] = useState<string>(() => {
@@ -136,12 +136,30 @@ export const FeeChallansView: React.FC = () => {
     setGenErrorMessage(null);
   };
 
+  const activeSessionYear = useMemo(() => {
+    const list = (academySettings?.academic_sessions || []) as Array<{ start_year: number; is_active?: boolean; name?: string }>;
+    const activeSess = list.find(s => s.is_active);
+    if (activeSess?.start_year) return activeSess.start_year;
+    const sessionStr = tenant?.academic_session || academySettings?.academic_session || '';
+    const match = sessionStr.match(/^(\d{4})/);
+    if (match) return parseInt(match[1], 10);
+    return new Date().getFullYear();
+  }, [academySettings, tenant]);
+
   const availableYears = useMemo(() => {
-    const list = (academySettings?.academic_sessions || []) as Array<{ start_year: number }>;
-    if (list.length > 0) return [...new Set(list.map(s => s.start_year))].sort((a, b) => a - b);
-    const cy = new Date().getFullYear();
-    return [cy - 2, cy - 1, cy, cy + 1, cy + 2];
-  }, [academySettings]);
+    const list = ((academySettings?.academic_sessions || []) as Array<{ start_year: number; is_active?: boolean }>);
+    const nowYear = new Date().getFullYear();
+    const minYear = Math.min(nowYear, activeSessionYear);
+    const validYears = list.filter(s => s.start_year >= minYear || s.is_active).map(s => s.start_year);
+    if (validYears.length > 0) return [...new Set(validYears)].sort((a, b) => a - b);
+    return [nowYear, nowYear + 1, nowYear + 2];
+  }, [academySettings, activeSessionYear]);
+
+  useEffect(() => {
+    if (activeSessionYear && !availableYears.includes(genYear)) {
+      setGenYear(activeSessionYear);
+    }
+  }, [activeSessionYear, availableYears, genYear]);
 
   const [printProgramId, setPrintProgramId] = useState<string>('all');
   const [printMonth, setPrintMonth] = useState<string>('all');
@@ -299,7 +317,7 @@ export const FeeChallansView: React.FC = () => {
           issue_date: genIssueDate,
           due_date: genDueDate,
           notes: `Fee challan for ${genMonth}`,
-          additional_heads: additionalHeadsToAdd.length > 0 ? additionalHeadsToAdd : undefined,
+          additional_heads: additionalHeadsToAdd.filter(a => (Number(a.amount) || 0) > 0).map(a => ({ fee_head_id: a.fee_head_id, amount: Number(a.amount) || 0 })),
         }),
       });
 
@@ -335,13 +353,14 @@ export const FeeChallansView: React.FC = () => {
     setGenErrorMessage(null);
 
     try {
+      const validHeads = additionalHeadsToAdd.filter(a => (Number(a.amount) || 0) > 0).map(a => ({ fee_head_id: a.fee_head_id, amount: Number(a.amount) || 0 }));
       const payload = {
         scope: genScope === 'whole_institute' ? 'all' : (genBatchId !== 'all' ? 'batch' : (genProgramId !== 'all' ? 'program' : 'all')),
         target_id: genBatchId !== 'all' ? genBatchId : (genProgramId !== 'all' ? genProgramId : undefined),
         billing_month: genMonth,
         issue_date: genIssueDate,
         due_date: genDueDate,
-        additional_heads: additionalHeadsToAdd.length > 0 ? additionalHeadsToAdd : undefined,
+        additional_heads: validHeads.length > 0 ? validHeads : undefined,
       };
 
       const res = await fetch('/api/v1/finance/invoices/generate-batch', {
@@ -534,48 +553,45 @@ export const FeeChallansView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Top Header */}
-      <div className="bg-white border border-slate-200/90 rounded-lg p-4 sm:p-5 shadow-2xs">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-          <div>
-            <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-slate-700" />
-              Fee Challans
-            </h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Generate monthly challans, or edit one by admission number.
-            </p>
-          </div>
+    <div className="space-y-2.5 sm:space-y-3">
+      {/* Top Header - Behance Slide 1 Style */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-3">
+        <div>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
+            Fee Challans Desk
+          </h1>
+          <p className="text-[11px] text-slate-500 mt-0.5">
+            Generate monthly 3-part bank challans, manage billing runs, and adjust itemized fee heads.
+          </p>
+        </div>
 
-          {/* Tab Switcher */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold self-start sm:self-auto">
-            <button
-              type="button"
-              onClick={() => setActiveTab('generate')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'generate'
-                  ? 'bg-white text-slate-900 shadow-xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Generate</span>
-            </button>
+        {/* Tab Switcher - Behance Segmented Button Group */}
+        <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold self-start md:self-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab('generate')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'generate'
+                ? 'bg-amber-600 text-white shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span>Generate Challans</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab('edit')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                activeTab === 'edit'
-                  ? 'bg-white text-slate-900 shadow-xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              <span>Edit</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('edit')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'edit'
+                ? 'bg-amber-600 text-white shadow-xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            <span>Inspect & Edit</span>
+          </button>
         </div>
       </div>
 
@@ -583,13 +599,13 @@ export const FeeChallansView: React.FC = () => {
           SECTION 1: CHALLAN GENERATION
           ========================================================================= */}
       {activeTab === 'generate' && (
-        <div className="max-w-2xl space-y-4">
+        <div className="max-w-2xl space-y-3">
           {/* Generation Setup Card */}
-          <div className="space-y-4">
-            <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-2xs space-y-4">
-              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                <Layers className="w-4 h-4 text-indigo-600" />
-                Generate New Monthly Challans
+          <div className="space-y-3">
+            <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 sm:p-4 shadow-2xs space-y-3">
+              <h2 className="text-xs font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2">
+                <Layers className="w-4 h-4 text-amber-600" />
+                <span>Generate New Monthly Challans</span>
               </h2>
 
               {/* Scope selection */}
@@ -599,9 +615,9 @@ export const FeeChallansView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setGenScope('class')}
-                    className={`py-2 px-2.5 text-xs font-semibold rounded-xl border transition-all text-center ${
+                    className={`py-2 px-3 text-xs font-semibold rounded-xl border transition-all text-center cursor-pointer ${
                       genScope === 'class'
-                        ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-2xs'
+                        ? 'bg-amber-600 border-amber-600 text-white shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                   >
@@ -614,9 +630,9 @@ export const FeeChallansView: React.FC = () => {
                       setGenProgramId('all');
                       setGenBatchId('all');
                     }}
-                    className={`py-2 px-2.5 text-xs font-semibold rounded-xl border transition-all text-center ${
+                    className={`py-2 px-3 text-xs font-semibold rounded-xl border transition-all text-center cursor-pointer ${
                       genScope === 'whole_institute'
-                        ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-2xs'
+                        ? 'bg-amber-600 border-amber-600 text-white shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                   >
@@ -625,9 +641,9 @@ export const FeeChallansView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setGenScope('single_student')}
-                    className={`py-2 px-2.5 text-xs font-semibold rounded-xl border transition-all text-center ${
+                    className={`py-2 px-3 text-xs font-semibold rounded-xl border transition-all text-center cursor-pointer ${
                       genScope === 'single_student'
-                        ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-2xs'
+                        ? 'bg-amber-600 border-amber-600 text-white shadow-xs'
                         : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                     }`}
                   >
@@ -735,14 +751,21 @@ export const FeeChallansView: React.FC = () => {
               <div className="space-y-3 pt-1">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Academic Year</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-slate-700">Academic Session</label>
+                      <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                        Default: {tenant?.academic_session || '2026-2027'}
+                      </span>
+                    </div>
                     <select
                       value={genYear}
                       onChange={e => handleMonthChange(genMonthName, Number(e.target.value))}
                       className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
                     >
                       {availableYears.map(yr => (
-                        <option key={yr} value={yr}>{yr}–{yr + 1} Session</option>
+                        <option key={yr} value={yr}>
+                          {yr}–{yr + 1} Session {yr === activeSessionYear ? '(Active Global)' : ''}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -811,11 +834,14 @@ export const FeeChallansView: React.FC = () => {
                         if (!selectedHeadId) return;
                         const head = feeHeads.find(h => h.id === selectedHeadId);
                         if (!head) return;
-                        setAdditionalHeadsToAdd(prev => [...prev, { fee_head_id: head.id, amount: head.default_amount || 0 }]);
+                        setAdditionalHeadsToAdd(prev => [
+                          ...prev,
+                          { fee_head_id: head.id, amount: (head.default_amount && head.default_amount > 0) ? head.default_amount : '' }
+                        ]);
                         setSelectedHeadId('');
                       }}
                       disabled={!selectedHeadId}
-                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold disabled:opacity-40 flex items-center gap-1 shrink-0"
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold disabled:opacity-40 flex items-center gap-1 shrink-0 transition-colors shadow-xs"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Add
@@ -834,12 +860,14 @@ export const FeeChallansView: React.FC = () => {
                               <input
                                 type="number"
                                 min={0}
-                                value={item.amount}
+                                value={item.amount === 0 ? '' : item.amount}
+                                placeholder="0"
+                                onFocus={e => e.target.select()}
                                 onChange={e => {
-                                  const val = Number(e.target.value) || 0;
+                                  const val = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
                                   setAdditionalHeadsToAdd(prev => prev.map(a => a.fee_head_id === item.fee_head_id ? { ...a, amount: val } : a));
                                 }}
-                                className="w-20 px-2 py-0.5 text-right font-mono font-bold text-xs bg-white border border-slate-300 rounded"
+                                className="w-20 px-2 py-0.5 text-right font-mono font-bold text-xs bg-white border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
                               />
                               <button
                                 type="button"
@@ -875,7 +903,7 @@ export const FeeChallansView: React.FC = () => {
                       void handlePreviewAndPrint(issued);
                     }}
                     disabled={isPreparingPdf}
-                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-xs font-medium flex items-center gap-1.5 shrink-0"
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors shadow-xs"
                   >
                     <Printer className="w-3.5 h-3.5" />
                     Print issued
@@ -896,7 +924,7 @@ export const FeeChallansView: React.FC = () => {
                   type="button"
                   onClick={handleGenerateSingleChallan}
                   disabled={isGenerating || !matchedSingleStudent || Boolean(singleStudentDuplicateChallan)}
-                  className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white text-xs font-semibold rounded-xl transition-all shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   {isGenerating ? (
                     <>
@@ -915,7 +943,7 @@ export const FeeChallansView: React.FC = () => {
                   type="button"
                   onClick={handleGenerateChallans}
                   disabled={isGenerating || eligibleGenerationStudents.length === 0 || unbilledStudents.length === 0}
-                  className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-lg transition-colors shadow-xs flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white text-xs font-semibold rounded-xl transition-all shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
                   {isGenerating ? (
                     <>
@@ -941,10 +969,11 @@ export const FeeChallansView: React.FC = () => {
       )}
 
       {activeTab === 'edit' && (
-        <div className="max-w-2xl space-y-4">
-          <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-2xs space-y-4">
-            <h2 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2.5">
-              Edit a challan
+        <div className="max-w-2xl space-y-3">
+          <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 sm:p-4 shadow-2xs space-y-3">
+            <h2 className="text-xs font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-[#0E2A47]" />
+              <span>Inspect & Edit Student Challan</span>
             </h2>
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Admission number</label>
@@ -987,7 +1016,7 @@ export const FeeChallansView: React.FC = () => {
                         setGenScope('single_student');
                         setSingleAdmissionSearch(matchedEditStudent.admission_number || matchedEditStudent.roll_number || '');
                       }}
-                      className="px-3 py-1.5 bg-slate-900 text-white rounded-md text-xs font-medium"
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md text-xs font-semibold shadow-xs transition-colors"
                     >
                       Generate a challan
                     </button>
@@ -1004,7 +1033,7 @@ export const FeeChallansView: React.FC = () => {
                             onClick={() => handleOpenEditInvoice(inv)}
                             className={`px-2.5 py-1 rounded-md text-[11px] font-medium border ${
                               editingInvoice?.id === inv.id
-                                ? 'bg-slate-900 text-white border-slate-900'
+                                ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
                                 : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                             }`}
                           >
@@ -1090,7 +1119,7 @@ export const FeeChallansView: React.FC = () => {
                             type="button"
                             onClick={handleSaveEditInvoice}
                             disabled={isSavingEdit || editingInvoice.status === 'paid' || editingInvoice.status === 'cancelled'}
-                            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-md text-xs font-medium disabled:opacity-40"
+                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md text-xs font-semibold disabled:opacity-40 transition-colors shadow-xs"
                           >
                             {isSavingEdit ? 'Saving…' : 'Save challan'}
                           </button>
@@ -1185,7 +1214,7 @@ export const FeeChallansView: React.FC = () => {
                 type="button"
                 onClick={handleSaveEditInvoice}
                 disabled={isSavingEdit}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-xs disabled:opacity-50"
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold text-xs shadow-xs disabled:opacity-50 transition-colors"
               >
                 {isSavingEdit ? 'Saving...' : 'Save Changes'}
               </button>
