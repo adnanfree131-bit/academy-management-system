@@ -1,26 +1,35 @@
 ---
 name: gstack
-description: |
-  Router for the gstack skill suite. Sends any gstack request to the right skill
-  (planning, review, QA, shipping, debugging, docs, security, design). For browser/QA
-  and dogfooding it points you at /browse. Use when you invoke gstack without a specific
-  skill, or ask "which gstack skill fits this?". (gstack)
+preamble-tier: 1
+version: 1.2.0
+description: Router for the gstack skill suite. (gstack)
+allowed-tools:
+  - Bash
+  - Read
+  - AskUserQuestion
+triggers:
+  - gstack
+  - which gstack skill
+  - route this with gstack
+
 ---
 <!-- AUTO-GENERATED from SKILL.md.tmpl — do not edit directly -->
 <!-- Regenerate: bun run gen:skill-docs -->
 
+
+## When to invoke this skill
+
+Sends any gstack request to the right skill
+(planning, review, QA, shipping, debugging, docs, security, design). For browser/QA
+and dogfooding it points you at /browse. Use when you invoke gstack without a specific
+skill, or ask "which gstack skill fits this?".
+
 ## Preamble (run first)
 
 ```bash
-_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
-GSTACK_ROOT="$HOME/.codex/skills/gstack"
-[ -n "$_ROOT" ] && [ -d "$_ROOT/.agents/skills/gstack" ] && GSTACK_ROOT="$_ROOT/.agents/skills/gstack"
-GSTACK_BIN="$GSTACK_ROOT/bin"
-GSTACK_BROWSE="$GSTACK_ROOT/browse/dist"
-GSTACK_DESIGN="$GSTACK_ROOT/design/dist"
-_SS="$GSTACK_BIN/gstack-skill-start"
-[ -x "$_SS" ] || _SS=".agents/skills/gstack/bin/gstack-skill-start"
-"$_SS" --skill "gstack" --model "gemini" --parent-pid "$PPID" \
+_SS="$HOME/.claude/skills/gstack/bin/gstack-skill-start"
+[ -x "$_SS" ] || _SS=".claude/skills/gstack/bin/gstack-skill-start"
+"$_SS" --skill "gstack" --model "claude" --parent-pid "$PPID" \
   || echo "SKILL_START: unavailable — stale install; run ./setup or /gstack-upgrade (preamble degraded, continue the user's task)"
 ```
 
@@ -53,7 +62,7 @@ If the user invokes a skill in plan mode, the skill takes precedence over generi
 
 If `PROACTIVE` is `"false"`, do not auto-invoke or proactively suggest skills. If a skill seems useful, ask: "I think /skillname might help here — want me to run it?"
 
-If `SKILL_PREFIX` is `"true"`, suggest/invoke `/gstack-*` names. Disk paths stay `$GSTACK_ROOT/[skill-name]/SKILL.md`.
+If `SKILL_PREFIX` is `"true"`, suggest/invoke `/gstack-*` names. Disk paths stay `~/.claude/skills/gstack/[skill-name]/SKILL.md`.
 
 ## Artifacts Sync (skill start)
 
@@ -66,23 +75,23 @@ The one-time privacy stop-gate (artifacts-sync consent) arrives as a
 `GSTACK_INSTRUCTION` block from skill-start when consent is actually pending
 — fire it via AskUserQuestion exactly as the block instructs.
 
-## Model-Specific Behavioral Patch (gemini)
+## Model-Specific Behavioral Patch (claude)
 
-The following nudges are tuned for the gemini model family. They are
+The following nudges are tuned for the claude model family. They are
 **subordinate** to skill workflow, STOP points, AskUserQuestion gates, plan-mode
 safety, and /ship review gates. If a nudge below conflicts with skill instructions,
 the skill wins. Treat these as preferences, not rules.
 
-**Conciseness constraint.** Keep non-code text output short. Aim for under 3 lines
-for routine responses unless the user explicitly asks for detail. Code blocks and
-command output do not count toward the limit.
+**Todo-list discipline.** When working through a multi-step plan, mark each task
+complete individually as you finish it. Do not batch-complete at the end. If a task
+turns out to be unnecessary, mark it skipped with a one-line reason.
 
-**Bias toward action.** Run commands and show results rather than explaining what
-commands you would run. The user sees the command and the output — they don't need
-narration.
+**Think before heavy actions.** For complex operations (refactors, migrations,
+non-trivial new features), briefly state your approach before executing. This lets
+the user course-correct cheaply instead of mid-flight.
 
-**Structured output when useful.** Tables, bullet points, and code blocks beat prose
-for lists of things. Prose is for explaining; structure is for presenting.
+**Dedicated tools over Bash.** Prefer Read, Edit, Write, Glob, Grep over shell
+equivalents (cat, sed, find, grep). The dedicated tools are cheaper and clearer.
 
 ## Voice
 
@@ -113,7 +122,7 @@ the review genuinely surfaces none, state "No durable learnings this session"
 in your completion summary — an explicit empty result, not a skipped step.
 
 ```bash
-$GSTACK_BIN/gstack-learnings-log '{"skill":"SKILL_NAME","type":"operational","key":"SHORT_KEY","insight":"DESCRIPTION","confidence":N,"source":"observed"}'
+~/.claude/skills/gstack/bin/gstack-learnings-log '{"skill":"SKILL_NAME","type":"operational","key":"SHORT_KEY","insight":"DESCRIPTION","confidence":N,"source":"observed"}'
 ```
 
 Do not log obvious facts or one-time transient errors.
@@ -129,7 +138,7 @@ preamble's skill-start output echoed. It also drains the artifacts-sync queue
 `~/.gstack/analytics/`, matching preamble analytics writes.
 
 ```bash
-$GSTACK_BIN/gstack-skill-end --skill "gstack" --outcome OUTCOME \
+~/.claude/skills/gstack/bin/gstack-skill-end --skill "gstack" --outcome OUTCOME \
   --session-id "SESSION_ID" --tel-start "TEL_START" --used-browse USED_BROWSE \
   --error-message "ERROR_MESSAGE" --failed-step "FAILED_STEP" 2>/dev/null || true
 ```
@@ -161,7 +170,7 @@ Best-effort, record which way you routed (never block on it). Set `ROUTE_OUTCOME
 `browse` (sent to /browse), `routed` (sent to another skill), or `direct` (answered
 directly, no skill matched):
 ```bash
-$GSTACK_ROOT/bin/gstack-telemetry-log --event-type route --skill gstack --outcome ROUTE_OUTCOME --session-id "$_SESSION_ID" 2>/dev/null || true
+~/.claude/skills/gstack/bin/gstack-telemetry-log --event-type route --skill gstack --outcome ROUTE_OUTCOME --session-id "$_SESSION_ID" 2>/dev/null || true
 ```
 
 If `PROACTIVE` is `false`: do NOT proactively invoke or suggest other gstack skills during
@@ -195,7 +204,7 @@ quality gates that produce better results than answering inline.
 - User asks to update docs after shipping → invoke `/document-release`
 - User asks to write docs from scratch, generate documentation, "document this feature/module" → invoke `/document-generate`
 - User asks for a weekly retro, what did we ship, "how'd we do" → invoke `/retro`
-- User asks for a second opinion, codex review → invoke `/codex`
+Generic “second opinion”, “outside review”, or “cross-model review” requests use `/codex` (namespaced: `/gstack-codex`). This selection follows the **claude harness**, independently of model configuration. Explicit provider requests take precedence: Codex means `/codex`; Claude Code means `/claude-code`. Never silently substitute another provider. If that provider is the current harness, report that no outside invocation ran and suggest the other wrapper only as a separate user choice. Wrapper availability: Claude Code installs only /codex; Codex installs only /claude-code; other harnesses install both. Repair stale installations with `setup --host claude`. There is no /claude compatibility alias.
 - User asks for safety mode, careful mode → invoke `/careful` or `/guard`
 - User asks to restrict edits to a directory → invoke `/freeze` or `/unfreeze`
 - User asks to upgrade gstack → invoke `/gstack-upgrade`

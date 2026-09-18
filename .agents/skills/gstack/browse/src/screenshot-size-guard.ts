@@ -42,21 +42,7 @@ export interface SizeGuardResult {
  * (sharp's native binding is non-trivial to initialize).
  */
 export async function guardScreenshotBuffer(input: Buffer): Promise<{ buffer: Buffer; result: SizeGuardResult }> {
-  let sharpModule: any;
-  try {
-    sharpModule = await import("sharp");
-  } catch {
-    return {
-      buffer: input,
-      result: {
-        resized: false,
-        width: 0,
-        height: 0,
-        originalWidth: 0,
-        originalHeight: 0,
-      },
-    };
-  }
+  const sharpModule = await import("sharp");
   const sharp = sharpModule.default ?? sharpModule;
   const image = sharp(input);
   const metadata = await image.metadata();

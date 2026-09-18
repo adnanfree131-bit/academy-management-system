@@ -1214,7 +1214,7 @@ async function launchWithXProtectHeal(doLaunch, opts = {}, deps = {}) {
     throw err;
   }
 }
-var __dirname = "/home/adnan/.gemini/antigravity-cli/brain/6d327158-4126-4c2f-8388-0cc098d34a23/scratch/gstack/browse/src", NEGATIVE_SIGNATURES, POSITIVE_SIGNATURES, REVISION_DIR_RE, XPROTECT_REINSTALL_TIMEOUT_MS = 120000, healAttempted = false;
+var __dirname = "/home/adnan/Desktop/academy management system/.agents/skills/gstack/browse/src", NEGATIVE_SIGNATURES, POSITIVE_SIGNATURES, REVISION_DIR_RE, XPROTECT_REINSTALL_TIMEOUT_MS = 120000, healAttempted = false;
 var init_xprotect_heal = __esm(() => {
   NEGATIVE_SIGNATURES = [
     /executable doesn't exist/i,
@@ -3255,7 +3255,7 @@ Cause: in-flight tab operations have not completed.
     });
   }
 }
-var __dirname = "/home/adnan/.gemini/antigravity-cli/brain/6d327158-4126-4c2f-8388-0cc098d34a23/scratch/gstack/browse/src", PoisonedBundleError, daemonProcess = false;
+var __dirname = "/home/adnan/Desktop/academy management system/.agents/skills/gstack/browse/src", PoisonedBundleError, daemonProcess = false;
 var init_browser_manager = __esm(() => {
   init_file_permissions();
   init_buffers();
@@ -16695,7 +16695,7 @@ function tombstoneBrowserSkill(name, tier, tiers) {
   fs14.renameSync(src, dst);
   return dst;
 }
-var __dirname = "/home/adnan/.gemini/antigravity-cli/brain/6d327158-4126-4c2f-8388-0cc098d34a23/scratch/gstack/browse/src";
+var __dirname = "/home/adnan/Desktop/academy management system/.agents/skills/gstack/browse/src";
 var init_browser_skills = () => {};
 
 // browse/src/token-registry.ts
@@ -19064,7 +19064,7 @@ function killAgentByRecord(record, signal = "SIGTERM") {
   safeKill(record.pid, signal);
   return true;
 }
-var __dirname = "/home/adnan/.gemini/antigravity-cli/brain/6d327158-4126-4c2f-8388-0cc098d34a23/scratch/gstack/browse/src";
+var __dirname = "/home/adnan/Desktop/academy management system/.agents/skills/gstack/browse/src";
 var init_terminal_agent_control = __esm(() => {
   init_error_handling2();
   init_file_permissions();
@@ -22270,9 +22270,9 @@ function requireString(value, name) {
   }
   return value;
 }
-function withLedgerLock(ledger, callback) {
+function withLedgerLock(ledger, callback, budgetMs = LEDGER_LOCK_BUDGET_MS) {
   const lock = `${ledger}.lock`;
-  const deadline = Date.now() + 2500;
+  const deadline = Date.now() + Math.max(0, budgetMs);
   for (;; ) {
     try {
       fs19.mkdirSync(lock);
@@ -22344,7 +22344,15 @@ function ledgerSizeWarning(ledger, size) {
   const mb = (size / (1024 * 1024)).toFixed(1);
   return `gstack: egress ledger is large (${mb}MB): ${ledger}. ` + `This file records what gstack ATTEMPTS to send off-machine (content-free receipts, for auditing). ` + `Inspect it with 'gstack-egress list'. Trimming arrives with ledger rotation (TODO); until then it only grows.`;
 }
-function appendChained(homeOrNull, record, env) {
+function lockBudget(value) {
+  if (value === undefined)
+    return LEDGER_LOCK_BUDGET_MS;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw receiptError("Egress receipt lockBudgetMs must be a non-negative finite number");
+  }
+  return value;
+}
+function appendChained(homeOrNull, record, env, budgetMs = LEDGER_LOCK_BUDGET_MS) {
   const home = homeOrNull ?? resolveEgressHome(env);
   const ledger = egressLedgerPath(home);
   try {
@@ -22358,7 +22366,7 @@ function appendChained(homeOrNull, record, env) {
       if (!existed)
         fs19.chmodSync(ledger, 384);
       return { id: sha256Hex(line), path: ledger };
-    });
+    }, budgetMs);
   } catch (error) {
     if (error?.code === EGRESS_RECEIPT_FAILED)
       throw error;
@@ -22376,6 +22384,7 @@ function writeReceipt(opts) {
   const sha256 = opts.sha256 ?? null;
   if (sha256 !== null && !SHA256_HEX.test(String(sha256)))
     throw receiptError("Egress receipt sha256 must be 64 lowercase hex chars or null");
+  const budgetMs = lockBudget(opts.lockBudgetMs);
   const home = opts.home ?? resolveEgressHome(opts.env);
   warnLedgerSizeOnce(egressLedgerPath(home));
   return appendChained(home, {
@@ -22387,9 +22396,9 @@ function writeReceipt(opts) {
     bytes,
     sha256,
     consent
-  }, opts.env);
+  }, opts.env, budgetMs);
 }
-var EGRESS_RECEIPT_FAILED = "EGRESS_RECEIPT_FAILED", SHA256_HEX, LEDGER_WARN_BYTES, TAIL_READ_BYTES = 4096, MAX_FIELD_BYTES = 512, warnedLedgerSize = false;
+var EGRESS_RECEIPT_FAILED = "EGRESS_RECEIPT_FAILED", SHA256_HEX, LEDGER_WARN_BYTES, TAIL_READ_BYTES = 4096, LEDGER_LOCK_BUDGET_MS = 2500, MAX_FIELD_BYTES = 512, warnedLedgerSize = false;
 var init_egress_receipt = __esm(() => {
   SHA256_HEX = /^[0-9a-f]{64}$/;
   LEDGER_WARN_BYTES = 25 * 1024 * 1024;
