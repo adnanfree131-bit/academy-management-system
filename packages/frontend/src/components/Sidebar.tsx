@@ -8,6 +8,7 @@ import {
   PhoneForwarded, 
   UserPlus,
   Users, 
+  CreditCard,
   Receipt,
   Wallet, 
   LogOut, 
@@ -405,6 +406,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <UserPlus className={`w-4 h-4 ${currentScreen === 'enrollment' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Students</span>
+                      </button>}
+
+                      {(allow('id_cards') || allow('enrollment')) && <button 
+                        onClick={() => handleNavClick('id_cards')}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all ${
+                          currentScreen === 'id_cards'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
+                        }`}
+                      >
+                        <CreditCard className={`w-4 h-4 ${currentScreen === 'id_cards' ? 'text-amber-400' : 'text-slate-400'}`} />
+                        <span>Student ID Cards</span>
                       </button>}
 
                       {allow('classes') && <button 

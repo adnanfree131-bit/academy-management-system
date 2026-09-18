@@ -11,6 +11,10 @@ import {
   RefreshCw,
   UserCheck,
   TrendingUp,
+  CheckSquare,
+  CreditCard,
+  Plus,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -543,25 +547,133 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* ─── Centerpiece: Campus Operational Telemetry & Radial Gauges ─── */}
-      <div className="bg-white border border-[#E6ECF2] rounded-2xl p-6 shadow-2xs">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-2">
+      {/* ─── Mobile Quick Action Chips ─── */}
+      <div className="sm:hidden flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 -mt-2">
+        <button
+          type="button"
+          onClick={() => onNavigate('attendance')}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs shrink-0 active:scale-95 transition-all"
+        >
+          <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
+          <span>Attendance</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate('voucher')}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs shrink-0 active:scale-95 transition-all"
+        >
+          <CreditCard className="w-3.5 h-3.5 text-amber-600" />
+          <span>Receive Fee</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate('new_admission')}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs shrink-0 active:scale-95 transition-all"
+        >
+          <Plus className="w-3.5 h-3.5 text-emerald-600" />
+          <span>New Admission</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate('challans')}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs shrink-0 active:scale-95 transition-all"
+        >
+          <Receipt className="w-3.5 h-3.5 text-purple-600" />
+          <span>Challans</span>
+        </button>
+      </div>
+
+      {/* ─── Centerpiece: Daily Operational Overview ─── */}
+      <div className="bg-white border border-[#E6ECF2] rounded-2xl p-3.5 sm:p-5 lg:p-6 shadow-2xs">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-3">
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-[#B88634]" />
-            <h2 className="text-sm font-bold text-[#0E2A47]">
-              Campus Operational Telemetry & Real-Time Gauges
+            <h2 className="text-xs sm:text-sm font-bold text-[#0E2A47]">
+              Daily Operational Overview
             </h2>
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live Telemetry
+              Live Status
             </span>
           </div>
         </div>
 
-        {/* 4 Balanced Radial Telemetry Gauges */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+        {/* Mobile Native 2x2 High-Density Operational Grid (< 640px) */}
+        <div className="grid grid-cols-2 gap-2.5 sm:hidden">
+          {/* Tile 1: Attendance */}
+          <div
+            onClick={() => onNavigate('attendance')}
+            className="p-3 bg-slate-50/70 border border-slate-200/80 rounded-xl active:bg-blue-50/50 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Attendance</span>
+              <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
+            </div>
+            <div className="mt-1.5 flex items-baseline gap-1">
+              <span className="text-xl font-bold font-mono text-[#0E2A47]">{attendanceRate}%</span>
+            </div>
+            <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
+              {markedBatchesCount > 0 ? `${presentCount} Present` : `${unmarkedBatches.length} Pending`}
+            </p>
+          </div>
+
+          {/* Tile 2: Fee Realization */}
+          <div
+            onClick={() => onNavigate('voucher')}
+            className="p-3 bg-slate-50/70 border border-slate-200/80 rounded-xl active:bg-amber-50/50 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fees</span>
+              <CreditCard className="w-3.5 h-3.5 text-amber-600" />
+            </div>
+            <div className="mt-1.5 flex items-baseline gap-1">
+              <span className="text-xl font-bold font-mono text-[#0E2A47]">{feeRealizationPct}%</span>
+            </div>
+            <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
+              {unpaidInvoices.length > 0 ? `${unpaidInvoices.length} Overdue` : 'All Cleared'}
+            </p>
+          </div>
+
+          {/* Tile 3: Students & Capacity */}
+          <div
+            onClick={() => onNavigate('enrollment')}
+            className="p-3 bg-slate-50/70 border border-slate-200/80 rounded-xl active:bg-sky-50/50 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Students</span>
+              <Users className="w-3.5 h-3.5 text-sky-600" />
+            </div>
+            <div className="mt-1.5 flex items-baseline gap-1">
+              <span className="text-xl font-bold font-mono text-[#0E2A47]">{activeStudents}</span>
+              <span className="text-[10px] font-mono text-slate-400">/ {totalCapacity}</span>
+            </div>
+            <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
+              {batches.length} Active Batches
+            </p>
+          </div>
+
+          {/* Tile 4: Staff on Duty */}
+          <div
+            onClick={() => onNavigate('geofence')}
+            className="p-3 bg-slate-50/70 border border-slate-200/80 rounded-xl active:bg-emerald-50/50 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Faculty</span>
+              <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
+            </div>
+            <div className="mt-1.5 flex items-baseline gap-1">
+              <span className="text-xl font-bold font-mono text-[#0E2A47]">{staffCount}/{staffCount}</span>
+            </div>
+            <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
+              Geofenced On Duty
+            </p>
+          </div>
+        </div>
+
+        {/* Desktop 4 Balanced Radial Gauges (>= 640px) */}
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
           {/* Gauge 1: Student Attendance Rate */}
           <RadialTelemetryGauge
             percentage={attendanceRate}
@@ -892,7 +1004,54 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Mobile Batch Roster Cards (Zero Sliders) */}
+            <div className="sm:hidden space-y-2">
+              {batches.map(batch => {
+                const enrolled = students.filter(s => s.batch_id === batch.id).length;
+                const isMarked = markedBatchIds.has(batch.id);
+
+                return (
+                  <div key={batch.id} className="p-3 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-bold text-[#0E2A47] text-xs leading-snug truncate">
+                          {batch.name}
+                        </p>
+                        <p className="text-[10px] text-slate-500 font-medium capitalize mt-0.5">
+                          {batch.shift || 'Morning'} • Room {batch.room_number || 'A'}
+                        </p>
+                      </div>
+                      {isMarked ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          Marked
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          Pending
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
+                      <span className="text-[11px] font-mono text-slate-600">
+                        Seats: <strong className="text-slate-900">{enrolled}/{batch.max_capacity || 40}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onNavigate('attendance')}
+                        className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-600 hover:text-white active:bg-amber-700 text-slate-800 font-semibold text-[11px] border border-slate-200 shadow-2xs transition-colors"
+                      >
+                        {isMarked ? 'View Roster' : 'Mark Attendance'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table (>= 640px) */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">

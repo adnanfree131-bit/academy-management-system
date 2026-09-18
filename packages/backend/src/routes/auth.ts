@@ -6,7 +6,7 @@ import { IDataStore } from '../services/store.js';
 import { IMailerService } from '../services/mailer.js';
 import { ICloudflareService, CloudflareService } from '../services/cloudflare.js';
 import { hashPassword } from '../services/password.js';
-import { JWTPayload, AuthSessionResponse } from '@apex/shared-types';
+import { JWTPayload, AuthSessionResponse, User, Student } from '@apex/shared-types';
 
 export function authRoutes(
   store: IDataStore,
@@ -73,13 +73,42 @@ export function authRoutes(
       });
     });
 
+    const resolveStudentForUser = async (tenantId: string, user: User): Promise<Student | undefined> => {
+      if (user.role !== 'student') return undefined;
+      const allStudents = await store.getStudents(tenantId);
+      return allStudents.find(std => 
+        std.user_id === user.id || 
+        (std.email && std.email.toLowerCase() === user.email.toLowerCase()) || 
+        (user.metadata?.admission_number && std.admission_number === user.metadata.admission_number) ||
+        (user.metadata?.roll_number && std.roll_number === user.metadata.roll_number)
+      );
+    };
+
+    const buildJwtPayload = async (tenantId: string, user: User): Promise<JWTPayload> => {
+      const boundStudent = await resolveStudentForUser(tenantId, user);
+      return {
+        sub: user.id,
+        user_id: user.id,
+        tenant_id: tenantId,
+        email: user.email,
+        role: user.role,
+        ...(boundStudent ? {
+          student_id: boundStudent.id,
+          admission_number: boundStudent.admission_number,
+          cnic: boundStudent.guardian_id_card || (user.metadata as any)?.guardian_id_card,
+        } : (user.role === 'parent' ? {
+          cnic: (user.metadata as any)?.guardian_id_card || (user.metadata as any)?.clean_guardian_id_card,
+        } : {})),
+      };
+    };
+
     // -------------------------------------------------------------------------
-    // 2. Daily Operational Sign In: Email + Password
+    // 2. Email / Password Login (Daily Operational Sign In)
     // -------------------------------------------------------------------------
-    fastify.post('/login', async (request, reply) => {
+    fastify.post('/login', async (request: any, reply) => {
       const schema = z.object({
-        email: z.string().min(1, 'Please enter your email or Father/Guardian CNIC.'),
-        password: z.string().min(1, 'Password is required.'),
+        email: z.string().min(1),
+        password: z.string().min(1),
         tenant_slug: z.string().optional(),
         tenant_id: z.string().optional(),
       });
@@ -90,7 +119,7 @@ export function authRoutes(
           success: false,
           error: {
             code: 'VALIDATION_ERROR',
-            message: 'Email and password are required.',
+            message: 'Invalid login payload. Email and password are required.',
             details: parseResult.error.flatten(),
           },
           timestamp: new Date().toISOString(),
@@ -100,13 +129,7 @@ export function authRoutes(
       try {
         const { email, password, tenant_slug, tenant_id } = parseResult.data;
         const { user, tenant } = await authService.loginWithPassword(email, password, tenant_slug, tenant_id);
-
-        const jwtPayload: JWTPayload = {
-          sub: user.id,
-          tenant_id: tenant.id,
-          email: user.email,
-          role: user.role,
-        };
+        const jwtPayload = await buildJwtPayload(tenant.id, user);
 
         const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
 
@@ -326,13 +349,7 @@ export function authRoutes(
       try {
         const { email, otp, tenant_slug } = parseResult.data;
         const { user, tenant } = await authService.verifyOTP(email, otp, tenant_slug);
-
-        const jwtPayload: JWTPayload = {
-          sub: user.id,
-          tenant_id: tenant.id,
-          email: user.email,
-          role: user.role,
-        };
+        const jwtPayload = await buildJwtPayload(tenant.id, user);
 
         const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
 
@@ -527,12 +544,7 @@ export function authRoutes(
         });
 
         // Sign fresh 7-day JWT session
-        const jwtPayload: JWTPayload = {
-          sub: user.id,
-          tenant_id: tenant.id,
-          email: user.email,
-          role: user.role,
-        };
+        const jwtPayload = await buildJwtPayload(tenant.id, user);
 
         const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
 
@@ -694,12 +706,7 @@ export function authRoutes(
         const { email, otp, tenant_slug } = parseResult.data;
         const { user, tenant } = await authService.verifyOTP(email, otp, tenant_slug);
 
-        const jwtPayload: JWTPayload = {
-          sub: user.id,
-          tenant_id: tenant.id,
-          email: user.email,
-          role: user.role,
-        };
+        const jwtPayload = await buildJwtPayload(tenant.id, user);
 
         const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
 

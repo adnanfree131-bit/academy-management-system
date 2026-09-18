@@ -50,7 +50,7 @@ export const PORTAL_GROUPS: PortalGroup[] = [
 
 export const ALL_PORTAL_DESKS = PORTAL_GROUPS.flatMap(g => g.desks);
 
-export const ADMIN_ONLY_SCREENS = ['settings', 'staff', 'new_admission'];
+export const ADMIN_ONLY_SCREENS = ['settings', 'staff'];
 
 export function deskCount() {
   return ALL_PORTAL_DESKS.length;
@@ -65,13 +65,15 @@ export function isManagedStaff(role?: string, permissions?: string[] | null) {
 
 export function canOpenScreen(role: string | undefined, permissions: string[] | null | undefined, screen: string) {
   if (!role) return false;
-  if (role === 'tenant_admin' || role === 'super_admin') return true;
-  if (role === 'student' || role === 'parent') return true;
+  if (role === 'super_admin' || role === 'tenant_admin') return true;
+  if (role === 'student' || role === 'parent') {
+    return screen === 'student_portal' || screen === 'complaints';
+  }
   if (!Array.isArray(permissions)) return true;
   if (screen === 'dashboard') return true;
   if (ADMIN_ONLY_SCREENS.includes(screen)) return false;
   if (screen === 'new_admission') return permissions.includes('enrollment');
-  if (screen === 'challans') return permissions.includes('challans');
-  if (screen === 'fee_reversals') return permissions.includes('fee_reversals');
+  if (screen === 'challans') return permissions.includes('challans') || permissions.includes('voucher');
+  if (screen === 'fee_reversals') return permissions.includes('fee_reversals') || permissions.includes('voucher');
   return permissions.includes(screen);
 }

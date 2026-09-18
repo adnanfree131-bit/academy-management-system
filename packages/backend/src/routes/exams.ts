@@ -391,10 +391,74 @@ export function examRoutes(store: IDataStore) {
     fastify.post('/:id/evaluate', evaluateHandler);
     fastify.post('/exams/:id/evaluate', evaluateHandler);
 
+    const STAFF_ROLES = ['tenant_admin', 'academic_head', 'admissions_counselor', 'teacher', 'finance_officer', 'accountant'];
+
+    const canAccessStudentReportCard = async (user: JWTPayload, studentId: string): Promise<boolean> => {
+      if (user.role === 'super_admin' || STAFF_ROLES.includes(user.role)) {
+        return true;
+      }
+      const student = await store.getStudentById(user.tenant_id, studentId);
+      if (!student) return false;
+
+      if (user.role === 'student') {
+        if (user.student_id && user.student_id === studentId) return true;
+        if (student.user_id && student.user_id === user.sub) return true;
+        if (user.email && student.email && student.email.toLowerCase() === user.email.toLowerCase()) return true;
+        if (user.admission_number && student.admission_number === user.admission_number) return true;
+        return false;
+      }
+
+      if (user.role === 'parent') {
+        const normUserCnic = user.cnic ? user.cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const normUserEmail = user.email ? user.email.toLowerCase().trim() : null;
+
+        const sGuardianCnic = student.guardian_id_card ? student.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const sFatherCnic = student.father_cnic ? student.father_cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const sMotherCnic = student.mother_cnic ? student.mother_cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const sGuardianEmail = student.guardian_email ? student.guardian_email.toLowerCase().trim() : null;
+
+        if (normUserCnic && (sGuardianCnic === normUserCnic || sFatherCnic === normUserCnic || sMotherCnic === normUserCnic)) {
+          return true;
+        }
+        if (normUserEmail && sGuardianEmail === normUserEmail) {
+          return true;
+        }
+        return false;
+      }
+
+      return false;
+    };
+
     const getEvaluationsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       const { id } = request.params as { id: string };
-      const evals = await store.getExamEvaluations(user.tenant_id, id);
+      let evals = await store.getExamEvaluations(user.tenant_id, id);
+
+      if (user.role === 'student') {
+        const students = await store.getStudents(user.tenant_id);
+        const myStudent = students.find(s =>
+          (user.student_id && s.id === user.student_id) ||
+          (s.user_id && s.user_id === user.sub) ||
+          (user.email && s.email?.toLowerCase() === user.email.toLowerCase()) ||
+          (user.admission_number && s.admission_number === user.admission_number)
+        );
+        evals = myStudent ? evals.filter(ev => ev.student_id === myStudent.id) : [];
+      } else if (user.role === 'parent') {
+        const students = await store.getStudents(user.tenant_id);
+        const normCnic = user.cnic ? user.cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const normEmail = user.email ? user.email.toLowerCase().trim() : null;
+        const childIds = new Set(students.filter(s => {
+          const sCnic = s.guardian_id_card ? s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+          const sFather = s.father_cnic ? s.father_cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+          const sMother = s.mother_cnic ? s.mother_cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+          const sEmail = s.guardian_email ? s.guardian_email.toLowerCase().trim() : null;
+          return (normCnic && (sCnic === normCnic || sFather === normCnic || sMother === normCnic)) || (normEmail && sEmail === normEmail);
+        }).map(s => s.id));
+        evals = evals.filter(ev => childIds.has(ev.student_id));
+      } else if (!assertRole(user, STAFF_ROLES, reply)) {
+        return;
+      }
+
       return reply.send({ success: true, data: evals, timestamp: new Date().toISOString() });
     };
     fastify.get('/:id/evaluations', getEvaluationsHandler);
@@ -406,6 +470,13 @@ export function examRoutes(store: IDataStore) {
     const getReportCardHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       const { id, studentId } = request.params as { id: string; studentId: string };
+      if (!await canAccessStudentReportCard(user, studentId)) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'You are not authorized to view this student report card.' },
+          timestamp: new Date().toISOString()
+        });
+      }
       const reportCard = await store.getStudentReportCard(user.tenant_id, id, studentId);
       if (!reportCard) {
         return reply.status(404).send({

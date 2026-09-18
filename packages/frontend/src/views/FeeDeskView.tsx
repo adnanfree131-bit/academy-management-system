@@ -656,6 +656,10 @@ export const FeeDeskView: React.FC = () => {
     if (!student) return [];
     return students.filter(other => {
       if (other.id === student.id) return false;
+      // Direct explicit sibling link
+      if (student.sibling_student_id && student.sibling_student_id === other.id) return true;
+      if (other.sibling_student_id && other.sibling_student_id === student.id) return true;
+
       const sCnic = (student.guardian_id_card || '').trim();
       const oCnic = (other.guardian_id_card || '').trim();
       if (sCnic && oCnic && sCnic === oCnic) return true;
@@ -2394,78 +2398,140 @@ export const FeeDeskView: React.FC = () => {
                     <p className="text-[10.5px] text-slate-400 mt-0.5">Use the search bar above to look up any student dossier or payment history.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-slate-700">
-                      <thead className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
-                        <tr>
-                          <th className="py-2 px-3">Student</th>
-                          <th className="py-2 px-3">Class & Section</th>
-                          <th className="py-2 px-3">Latest Challan #</th>
-                          <th className="py-2 px-3">Billing Month</th>
-                          <th className="py-2 px-3 text-right">Outstanding Due</th>
-                          <th className="py-2 px-3 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                        {allUnpaidStudents.slice(0, 30).map(def => (
-                          <tr key={def.student_id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="py-2 px-3 font-sans whitespace-nowrap">
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-7 h-8 rounded border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 font-mono">
-                                  {def.student_name?.charAt(0) || 'S'}
-                                </div>
-                                <div>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedCashierStudentId(def.student_id);
-                                      setLedgerStudentId(def.student_id);
-                                      setStudentDeskTab('challans');
-                                    }}
-                                    className="font-bold text-slate-900 hover:text-[#0E2A47] transition-colors text-left cursor-pointer"
-                                  >
-                                    {def.student_name}
-                                  </button>
-                                  <div className="text-[10px] text-slate-400 font-mono">
-                                    Roll: #{def.roll_number || '—'}
+                  <>
+                    {/* Mobile Native Outstanding Fee Cards (Zero Sliders) */}
+                    <div className="sm:hidden space-y-2.5 p-3">
+                      {allUnpaidStudents.slice(0, 30).map(def => (
+                        <div key={def.student_id} className="p-3 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 font-mono">
+                                {def.student_name?.charAt(0) || 'S'}
+                              </div>
+                              <div className="min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCashierStudentId(def.student_id);
+                                    setLedgerStudentId(def.student_id);
+                                    setStudentDeskTab('challans');
+                                  }}
+                                  className="font-bold text-slate-900 text-xs truncate leading-snug text-left block hover:underline"
+                                >
+                                  {def.student_name}
+                                </button>
+                                <p className="text-[10px] text-slate-500 font-mono truncate">
+                                  Roll: #{def.roll_number || '—'} • {def.program_name}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="font-mono font-bold text-rose-600 text-xs block">
+                                PKR {def.total_balance.toLocaleString()}
+                              </span>
+                              <span className="text-[9.5px] text-slate-400 font-mono">
+                                {def.latest_invoice?.billing_month || 'Due'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              Challan: {def.latest_invoice?.invoice_number || '—'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedCashierStudentId(def.student_id);
+                                setLedgerStudentId(def.student_id);
+                                setStudentDeskTab('challans');
+                                if (def.latest_invoice) {
+                                  handleOpenCashierDrawer(def.latest_invoice);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
+                            >
+                              <CreditCard className="w-3.5 h-3.5" />
+                              <span>Receive Fee</span>
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Desktop Table (>= 640px) */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-left text-xs text-slate-700">
+                        <thead className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
+                          <tr>
+                            <th className="py-2 px-3">Student</th>
+                            <th className="py-2 px-3">Class & Section</th>
+                            <th className="py-2 px-3">Latest Challan #</th>
+                            <th className="py-2 px-3">Billing Month</th>
+                            <th className="py-2 px-3 text-right">Outstanding Due</th>
+                            <th className="py-2 px-3 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                          {allUnpaidStudents.slice(0, 30).map(def => (
+                            <tr key={def.student_id} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="py-2 px-3 font-sans whitespace-nowrap">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-7 h-8 rounded border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 font-mono">
+                                    {def.student_name?.charAt(0) || 'S'}
+                                  </div>
+                                  <div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedCashierStudentId(def.student_id);
+                                        setLedgerStudentId(def.student_id);
+                                        setStudentDeskTab('challans');
+                                      }}
+                                      className="font-bold text-slate-900 hover:text-[#0E2A47] transition-colors text-left cursor-pointer"
+                                    >
+                                      {def.student_name}
+                                    </button>
+                                    <div className="text-[10px] text-slate-400 font-mono">
+                                      Roll: #{def.roll_number || '—'}
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            </td>
-                            <td className="py-2 px-3 font-sans text-slate-600 whitespace-nowrap">
-                              {def.program_name} {def.batch_name ? `• ${def.batch_name}` : ''}
-                            </td>
-                            <td className="py-2 px-3 whitespace-nowrap font-bold text-slate-800">
-                              {def.latest_invoice?.invoice_number || '—'}
-                            </td>
-                            <td className="py-2 px-3 font-sans text-slate-600 whitespace-nowrap">
-                              {def.unpaid_months.slice(0, 2).join(', ') || def.latest_invoice?.billing_month || '—'}
-                            </td>
-                            <td className="py-2 px-3 text-right font-bold text-rose-600 whitespace-nowrap">
-                              PKR {def.total_balance.toLocaleString()}
-                            </td>
-                            <td className="py-2 px-3 text-right font-sans whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedCashierStudentId(def.student_id);
-                                  setLedgerStudentId(def.student_id);
-                                  setStudentDeskTab('challans');
-                                  if (def.latest_invoice) {
-                                    handleOpenCashierDrawer(def.latest_invoice);
-                                  }
-                                }}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
-                              >
-                                <CreditCard className="w-3.5 h-3.5" />
-                                <span>Receive Fee</span>
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                              </td>
+                              <td className="py-2 px-3 font-sans text-slate-600 whitespace-nowrap">
+                                {def.program_name} {def.batch_name ? `• ${def.batch_name}` : ''}
+                              </td>
+                              <td className="py-2 px-3 whitespace-nowrap font-bold text-slate-800">
+                                {def.latest_invoice?.invoice_number || '—'}
+                              </td>
+                              <td className="py-2 px-3 font-sans text-slate-600 whitespace-nowrap">
+                                {def.unpaid_months.slice(0, 2).join(', ') || def.latest_invoice?.billing_month || '—'}
+                              </td>
+                              <td className="py-2 px-3 text-right font-bold text-rose-600 whitespace-nowrap">
+                                PKR {def.total_balance.toLocaleString()}
+                              </td>
+                              <td className="py-2 px-3 text-right font-sans whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCashierStudentId(def.student_id);
+                                    setLedgerStudentId(def.student_id);
+                                    setStudentDeskTab('challans');
+                                    if (def.latest_invoice) {
+                                      handleOpenCashierDrawer(def.latest_invoice);
+                                    }
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
+                                >
+                                  <CreditCard className="w-3.5 h-3.5" />
+                                  <span>Receive Fee</span>
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -3276,8 +3342,89 @@ export const FeeDeskView: React.FC = () => {
               </div>
             </div>
 
-            {/* Defaulters Table */}
-            <div className="overflow-x-auto">
+            {/* Mobile Native Defaulter Cards (Zero Horizontal Sliders) */}
+            {defaultersList.length > 0 && (
+              <div className="sm:hidden space-y-2.5 p-3">
+                {defaultersList.map((def, idx) => {
+                  const stud = students.find(s => s.id === def.student_id);
+                  const siblings = stud ? getStudentSiblings(stud) : [];
+
+                  return (
+                    <div key={def.student_id} className="p-3.5 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-[10px] text-slate-400">#{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleViewStudentInDesk(def.student_id)}
+                              className="font-bold text-slate-900 text-xs truncate leading-snug hover:underline text-left"
+                            >
+                              {def.student_name}
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                            Roll #{def.roll_number} • {def.program_name} {def.batch_name ? `• ${def.batch_name}` : ''}
+                          </p>
+                          <p className="text-[10px] text-slate-600 mt-0.5">
+                            Guardian: {def.father_name || '—'} {def.guardian_phone ? `(${def.guardian_phone})` : ''}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="font-mono font-bold text-rose-600 text-xs block">
+                            PKR {def.total_balance.toLocaleString()}
+                          </span>
+                          <span className="text-[9.5px] text-slate-500 font-medium">
+                            {def.overdue_invoices_count} Challan{def.overdue_invoices_count > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Mobile Actions */}
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedDefaulterModal(def)}
+                            className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-[11px] rounded border border-slate-200 transition-colors"
+                          >
+                            Details
+                          </button>
+                          {siblings.length > 0 && stud && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenFamilyModal(stud)}
+                              className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] rounded border border-indigo-200 transition-colors"
+                            >
+                              Family ({siblings.length + 1})
+                            </button>
+                          )}
+                          {def.guardian_phone && (
+                            <button
+                              type="button"
+                              onClick={() => handleDispatchWhatsAppSlip(def.latest_invoice, def.guardian_phone)}
+                              className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-[11px] rounded border border-emerald-200 transition-colors"
+                            >
+                              WhatsApp
+                            </button>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenCashierDrawer(def.latest_invoice)}
+                          className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs transition-all"
+                        >
+                          Receive Fee
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Defaulters Desktop Table (>= 640px) */}
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-700">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[11px] uppercase tracking-wider">
                   <tr>

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { Student, Batch, AcademicProgram } from '@apex/shared-types';
 import { SectionInfo } from '../components/SectionInfo';
-import { StudentIDCardItem } from '../components/StudentIDCardItem';
+import { StudentIDCardItem, computeCardValidUntil } from '../components/StudentIDCardItem';
 import { buildStudentIdCardPdf, fetchLogoBytes } from '../lib/idCardPdf';
 
 export interface StudentIDCardDeskProps {
@@ -160,7 +160,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
           campusPhone: tenant?.phone || null,
           logoBytes: logo?.bytes || null,
           logoMime: logo?.mime || null,
-          validUntil: '30-JUN-2027',
+          validUntil: computeCardValidUntil(getBatch(student.batch_id)),
         }))
       );
       const blob = new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });

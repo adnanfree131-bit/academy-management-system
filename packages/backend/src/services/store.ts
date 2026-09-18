@@ -3135,6 +3135,7 @@ export class InMemoryDataStore implements IDataStore {
       present: number;
       absent: number;
       late: number;
+      excused?: number;
       percentage: number;
     };
   }> {
@@ -3143,10 +3144,11 @@ export class InMemoryDataStore implements IDataStore {
       throw new Error(`Student ${studentId} not found in tenant ${tenantId}`);
     }
 
-    // 1. Exams & Evaluations
+    // 1. Exams & Evaluations (include current batch exams + historical evaluations from prior batches)
     const evals = this.studentExamEvaluations.filter(e => e.tenant_id === tenantId && e.student_id === studentId);
-    const batchExams = this.exams.filter(ex => ex.tenant_id === tenantId && ex.batch_id === student.batch_id);
-    const examsSummary = batchExams.map(ex => {
+    const evalExamIds = new Set(evals.map(e => e.exam_id));
+    const allRelevantExams = this.exams.filter(ex => ex.tenant_id === tenantId && (ex.batch_id === student.batch_id || evalExamIds.has(ex.id)));
+    const examsSummary = allRelevantExams.map(ex => {
       const ev = evals.find(e => e.exam_id === ex.id);
       return {
         id: ex.id,
@@ -3161,10 +3163,11 @@ export class InMemoryDataStore implements IDataStore {
       };
     }).sort((a, b) => new Date(b.exam_date).getTime() - new Date(a.exam_date).getTime());
 
-    // 2. Homework & Checks
+    // 2. Homework & Checks (include current batch homework + historical checks from prior batches)
     const checks = this.notebookChecks.filter(c => c.tenant_id === tenantId && c.student_id === studentId);
-    const batchHomework = this.homeworkAssignments.filter(h => h.tenant_id === tenantId && h.batch_id === student.batch_id);
-    const homeworkSummary = batchHomework.map(h => {
+    const checkedHwIds = new Set(checks.map(c => c.assignment_id));
+    const allRelevantHomework = this.homeworkAssignments.filter(h => h.tenant_id === tenantId && (h.batch_id === student.batch_id || checkedHwIds.has(h.id)));
+    const homeworkSummary = allRelevantHomework.map(h => {
       const check = checks.find(c => c.assignment_id === h.id);
       return {
         id: h.id,
@@ -3179,13 +3182,15 @@ export class InMemoryDataStore implements IDataStore {
       };
     }).sort((a, b) => new Date(b.due_date).getTime() - new Date(a.due_date).getTime());
 
-    // 3. Attendance Summary
+    // 3. Attendance Summary (exclude excused days from denominator; 0 records -> 0.0%)
     const attLogs = this.studentAttendance.filter(a => a.tenant_id === tenantId && a.student_id === studentId);
     const totalAtt = attLogs.length;
     const presentAtt = attLogs.filter(a => a.status === 'present').length;
     const lateAtt = attLogs.filter(a => a.status === 'late').length;
     const absentAtt = attLogs.filter(a => a.status === 'absent').length;
-    const pct = totalAtt > 0 ? Math.round(((presentAtt + lateAtt) / totalAtt) * 1000) / 10 : 100.0;
+    const excusedAtt = attLogs.filter(a => a.status === 'excused').length;
+    const billableDays = totalAtt - excusedAtt;
+    const pct = billableDays > 0 ? Math.round(((presentAtt + lateAtt) / billableDays) * 1000) / 10 : 0.0;
 
     return {
       exams: examsSummary,
@@ -3195,6 +3200,7 @@ export class InMemoryDataStore implements IDataStore {
         present: presentAtt,
         late: lateAtt,
         absent: absentAtt,
+        excused: excusedAtt,
         percentage: pct,
       },
     };
@@ -3268,7 +3274,17 @@ export class InMemoryDataStore implements IDataStore {
       mother_phone: (data as any).mother_phone || null,
       mother_occupation: (data as any).mother_occupation || null,
       primary_contact: (data as any).primary_contact || 'father',
-      sibling_student_id: (data as any).sibling_student_id || null,
+      sibling_student_id: (() => {
+        const sibId = (data as any).sibling_student_id;
+        if (sibId) {
+          const siblingExists = this.students.find(s => s.tenant_id === data.tenant_id && s.id === sibId);
+          if (!siblingExists) {
+            throw new Error(`Sibling student with ID "${sibId}" not found in this institution.`);
+          }
+          return sibId;
+        }
+        return null;
+      })(),
       previous_school: (data as any).previous_school || (data as any).custom_field_values?.previous_school || null,
       religion: (data as any).religion || null,
       submitted_documents: (data as any).submitted_documents || {},
@@ -3367,6 +3383,14 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     this.students.push(student);
+
+    if (student.sibling_student_id) {
+      const sibling = this.students.find(s => s.tenant_id === data.tenant_id && s.id === student.sibling_student_id);
+      if (sibling && !sibling.sibling_student_id) {
+        sibling.sibling_student_id = student.id;
+        sibling.updated_at = new Date().toISOString();
+      }
+    }
 
     if (batch && student.status === 'active') batch.current_enrollment += 1;
     this.schedulePersist();
@@ -3503,22 +3527,73 @@ export class InMemoryDataStore implements IDataStore {
     const student = this.students.find(s => s.id === id && s.tenant_id === tenantId);
     if (!student) return null;
 
-    if (data.roll_number && data.roll_number.trim() && data.roll_number.trim().toLowerCase() !== (student.roll_number || '').trim().toLowerCase()) {
-      const targetBatchId = data.batch_id || student.batch_id;
+    // 1. Batch change handling (capacity check, roll collision in target batch, enrollment counters)
+    const targetBatchId = data.batch_id || student.batch_id;
+    const isBatchChanging = data.batch_id && data.batch_id !== student.batch_id;
+
+    if (isBatchChanging) {
+      const targetBatch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === tenantId);
+      if (!targetBatch) {
+        throw new Error('Target batch/section not found.');
+      }
+      if (student.status === 'active' && targetBatch.current_enrollment >= targetBatch.max_capacity) {
+        throw new Error(`Cannot move student: Target batch "${targetBatch.name}" has reached maximum capacity (${targetBatch.current_enrollment}/${targetBatch.max_capacity}).`);
+      }
+    }
+
+    // 2. Roll number collision check (either when roll number changes OR when moving to another batch)
+    const rollToCheck = (data.roll_number !== undefined ? data.roll_number : student.roll_number)?.trim();
+    if (rollToCheck) {
       const collision = this.students.find(s =>
         s.tenant_id === tenantId &&
         s.batch_id === targetBatchId &&
         s.id !== student.id &&
         s.status !== 'archived' &&
-        s.roll_number?.trim().toLowerCase() === data.roll_number!.trim().toLowerCase()
+        s.roll_number?.trim().toLowerCase() === rollToCheck.toLowerCase()
       );
       if (collision) {
-        throw new Error(`Roll number "${data.roll_number.trim()}" is already assigned to student "${collision.full_name}" in this batch/section.`);
+        throw new Error(`Roll number "${rollToCheck}" is already assigned to student "${collision.full_name}" in this batch/section.`);
       }
     }
 
+    // Adjust batch counters if batch is changing
+    if (isBatchChanging && student.status === 'active') {
+      const sourceBatch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
+      const targetBatch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === tenantId);
+      if (sourceBatch) sourceBatch.current_enrollment = Math.max(0, sourceBatch.current_enrollment - 1);
+      if (targetBatch) targetBatch.current_enrollment += 1;
+    }
+
+    // 3. Sibling validation and bidirectional linking
+    if ('sibling_student_id' in data) {
+      const newSibId = data.sibling_student_id;
+      if (newSibId) {
+        if (newSibId === id) {
+          throw new Error('A student cannot be their own sibling.');
+        }
+        const sibStudent = this.students.find(s => s.tenant_id === tenantId && s.id === newSibId);
+        if (!sibStudent) {
+          throw new Error(`Sibling student with ID "${newSibId}" not found in this institution.`);
+        }
+        sibStudent.sibling_student_id = id;
+        sibStudent.updated_at = new Date().toISOString();
+      } else {
+        // Clear previous reverse link if any
+        if (student.sibling_student_id) {
+          const prevSib = this.students.find(s => s.tenant_id === tenantId && s.id === student.sibling_student_id);
+          if (prevSib && prevSib.sibling_student_id === id) {
+            prevSib.sibling_student_id = null;
+            prevSib.updated_at = new Date().toISOString();
+          }
+        }
+      }
+    }
+
+    // 4. Exclude audit_reason and immutable fields from mutating student
+    const { audit_reason: _omitAudit, status: _omitStatus, ...safeData } = data as any;
+
     Object.assign(student, {
-      ...data,
+      ...safeData,
       id: student.id,
       tenant_id: student.tenant_id,
       admission_number: student.admission_number,
@@ -3527,11 +3602,18 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     });
 
+    // 5. Update user credentials and re-key users Map if email changes
     if (student.user_id) {
       const user = this.users.get(student.user_id);
       if (user && user.tenant_id === tenantId) {
         if (data.full_name) user.full_name = data.full_name;
-        if (data.email) user.email = data.email.toLowerCase().trim();
+        if (data.email && data.email.toLowerCase().trim() !== user.email.toLowerCase()) {
+          const oldEmailKey = `${tenantId}:${user.email.toLowerCase()}`;
+          const newEmail = data.email.toLowerCase().trim();
+          this.users.delete(oldEmailKey);
+          user.email = newEmail;
+          this.users.set(`${tenantId}:${newEmail}`, user);
+        }
         if (data.phone) user.phone = data.phone;
         user.updated_at = new Date().toISOString();
       }
@@ -3553,6 +3635,24 @@ export class InMemoryDataStore implements IDataStore {
     if (!student) return null;
 
     const previousStatus = student.status;
+    if (previousStatus === status) {
+      return student;
+    }
+
+    // A student holds a seat when 'active' or 'on_leave' (temporary absence).
+    // Seats are only released on 'withdrawn', 'archived', 'alumni', 'suspended'.
+    const wasHoldingSeat = previousStatus === 'active' || previousStatus === 'on_leave';
+    const willHoldSeat = status === 'active' || status === 'on_leave';
+
+    // 1. Validate batch capacity BEFORE mutating student state
+    if (!wasHoldingSeat && willHoldSeat) {
+      const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
+      if (batch && batch.current_enrollment >= batch.max_capacity) {
+        throw new Error(`Cannot reactivate student: Batch "${batch.name}" is already at full capacity (${batch.current_enrollment}/${batch.max_capacity}). Expand batch capacity first.`);
+      }
+    }
+
+    // 2. State Mutation
     student.status = status;
     student.status_reason = reason;
     if (!student.status_change_history) {
@@ -3567,32 +3667,51 @@ export class InMemoryDataStore implements IDataStore {
     });
     student.updated_at = new Date().toISOString();
 
-    // Maintain Batch Enrollment Counters
-    if (previousStatus === 'active' && status !== 'active') {
+    // 3. Maintain Batch Enrollment Counters
+    if (wasHoldingSeat && !willHoldSeat) {
       const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
       if (batch) {
         batch.current_enrollment = Math.max(0, batch.current_enrollment - 1);
       }
-    } else if (previousStatus !== 'active' && status === 'active') {
+    } else if (!wasHoldingSeat && willHoldSeat) {
       const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
       if (batch) {
-        if (batch.current_enrollment >= batch.max_capacity) {
-          throw new Error(`Cannot reactivate student: Batch "${batch.name}" is already at full capacity (${batch.max_capacity}/${batch.max_capacity}). Expand batch capacity first.`);
-        }
         batch.current_enrollment += 1;
       }
     }
 
+    // 4. User account synchronization & portal access gating
+    if (student.user_id) {
+      const user = this.users.get(student.user_id);
+      if (user && user.tenant_id === tenantId) {
+        if (['withdrawn', 'archived', 'suspended'].includes(status)) {
+          user.status = 'inactive';
+          (user as any).portal_blocked = true;
+        } else if (status === 'active') {
+          user.status = 'active';
+          (user as any).portal_blocked = false;
+        }
+        user.updated_at = new Date().toISOString();
+      }
+    }
+
+    // 5. Invoices cancellation / waiver without destroying payment audit history
     if (cancelUnpaidInvoices) {
       const studentInvoices = this.invoices.filter(
-        i => i.tenant_id === tenantId && i.student_id === studentId
+        i => i.tenant_id === tenantId && (i.student_id === studentId || i.roll_number === student.roll_number)
       );
       for (const inv of studentInvoices) {
-        if (inv.status === 'unpaid' || inv.status === 'UNPAID' || inv.status === 'partially_paid' || inv.status === 'PARTIAL') {
+        if (inv.status === 'unpaid' || inv.status === 'UNPAID') {
           inv.status = 'cancelled';
           inv.balance_amount = 0;
           inv.balance_due = 0;
           inv.notes = (inv.notes ? inv.notes + ' | ' : '') + `[Administrative Status Change] Cancelled due to student status change to ${status}. Reason: ${reason}`;
+          inv.updated_at = new Date().toISOString();
+        } else if (inv.status === 'partially_paid' || inv.status === 'PARTIAL') {
+          inv.status = 'paid';
+          inv.balance_amount = 0;
+          inv.balance_due = 0;
+          inv.notes = (inv.notes ? inv.notes + ' | ' : '') + `[Administrative Status Change] Remaining balance waived due to status change to ${status}. Recorded payment of ${inv.paid_amount || 0} preserved. Reason: ${reason}`;
           inv.updated_at = new Date().toISOString();
         }
       }
@@ -3650,8 +3769,8 @@ export class InMemoryDataStore implements IDataStore {
       };
     }
 
-    // Decrement batch enrollment if student was active
-    if (student.status === 'active') {
+    // Decrement batch enrollment if student was holding a seat
+    if (student.status === 'active' || student.status === 'on_leave') {
       const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
       if (batch) {
         batch.current_enrollment = Math.max(0, batch.current_enrollment - 1);
@@ -3700,34 +3819,33 @@ export class InMemoryDataStore implements IDataStore {
       );
     }
 
-    // Invoices cleanup: remove unpaid/cancelled invoices, or all if force deletion
+    // Invoices cleanup: only remove unpaid or cancelled invoices, NEVER delete paid/partial invoices to preserve financial ledger
     if (this.invoices) {
-      if (options?.force) {
-        this.invoices = this.invoices.filter(
-          i => !(i.tenant_id === tenantId && (i.student_id === studentId || i.roll_number === student.roll_number))
-        );
-      } else {
-        this.invoices = this.invoices.filter(
-          i => !(i.tenant_id === tenantId && (i.student_id === studentId || i.roll_number === student.roll_number) && (i.status === 'unpaid' || i.status === 'cancelled'))
-        );
-      }
-    }
-    if (this.feePayments && options?.force) {
-      this.feePayments = this.feePayments.filter(
-        p => !(p.tenant_id === tenantId && p.student_id === studentId)
+      this.invoices = this.invoices.filter(
+        i => !(i.tenant_id === tenantId && (i.student_id === studentId || i.roll_number === student.roll_number) && (i.status === 'unpaid' || i.status === 'cancelled'))
       );
     }
 
-    // Remove user account if one was provisioned for this student
+    // Remove user account if one was provisioned for this student and clean up both Map keys
     if (student.user_id && this.users) {
+      const u = this.users.get(student.user_id);
       this.users.delete(student.user_id);
       if (student.email) {
         this.users.delete(`${tenantId}:${student.email.toLowerCase()}`);
       }
+      if (u?.email) {
+        this.users.delete(`${tenantId}:${u.email.toLowerCase()}`);
+      }
     }
 
-    // Remove student
+    // Clear dangling sibling references in other students
     if (this.students) {
+      for (const s of this.students) {
+        if (s.tenant_id === tenantId && s.sibling_student_id === studentId) {
+          s.sibling_student_id = null;
+          s.updated_at = new Date().toISOString();
+        }
+      }
       this.students = this.students.filter(s => !(s.tenant_id === tenantId && s.id === studentId));
     }
 
@@ -3790,7 +3908,7 @@ export class InMemoryDataStore implements IDataStore {
     customFieldValues?: Record<string, any>,
     guardianIdCard?: string
   ): Promise<Student> {
-    const inq = await this.updateInquiryStage(tenantId, inquiryId, 'admitted');
+    const inq = this.inquiries.find(i => i.id === inquiryId && i.tenant_id === tenantId);
     if (!inq) throw new Error('Inquiry not found');
 
     const batch = this.batches.find(b => b.id === batchId && b.tenant_id === tenantId);
@@ -3819,7 +3937,7 @@ export class InMemoryDataStore implements IDataStore {
       source: inq.source,
     };
 
-    return this.createStudent({
+    const student = await this.createStudent({
       tenant_id: tenantId,
       full_name: inq.student_name,
       phone: inq.phone,
@@ -3836,6 +3954,11 @@ export class InMemoryDataStore implements IDataStore {
       fee_structure: feeStructure,
       generate_first_month_invoice: feeStructure ? true : false,
     } as any);
+
+    // Only transition stage to admitted when student creation succeeds
+    await this.updateInquiryStage(tenantId, inquiryId, 'admitted');
+
+    return student;
   }
 
   async promoteStudents(
@@ -3901,6 +4024,27 @@ export class InMemoryDataStore implements IDataStore {
       student.batch_id = params.target_batch_id;
       if (params.target_session) {
         (student as any).academic_session = params.target_session;
+      }
+
+      // Check and resolve roll number collision in target batch
+      const existingWithRoll = this.students.find(s =>
+        s.tenant_id === tenantId &&
+        s.batch_id === params.target_batch_id &&
+        s.id !== student.id &&
+        s.status !== 'archived' &&
+        s.roll_number?.trim().toLowerCase() === student.roll_number?.trim().toLowerCase()
+      );
+      if (existingWithRoll) {
+        let rollSeq = this.students.filter(s => s.tenant_id === tenantId && s.batch_id === params.target_batch_id).length + 101;
+        while (this.students.some(s =>
+          s.tenant_id === tenantId &&
+          s.batch_id === params.target_batch_id &&
+          s.status !== 'archived' &&
+          s.roll_number?.trim().toLowerCase() === `r-${rollSeq}`.toLowerCase()
+        )) {
+          rollSeq++;
+        }
+        student.roll_number = `R-${rollSeq}`;
       }
 
       // Update curriculum subjects to target program's compulsory group
@@ -4151,10 +4295,10 @@ export class InMemoryDataStore implements IDataStore {
 
     if (!studentUser && cleanCnic) {
       studentUser = Array.from(this.users.values()).find(u => 
-        u.tenant_id === tenantId && (
+        u.tenant_id === tenantId && u.role === 'student' && (
           (u.metadata as any)?.clean_guardian_id_card === cleanCnic ||
           u.email.toLowerCase() === `cnic.${cleanCnic}@kampus.pk` ||
-          u.email.toLowerCase() === `guardian.${cleanCnic}@kampus.pk`
+          u.email.toLowerCase().startsWith('std.')
         )
       ) || null;
     }
@@ -4224,7 +4368,7 @@ export class InMemoryDataStore implements IDataStore {
       changes: {
         password: {
           old: '••••••••',
-          new: `•••••••• (Reset to ${newPwd})`,
+          new: '••••••••',
         },
         ...(options.guardianIdCard && previousCnic !== options.guardianIdCard ? {
           guardian_id_card: { old: previousCnic, new: options.guardianIdCard }
@@ -4597,8 +4741,8 @@ export class InMemoryDataStore implements IDataStore {
 
     for (const item of records) {
       const student = this.students.find(s => s.id === item.student_id && s.tenant_id === tenantId);
-      if (student && student.status !== 'active') {
-        // Inactive, withdrawn, or suspended students are excluded from active batch attendance
+      if (!student || student.status !== 'active' || student.batch_id !== batchId) {
+        // Nonexistent students, students from other batches, or inactive/withdrawn students are excluded
         continue;
       }
       const effectiveStatus: AttendanceStatus = excusedStudentIds.has(item.student_id) ? 'excused' : item.status;
@@ -6081,7 +6225,15 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async getTenantUsers(tenantId: string): Promise<User[]> {
-    return Array.from(this.users.values()).filter(u => u.tenant_id === tenantId);
+    const seen = new Set<string>();
+    const users: User[] = [];
+    for (const u of this.users.values()) {
+      if (u.tenant_id === tenantId && !seen.has(u.id)) {
+        seen.add(u.id);
+        users.push(u);
+      }
+    }
+    return users;
   }
 
   async updateUserMetadata(tenantId: string, userId: string, metadata: Record<string, unknown>): Promise<User | null> {
@@ -8292,8 +8444,18 @@ export class InMemoryDataStore implements IDataStore {
 
     const shortScore = Number(data.short_score || 0);
     const longScore = Number(data.long_score || 0);
+
+    if (shortScore < 0 || longScore < 0) {
+      throw new Error('Exam scores cannot be negative.');
+    }
+
     const totalObtained = Number((autoMcqScore + shortScore + longScore).toFixed(2));
     const totalPossible = exam.total_marks > 0 ? exam.total_marks : 100;
+
+    if (totalObtained > totalPossible) {
+      throw new Error(`Total obtained marks (${totalObtained}) cannot exceed total exam marks (${totalPossible}).`);
+    }
+
     const percentage = Number(((totalObtained / totalPossible) * 100).toFixed(2));
 
     // Phase 5: Tenant-configurable grading scale or standard Pakistani Matric/F.Sc scale
@@ -8365,7 +8527,16 @@ export class InMemoryDataStore implements IDataStore {
       this.studentExamEvaluations.push(evaluation);
     }
 
-    exam.status = 'GRADED';
+    // Mark exam as GRADED only if all active batch students enrolled in this subject have been evaluated
+    const batchActiveStudents = this.students.filter(s => s.tenant_id === tenantId && s.batch_id === exam.batch_id && s.status === 'active');
+    const enrolledStudents = batchActiveStudents.filter(s => Array.isArray(s.subjects) && s.subjects.includes(exam.subject_id));
+    const allEvaluated = enrolledStudents.length > 0 && enrolledStudents.every(s =>
+      this.studentExamEvaluations.some(ev => ev.tenant_id === tenantId && ev.exam_id === exam.id && ev.student_id === s.id)
+    );
+    if (allEvaluated) {
+      exam.status = 'GRADED';
+    }
+
     this.schedulePersist();
     return evaluation;
   }

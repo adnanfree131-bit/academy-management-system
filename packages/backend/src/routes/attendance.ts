@@ -19,11 +19,84 @@ export function attendanceRoutes(store: IDataStore) {
       return true;
     };
 
+    const STAFF_ROLES = ['tenant_admin', 'academic_head', 'admissions_counselor', 'teacher', 'finance_officer', 'accountant'];
+
+    const getVerifiedStudentId = async (user: JWTPayload): Promise<string | null> => {
+      if (user.student_id) return user.student_id;
+      const students = await store.getStudents(user.tenant_id);
+      const matched = students.find(s =>
+        (s.user_id && s.user_id === user.sub) ||
+        (user.email && s.email?.toLowerCase() === user.email.toLowerCase()) ||
+        (user.admission_number && s.admission_number === user.admission_number) ||
+        (user.cnic && (s.student_b_form === user.cnic || s.guardian_id_card === user.cnic))
+      );
+      return matched ? matched.id : null;
+    };
+
+    const getParentLinkedChildIds = async (user: JWTPayload): Promise<string[]> => {
+      const students = await store.getStudents(user.tenant_id);
+      const normalizedCnic = user.cnic ? user.cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+      const normalizedEmail = user.email ? user.email.toLowerCase().trim() : null;
+
+      return students.filter(s => {
+        const sGuardianCnic = s.guardian_id_card ? s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const sFatherCnic = s.father_cnic ? s.father_cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const sMotherCnic = s.mother_cnic ? s.mother_cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const sGuardianEmail = s.guardian_email ? s.guardian_email.toLowerCase().trim() : null;
+
+        if (normalizedCnic && (sGuardianCnic === normalizedCnic || sFatherCnic === normalizedCnic || sMotherCnic === normalizedCnic)) {
+          return true;
+        }
+        if (normalizedEmail && sGuardianEmail === normalizedEmail) {
+          return true;
+        }
+        return false;
+      }).map(s => s.id);
+    };
+
     // --- Student Attendance ---
     const getStudentAttendanceHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       const { batch_id, date, student_id, month } = request.query as { batch_id?: string; date?: string; student_id?: string; month?: string };
       const studentId = (request.params as any)?.studentId || student_id;
+
+      if (user.role === 'student') {
+        const myStudentId = await getVerifiedStudentId(user);
+        if (!myStudentId) {
+          return reply.send({ success: true, data: [], timestamp: new Date().toISOString() });
+        }
+        if (studentId && studentId !== myStudentId) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN', message: 'Students can only view their own attendance records.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        const records = await store.getStudentAttendanceHistory(user.tenant_id, myStudentId);
+        return reply.send({ success: true, data: records, timestamp: new Date().toISOString() });
+      }
+
+      if (user.role === 'parent') {
+        const linkedChildIds = await getParentLinkedChildIds(user);
+        if (studentId) {
+          if (!linkedChildIds.includes(studentId)) {
+            return reply.status(403).send({
+              success: false,
+              error: { code: 'FORBIDDEN', message: 'Parents can only view attendance records for their linked children.' },
+              timestamp: new Date().toISOString(),
+            });
+          }
+          const records = await store.getStudentAttendanceHistory(user.tenant_id, studentId);
+          return reply.send({ success: true, data: records, timestamp: new Date().toISOString() });
+        }
+        const allRecords = await Promise.all(
+          linkedChildIds.map(cid => store.getStudentAttendanceHistory(user.tenant_id, cid))
+        );
+        const flattened = allRecords.flat();
+        return reply.send({ success: true, data: flattened, timestamp: new Date().toISOString() });
+      }
+
+      if (!assertRole(user, STAFF_ROLES, reply)) return;
 
       if (studentId) {
         const records = await store.getStudentAttendanceHistory(user.tenant_id, studentId);

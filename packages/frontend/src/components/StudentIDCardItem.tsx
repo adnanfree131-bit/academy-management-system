@@ -16,6 +16,30 @@ export interface StudentIDCardItemProps {
   className?: string;
 }
 
+export function computeCardValidUntil(batch?: { end_date?: string | null; academic_session?: string | null } | null): string {
+  if (batch?.end_date) {
+    try {
+      const d = new Date(batch.end_date);
+      if (!isNaN(d.getTime())) {
+        const day = String(d.getDate()).padStart(2, '0');
+        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+        const month = months[d.getMonth()];
+        const year = d.getFullYear();
+        return `${day}-${month}-${year}`;
+      }
+    } catch {}
+  }
+  if (batch?.academic_session) {
+    const matches = batch.academic_session.match(/\b(20\d\d)\b/g);
+    if (matches && matches.length > 0) {
+      const targetYear = matches[matches.length - 1];
+      return `30-JUN-${targetYear}`;
+    }
+  }
+  const nextYear = new Date().getFullYear() + 1;
+  return `30-JUN-${nextYear}`;
+}
+
 /**
  * Authentic Institutional CR-80 Student ID Card
  * Standard ISO/IEC 7810 ID-1 PVC dimensions (85.6mm x 53.98mm)
@@ -30,10 +54,11 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
   academyLogoUrl = null,
   campusPhone = null,
   campusAddress = null,
-  validUntil = '30-JUN-2027',
+  validUntil: validUntilProp,
   side = 'both',
   className = '',
 }) => {
+  const validUntil = validUntilProp || computeCardValidUntil(batch);
   const qrData = JSON.stringify({
     institution: academyName,
     id: student.id,

@@ -252,6 +252,9 @@ export interface JWTPayload {
   tenant_id: string; // Tenant UUID
   email: string;
   role: UserRole;
+  student_id?: string; // Bound student record UUID for student role
+  admission_number?: string; // Bound student admission number if available
+  cnic?: string; // Bound CNIC / B-Form if available
   iat?: number;
   exp?: number;
 }

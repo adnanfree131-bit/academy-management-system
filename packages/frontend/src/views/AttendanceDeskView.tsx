@@ -575,17 +575,63 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
       {/* Institutional Segmented Control Tabs */}
       {/* Mobile Tab Selector (Eliminates horizontal scrolling hurdle) */}
-      <div className="sm:hidden w-full">
-        <select
-          value={activeTab}
-          onChange={e => setActiveTab(e.target.value as any)}
-          className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-medium text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
+      {/* Mobile Tab Chips - Native Segmented Control */}
+      <div className="sm:hidden flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+        <button
+          type="button"
+          onClick={() => setActiveTab('roster')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
+            activeTab === 'roster'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'bg-white text-slate-700 border border-slate-200'
+          }`}
         >
-          <option value="roster">📅 Daily Roster</option>
-          <option value="monthly">🗓️ Monthly Register</option>
-          <option value="defaulters">⚠️ Defaulters ({defaultersList.filter(d => d.isDefaulter).length})</option>
-          <option value="leaves">🛡️ Formal Leaves {leaves.filter(l => l.status === 'pending').length > 0 ? `(${leaves.filter(l => l.status === 'pending').length} Pending)` : ''}</option>
-        </select>
+          <Calendar className="w-3.5 h-3.5" />
+          <span>Daily Roster</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('monthly')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
+            activeTab === 'monthly'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'bg-white text-slate-700 border border-slate-200'
+          }`}
+        >
+          <CalendarDays className="w-3.5 h-3.5" />
+          <span>Monthly Register</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('defaulters')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
+            activeTab === 'defaulters'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'bg-white text-slate-700 border border-slate-200'
+          }`}
+        >
+          <BarChart2 className="w-3.5 h-3.5" />
+          <span>Defaulters</span>
+          {defaultersList.filter(d => d.isDefaulter).length > 0 && (
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+              activeTab === 'defaulters' ? 'bg-white text-amber-700' : 'bg-rose-100 text-rose-700'
+            }`}>
+              {defaultersList.filter(d => d.isDefaulter).length}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('leaves')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
+            activeTab === 'leaves'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'bg-white text-slate-700 border border-slate-200'
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5" />
+          <span>Leaves</span>
+        </button>
       </div>
 
       {/* Desktop/Tablet Tab Bar - Segmented Control matching Image 1 */}

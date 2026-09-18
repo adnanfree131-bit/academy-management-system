@@ -87,32 +87,73 @@
     }
   }
 
-  /* Mobile Typography Scaling: Keep headers, stat numbers, and labels compact & proportional */
+  /* Mobile Typography Scaling & Compact Layout Engine (< 640px) */
   @media screen and (max-width: 640px) {
+    /* Scale down oversized headers to native mobile typography standard */
     h1, .text-3xl, .text-4xl {
-      font-size: 1.375rem !important; /* 22px proportional heading */
-      line-height: 1.75rem !important;
+      font-size: 1.125rem !important; /* 18px compact native heading */
+      line-height: 1.45rem !important;
+      letter-spacing: -0.015em !important;
     }
     h2, .text-2xl {
-      font-size: 1.125rem !important; /* 18px instead of 24px */
-      line-height: 1.5rem !important;
+      font-size: 1rem !important; /* 16px native sub-heading */
+      line-height: 1.35rem !important;
     }
     .text-xl {
-      font-size: 1rem !important; /* 16px instead of 20px */
-      line-height: 1.375rem !important;
+      font-size: 0.9375rem !important; /* 15px */
+      line-height: 1.25rem !important;
     }
-    /* Stat Counter Numbers: Bold, high-contrast, but compact */
+    /* Stat Counter Numbers: High-contrast, but strictly proportional */
     .tabular-nums.text-2xl,
     .tabular-nums.text-3xl,
+    .tabular-nums.text-4xl,
     .font-mono.text-2xl,
-    .font-mono.text-3xl {
-      font-size: 1.15rem !important;
-      line-height: 1.4rem !important;
+    .font-mono.text-3xl,
+    .font-mono.text-4xl {
+      font-size: 1.125rem !important; /* 18px */
+      line-height: 1.35rem !important;
     }
     /* Prevent select elements from blowing out parent widths with long options */
     select {
       max-width: 100% !important;
       text-overflow: ellipsis !important;
+    }
+    /* Compact bulky desktop padding on cards */
+    .p-6 {
+      padding: 0.875rem !important; /* 14px */
+    }
+    .p-5 {
+      padding: 0.75rem !important; /* 12px */
+    }
+    .px-6 {
+      padding-left: 0.875rem !important;
+      padding-right: 0.875rem !important;
+    }
+    .py-6 {
+      padding-top: 0.875rem !important;
+      padding-bottom: 0.875rem !important;
+    }
+    /* Compact desktop gaps */
+    .gap-6 {
+      gap: 0.75rem !important;
+    }
+    .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+      --tw-space-y-reverse: 0;
+      margin-top: calc(0.75rem * calc(1 - var(--tw-space-y-reverse))) !important;
+      margin-bottom: calc(0.75rem * var(--tw-space-y-reverse)) !important;
+    }
+  }
+
+  /* Universal mobile scrollbar suppression: keeps kinetic touch swipe, completely eliminates desktop scroll sliders */
+  @media screen and (max-width: 768px) {
+    *::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+    * {
+      -ms-overflow-style: none !important;
+      scrollbar-width: none !important;
     }
   }
 

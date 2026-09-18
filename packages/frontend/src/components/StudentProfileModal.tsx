@@ -63,7 +63,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   onClose,
   onStudentUpdated,
 }) => {
-  const { token, tenant } = useAuth();
+  const { token, tenant, user } = useAuth();
+  const isAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin';
   const [currentStudent, setCurrentStudent] = useState<Student>(student);
   useEffect(() => {
     setCurrentStudent(student);
@@ -246,9 +247,12 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setTimeout(() => setCopiedCredentials(false), 2000);
   };
 
-  const getWhatsAppCredentialsUrl = (username: string, pass: string, phone?: string) => {
+  const getWhatsAppCredentialsUrl = (username: string, pass?: string, phone?: string) => {
     const targetPhone = (phone || currentStudent.guardian_whatsapp || currentStudent.guardian_phone || '').replace(/[^0-9]/g, '');
-    const message = `*Student Portal Access Credentials*\n\nStudent: *${currentStudent.full_name}* (Roll: ${currentStudent.roll_number})\nAcademy: *${tenant?.name || 'The Academy'}*\nPortal Link: ${window.location.origin}\n\n*Username (Guardian CNIC):* ${username}\n*Password:* ${pass}\n\n_Please sign in and change your password in settings if needed. Keep these credentials confidential._`;
+    const passLine = pass && pass !== '[As provided upon admission/reset]'
+      ? `\n*Temporary Password:* ${pass}\n_Please sign in and update your password immediately._`
+      : `\n*Password:* Confidential (use your registered password or contact administration for assistance).`;
+    const message = `*Student Portal Access Notification*\n\nStudent: *${currentStudent.full_name}* (Roll: ${currentStudent.roll_number || 'N/A'})\nInstitution: *${tenant?.name || 'The Academy'}*\nPortal Link: ${window.location.origin}\n\n*Identifier (CNIC):* ${username}${passLine}\n\n_Keep your institutional access credentials secure._`;
     return `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
   };
 
@@ -319,9 +323,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [editEmail, setEditEmail] = useState(student.email || '');
   const [editStudentWhatsapp, setEditStudentWhatsapp] = useState(student.student_whatsapp || '');
   const [editDob, setEditDob] = useState(student.date_of_birth || '');
-  const [editGender, setEditGender] = useState(student.gender || 'male');
+  const [editGender, setEditGender] = useState(student.gender || '');
   const [editStudentBForm, setEditStudentBForm] = useState(student.student_b_form || '');
-  const [editReligion, setEditReligion] = useState(student.religion || 'Muslim');
+  const [editReligion, setEditReligion] = useState(student.religion || '');
   const [editPreviousSchool, setEditPreviousSchool] = useState(student.previous_school || (student.custom_field_values as any)?.previous_school || '');
   const [editResidentialAddress, setEditResidentialAddress] = useState(student.residential_address || '');
   const [editCity, setEditCity] = useState(student.city || '');
@@ -339,10 +343,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [editGuardianEmail, setEditGuardianEmail] = useState(student.guardian_email || '');
   const [editGuardianIdCard, setEditGuardianIdCard] = useState(student.guardian_id_card || '');
   const [editGuardianWhatsapp, setEditGuardianWhatsapp] = useState(student.guardian_whatsapp || '');
-  const [editGuardianRelation, setEditGuardianRelation] = useState(student.guardian_relation || 'Father');
+  const [editGuardianRelation, setEditGuardianRelation] = useState(student.guardian_relation || '');
   const [editEmergencyName, setEditEmergencyName] = useState(student.emergency_contact_name || '');
   const [editEmergencyPhone, setEditEmergencyPhone] = useState(student.emergency_contact_phone || '');
-  const [editEmergencyRelation, setEditEmergencyRelation] = useState(student.emergency_contact_relation || 'Uncle');
+  const [editEmergencyRelation, setEditEmergencyRelation] = useState(student.emergency_contact_relation || '');
   const [editBloodGroup, setEditBloodGroup] = useState(student.blood_group || '');
   const [editPhotoUrl, setEditPhotoUrl] = useState(student.photo_url || '');
   const [editCustomFields, setEditCustomFields] = useState<Record<string, any>>(student.custom_field_values || {});
@@ -435,9 +439,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setEditEmail(currentStudent.email || '');
     setEditStudentWhatsapp(currentStudent.student_whatsapp || '');
     setEditDob(currentStudent.date_of_birth || '');
-    setEditGender(currentStudent.gender || 'male');
+    setEditGender(currentStudent.gender || '');
     setEditStudentBForm(currentStudent.student_b_form || '');
-    setEditReligion(currentStudent.religion || 'Muslim');
+    setEditReligion(currentStudent.religion || '');
     setEditPreviousSchool(currentStudent.previous_school || (currentStudent.custom_field_values as any)?.previous_school || '');
     setEditResidentialAddress(currentStudent.residential_address || '');
     setEditCity(currentStudent.city || '');
@@ -455,10 +459,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setEditGuardianEmail(currentStudent.guardian_email || '');
     setEditGuardianIdCard(currentStudent.guardian_id_card || '');
     setEditGuardianWhatsapp(currentStudent.guardian_whatsapp || '');
-    setEditGuardianRelation(currentStudent.guardian_relation || 'Father');
+    setEditGuardianRelation(currentStudent.guardian_relation || '');
     setEditEmergencyName(currentStudent.emergency_contact_name || '');
     setEditEmergencyPhone(currentStudent.emergency_contact_phone || '');
-    setEditEmergencyRelation(currentStudent.emergency_contact_relation || 'Uncle');
+    setEditEmergencyRelation(currentStudent.emergency_contact_relation || '');
     setEditBloodGroup(currentStudent.blood_group || '');
     setEditPhotoUrl(currentStudent.photo_url || '');
     setEditCustomFields(currentStudent.custom_field_values || {});
@@ -1186,43 +1190,47 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <span>WhatsApp</span>
                 </a>
 
-                {currentStudent.status === 'archived' ? (
-                  <button
-                    type="button"
-                    onClick={handleUnarchiveFromModal}
-                    disabled={isArchivingStudent}
-                    className="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                    title="Restore Student to Active Standing"
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>Restore</span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowArchiveDialog(true)}
-                    className="px-2.5 py-1.5 bg-white/10 hover:bg-amber-500/20 text-white/80 hover:text-amber-200 border border-white/15 hover:border-amber-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                    title="Archive Student Record"
-                  >
-                    <Archive className="w-3 h-3" />
-                    <span>Archive</span>
-                  </button>
-                )}
+                {isAdmin && (
+                  <>
+                    {currentStudent.status === 'archived' ? (
+                      <button
+                        type="button"
+                        onClick={handleUnarchiveFromModal}
+                        disabled={isArchivingStudent}
+                        className="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Restore Student to Active Standing"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>Restore</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowArchiveDialog(true)}
+                        className="px-2.5 py-1.5 bg-white/10 hover:bg-amber-500/20 text-white/80 hover:text-amber-200 border border-white/15 hover:border-amber-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                        title="Archive Student Record"
+                      >
+                        <Archive className="w-3 h-3" />
+                        <span>Archive</span>
+                      </button>
+                    )}
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDeleteModalForce(false);
-                    setDeleteModalRequiresForce(false);
-                    setDeleteModalError(null);
-                    setShowDeleteDialog(true);
-                  }}
-                  className="px-2.5 py-1.5 bg-white/10 hover:bg-rose-500/20 text-white/80 hover:text-rose-200 border border-white/15 hover:border-rose-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Permanently Delete Student Record"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  <span>Delete</span>
-                </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteModalForce(false);
+                        setDeleteModalRequiresForce(false);
+                        setDeleteModalError(null);
+                        setShowDeleteDialog(true);
+                      }}
+                      className="px-2.5 py-1.5 bg-white/10 hover:bg-rose-500/20 text-white/80 hover:text-rose-200 border border-white/15 hover:border-rose-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Permanently Delete Student Record"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Delete</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1523,19 +1531,21 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                   {/* Actions */}
                   <div className="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setResetGuardianCnic(currentStudent.guardian_id_card || '');
-                        setShowResetPasswordModal(true);
-                        setResetSuccessData(null);
-                        setResetErrorMsg(null);
-                      }}
-                      className="w-full py-1.5 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                    >
-                      <Key className="w-3.5 h-3.5 text-indigo-300" />
-                      <span>Reset Password</span>
-                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setResetGuardianCnic(currentStudent.guardian_id_card || '');
+                          setShowResetPasswordModal(true);
+                          setResetSuccessData(null);
+                          setResetErrorMsg(null);
+                        }}
+                        className="w-full py-1.5 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                      >
+                        <Key className="w-3.5 h-3.5 text-indigo-300" />
+                        <span>Reset Password</span>
+                      </button>
+                    )}
 
                     {currentStudent.guardian_id_card && (
                       <a
@@ -1883,21 +1893,35 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               </div>
 
               {/* Fee Structure Note */}
-              {student.fee_structure && (
+              {currentStudent.fee_structure && (
                 <div className="p-3.5 bg-white border border-slate-200 rounded text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="space-y-0.5">
                     <span className="font-bold text-slate-900 block">Fee Structure</span>
-                    <div className="text-slate-600 font-mono text-[11px] space-x-3">
-                      <span>Tuition: <strong>PKR {Number(student.fee_structure.base_tuition || 0).toLocaleString()}/mo</strong></span>
-                      <span>•</span>
-                      <span>Admission: <strong>PKR {Number(student.fee_structure.admission_fee || 0).toLocaleString()}</strong></span>
-                      <span>•</span>
-                      <span>Exam: <strong>PKR {Number(student.fee_structure.exam_fee || 0).toLocaleString()}</strong></span>
+                    <div className="text-slate-600 font-mono text-[11px] flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span>Tuition: <strong>PKR {Number(currentStudent.fee_structure.base_tuition || 0).toLocaleString()}/mo</strong></span>
+                      {Boolean(currentStudent.fee_structure.admission_fee) && (
+                        <>
+                          <span>•</span>
+                          <span>Admission: <strong>PKR {Number(currentStudent.fee_structure.admission_fee || 0).toLocaleString()}</strong></span>
+                        </>
+                      )}
+                      {Boolean(currentStudent.fee_structure.exam_fee) && (
+                        <>
+                          <span>•</span>
+                          <span>Exam: <strong>PKR {Number(currentStudent.fee_structure.exam_fee || 0).toLocaleString()}</strong></span>
+                        </>
+                      )}
+                      {Array.isArray(currentStudent.fee_structure.custom_heads) && currentStudent.fee_structure.custom_heads.map((ch: any, idx: number) => (
+                        <span key={idx} className="flex items-center gap-1">
+                          <span>•</span>
+                          <span>{ch.head_name || ch.name || 'Head'}: <strong>PKR {Number(ch.amount || 0).toLocaleString()}</strong></span>
+                        </span>
+                      ))}
                     </div>
                   </div>
-                  {student.fee_structure.concession_val ? (
+                  {currentStudent.fee_structure.concession_val ? (
                     <div className="px-2.5 py-1 bg-slate-50 border border-slate-300 rounded text-slate-800 font-medium text-[11px]">
-                      Concession: <strong>{student.fee_structure.concession_type === 'percentage' ? `${student.fee_structure.concession_val}%` : `PKR ${student.fee_structure.concession_val}`}</strong> ({student.fee_structure.concession_reason || 'Approved'})
+                      Concession: <strong>{currentStudent.fee_structure.concession_type === 'percentage' ? `${currentStudent.fee_structure.concession_val}%` : `PKR ${currentStudent.fee_structure.concession_val}`}</strong> ({currentStudent.fee_structure.concession_reason || 'Approved'})
                     </div>
                   ) : null}
                 </div>
@@ -2889,6 +2913,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       onChange={e => setEditGender(e.target.value)}
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium bg-white"
                     >
+                      <option value="">Select Gender</option>
                       <option value="male">Male</option>
                       <option value="female">Female</option>
                       <option value="other">Other</option>
@@ -3089,6 +3114,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       onChange={e => setEditGuardianRelation(e.target.value)}
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium bg-white"
                     >
+                      <option value="">Select Relation</option>
                       {['Father', 'Mother', 'Brother', 'Sister', 'Uncle', 'Guardian', 'Other'].map(rel => (
                         <option key={rel} value={rel}>{rel}</option>
                       ))}
@@ -3178,6 +3204,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       onChange={e => setEditEmergencyRelation(e.target.value)}
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden bg-white"
                     >
+                      <option value="">Select Relation</option>
                       {['Uncle', 'Aunt', 'Mother', 'Father', 'Brother', 'Sister', 'Grandfather', 'Grandmother', 'Relative', 'Neighbor', 'Family Friend', 'Other'].map(r => (
                         <option key={r} value={r}>{r}</option>
                       ))}

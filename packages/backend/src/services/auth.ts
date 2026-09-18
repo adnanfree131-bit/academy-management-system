@@ -23,9 +23,13 @@ export class AuthService {
     const cleanInputCnic = cleanEmail.replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
     const students = await this.store.getStudents(tenantId);
     const tenantUsers = await this.store.getTenantUsers(tenantId);
+    const tenantObj = await this.store.getTenantById(tenantId);
+    const tenantDomain = tenantObj?.domain || (tenantObj?.slug ? `${tenantObj.slug}.kampus.pk` : 'kampus.pk');
 
     // 1. Check students with matching guardian_id_card, roll_number, admission_number, or student email
+    // ONLY match active students. Inactive, withdrawn, waitlisted, or archived students cannot log in.
     const matchingStudents = students.filter(s => {
+      if (s.status !== 'active') return false;
       if (cleanInputCnic.length >= 5 && s.guardian_id_card) {
         const stdCnic = s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
         if (stdCnic === cleanInputCnic) return true;
@@ -44,7 +48,8 @@ export class AuthService {
       if (!u) {
         // Provision student user on-the-fly and persist linkage to store
         const studentUserId = s.user_id || crypto.randomUUID();
-        const userEmail = (s.email && s.email.trim()) ? s.email.toLowerCase() : `std.${s.roll_number.toLowerCase()}@kampus.pk`;
+        const admClean = s.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const userEmail = (s.email && s.email.trim()) ? s.email.toLowerCase() : `std.${admClean}@${tenantDomain}`;
         const newStudentUser: User = {
           id: studentUserId,
           tenant_id: tenantId,
@@ -59,7 +64,6 @@ export class AuthService {
             clean_guardian_id_card: s.guardian_id_card ? s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : undefined,
             roll_number: s.roll_number,
             admission_number: s.admission_number,
-            default_password: 'Student@123',
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -81,6 +85,7 @@ export class AuthService {
       const parentUsers = tenantUsers.filter(u => 
         u.role === 'parent' && (
           (u.metadata as any)?.clean_guardian_id_card === cleanInputCnic ||
+          u.email.toLowerCase() === `guardian.${cleanInputCnic}@${tenantDomain}` ||
           u.email.toLowerCase() === `guardian.${cleanInputCnic}@kampus.pk`
         )
       );
@@ -91,7 +96,9 @@ export class AuthService {
       // 3. Check direct match in tenantUsers
       const directUsers = tenantUsers.filter(u => 
         (u.metadata as any)?.clean_guardian_id_card === cleanInputCnic ||
+        u.email.toLowerCase() === `guardian.${cleanInputCnic}@${tenantDomain}` ||
         u.email.toLowerCase() === `guardian.${cleanInputCnic}@kampus.pk` ||
+        u.email.toLowerCase() === `cnic.${cleanInputCnic}@${tenantDomain}` ||
         u.email.toLowerCase() === `cnic.${cleanInputCnic}@kampus.pk`
       );
       for (const du of directUsers) {
@@ -147,15 +154,10 @@ export class AuthService {
       throw new Error('Invalid email or password.');
     }
 
-    // Verify password against candidate accounts
+    // Verify password against candidate accounts (NO plaintext backdoor bypass)
     const matchingAccounts: { user: User; tenant: Tenant }[] = [];
     for (const { user: u, tenant: t } of candidateAccounts) {
-      let isValid = verifyPassword(password, u.password_hash);
-      if (!isValid && (u.role === 'student' || u.role === 'parent') && !(u.metadata as any)?.password_last_reset_at) {
-        if ((u.role === 'student' && password === 'Student@123') || (u.role === 'parent' && password === 'Parent@123')) {
-          isValid = true;
-        }
-      }
+      const isValid = verifyPassword(password, u.password_hash);
       if (isValid) {
         matchingAccounts.push({ user: u, tenant: t });
       }
@@ -172,6 +174,18 @@ export class AuthService {
 
     if (tenant.status === 'suspended') {
       throw new Error('This academy account is currently suspended. Please contact platform support.');
+    }
+
+    if (user.status !== 'active' || (user.metadata as any)?.portal_blocked) {
+      throw new Error(`Your account status is '${user.status}' or portal access has been restricted. Please contact academy administration.`);
+    }
+
+    if (user.role === 'student') {
+      const allStudents = await this.store.getStudents(tenant.id);
+      const std = allStudents.find(s => s.user_id === user.id || (s.email && s.email.toLowerCase() === user.email.toLowerCase()));
+      if (std && std.status !== 'active') {
+        throw new Error(`Your student enrollment status is '${std.status}'. Portal access is only available to active students.`);
+      }
     }
 
     if (user.status !== 'active') {
@@ -493,12 +507,7 @@ export class AuthService {
     }
 
     // 1. Verify currentPassword FIRST with verifyPassword(currentPassword, user.password_hash)
-    let isCurrentValid = verifyPassword(currentPassword, user.password_hash);
-    if (!isCurrentValid && (user.role === 'student' || user.role === 'parent') && !(user.metadata as any)?.password_last_reset_at) {
-      if (currentPassword === 'Student@123' || currentPassword === 'Parent@123') {
-        isCurrentValid = true;
-      }
-    }
+    const isCurrentValid = verifyPassword(currentPassword, user.password_hash);
     if (!isCurrentValid) {
       const err: any = new Error('Current password is incorrect.');
       err.code = 'INVALID_CURRENT_PASSWORD';

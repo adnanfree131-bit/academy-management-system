@@ -220,6 +220,31 @@ export function financeRoutes(store: IDataStore) {
     };
     fastify.post('/fees/bulk-increment', bulkFeeRevisionHandler);
 
+    // Helpers for student / parent scoping
+    const getVerifiedStudentId = async (u: JWTPayload): Promise<string | null> => {
+      if (u.role !== 'student') return null;
+      if (u.student_id) return u.student_id;
+      const stds = await store.getStudents(u.tenant_id);
+      const found = stds.find(s => s.user_id === u.sub || (s.email && s.email.toLowerCase() === u.email.toLowerCase()));
+      return found?.id || null;
+    };
+
+    const getParentLinkedChildIds = async (u: JWTPayload): Promise<string[]> => {
+      if (u.role !== 'parent') return [];
+      const stds = await store.getStudents(u.tenant_id);
+      const tenantUsers = await store.getTenantUsers(u.tenant_id);
+      const me = tenantUsers.find(tu => tu.id === u.sub);
+      const parentCnic = (me?.metadata as any)?.guardian_id_card || (me?.metadata as any)?.clean_guardian_id_card;
+      const cleanParentCnic = parentCnic ? String(parentCnic).replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+
+      return stds.filter(s => {
+        if (cleanParentCnic && s.guardian_id_card && s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() === cleanParentCnic) return true;
+        if (s.guardian_email && u.email && s.guardian_email.toLowerCase() === u.email.toLowerCase()) return true;
+        if (s.guardian_phone && (me as any)?.phone && s.guardian_phone === (me as any)?.phone) return true;
+        return false;
+      }).map(c => c.id);
+    };
+
     // =========================================================================
     // 4. STUDENT INVOICES / CHALLANS
     // =========================================================================
@@ -231,8 +256,42 @@ export function financeRoutes(store: IDataStore) {
       const billing_month = q.billing_month || q.billingMonth;
       const status = q.status as InvoiceStatus;
 
-      if (user.role === 'student' || user.role === 'parent') {
-        student_id = (user as any).student_id || student_id;
+      if (user.role === 'student') {
+        const myStudentId = await getVerifiedStudentId(user);
+        if (!myStudentId) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN_STUDENT', message: 'No student record is linked to this account.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        student_id = myStudentId;
+      } else if (user.role === 'parent') {
+        const linkedIds = await getParentLinkedChildIds(user);
+        if (linkedIds.length === 0) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'NO_LINKED_CHILDREN', message: 'No student records associated with this parent account.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        if (student_id) {
+          if (!linkedIds.includes(student_id)) {
+            return reply.status(403).send({
+              success: false,
+              error: { code: 'UNAUTHORIZED_PARENT_ACCESS', message: 'You are not authorized to view invoices for this student.' },
+              timestamp: new Date().toISOString(),
+            });
+          }
+        } else {
+          const invoices = await store.getInvoices(user.tenant_id, {
+            batch_id,
+            billing_month,
+            status
+          });
+          const filtered = invoices.filter(inv => linkedIds.includes(inv.student_id));
+          return reply.send({ success: true, data: filtered, timestamp: new Date().toISOString() });
+        }
       } else if (!financeStaff(user) && !student_id) {
         return reply.status(403).send({
           success: false,
@@ -262,6 +321,27 @@ export function financeRoutes(store: IDataStore) {
           timestamp: new Date().toISOString(),
         });
       }
+
+      if (user.role === 'student') {
+        const myStudentId = await getVerifiedStudentId(user);
+        if (invoice.student_id !== myStudentId) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN_STUDENT', message: 'You can only view your own invoices.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } else if (user.role === 'parent') {
+        const linkedIds = await getParentLinkedChildIds(user);
+        if (!linkedIds.includes(invoice.student_id)) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'UNAUTHORIZED_PARENT_ACCESS', message: 'You are not authorized to view this invoice.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
       return reply.send({ success: true, data: invoice, timestamp: new Date().toISOString() });
     };
     fastify.get('/invoices/:id', getInvoiceByIdHandler);
@@ -704,9 +784,29 @@ export function financeRoutes(store: IDataStore) {
     const getLedgerHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       const { studentId } = request.params as { studentId: string };
-      if (!financeStaff(user) && user.role !== 'student' && user.role !== 'parent') {
+
+      if (user.role === 'student') {
+        const myStudentId = await getVerifiedStudentId(user);
+        if (studentId !== myStudentId) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN_STUDENT', message: 'You can only view your own student ledger.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } else if (user.role === 'parent') {
+        const linkedIds = await getParentLinkedChildIds(user);
+        if (!linkedIds.includes(studentId)) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'UNAUTHORIZED_PARENT_ACCESS', message: 'You are not authorized to view this student ledger.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+      } else if (!financeStaff(user)) {
         if (!assertRole(user, ['tenant_admin', 'finance_manager'], reply)) return;
       }
+
       const ledger = await store.getStudentLedger(user.tenant_id, studentId);
       return reply.send({ success: true, data: ledger, timestamp: new Date().toISOString() });
     };

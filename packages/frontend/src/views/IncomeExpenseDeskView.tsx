@@ -340,70 +340,64 @@ export const IncomeExpenseDeskView: React.FC = () => {
       </PageHeading>
 
       {/* High-Density Compact Financial KPI Strip (Finalized Enterprise Design) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5">
         {/* Card 1: Total Income */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+        <div className="bg-white border border-slate-200/85 border-l-[3px] sm:border-l-[3.5px] border-l-emerald-600 rounded-xl px-2 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
           <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Total Income
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Income
             </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="font-mono font-bold text-emerald-700 text-xs sm:text-sm leading-none truncate">
                 PKR {totalIncome.toLocaleString()}
               </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Inflow
-              </span>
             </div>
+            <span className="text-[10px] text-slate-400 leading-none hidden sm:inline">Inflow</span>
           </div>
-          <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-700" />
+          <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs hidden xs:flex">
+            <TrendingUp className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-emerald-700" />
           </span>
         </div>
 
         {/* Card 2: Total Expenses */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+        <div className="bg-white border border-slate-200/85 border-l-[3px] sm:border-l-[3.5px] border-l-rose-600 rounded-xl px-2 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
           <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Total Expenses
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              Expenses
             </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-rose-700 text-sm leading-none">
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className="font-mono font-bold text-rose-700 text-xs sm:text-sm leading-none truncate">
                 PKR {totalExpense.toLocaleString()}
               </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Outflow
-              </span>
             </div>
+            <span className="text-[10px] text-slate-400 leading-none hidden sm:inline">Outflow</span>
           </div>
-          <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
-            <TrendingDown className="w-3.5 h-3.5 text-rose-700" />
+          <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs hidden xs:flex">
+            <TrendingDown className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-rose-700" />
           </span>
         </div>
 
         {/* Card 3: Net Balance */}
         <div className={`bg-white border border-slate-200/85 ${
           netBalance >= 0 ? 'border-l-emerald-600' : 'border-l-rose-600'
-        } border-l-[3.5px] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all`}>
+        } border-l-[3px] sm:border-l-[3.5px] rounded-xl px-2 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all`}>
           <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
               Net Balance
             </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className={`font-mono font-bold text-sm leading-none ${netBalance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+            <div className="flex items-baseline gap-1 mt-0.5">
+              <span className={`font-mono font-bold text-xs sm:text-sm leading-none truncate ${netBalance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                 PKR {netBalance.toLocaleString()}
               </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                {netBalance >= 0 ? 'Surplus' : 'Deficit'}
-              </span>
             </div>
+            <span className="text-[10px] text-slate-400 leading-none hidden sm:inline">{netBalance >= 0 ? 'Surplus' : 'Deficit'}</span>
           </div>
-          <span className={`w-7 h-7 rounded-lg flex items-center justify-center border shrink-0 shadow-2xs ${
+          <span className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border shrink-0 shadow-2xs hidden xs:flex ${
             netBalance >= 0 
               ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70' 
               : 'bg-rose-50 text-rose-700 border-rose-200/70'
           }`}>
-            <Scale className="w-3.5 h-3.5" />
+            <Scale className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
           </span>
         </div>
       </div>

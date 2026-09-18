@@ -401,9 +401,9 @@ const MainLayout: React.FC = () => {
               ) : currentScreen === 'id_cards' ? (
                 <EnrollmentView defaultTab="id_cards" onNavigate={handleSwitchScreen} />
               ) : currentScreen === 'enrollment' ? (
-                <EnrollmentView defaultTab="directory" onNavigate={handleSwitchScreen} />
+                <EnrollmentView defaultTab="directory" initialStudentId={previewStudentId} onNavigate={handleSwitchScreen} />
               ) : currentScreen === 'new_admission' ? (
-                <EnrollmentView defaultTab="new_admission" onNavigate={handleSwitchScreen} />
+                <EnrollmentView defaultTab="new_admission" initialStudentId={previewStudentId} onNavigate={handleSwitchScreen} />
               ) : currentScreen === 'timetable' ? (
                 <TimetableDesk />
               ) : currentScreen === 'attendance' ? (

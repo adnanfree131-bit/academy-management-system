@@ -142,7 +142,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
   const choose = (item: typeof items[number]) => {
     if (item.kind === 'module') onNavigate(item.id);
     else if (item.kind === 'invoice') onNavigate('voucher');
-    else onNavigate('enrollment');
+    else onNavigate(`enrollment?student_id=${item.id}`);
     onClose();
   };
 

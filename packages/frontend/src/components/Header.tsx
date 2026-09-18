@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Menu, Search, ChevronDown, LogOut, Shield, Settings, Users, Bell } from 'lucide-react';
 import { hapticLight } from '../lib/haptics';
+import { canOpenScreen } from '../lib/portalAccess';
 
 interface HeaderProps {
   section?: string;
@@ -13,6 +14,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({
+  currentScreenTitle,
   onOpenSidebar,
   onOpenSearch,
   onNewAdmission: _onNewAdmission,
@@ -33,33 +35,57 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="bg-white border-b border-[#E6ECF2] h-14 flex items-center justify-between px-4 sm:px-6 lg:px-7 sticky top-0 z-30 pt-[env(safe-area-inset-top)] select-none">
-      {/* Left: Mobile Toggle & Behance Slide 11 Search Input */}
-      <div className="flex items-center gap-3 min-w-0">
+      {/* Left: Mobile Navigation Toggle & Title / Search */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button 
           onClick={handleOpenNav}
-          className="md:hidden text-slate-700 hover:text-slate-950 p-2 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl border border-[#E6ECF2] hover:bg-slate-100 touch-press transition-colors"
+          className="md:hidden text-slate-700 hover:text-slate-950 p-2 min-w-[38px] min-h-[38px] flex items-center justify-center rounded-xl border border-[#E6ECF2] hover:bg-slate-100 touch-press transition-colors shrink-0"
           aria-label="Open Navigation"
         >
           <Menu className="w-4 h-4" />
         </button>
 
+        {/* Mobile Screen Title Header */}
+        <div className="md:hidden min-w-0 flex items-center gap-1.5">
+          <span className="text-xs font-bold text-slate-900 truncate">
+            {currentScreenTitle || 'Apex Academy'}
+          </span>
+        </div>
+
+        {/* Desktop Slide 11 Search Input Bar */}
         <button
           type="button"
           onClick={handleOpenSearchModal}
-          className="flex items-center gap-3 w-64 sm:w-80 lg:w-96 px-3.5 py-2 h-9 bg-slate-50 hover:bg-slate-100/70 border border-[#E6ECF2] rounded-xl text-slate-400 text-xs text-left transition-colors group cursor-pointer"
+          className="hidden md:flex items-center gap-3 w-64 sm:w-80 lg:w-96 px-3.5 py-2 h-9 bg-slate-50 hover:bg-slate-100/70 border border-[#E6ECF2] rounded-xl text-slate-400 text-xs text-left transition-colors group cursor-pointer"
         >
           <Search className="w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0 transition-colors" />
           <span className="truncate">Search students, batches, challans...</span>
         </button>
       </div>
 
-      {/* Right: Notification Bell, Session Badge & User Profile */}
-      <div className="flex items-center gap-2.5 sm:gap-3">
+      {/* Right: Search (Mobile Icon), Notification Bell, Session Badge & User Profile */}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Mobile Search Icon Button */}
+        <button
+          type="button"
+          onClick={handleOpenSearchModal}
+          className="md:hidden w-9 h-9 flex items-center justify-center rounded-xl border border-[#E6ECF2] text-slate-600 hover:text-slate-900 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+          title="Search"
+          aria-label="Search"
+        >
+          <Search className="w-4 h-4" />
+        </button>
 
         {/* Notification Bell (Behance Slide 11) */}
         <button
           type="button"
-          onClick={() => onSwitchScreen?.('absentee')}
+          onClick={() => {
+            if (user?.role === 'student' || user?.role === 'parent') {
+              onSwitchScreen?.('student_portal');
+            } else if (canOpenScreen(user?.role, user?.permissions, 'absentee')) {
+              onSwitchScreen?.('absentee');
+            }
+          }}
           className="relative w-9 h-9 flex items-center justify-center rounded-xl border border-[#E6ECF2] text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
           title="Notifications"
           aria-label="Notifications"

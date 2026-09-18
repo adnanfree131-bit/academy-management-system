@@ -197,6 +197,9 @@ export interface JWTPayload {
     tenant_id: string;
     email: string;
     role: UserRole;
+    student_id?: string;
+    admission_number?: string;
+    cnic?: string;
     iat?: number;
     exp?: number;
 }

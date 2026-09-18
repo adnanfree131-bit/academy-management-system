@@ -62,10 +62,11 @@ import { normalizeBillingMonth } from './FeeChallansView';
 
 export interface EnrollmentViewProps {
   defaultTab?: 'directory' | 'inquiries' | 'new_admission' | 'id_cards';
+  initialStudentId?: string | null;
   onNavigate?: (screen: string) => void;
 }
 
-export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'directory', onNavigate: _onNavigate }) => {
+export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'directory', initialStudentId, onNavigate: _onNavigate }) => {
   const { token, tenant, refreshSession } = useAuth();
   const [activeTab, setActiveTab] = useState<'directory' | 'inquiries' | 'new_admission' | 'id_cards'>(defaultTab);
   const [selectedDirectoryStudentIds, setSelectedDirectoryStudentIds] = useState<Set<string>>(new Set());
@@ -121,6 +122,15 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
   // Drawer / Modals
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+
+  useEffect(() => {
+    if (initialStudentId && students.length > 0) {
+      const found = students.find(s => s.id === initialStudentId);
+      if (found) {
+        setSelectedStudent(found);
+      }
+    }
+  }, [initialStudentId, students]);
   const [contactStudentModal, setContactStudentModal] = useState<Student | null>(null);
   const [admitInquiryModal, setAdmitInquiryModal] = useState<StudentInquiry | null>(null);
   const [transferInquiryId, setTransferInquiryId] = useState<string | null>(null);
@@ -639,9 +649,12 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       const data = await res.json();
       if (data.success) {
         setInquiries(prev => prev.map(item => item.id === inquiryId ? data.data : item));
+      } else {
+        alert(data.error?.message || 'Failed to update inquiry stage');
       }
     } catch (err) {
       console.error('Failed to update stage:', err);
+      alert('Failed to update inquiry stage due to a network or server error.');
     }
   };
 
@@ -725,12 +738,36 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         setIsBulkImporting(false);
         return;
       }
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
+      const parseCsvRow = (text: string): string[] => {
+        const result: string[] = [];
+        let cur = '';
+        let inQuotes = false;
+        for (let j = 0; j < text.length; j++) {
+          const c = text[j];
+          if (c === '"') {
+            if (inQuotes && text[j + 1] === '"') {
+              cur += '"';
+              j++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (c === ',' && !inQuotes) {
+            result.push(cur.trim());
+            cur = '';
+          } else {
+            cur += c;
+          }
+        }
+        result.push(cur.trim());
+        return result;
+      };
+
+      const headers = parseCsvRow(lines[0]).map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
       const rows: any[] = [];
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
-        const values = line.split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
+        const values = parseCsvRow(line).map(v => v.trim().replace(/^["']|["']$/g, ''));
         const rowObj: any = {};
         headers.forEach((h, idx) => {
           rowObj[h] = values[idx] || '';
@@ -741,7 +778,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           phone: rowObj.phone || rowObj.mobile || undefined,
           email: rowObj.email || undefined,
           guardian_name: rowObj.guardian_name || rowObj.father_name || rowObj['guardian name'] || 'Guardian',
-          guardian_phone: rowObj.guardian_phone || rowObj.guardian_mobile || rowObj.phone || '0300-0000000',
+          guardian_phone: rowObj.guardian_phone || rowObj.guardian_mobile || rowObj.phone || undefined,
           guardian_id_card: rowObj.guardian_id_card || rowObj.guardian_cnic || rowObj.cnic || undefined,
           guardian_relation: rowObj.guardian_relation || rowObj.relation || 'Father',
           batch_id: rowObj.batch_id || bulkImportBatchId || (batches[0]?.id || ''),
@@ -1218,21 +1255,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       return;
     }
 
-    setIsSubmittingEnrollment(true);
-    setEnrollSuccessMessage(null);
-    setCreatedStudentResult(null);
-
-    // Collect subjects: use granular selection if provided, else default to compulsory + elective group
-    const compGroup = subjectGroups.find(g => g.program_id === enrollForm.program_id && g.type === 'compulsory');
-    let defaultIds = compGroup ? [...compGroup.subject_ids] : [];
-    if (enrollForm.elective_group_id) {
-      const elecGroup = subjectGroups.find(g => g.id === enrollForm.elective_group_id);
-      if (elecGroup) {
-        defaultIds = [...defaultIds, ...elecGroup.subject_ids];
-      }
-    }
-    const subjectIds = selectedEnrollSubjectIds.length > 0 ? selectedEnrollSubjectIds : defaultIds;
-
     const effectiveGuardianName = primaryContact === 'father'
       ? (fatherName.trim() || enrollForm.guardian_name.trim())
       : primaryContact === 'mother'
@@ -1261,6 +1283,21 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       alert('Please provide the parent or guardian name and contact phone number.');
       return;
     }
+
+    setIsSubmittingEnrollment(true);
+    setEnrollSuccessMessage(null);
+    setCreatedStudentResult(null);
+
+    // Collect subjects: use granular selection if provided, else default to compulsory + elective group
+    const compGroup = subjectGroups.find(g => g.program_id === enrollForm.program_id && g.type === 'compulsory');
+    let defaultIds = compGroup ? [...compGroup.subject_ids] : [];
+    if (enrollForm.elective_group_id) {
+      const elecGroup = subjectGroups.find(g => g.id === enrollForm.elective_group_id);
+      if (elecGroup) {
+        defaultIds = [...defaultIds, ...elecGroup.subject_ids];
+      }
+    }
+    const subjectIds = selectedEnrollSubjectIds.length > 0 ? selectedEnrollSubjectIds : defaultIds;
 
     try {
       const res = await fetch('/api/v1/sis/students', {
@@ -1384,7 +1421,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         // Prepare receipt items
         const tuitionItemName = billingMode === 'installment'
           ? `Tuition Fee (Installment 1 of ${installmentCount})`
-          : (billingMode === 'one_time' ? 'Course Package Tuition (Net)' : 'Monthly Tuition (Net)');
+          : (billingMode === 'one_time' ? 'Course Package Tuition (Net)' : billingMode === 'quarterly' ? 'Quarterly Tuition (Net)' : 'Monthly Tuition (Net)');
         const tuitionItemAmount = billingMode === 'installment'
           ? (installments[0]?.amount || 0)
           : netMonthlyTuition;
@@ -1803,18 +1840,56 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       </div>
 
       {/* Tab Switcher - Unnumbered Segmented Control */}
-      {/* Mobile Tab Selector */}
-      <div className="sm:hidden w-full">
-        <select
-          value={activeTab}
-          onChange={e => setActiveTab(e.target.value as any)}
-          className="w-full bg-slate-100 border border-slate-300 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 shadow-xs focus:ring-2 focus:ring-slate-900"
+      {/* Mobile Tab Chips - Native Segmented Control */}
+      <div className="sm:hidden flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+        <button
+          type="button"
+          onClick={() => setActiveTab('directory')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
+            activeTab === 'directory'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'bg-white text-slate-700 border border-slate-200'
+          }`}
         >
-          <option value="directory">Directory ({students.length})</option>
-          <option value="inquiries">Inquiries Pipeline ({inquiries.length})</option>
-          <option value="new_admission">Admission Form</option>
-          <option value="id_cards">ID Cards Desk</option>
-        </select>
+          <Users className="w-3.5 h-3.5" />
+          <span>Directory ({students.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('inquiries')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
+            activeTab === 'inquiries'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'bg-white text-slate-700 border border-slate-200'
+          }`}
+        >
+          <HelpCircle className="w-3.5 h-3.5" />
+          <span>Inquiries ({inquiries.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('new_admission')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
+            activeTab === 'new_admission'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'bg-white text-slate-700 border border-slate-200'
+          }`}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>New Admission</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('id_cards')}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
+            activeTab === 'id_cards'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'bg-white text-slate-700 border border-slate-200'
+          }`}
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          <span>ID Cards</span>
+        </button>
       </div>
 
       {/* Desktop/Tablet Tab Bar */}
@@ -1967,6 +2042,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <option value="suspended">Suspended</option>
                 <option value="on_leave">On Leave</option>
                 <option value="alumni">Alumni</option>
+                <option value="waitlisted">Waitlisted</option>
                 <option value="archived">Archived</option>
               </select>
             </div>
@@ -2485,16 +2561,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             </div>
           )}
         </div>
-
-        {/* Mobile Floating Action Button (FAB) for New Admission */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('new_admission')}
-          className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 bg-amber-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-amber-700 active:scale-95 transition-transform"
-          title="New Student Admission"
-        >
-          <Plus className="w-6 h-6" />
-        </button>
         </>
       )}
 
@@ -2513,8 +2579,11 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 { id: 'all', label: 'All Inquiries' },
                 { id: 'new', label: 'New' },
                 { id: 'follow_up', label: 'Follow Up' },
+                { id: 'trial_scheduled', label: 'Trial Scheduled' },
+                { id: 'trial_attended', label: 'Trial Attended' },
                 { id: 'fee_discussion', label: 'Fee Discussion' },
                 { id: 'admitted', label: 'Admitted' },
+                { id: 'closed', label: 'Closed' },
               ].map(st => (
                 <button
                   key={st.id}
@@ -2627,6 +2696,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                 <option value="new">New</option>
                                 <option value="follow_up">Follow Up</option>
                                 <option value="trial_scheduled">Trial Scheduled</option>
+                                <option value="trial_attended">Trial Attended</option>
                                 <option value="fee_discussion">Fee Discussion</option>
                                 <option value="closed">Closed</option>
                               </select>
@@ -4275,14 +4345,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     </h3>
                   </div>
                   <span className="text-[10px] font-mono font-bold text-slate-500">
-                    {billingMode === 'monthly' ? 'Monthly' : billingMode === 'one_time' ? 'One-Time' : 'Installment'}
+                    {billingMode === 'monthly' ? 'Monthly' : billingMode === 'quarterly' ? 'Quarterly' : billingMode === 'one_time' ? 'One-Time' : 'Installment'}
                   </span>
                 </div>
 
                 {/* Billing Mode Switcher */}
                 <div className="space-y-1.5">
                   <label className="block text-[11px] font-bold text-slate-700">Billing Mode & Terms</label>
-                  <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-lg text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-slate-100 p-1 rounded-lg text-xs">
                     <button
                       type="button"
                       onClick={() => setBillingMode('monthly')}
@@ -4291,6 +4361,15 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       }`}
                     >
                       Monthly
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBillingMode('quarterly')}
+                      className={`py-1.5 px-2 rounded-md font-bold text-center transition-all cursor-pointer text-[11px] ${
+                        billingMode === 'quarterly' ? 'bg-white text-indigo-700 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Quarterly
                     </button>
                     <button
                       type="button"
@@ -4316,7 +4395,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 {/* Tuition Fee */}
                 <div>
                   <label className="block text-slate-700 font-bold mb-1 text-xs">
-                    {billingMode === 'monthly' ? 'Monthly Tuition (PKR)' : 'Total Course Tuition / Package Fee (PKR)'}
+                    {billingMode === 'monthly' ? 'Monthly Tuition (PKR)' : billingMode === 'quarterly' ? 'Quarterly Tuition (PKR)' : 'Total Course Tuition / Package Fee (PKR)'}
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-2 text-xs font-bold text-slate-400 font-mono">PKR</span>
@@ -4633,6 +4712,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   <span className="text-slate-700 text-xs font-semibold leading-tight">
                     {billingMode === 'installment'
                       ? 'Generate opening installment invoice and fee challan immediately'
+                      : billingMode === 'quarterly'
+                      ? 'Generate quarterly invoice and fee challan immediately'
                       : billingMode === 'one_time'
                       ? 'Generate full course package invoice and fee challan immediately'
                       : 'Generate first month invoice and fee challan immediately'}

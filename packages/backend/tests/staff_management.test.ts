@@ -451,11 +451,12 @@ describe('Staff & Faculty Management Module: End-to-End API Verification', () =>
     const staff = JSON.parse(createRes.body).data;
 
     // Mark attendance with this staff ID
+    const student = (await store.getStudents('a0000000-0000-0000-0000-000000000001'))[0];
     await store.recordBatchAttendance(
       'a0000000-0000-0000-0000-000000000001',
-      'batch-1',
+      student.batch_id,
       '2026-09-10',
-      [{ student_id: 'std-1', status: 'present' }],
+      [{ student_id: student.id, status: 'present' }],
       staff.id
     );
 

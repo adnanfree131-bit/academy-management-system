@@ -1339,7 +1339,7 @@ export const AcademicStructureView: React.FC = () => {
                 </div>
 
                 {/* Sub-Navigation Tabs Strip */}
-                <div className="flex items-center gap-1 px-4 bg-slate-50/70 border-b border-slate-200 text-xs font-semibold overflow-x-auto">
+                <div className="flex items-center gap-1 px-2 sm:px-4 bg-slate-50/70 border-b border-slate-200 text-xs font-semibold overflow-x-auto no-scrollbar">
                   <button
                     type="button"
                     onClick={() => setClassDetailTab('sections')}
@@ -1415,9 +1415,66 @@ export const AcademicStructureView: React.FC = () => {
                       )}
 
                       {activeSections.length > 0 ? (
-                        <div className="overflow-x-auto border border-slate-200 rounded-xl">
-                          <table className="w-full text-xs text-left">
-                            <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 select-none">
+                        <>
+                          {/* Mobile Section Cards (Zero Sliders) */}
+                          <div className="sm:hidden space-y-2.5">
+                            {activeSections.map((sec) => {
+                              const secStudents = activeStudents.filter(s => s.batch_id === sec.id);
+                              const enrolledCount = secStudents.length || sec.current_enrollment || 0;
+                              const maxCap = sec.max_capacity || 40;
+                              const percent = Math.min(100, Math.round((enrolledCount / maxCap) * 100));
+                              const inchargeTeacher = staffMembers.find(s => s.id === sec.class_teacher_id);
+                              const inchargeName = sec.class_teacher_name || inchargeTeacher?.full_name || 'Unassigned';
+
+                              return (
+                                <div key={sec.id} className="p-3 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-2">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                      <p className="font-bold text-slate-900 text-xs">{sec.name}</p>
+                                      <p className="text-[10px] text-slate-500 font-medium capitalize mt-0.5">
+                                        {sec.shift} Shift • Room: {sec.room_number || 'Unassigned'}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() => openEditSectionModal(sec)}
+                                        className="p-1.5 text-slate-600 hover:text-slate-900 bg-white rounded-lg border border-slate-200"
+                                        title="Edit Section"
+                                      >
+                                        <Pencil className="w-3 h-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => initiateDeleteBatch(sec)}
+                                        className="p-1.5 text-rose-500 hover:text-rose-700 bg-white rounded-lg border border-slate-200"
+                                        title="Delete Section"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
+                                    <span className="text-[11px] text-slate-600">Incharge: <strong className="text-slate-800">{inchargeName}</strong></span>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-[11px] font-mono font-bold text-slate-900">{enrolledCount}/{maxCap}</span>
+                                      <div className="w-12 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                        <div
+                                          className={`h-1.5 rounded-full ${percent >= 90 ? 'bg-rose-500' : percent >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                          style={{ width: `${percent}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Desktop Table (>= 640px) */}
+                          <div className="hidden sm:block overflow-x-auto border border-slate-200 rounded-xl">
+                            <table className="w-full text-xs text-left">
+                              <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 select-none">
                               <tr>
                                 <th className="py-2 px-3 font-mono text-center w-10">#</th>
                                 <th className="py-2 px-3">Section Name</th>
@@ -1512,6 +1569,7 @@ export const AcademicStructureView: React.FC = () => {
                             </tbody>
                           </table>
                         </div>
+                        </>
                       ) : (
                         <div className="py-6 px-4 bg-slate-50/70 rounded-xl border border-dashed border-slate-200 text-center text-xs">
                           <FolderTree className="w-6 h-6 mx-auto text-slate-400 mb-1.5" />

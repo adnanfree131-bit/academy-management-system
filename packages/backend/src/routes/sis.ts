@@ -8,6 +8,8 @@ export function sisRoutes(store: IDataStore) {
     // All routes require authentication
     fastify.addHook('onRequest', (fastify as any).authenticate);
 
+    const STAFF_ROLES = ['tenant_admin', 'academic_head', 'admissions_counselor', 'teacher', 'finance_officer', 'accountant'];
+
     const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
       if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
         reply.status(403).send({
@@ -18,6 +20,42 @@ export function sisRoutes(store: IDataStore) {
         return false;
       }
       return true;
+    };
+
+    const canAccessStudent = async (user: JWTPayload, studentId: string): Promise<boolean> => {
+      if (user.role === 'super_admin' || STAFF_ROLES.includes(user.role)) {
+        return true;
+      }
+      const student = await store.getStudentById(user.tenant_id, studentId);
+      if (!student) return false;
+
+      if (user.role === 'student') {
+        if (user.student_id && user.student_id === studentId) return true;
+        if (student.user_id && student.user_id === user.sub) return true;
+        if (user.email && student.email && student.email.toLowerCase() === user.email.toLowerCase()) return true;
+        if (user.admission_number && student.admission_number === user.admission_number) return true;
+        return false;
+      }
+
+      if (user.role === 'parent') {
+        const normUserCnic = user.cnic ? user.cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const normUserEmail = user.email ? user.email.toLowerCase().trim() : null;
+
+        const sGuardianCnic = student.guardian_id_card ? student.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const sFatherCnic = student.father_cnic ? student.father_cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const sMotherCnic = student.mother_cnic ? student.mother_cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const sGuardianEmail = student.guardian_email ? student.guardian_email.toLowerCase().trim() : null;
+
+        if (normUserCnic && (sGuardianCnic === normUserCnic || sFatherCnic === normUserCnic || sMotherCnic === normUserCnic)) {
+          return true;
+        }
+        if (normUserEmail && sGuardianEmail === normUserEmail) {
+          return true;
+        }
+        return false;
+      }
+
+      return false;
     };
 
     // --- Inquiries Desk ---
@@ -35,6 +73,7 @@ export function sisRoutes(store: IDataStore) {
         email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
         guardian_name: z.string().optional(),
         guardian_phone: z.string().optional(),
+        guardian_id_card: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         program_id: z.string().uuid().optional().or(z.literal('')).transform(v => v || undefined),
         notes: z.string().optional(),
         source: z.string().default('Walk-in'),
@@ -136,6 +175,7 @@ export function sisRoutes(store: IDataStore) {
     // --- Student Directory / SIS ---
     fastify.get('/students', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, STAFF_ROLES, reply)) return;
       const { batch_id } = request.query as { batch_id?: string };
       const students = await store.getStudents(user.tenant_id, batch_id);
       return reply.send({ success: true, data: students, timestamp: new Date().toISOString() });
@@ -144,6 +184,13 @@ export function sisRoutes(store: IDataStore) {
     fastify.get('/students/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       const { id } = request.params as { id: string };
+      if (!await canAccessStudent(user, id)) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'You are not authorized to view this student profile.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const student = await store.getStudentById(user.tenant_id, id);
       if (!student) {
         return reply.status(404).send({
@@ -158,6 +205,13 @@ export function sisRoutes(store: IDataStore) {
     fastify.get('/students/:id/academic-summary', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       const { id } = request.params as { id: string };
+      if (!await canAccessStudent(user, id)) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'You are not authorized to view this student academic summary.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       try {
         const summary = await store.getStudentAcademicSummary(user.tenant_id, id);
         return reply.send({ success: true, data: summary, timestamp: new Date().toISOString() });
@@ -384,6 +438,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.get('/students/:id/audit-logs', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const { id } = request.params as { id: string };
       const logs = await store.getStudentProfileAuditLogs(user.tenant_id, id);
       return reply.send({ success: true, data: logs, timestamp: new Date().toISOString() });
@@ -393,6 +448,17 @@ export function sisRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin', 'academic_head', 'admissions_counselor'], reply)) return;
       const { id } = request.params as { id: string };
+
+      if (request.body && 'status' in request.body && request.body.status !== undefined) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: 'STATUS_MUTATION_RESTRICTED',
+            message: 'Direct status mutation via profile patch is prohibited. Use dedicated status endpoints: POST /students/:id/status, /archive, or /unarchive.',
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       const schema = z.object({
         full_name: z.string().optional(),
@@ -410,7 +476,6 @@ export function sisRoutes(store: IDataStore) {
         guardian_relation: z.string().optional(),
         blood_group: z.string().optional(),
         photo_url: z.string().optional(),
-        status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted', 'archived']).optional(),
         batch_id: z.string().optional(),
         program_id: z.string().optional(),
         subjects: z.array(z.string()).optional(),
