@@ -911,7 +911,6 @@ export class InMemoryDataStore implements IDataStore {
 
     if (persistenceEnabled()) {
       this.persistTimer = setInterval(() => {
-        this.persistQueued = true;
         void this.flushPersist();
       }, 10000);
       if (typeof this.persistTimer.unref === 'function') this.persistTimer.unref();
