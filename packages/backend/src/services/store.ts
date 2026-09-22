@@ -3857,9 +3857,32 @@ export class InMemoryDataStore implements IDataStore {
       student.transfer_history = [...(student.transfer_history || []), transferRecord];
     }
 
+    // If batch changed, shift open unpaid invoices to new batch/program
+    if ((data as any).batch_id && (data as any).batch_id !== student.batch_id) {
+      const targetBatchObj = this.batches.find(b => b.id === (data as any).batch_id && b.tenant_id === tenantId);
+      const targetProgObj = targetBatchObj ? this.programs.find(p => p.id === targetBatchObj.program_id && p.tenant_id === tenantId) : undefined;
+      const unpaidInvoices = this.invoices.filter(
+        inv => inv.tenant_id === tenantId &&
+               inv.student_id === id &&
+               inv.status === 'unpaid' &&
+               inv.paid_amount === 0
+      );
+      for (const inv of unpaidInvoices) {
+        inv.batch_id = (data as any).batch_id;
+        if (targetBatchObj) inv.batch_name = targetBatchObj.name;
+        if (targetProgObj) {
+          inv.program_id = targetProgObj.id;
+          inv.program_name = targetProgObj.name;
+        }
+        if (student.roll_number) inv.roll_number = student.roll_number;
+        inv.updated_at = new Date().toISOString();
+      }
+    }
+
     // Update unpaid challans if requested
     if ((data as any).update_unpaid_challans && (data.batch_id || data.fee_structure)) {
       const targetBatchObj = data.batch_id ? this.batches.find(b => b.id === data.batch_id && b.tenant_id === tenantId) : undefined;
+      const targetProgObj = targetBatchObj ? this.programs.find(p => p.id === targetBatchObj.program_id && p.tenant_id === tenantId) : undefined;
       const newTuition = Number(data.fee_structure?.tuition_fee ?? data.fee_structure?.base_tuition_fee ?? data.fee_structure?.recurring_monthly ?? targetBatchObj?.fee_amount ?? 0);
       const unpaidInvoices = this.invoices.filter(
         inv => inv.tenant_id === tenantId &&
@@ -3868,7 +3891,14 @@ export class InMemoryDataStore implements IDataStore {
                inv.paid_amount === 0
       );
       for (const inv of unpaidInvoices) {
-        if (data.batch_id) inv.batch_id = data.batch_id;
+        if (data.batch_id) {
+          inv.batch_id = data.batch_id;
+          if (targetBatchObj) inv.batch_name = targetBatchObj.name;
+          if (targetProgObj) {
+            inv.program_id = targetProgObj.id;
+            inv.program_name = targetProgObj.name;
+          }
+        }
         if (newTuition > 0 && Array.isArray(inv.items)) {
           const tuitionItem = inv.items.find(
             it => it.head_code?.toLowerCase() === 'tuition' || it.head_name?.toLowerCase().includes('tuition')
@@ -3880,6 +3910,11 @@ export class InMemoryDataStore implements IDataStore {
             tuitionItem.balance_due = newTuition;
             inv.total_amount = Math.max(0, Number(inv.total_amount || 0) + diff);
             inv.balance_due = Math.max(0, Number(inv.balance_due || 0) + diff);
+            inv.subtotal_amount = Math.max(0, Number(inv.subtotal_amount || inv.total_amount || 0) + diff);
+            inv.subtotal = inv.subtotal_amount;
+            inv.net_amount = Math.max(0, Number(inv.net_amount || inv.total_amount || 0) + diff);
+            inv.net_total = inv.net_amount;
+            inv.balance_amount = inv.balance_due;
             inv.updated_at = new Date().toISOString();
           }
         }
@@ -5189,8 +5224,32 @@ export class InMemoryDataStore implements IDataStore {
     if (data.installment_plan !== undefined) enrollment.installment_plan = data.installment_plan;
     enrollment.updated_at = new Date().toISOString();
 
+    // If batch changed, shift open unpaid invoices to new batch/program
+    if (isBatchChanging && data.batch_id) {
+      const targetBatchObj = this.batches.find(b => b.id === data.batch_id && b.tenant_id === tenantId);
+      const targetProgObj = targetBatchObj ? this.programs.find(p => p.id === targetBatchObj.program_id && p.tenant_id === tenantId) : undefined;
+      const unpaidInvoices = this.invoices.filter(
+        inv => inv.tenant_id === tenantId &&
+               inv.student_id === studentId &&
+               inv.status === 'unpaid' &&
+               inv.paid_amount === 0 &&
+               (inv.enrollment_id === enrollmentId || !inv.enrollment_id)
+      );
+      for (const inv of unpaidInvoices) {
+        inv.batch_id = data.batch_id;
+        if (targetBatchObj) inv.batch_name = targetBatchObj.name;
+        if (targetProgObj) {
+          inv.program_id = targetProgObj.id;
+          inv.program_name = targetProgObj.name;
+        }
+        if (enrollment.roll_number) inv.roll_number = enrollment.roll_number;
+        inv.updated_at = new Date().toISOString();
+      }
+    }
+
     if (data.update_unpaid_challans && (data.batch_id || data.fee_structure)) {
       const targetBatchObj = data.batch_id ? this.batches.find(b => b.id === data.batch_id && b.tenant_id === tenantId) : undefined;
+      const targetProgObj = targetBatchObj ? this.programs.find(p => p.id === targetBatchObj.program_id && p.tenant_id === tenantId) : undefined;
       const newTuition = Number(data.fee_structure?.tuition_fee ?? data.fee_structure?.base_tuition_fee ?? data.fee_structure?.recurring_monthly ?? targetBatchObj?.fee_amount ?? 0);
       const unpaidInvoices = this.invoices.filter(
         inv => inv.tenant_id === tenantId &&
@@ -5200,7 +5259,14 @@ export class InMemoryDataStore implements IDataStore {
                (inv.enrollment_id === enrollmentId || !inv.enrollment_id)
       );
       for (const inv of unpaidInvoices) {
-        if (data.batch_id) inv.batch_id = data.batch_id;
+        if (data.batch_id) {
+          inv.batch_id = data.batch_id;
+          if (targetBatchObj) inv.batch_name = targetBatchObj.name;
+          if (targetProgObj) {
+            inv.program_id = targetProgObj.id;
+            inv.program_name = targetProgObj.name;
+          }
+        }
         if (newTuition > 0 && Array.isArray(inv.items)) {
           const tuitionItem = inv.items.find(
             it => it.head_code?.toLowerCase() === 'tuition' || it.head_name?.toLowerCase().includes('tuition')
@@ -5212,6 +5278,11 @@ export class InMemoryDataStore implements IDataStore {
             tuitionItem.balance_due = newTuition;
             inv.total_amount = Math.max(0, Number(inv.total_amount || 0) + diff);
             inv.balance_due = Math.max(0, Number(inv.balance_due || 0) + diff);
+            inv.subtotal_amount = Math.max(0, Number(inv.subtotal_amount || inv.total_amount || 0) + diff);
+            inv.subtotal = inv.subtotal_amount;
+            inv.net_amount = Math.max(0, Number(inv.net_amount || inv.total_amount || 0) + diff);
+            inv.net_total = inv.net_amount;
+            inv.balance_amount = inv.balance_due;
             inv.updated_at = new Date().toISOString();
           }
         }
@@ -7796,7 +7867,7 @@ export class InMemoryDataStore implements IDataStore {
       priorInvoices = this.invoices.filter(i =>
         i.tenant_id === tenantId &&
         i.student_id === student.id &&
-        (enrollment && i.enrollment_id ? i.enrollment_id === enrollment.id : i.batch_id === targetBatchId) &&
+        (enrollment?.id && i.enrollment_id ? i.enrollment_id === enrollment.id : (i.batch_id === targetBatchId || i.batch_id === student.batch_id || !i.enrollment_id)) &&
         i.id !== invoiceId &&
         i.status !== 'paid' &&
         i.status !== 'voided' &&

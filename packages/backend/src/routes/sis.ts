@@ -348,7 +348,7 @@ export function sisRoutes(store: IDataStore) {
 
       const schema = z.object({
         status: z.enum(['active', 'on_leave', 'suspended', 'withdrawn', 'completed', 'archived']),
-        reason: z.string().min(1, 'Reason for enrollment status change is required'),
+        reason: z.string().optional().default('Class departure'),
         cancel_unpaid_invoices: z.boolean().default(false),
       });
 

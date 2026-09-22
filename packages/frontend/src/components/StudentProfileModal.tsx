@@ -376,7 +376,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [transferTargetBatchId, setTransferTargetBatchId] = useState('');
   const [transferTargetElectiveGroupId, setTransferTargetElectiveGroupId] = useState('');
   const [transferDate, setTransferDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [transferReason, setTransferReason] = useState('Academic schedule adjustment or batch transfer');
+  const [transferReason, setTransferReason] = useState('');
   const [transferFeeMode, setTransferFeeMode] = useState<'keep_current' | 'batch_standard' | 'custom'>('keep_current');
   const [transferCustomFee, setTransferCustomFee] = useState<number | string>('');
   const [transferUpdateUnpaidChallans, setTransferUpdateUnpaidChallans] = useState(true);
@@ -805,7 +805,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   // Leave Class Modal State
   const [leaveClassEnrollment, setLeaveClassEnrollment] = useState<StudentEnrollment | null>(null);
   const [leaveClassStatus, setLeaveClassStatus] = useState<StudentEnrollmentStatus>('withdrawn');
-  const [leaveClassReason, setLeaveClassReason] = useState('Schedule clash with college practicals');
+  const [leaveClassReason, setLeaveClassReason] = useState('');
   const [leaveClassCancelUnpaid, setLeaveClassCancelUnpaid] = useState(true);
   const [isLeavingClass, setIsLeavingClass] = useState(false);
   const [leaveClassError, setLeaveClassError] = useState<string | null>(null);
@@ -899,12 +899,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const handleConfirmLeaveClass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !currentStudent.id || !leaveClassEnrollment) return;
-    if (!leaveClassReason.trim()) {
-      setLeaveClassError('Reason is required for exiting class.');
-      return;
-    }
     setIsLeavingClass(true);
     setLeaveClassError(null);
+    const effectiveReason = leaveClassReason.trim() || 'Class exit regularization';
     try {
       const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/enrollments/${leaveClassEnrollment.id}/status`, {
         method: 'POST',
@@ -914,7 +911,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         },
         body: JSON.stringify({
           status: leaveClassStatus,
-          reason: leaveClassReason.trim(),
+          reason: effectiveReason,
           cancel_unpaid_invoices: leaveClassCancelUnpaid,
         }),
       });
@@ -940,7 +937,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setTransferTargetBatchId(enr.batch_id);
     setTransferTargetElectiveGroupId(enr.elective_group_id || '');
     setTransferDate(new Date().toISOString().split('T')[0]);
-    setTransferReason('Academic schedule adjustment or batch transfer');
+    setTransferReason('');
     setTransferFeeMode('keep_current');
     const curB = batches.find(b => b.id === enr.batch_id);
     setTransferCustomFee(curB?.fee_amount || 0);
@@ -991,7 +988,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           elective_group_id: transferTargetElectiveGroupId || undefined,
           transfer_effective_date: transferDate,
           transfer_reason: transferReason.trim() || 'Academic class/section transfer',
-          update_unpaid_challans: transferUpdateUnpaidChallans,
+          update_unpaid_challans: transferFeeMode !== 'keep_current' ? transferUpdateUnpaidChallans : false,
           ...(feeObj ? { fee_structure: feeObj } : {}),
         }),
       });
@@ -1890,7 +1887,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                                       onClick={() => {
                                         setLeaveClassEnrollment(enr);
                                         setLeaveClassStatus('withdrawn');
-                                        setLeaveClassReason('Schedule clash with college practicals');
+                                        setLeaveClassReason('');
                                         setLeaveClassCancelUnpaid(true);
                                         setLeaveClassError(null);
                                       }}
@@ -4811,14 +4808,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Reason for Exiting Class <span className="text-rose-500">*</span>
+                  Reason for Exiting Class <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
                 </label>
                 <input
                   type="text"
-                  required
                   value={leaveClassReason}
                   onChange={e => setLeaveClassReason(e.target.value)}
-                  placeholder="e.g. Schedule clash with college practicals"
+                  placeholder="e.g. Completed course, schedule conflict (optional)"
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                 />
               </div>
@@ -4850,7 +4846,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isLeavingClass || !leaveClassReason.trim()}
+                  disabled={isLeavingClass}
                   className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <ShieldAlert className="w-3.5 h-3.5" />
@@ -4992,14 +4988,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Administrative Reason <span className="text-rose-500">*</span>
+                    Administrative Reason <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
                   </label>
                   <input
                     type="text"
-                    required
                     value={transferReason}
                     onChange={e => setTransferReason(e.target.value)}
-                    placeholder="e.g. Batch schedule adjustment"
+                    placeholder="e.g. Schedule adjustment, track change (optional)"
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                   />
                 </div>
@@ -5060,25 +5055,27 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               </div>
 
-              {/* Unpaid Challan Update Checkbox */}
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <label className="flex items-start gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={transferUpdateUnpaidChallans}
-                    onChange={e => setTransferUpdateUnpaidChallans(e.target.checked)}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 mt-0.5"
-                  />
-                  <div>
-                    <span className="font-semibold text-slate-800 block">
-                      Update unpaid fee challan(s) for this class
-                    </span>
-                    <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
-                      Adjusts pending challans to the new batch rate. Past arrears from previous months remain locked on the student ledger and roll forward onto future challans.
-                    </span>
-                  </div>
-                </label>
-              </div>
+              {/* Unpaid Challan Update Checkbox — only shown when fee rate changes (batch_standard or custom) */}
+              {transferFeeMode !== 'keep_current' && (
+                <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-lg animate-in fade-in duration-150">
+                  <label className="flex items-start gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={transferUpdateUnpaidChallans}
+                      onChange={e => setTransferUpdateUnpaidChallans(e.target.checked)}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 mt-0.5"
+                    />
+                    <div>
+                      <span className="font-semibold text-slate-800 block">
+                        Update unpaid fee challan(s) to new rate
+                      </span>
+                      <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
+                        Adjusts open unpaid challan(s) for this class to the new tuition rate. Past arrears from previous months remain locked on the student ledger and roll forward onto future challans.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
                 <button
@@ -5090,7 +5087,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmittingTransfer || !transferReason.trim()}
+                  disabled={isSubmittingTransfer}
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <ArrowRightLeft className="w-3.5 h-3.5" />
