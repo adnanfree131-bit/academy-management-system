@@ -1630,7 +1630,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           <div className="p-3.5 border-b border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <h2 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Backups</h2>
-              <SectionInfo text="Daily copies in the database (14 days), plus local file export and nightly backups. Restore from a file or from the list." />
+              <SectionInfo text="The live file holds every academy. Auto backup keeps the last 2 weekly copies of that whole file; a new week drops the oldest weekly. Super Admin can Save backup now anytime (last 10 kept). Academy admins do not back up. Copies do not pile up next month." />
             </div>
             <div className="flex items-center gap-2">
               <button

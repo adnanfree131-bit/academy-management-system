@@ -63,7 +63,15 @@ function getPool(): pg.Pool {
   return pool;
 }
 
+const WEEKLY_BACKUP_KEEP = 2;
+const MANUAL_BACKUP_KEEP = 10;
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+let tablesEnsured = false;
+let lastWrittenJson: string | null = null;
+
 async function ensureTable(client: pg.Pool): Promise<void> {
+  if (tablesEnsured) return;
   await client.query(`
     CREATE TABLE IF NOT EXISTS kampus_store_snapshot (
       id INTEGER PRIMARY KEY,
@@ -71,6 +79,7 @@ async function ensureTable(client: pg.Pool): Promise<void> {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await client.query(`ALTER TABLE kampus_store_snapshot ADD COLUMN IF NOT EXISTS academy_count INTEGER`);
   await client.query(`
     CREATE TABLE IF NOT EXISTS kampus_store_snapshot_history (
       id BIGSERIAL PRIMARY KEY,
@@ -88,11 +97,30 @@ async function ensureTable(client: pg.Pool): Promise<void> {
     )
   `);
   await client.query(`CREATE INDEX IF NOT EXISTS kampus_store_backups_kind_created ON kampus_store_backups (kind, created_at DESC)`);
+  // Per-save history copies filled the free 500 MB disk. Auto backup is weekly.
+  await client.query(`DELETE FROM kampus_store_snapshot_history`);
+  await client.query(`DELETE FROM kampus_store_backups WHERE kind = 'hourly'`);
+  await trimBackups(client, 'daily', 0);
+  await trimBackups(client, 'weekly', WEEKLY_BACKUP_KEEP);
+  await trimBackups(client, 'manual', MANUAL_BACKUP_KEEP);
+  tablesEnsured = true;
+}
+
+async function trimBackups(client: pg.Pool, kind: 'daily' | 'weekly' | 'manual', keep: number): Promise<void> {
+  await client.query(
+    `
+      DELETE FROM kampus_store_backups
+      WHERE kind = $1 AND id NOT IN (
+        SELECT id FROM kampus_store_backups WHERE kind = $1 ORDER BY created_at DESC LIMIT $2
+      )
+    `,
+    [kind, keep]
+  );
 }
 
 export interface DataBackupMeta {
   id: number;
-  kind: 'hourly' | 'daily' | 'manual';
+  kind: 'hourly' | 'daily' | 'weekly' | 'manual';
   academy_count: number;
   created_at: string;
 }
@@ -107,15 +135,37 @@ export function countRealAcademies(payload: Record<string, unknown> | null | und
   }).length;
 }
 
+export function wouldWipeAcademies(previousCount: number, nextCount: number): boolean {
+  return previousCount > 0 && nextCount === 0;
+}
+
+async function readStoredAcademyCount(client: pg.Pool): Promise<number> {
+  const countRow = await client.query('SELECT academy_count FROM kampus_store_snapshot WHERE id = 1');
+  if (!countRow.rows[0]) return 0;
+  const stored = countRow.rows[0].academy_count;
+  if (stored !== null && stored !== undefined) return Number(stored);
+
+  const full = await client.query('SELECT payload FROM kampus_store_snapshot WHERE id = 1');
+  const previousCount = countRealAcademies(full.rows[0]?.payload);
+  await client.query('UPDATE kampus_store_snapshot SET academy_count = $1 WHERE id = 1', [previousCount]);
+  return previousCount;
+}
+
 export async function loadSnapshot(): Promise<Record<string, unknown> | null> {
   if (process.env.DATABASE_URL && persistenceEnabled()) {
     try {
       const client = getPool();
       await ensureTable(client);
-      const result = await client.query('SELECT payload FROM kampus_store_snapshot WHERE id = 1');
+      const result = await client.query('SELECT payload, academy_count FROM kampus_store_snapshot WHERE id = 1');
       if (result.rows[0]?.payload) {
         const dbPayload = result.rows[0].payload as Record<string, unknown>;
+        if (result.rows[0].academy_count === null || result.rows[0].academy_count === undefined) {
+          await client.query('UPDATE kampus_store_snapshot SET academy_count = $1 WHERE id = 1', [
+            countRealAcademies(dbPayload),
+          ]);
+        }
         saveLocalFileSnapshot(dbPayload);
+        lastWrittenJson = JSON.stringify(dbPayload);
         return dbPayload;
       }
     } catch (err: any) {
@@ -137,41 +187,30 @@ export async function saveSnapshot(payload: Record<string, unknown>): Promise<vo
 
   if (!process.env.DATABASE_URL || !persistenceEnabled()) return;
 
+  const json = JSON.stringify(payload);
+  if (json === lastWrittenJson) return;
+
   try {
     const client = getPool();
     await ensureTable(client);
 
-    const existing = await client.query('SELECT payload FROM kampus_store_snapshot WHERE id = 1');
-    const previous = (existing.rows[0]?.payload || null) as Record<string, unknown> | null;
-    const previousCount = countRealAcademies(previous);
     const nextCount = countRealAcademies(payload);
-    if (previousCount > 0 && nextCount === 0) {
+    const previousCount = await readStoredAcademyCount(client);
+    if (wouldWipeAcademies(previousCount, nextCount)) {
       throw new Error(
         `Refusing to overwrite snapshot: would delete ${previousCount} live academ${previousCount === 1 ? 'y' : 'ies'}`
       );
     }
 
-    if (previous) {
-      await client.query(
-        `INSERT INTO kampus_store_snapshot_history (payload) VALUES ($1::jsonb)`,
-        [JSON.stringify(previous)]
-      );
-      await client.query(`
-        DELETE FROM kampus_store_snapshot_history
-        WHERE id NOT IN (
-          SELECT id FROM kampus_store_snapshot_history ORDER BY saved_at DESC LIMIT 50
-        )
-      `);
-      await archiveNamedBackups(client, previous);
-    }
-    await archiveNamedBackups(client, payload);
+    await archiveNamedBackups(client, json, nextCount);
 
     await client.query(
-      `INSERT INTO kampus_store_snapshot (id, payload, updated_at)
-       VALUES (1, $1::jsonb, NOW())
-       ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()`,
-      [JSON.stringify(payload)]
+      `INSERT INTO kampus_store_snapshot (id, payload, academy_count, updated_at)
+       VALUES (1, $1::jsonb, $2, NOW())
+       ON CONFLICT (id) DO UPDATE SET payload = EXCLUDED.payload, academy_count = EXCLUDED.academy_count, updated_at = NOW()`,
+      [json, nextCount]
     );
+    lastWrittenJson = json;
   } catch (err: any) {
     if (
       err.code === 'ECONNREFUSED' ||
@@ -187,28 +226,21 @@ export async function saveSnapshot(payload: Record<string, unknown>): Promise<vo
   }
 }
 
-async function archiveNamedBackups(client: pg.Pool, payload: Record<string, unknown>): Promise<void> {
-  const count = countRealAcademies(payload);
+async function archiveNamedBackups(client: pg.Pool, json: string, count: number): Promise<void> {
   if (count <= 0) return;
-  const json = JSON.stringify(payload);
 
-  const lastDaily = await client.query(
-    `SELECT created_at FROM kampus_store_backups WHERE kind = 'daily' ORDER BY created_at DESC LIMIT 1`
+  const lastAuto = await client.query(
+    `SELECT created_at FROM kampus_store_backups WHERE kind IN ('weekly', 'daily') ORDER BY created_at DESC LIMIT 1`
   );
-  const sameUtcDay = lastDaily.rows[0]
-    && new Date(lastDaily.rows[0].created_at).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10);
-  if (!sameUtcDay) {
-    await client.query(
-      `INSERT INTO kampus_store_backups (kind, academy_count, payload) VALUES ('daily', $1, $2::jsonb)`,
-      [count, json]
-    );
-    await client.query(`
-      DELETE FROM kampus_store_backups
-      WHERE kind = 'daily' AND id NOT IN (
-        SELECT id FROM kampus_store_backups WHERE kind = 'daily' ORDER BY created_at DESC LIMIT 14
-      )
-    `);
-  }
+  const lastAt = lastAuto.rows[0]?.created_at as string | Date | undefined;
+  const due = !lastAt || Date.now() - new Date(lastAt).getTime() >= WEEK_MS;
+  if (!due) return;
+
+  await client.query(
+    `INSERT INTO kampus_store_backups (kind, academy_count, payload) VALUES ('weekly', $1, $2::jsonb)`,
+    [count, json]
+  );
+  await trimBackups(client, 'weekly', WEEKLY_BACKUP_KEEP);
 }
 
 export async function listDataBackups(): Promise<DataBackupMeta[]> {
@@ -253,12 +285,7 @@ export async function createManualBackup(payload: Record<string, unknown>): Prom
        RETURNING id, kind, academy_count, created_at`,
       [count, JSON.stringify(payload)]
     );
-    await client.query(`
-      DELETE FROM kampus_store_backups
-      WHERE kind = 'manual' AND id NOT IN (
-        SELECT id FROM kampus_store_backups WHERE kind = 'manual' ORDER BY created_at DESC LIMIT 20
-      )
-    `);
+    await trimBackups(client, 'manual', MANUAL_BACKUP_KEEP);
     const row = result.rows[0];
     return {
       id: Number(row.id),
