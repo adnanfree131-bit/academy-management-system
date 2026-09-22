@@ -108,7 +108,7 @@ export function portalRoutes(store: IDataStore) {
           targetStudentId = myStudent.id;
         } else if (user.role === 'parent') {
           const tenantStudents = await store.getStudents(tenantId);
-          const parentCnic = (me?.metadata as any)?.guardian_id_card || (me?.metadata as any)?.clean_guardian_id_card;
+          const parentCnic = (me?.metadata as any)?.guardian_id_card || (me?.metadata as any)?.clean_guardian_id_card || (user as any).cnic || (user as any).guardian_id_card;
           const cleanParentCnic = parentCnic ? String(parentCnic).replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
 
           const children = tenantStudents.filter(s => {
@@ -143,11 +143,12 @@ export function portalRoutes(store: IDataStore) {
           const allPrograms = await store.getPrograms(tenantId);
           const allInvoices = await store.getInvoices(tenantId);
 
-          linkedChildren = children.map(c => {
+          linkedChildren = await Promise.all(children.map(async c => {
             const b = allBatches.find(batch => batch.id === c.batch_id);
             const p = allPrograms.find(prog => prog.id === c.program_id);
             const cInvoices = allInvoices.filter(i => i.student_id === c.id && i.status !== 'voided');
             const unpaid = cInvoices.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
+            const enrollments = await store.getStudentEnrollments(tenantId, c.id);
             return {
               id: c.id,
               full_name: c.full_name,
@@ -157,8 +158,16 @@ export function portalRoutes(store: IDataStore) {
               batch_name: b?.name || 'Batch',
               photo_url: c.photo_url,
               unpaid_balance: unpaid,
+              classes: enrollments.map(e => ({
+                id: e.id,
+                program_name: allPrograms.find(prog => prog.id === e.program_id)?.name || 'Class',
+                batch_name: allBatches.find(batch => batch.id === e.batch_id)?.name || 'Section',
+                roll_number: e.roll_number,
+                status: e.status,
+                is_primary: e.is_primary,
+              })),
             };
-          });
+          }));
         } else if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
           return reply.status(403).send({
             success: false,
@@ -180,11 +189,12 @@ export function portalRoutes(store: IDataStore) {
           const allBatches = await store.getBatches(tenantId);
           const allPrograms = await store.getPrograms(tenantId);
           const allInvoices = await store.getInvoices(tenantId);
-          linkedChildren = tenantStudents.slice(0, 20).map(c => {
+          linkedChildren = await Promise.all(tenantStudents.slice(0, 20).map(async c => {
             const b = allBatches.find(batch => batch.id === c.batch_id);
             const p = allPrograms.find(prog => prog.id === c.program_id);
             const cInvoices = allInvoices.filter(i => i.student_id === c.id && i.status !== 'voided');
             const unpaid = cInvoices.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
+            const enrollments = await store.getStudentEnrollments(tenantId, c.id);
             return {
               id: c.id,
               full_name: c.full_name,
@@ -194,11 +204,20 @@ export function portalRoutes(store: IDataStore) {
               batch_name: b?.name || 'Batch',
               photo_url: c.photo_url,
               unpaid_balance: unpaid,
+              classes: enrollments.map(e => ({
+                id: e.id,
+                program_name: allPrograms.find(prog => prog.id === e.program_id)?.name || 'Class',
+                batch_name: allBatches.find(batch => batch.id === e.batch_id)?.name || 'Section',
+                roll_number: e.roll_number,
+                status: e.status,
+                is_primary: e.is_primary,
+              })),
             };
-          });
+          }));
         }
 
-        const overview = await store.getStudentParentPortalOverview(tenantId, targetStudentId);
+        const enrollmentId = req.query.enrollment_id;
+        const overview = await store.getStudentParentPortalOverview(tenantId, targetStudentId, enrollmentId);
         if (linkedChildren) {
           overview.linked_children = linkedChildren;
         }

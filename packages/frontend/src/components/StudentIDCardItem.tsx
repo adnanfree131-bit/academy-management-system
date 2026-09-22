@@ -63,7 +63,6 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
     institution: academyName,
     id: student.id,
     adm: student.admission_number,
-    roll: student.roll_number,
     name: student.full_name,
     batch: batch?.name || 'Standard Batch',
     valid_until: validUntil,
@@ -132,12 +131,8 @@ export const StudentIDCardItem: React.FC<StudentIDCardItemProps> = ({
           <table className="w-full text-left text-[8.5px] border-collapse leading-tight">
             <tbody>
               <tr>
-                <td className="text-slate-500 font-semibold w-16 py-0.5">Roll No:</td>
-                <td className="font-mono font-bold text-slate-900 py-0.5">{student.roll_number}</td>
-              </tr>
-              <tr>
-                <td className="text-slate-500 font-semibold py-0.5">Reg/Adm:</td>
-                <td className="font-mono font-semibold text-slate-700 py-0.5">{student.admission_number}</td>
+                <td className="text-slate-500 font-semibold w-16 py-0.5">Adm No:</td>
+                <td className="font-mono font-bold text-slate-900 py-0.5">{student.admission_number}</td>
               </tr>
               <tr>
                 <td className="text-slate-500 font-semibold py-0.5">Class:</td>

@@ -138,7 +138,7 @@ export const FeeDeskView: React.FC = () => {
     guardianName: string;
     guardianPhone: string;
     date: string;
-    breakdown: Array<{ studentName: string; rollNumber: string; className: string; amountPaid: number }>;
+    breakdown: Array<{ studentName: string; admissionNumber?: string; rollNumber?: string; className: string; amountPaid: number }>;
   } | null>(null);
 
   // Reports Hub State
@@ -428,6 +428,7 @@ export const FeeDeskView: React.FC = () => {
         entry = {
           student_id: inv.student_id,
           student_name: inv.student_name,
+          admission_number: stud?.admission_number || inv.admission_number || '',
           roll_number: inv.roll_number,
           program_name: progName,
           batch_id: inv.batch_id,
@@ -552,10 +553,11 @@ export const FeeDeskView: React.FC = () => {
       return true; // 'all'
     });
 
-    const grouped = new Map<string, {
+    type DefaulterEntry = {
       student_id: string;
       student_name: string;
-      roll_number: string;
+      admission_number?: string;
+      roll_number?: string;
       father_name: string;
       guardian_phone: string;
       program_name: string;
@@ -567,17 +569,20 @@ export const FeeDeskView: React.FC = () => {
       total_balance: number;
       latest_invoice: StudentInvoice;
       invoices: (StudentInvoice & { overdue_days: number })[];
-    }>();
+    };
+
+    const grouped = new Map<string, DefaulterEntry>();
 
     for (const inv of relevant) {
       const stud = students.find(s => s.id === inv.student_id);
       let entry = grouped.get(inv.student_id);
       if (!entry) {
         const progName = inv.program_name || getProgramName(inv.program_id || stud?.program_id) || 'Class';
-        entry = {
+        const newEntry: DefaulterEntry = {
           student_id: inv.student_id,
           student_name: inv.student_name,
-          roll_number: inv.roll_number,
+          admission_number: stud?.admission_number || inv.admission_number || '',
+          roll_number: inv.roll_number || undefined,
           program_name: progName,
           batch_id: inv.batch_id,
           batch_name: inv.batch_name,
@@ -590,7 +595,8 @@ export const FeeDeskView: React.FC = () => {
           invoices: [],
           latest_invoice: inv,
         };
-        grouped.set(inv.student_id, entry);
+        grouped.set(inv.student_id, newEntry);
+        entry = newEntry;
       }
 
       entry.invoices.push(inv);
@@ -614,7 +620,7 @@ export const FeeDeskView: React.FC = () => {
           const q = searchQuery.toLowerCase();
           const hit =
             def.student_name.toLowerCase().includes(q) ||
-            def.roll_number.toLowerCase().includes(q) ||
+            (def.admission_number && def.admission_number.toLowerCase().includes(q)) ||
             def.father_name.toLowerCase().includes(q) ||
             def.guardian_phone.toLowerCase().includes(q) ||
             def.unpaid_months.some(m => m.toLowerCase().includes(q));
@@ -837,6 +843,7 @@ export const FeeDeskView: React.FC = () => {
       if (res.ok && data.success) {
         const breakdown = data.data.results.map((r: any) => ({
           studentName: r.invoice.student_name,
+          admissionNumber: r.invoice.admission_number || r.invoice.roll_number,
           rollNumber: r.invoice.roll_number,
           className: r.invoice.program_name || '',
           amountPaid: r.payment.amount_paid,
@@ -885,12 +892,11 @@ export const FeeDeskView: React.FC = () => {
     const q = cashierSearch.toLowerCase().trim();
     return list.filter(s => {
       const nameMatch = s.full_name?.toLowerCase().includes(q);
-      const rollMatch = s.roll_number?.toLowerCase().includes(q);
       const admMatch = s.admission_number?.toLowerCase().includes(q);
       const guardMatch = s.guardian_name?.toLowerCase().includes(q) || s.father_name?.toLowerCase().includes(q);
       const phoneMatch = s.phone?.includes(q) || s.guardian_phone?.includes(q);
       const cnicMatch = s.guardian_id_card?.includes(q);
-      return nameMatch || rollMatch || admMatch || guardMatch || phoneMatch || cnicMatch;
+      return nameMatch || admMatch || guardMatch || phoneMatch || cnicMatch;
     }).slice(0, 50);
   }, [students, cashierClassFilter, cashierSearch]);
 
@@ -960,7 +966,7 @@ export const FeeDeskView: React.FC = () => {
         const batch = batches.find(b => b.id === stud?.batch_id);
         return {
           sr: String(i + 1),
-          roll: stud?.roll_number || '—',
+          adm: stud?.admission_number || '—',
           student: stud?.full_name || 'Student',
           class_name: `${progName}${batch?.name ? ` (${batch.name})` : ''}`,
           type: d.discount_type.toUpperCase(),
@@ -984,7 +990,7 @@ export const FeeDeskView: React.FC = () => {
         ],
         columns: [
           { key: 'sr', label: 'S#', width: 24 },
-          { key: 'roll', label: 'Roll #', width: 40 },
+          { key: 'adm', label: 'Adm #', width: 44 },
           { key: 'student', label: 'Student Name', width: 105 },
           { key: 'class_name', label: 'Class & Sec', width: 85 },
           { key: 'type', label: 'Type', width: 45 },
@@ -1021,7 +1027,7 @@ export const FeeDeskView: React.FC = () => {
         filename = `Fee_Defaulters_${new Date().toISOString().split('T')[0]}.pdf`;
         const rows = defaultersList.map((d, i) => ({
           sr: String(i + 1),
-          roll: d.roll_number,
+          adm: d.admission_number || '—',
           name: d.student_name,
           class_sec: `${d.program_name} (${d.batch_name})`,
           father: d.father_name,
@@ -1042,7 +1048,7 @@ export const FeeDeskView: React.FC = () => {
           ],
           columns: [
             { key: 'sr', label: 'S#', width: 26 },
-            { key: 'roll', label: 'Roll #', width: 44 },
+            { key: 'adm', label: 'Adm #', width: 44 },
             { key: 'name', label: 'Student Name', width: 95 },
             { key: 'class_sec', label: 'Class & Sec', width: 95 },
             { key: 'father', label: 'Father Name', width: 85 },
@@ -1070,7 +1076,7 @@ export const FeeDeskView: React.FC = () => {
           const studInvs = invoices.filter(i => i.student_id === s.id && i.status !== 'paid');
           const due = studInvs.reduce((sum, inv) => sum + inv.balance_amount, 0);
           const progName = getProgramName(s.program_id) || 'Class';
-          const childDesc = `${s.full_name} (${progName} - Roll ${s.roll_number})`;
+          const childDesc = `${s.full_name} (${progName} - Adm ${s.admission_number})`;
           if (!fam) {
             fam = {
               guardian: s.guardian_name || s.father_name || 'Guardian',
@@ -1237,7 +1243,7 @@ export const FeeDeskView: React.FC = () => {
         const rows = monthInvoices.map((inv, i) => ({
           sr: String(i + 1),
           inv_no: inv.invoice_number,
-          roll: inv.roll_number,
+          adm: inv.admission_number || '',
           name: inv.student_name,
           class_name: inv.program_name || '',
           due_date: inv.due_date,
@@ -1258,7 +1264,7 @@ export const FeeDeskView: React.FC = () => {
           columns: [
             { key: 'sr', label: 'S#', width: 24 },
             { key: 'inv_no', label: 'Challan #', width: 65 },
-            { key: 'roll', label: 'Roll #', width: 38 },
+            { key: 'adm', label: 'Adm #', width: 44 },
             { key: 'name', label: 'Student Name', width: 95 },
             { key: 'class_name', label: 'Class', width: 65 },
             { key: 'status', label: 'Status', width: 55 },
@@ -1348,7 +1354,7 @@ export const FeeDeskView: React.FC = () => {
           const progName = stud ? getProgramName(stud.program_id) : '—';
           return {
             sr: String(i + 1),
-            roll: stud?.roll_number || '—',
+            adm: stud?.admission_number || '—',
             student: stud?.full_name || 'Student',
             class_name: progName,
             type: d.discount_type.toUpperCase(),
@@ -1364,7 +1370,7 @@ export const FeeDeskView: React.FC = () => {
           ],
           columns: [
             { key: 'sr', label: 'S#', width: 26 },
-            { key: 'roll', label: 'Roll #', width: 44 },
+            { key: 'adm', label: 'Adm #', width: 44 },
             { key: 'student', label: 'Student Name', width: 110 },
             { key: 'class_name', label: 'Class', width: 85 },
             { key: 'amount', label: 'Discount Value', width: 75, align: 'right' },
@@ -1376,13 +1382,13 @@ export const FeeDeskView: React.FC = () => {
       } else if (reportType === 'student_ledger') {
         const stud = students.find(s => s.id === ledgerStudentId);
         title = `Student Fee Ledger: ${stud?.full_name || 'Student'}`;
-        filename = `Ledger_${stud?.roll_number || 'student'}.pdf`;
+        filename = `Ledger_${stud?.admission_number || 'student'}.pdf`;
         bytes = await buildSimpleStatementPdf({
           title: 'Student Fee Ledger',
           academy: letterhead,
           identity: [
             { label: 'Student', value: stud?.full_name || '—' },
-            { label: 'Roll No', value: stud?.roll_number || '—' },
+            { label: 'Admission #', value: stud?.admission_number || '—' },
             { label: 'Class', value: getProgramName(stud?.program_id) || '—' },
             { label: 'Entries', value: String(studentLedger.length) },
           ],
@@ -1660,8 +1666,8 @@ export const FeeDeskView: React.FC = () => {
       due_date: inv.due_date,
       issue_date: (inv as any).issue_date || new Date().toISOString().split('T')[0],
       student_name: inv.student_name,
-      roll_number: inv.roll_number,
-      admission_number: stud?.admission_number || inv.roll_number,
+      roll_number: inv.roll_number || undefined,
+      admission_number: stud?.admission_number || inv.admission_number || '',
       father_name: stud?.father_name || stud?.guardian_name || 'Guardian',
       guardian_phone: stud?.guardian_phone || stud?.guardian_whatsapp || stud?.phone || '',
       program_name: inv.program_name || getProgramName(inv.program_id || stud?.program_id) || (inv as any).program_name || stud?.program_name || 'Class 7',
@@ -1684,7 +1690,7 @@ export const FeeDeskView: React.FC = () => {
   // Helper to build FeeSlipData for Official Payment Receipt
   const buildReceiptSlipData = (payment: any, inv?: StudentInvoice | null): FeeSlipData => {
     const studentId = inv?.student_id || payment?.student_id;
-    const stud = students.find(s => s.id === studentId || s.roll_number === payment?.roll_number);
+    const stud = students.find(s => s.id === studentId || (s.admission_number && s.admission_number === payment?.admission_number));
     const grossAmt = Number((inv as any)?.gross_amount || inv?.net_amount || (Number(payment.amount_paid || 0) + Number(inv?.balance_amount || 0)));
     const balanceDue = inv != null ? Number(inv.balance_amount) : 0;
 
@@ -1720,8 +1726,8 @@ export const FeeDeskView: React.FC = () => {
       cheque_number: payment.cheque_number || undefined,
       collected_by: payment.collected_by || 'Accounts Desk',
       student_name: payment.student_name || inv?.student_name || stud?.name || 'Student',
-      roll_number: payment.roll_number || inv?.roll_number || stud?.roll_number,
-      admission_number: stud?.admission_number || inv?.roll_number || payment.roll_number,
+      roll_number: payment.roll_number || inv?.roll_number || stud?.roll_number || undefined,
+      admission_number: stud?.admission_number || inv?.admission_number || payment.admission_number || '',
       father_name: stud?.father_name || stud?.guardian_name || 'Guardian',
       guardian_phone: stud?.guardian_phone || stud?.guardian_whatsapp || stud?.phone || '',
       program_name: inv?.program_name || getProgramName(inv?.program_id || stud?.program_id) || (inv as any)?.program_name || stud?.program_name || 'Class 7',
@@ -2260,7 +2266,7 @@ export const FeeDeskView: React.FC = () => {
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search by student name, roll #, phone, or CNIC..."
+                  placeholder="Search by student name, admission #, phone, or CNIC..."
                   value={cashierSearch}
                   onChange={e => {
                     const next = e.target.value;
@@ -2421,7 +2427,7 @@ export const FeeDeskView: React.FC = () => {
                                   {def.student_name}
                                 </button>
                                 <p className="text-[10px] text-slate-500 font-mono truncate">
-                                  Roll: #{def.roll_number || '—'} • {def.program_name}
+                                  Adm: #{def.admission_number || '—'} • {def.program_name}
                                 </p>
                               </div>
                             </div>
@@ -2492,7 +2498,7 @@ export const FeeDeskView: React.FC = () => {
                                       {def.student_name}
                                     </button>
                                     <div className="text-[10px] text-slate-400 font-mono">
-                                      Roll: #{def.roll_number || '—'}
+                                      Adm: #{def.admission_number || '—'}
                                     </div>
                                   </div>
                                 </div>
@@ -2563,13 +2569,8 @@ export const FeeDeskView: React.FC = () => {
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-sm font-bold text-slate-900">{selectedStudent.full_name}</h3>
                           <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-800 text-[10px] font-mono font-bold">
-                            Roll #{selectedStudent.roll_number || '—'}
+                            Adm #{selectedStudent.admission_number || '—'}
                           </span>
-                          {selectedStudent.admission_number && (
-                            <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 text-[10px] font-mono">
-                              Adm #{selectedStudent.admission_number}
-                            </span>
-                          )}
                           <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-semibold">
                             {getProgramName(selectedStudent.program_id) || 'Academic Class'}
                             {batches.find(b => b.id === selectedStudent.batch_id)?.name ? ` • ${batches.find(b => b.id === selectedStudent.batch_id)?.name}` : ''}
@@ -3080,7 +3081,7 @@ export const FeeDeskView: React.FC = () => {
                                 <div>
                                   <h5 className="font-bold text-slate-900 text-xs">{sib.full_name}</h5>
                                   <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                                    Roll #{sib.roll_number || '—'} • {getProgramName(sib.program_id)} {sibBatch?.name ? `(${sibBatch.name})` : ''}
+                                    Adm #{sib.admission_number || '—'} • {getProgramName(sib.program_id)} {sibBatch?.name ? `(${sibBatch.name})` : ''}
                                   </p>
                                 </div>
                                 <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded ${
@@ -3312,7 +3313,7 @@ export const FeeDeskView: React.FC = () => {
                   <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search student, roll #..."
+                    placeholder="Search student, admission #..."
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
                     className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 font-medium placeholder:text-slate-400 shadow-2xs"
@@ -3369,7 +3370,7 @@ export const FeeDeskView: React.FC = () => {
                             </button>
                           </div>
                           <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                            Roll #{def.roll_number} • {def.program_name} {def.batch_name ? `• ${def.batch_name}` : ''}
+                            Adm #{def.admission_number || '—'} • {def.program_name} {def.batch_name ? `• ${def.batch_name}` : ''}
                           </p>
                           <p className="text-[10px] text-slate-600 mt-0.5">
                             Guardian: {def.father_name || '—'} {def.guardian_phone ? `(${def.guardian_phone})` : ''}
@@ -3434,7 +3435,7 @@ export const FeeDeskView: React.FC = () => {
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[11px] uppercase tracking-wider">
                   <tr>
                     <th className="py-2.5 px-3.5">S#</th>
-                    <th className="py-2.5 px-3.5">Roll #</th>
+                    <th className="py-2.5 px-3.5">Adm #</th>
                     <th className="py-2.5 px-3.5">Student Name</th>
                     <th className="py-2.5 px-3.5">Class & Section</th>
                     <th className="py-2.5 px-3.5">Father / Guardian</th>
@@ -3481,7 +3482,7 @@ export const FeeDeskView: React.FC = () => {
                                 className="text-left text-slate-900 hover:text-indigo-600 transition-colors underline-offset-2 hover:underline font-mono font-bold cursor-pointer"
                                 title="Open Student Profile in Fees Desk"
                               >
-                                {def.roll_number}
+                                {def.admission_number || '—'}
                               </button>
                             </td>
                             <td className="py-3 px-3.5 font-bold text-slate-900">
@@ -3926,7 +3927,7 @@ export const FeeDeskView: React.FC = () => {
                   >
                     {students.map(s => (
                       <option key={s.id} value={s.id}>
-                        {s.full_name} ({s.roll_number || 'No Roll #'})
+                        {s.full_name} ({s.admission_number || 'No Adm #'})
                       </option>
                     ))}
                   </select>
@@ -3977,7 +3978,7 @@ export const FeeDeskView: React.FC = () => {
                 <div>
                   <p className="font-bold text-slate-900 text-sm">{activeInvoice.student_name}</p>
                   <p className="text-xs text-slate-500 font-mono mt-0.5">
-                    Roll: {activeInvoice.roll_number} • {activeInvoice.batch_name}
+                    Adm: {activeInvoice.admission_number || activeInvoice.roll_number} • {activeInvoice.batch_name}
                   </p>
                 </div>
                 <div className="text-right">
@@ -4428,7 +4429,7 @@ export const FeeDeskView: React.FC = () => {
 
             <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2 print:hidden">
               <div className="text-xs text-slate-500">
-                <span>Roll: {previewSlipImage.invoice.roll_number} • {previewSlipImage.invoice.student_name}</span>
+                <span>Adm: {previewSlipImage.invoice.admission_number || previewSlipImage.invoice.roll_number} • {previewSlipImage.invoice.student_name}</span>
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
@@ -4701,8 +4702,8 @@ export const FeeDeskView: React.FC = () => {
                       <span className="font-bold text-slate-900 truncate">{activeInvoice.student_name}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-500">Roll No:</span>
-                      <span className="font-bold text-slate-900">{activeInvoice.roll_number}</span>
+                      <span className="text-slate-500">Admission No:</span>
+                      <span className="font-bold text-slate-900">{activeInvoice.admission_number || activeInvoice.roll_number}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-500">Class:</span>
@@ -4779,7 +4780,7 @@ export const FeeDeskView: React.FC = () => {
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
               <div className="flex justify-between text-slate-600">
                 <span>Student:</span>
-                <span className="font-bold text-slate-900">{cancelInvoiceTarget.student_name} ({cancelInvoiceTarget.roll_number})</span>
+                <span className="font-bold text-slate-900">{cancelInvoiceTarget.student_name} ({cancelInvoiceTarget.admission_number || cancelInvoiceTarget.roll_number})</span>
               </div>
               <div className="flex justify-between text-slate-600">
                 <span>Total Amount:</span>
@@ -4957,7 +4958,7 @@ export const FeeDeskView: React.FC = () => {
                 >
                   <option value="">Select student</option>
                   {students.map(s => (
-                    <option key={s.id} value={s.id}>{s.full_name} ({s.roll_number})</option>
+                    <option key={s.id} value={s.id}>{s.full_name} ({s.admission_number})</option>
                   ))}
                 </select>
               </div>
@@ -5351,7 +5352,7 @@ export const FeeDeskView: React.FC = () => {
                           <div>
                             <h4 className="font-bold text-slate-900 text-xs">{s.full_name}</h4>
                             <p className="text-[11px] text-slate-500 font-mono">
-                              Roll #{s.roll_number || '—'} • {progName} {batch?.name ? `(${batch.name})` : ''}
+                              Adm #{s.admission_number || '—'} • {progName} {batch?.name ? `(${batch.name})` : ''}
                             </p>
                           </div>
                         </div>
@@ -5558,7 +5559,7 @@ export const FeeDeskView: React.FC = () => {
                   <div key={idx} className="p-2.5 flex justify-between items-center">
                     <div>
                       <p className="font-bold text-slate-900">{item.studentName}</p>
-                      <p className="text-[11px] text-slate-500 font-mono">Roll #{item.rollNumber} • {item.className}</p>
+                      <p className="text-[11px] text-slate-500 font-mono">Adm #{item.admissionNumber || item.rollNumber || '—'} • {item.className}</p>
                     </div>
                     <span className="font-mono font-bold text-emerald-600">
                       PKR {item.amountPaid.toLocaleString()}
@@ -5578,7 +5579,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  const text = `Fee Payment Receipt - ${tenant?.name || 'Academy'}\nReceipt #: ${familyReceiptData.receiptNumber}\nDate: ${familyReceiptData.date}\nGuardian: ${familyReceiptData.guardianName}\nTotal Paid: PKR ${familyReceiptData.totalPaid.toLocaleString()}\nPayment Mode: ${familyReceiptData.paymentMethod.toUpperCase()}\n\nBreakdown:\n${familyReceiptData.breakdown.map(b => `• ${b.studentName} (Roll ${b.rollNumber}): PKR ${b.amountPaid.toLocaleString()}`).join('\n')}\n\nThank you!`;
+                  const text = `Fee Payment Receipt - ${tenant?.name || 'Academy'}\nReceipt #: ${familyReceiptData.receiptNumber}\nDate: ${familyReceiptData.date}\nGuardian: ${familyReceiptData.guardianName}\nTotal Paid: PKR ${familyReceiptData.totalPaid.toLocaleString()}\nPayment Mode: ${familyReceiptData.paymentMethod.toUpperCase()}\n\nBreakdown:\n${familyReceiptData.breakdown.map(b => `• ${b.studentName} (Adm ${b.admissionNumber || b.rollNumber || '—'}): PKR ${b.amountPaid.toLocaleString()}`).join('\n')}\n\nThank you!`;
                   const phone = (familyReceiptData.guardianPhone || '').replace(/\D/g, '');
                   const url = phone ? `https://wa.me/${phone.startsWith('0') ? '92' + phone.slice(1) : phone}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
                   window.open(url, '_blank');
@@ -5640,7 +5641,7 @@ export const FeeDeskView: React.FC = () => {
                 type="text"
                 value={cashierSearch}
                 onChange={e => setCashierSearch(e.target.value)}
-                placeholder="Type to filter results by name, roll #, phone, CNIC..."
+                placeholder="Type to filter results by name, admission #, phone, CNIC..."
                 className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600"
                 autoFocus
               />
@@ -5661,7 +5662,7 @@ export const FeeDeskView: React.FC = () => {
                   <Search className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                   <p className="text-xs font-semibold text-slate-600">No students found matching "{cashierSearch}"</p>
                   <p className="text-[11px] text-slate-400 mt-1">
-                    Try searching by admission number, roll number, student name, guardian mobile, or CNIC.
+                    Try searching by admission number, student name, guardian mobile, or CNIC.
                   </p>
                 </div>
               ) : (
@@ -5693,13 +5694,8 @@ export const FeeDeskView: React.FC = () => {
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-bold text-slate-900 text-xs">{student.full_name}</span>
                             <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[10px] font-mono font-semibold">
-                              Roll #{student.roll_number || '—'}
+                              Adm #{student.admission_number || '—'}
                             </span>
-                            {student.admission_number && (
-                              <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-500 text-[10px] font-mono">
-                                Adm #{student.admission_number}
-                              </span>
-                            )}
                             {siblings.length > 0 && (
                               <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold border border-indigo-100">
                                 {siblings.length + 1} Siblings
@@ -6233,7 +6229,7 @@ export const FeeDeskView: React.FC = () => {
               <div className="flex justify-between items-start border-b border-slate-200 pb-3 shrink-0">
                 <div className="flex items-start gap-3">
                   <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-mono font-bold text-sm shrink-0">
-                    {def.roll_number}
+                    {def.admission_number || def.roll_number || '—'}
                   </div>
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">

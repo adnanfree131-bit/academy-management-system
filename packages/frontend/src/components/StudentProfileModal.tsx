@@ -29,7 +29,8 @@ import {
   Trash2,
   RotateCcw,
   AlertTriangle,
-  FileCheck
+  FileCheck,
+  Plus
 } from 'lucide-react';
 import { 
   Student, 
@@ -40,7 +41,9 @@ import {
   StudentInvoice, 
   StudentStatus, 
   StudentAttendanceRecord,
-  DocumentChecklistHead
+  DocumentChecklistHead,
+  StudentEnrollment,
+  StudentEnrollmentStatus
 } from '@apex/shared-types';
 import { StudentIDCardModal } from './StudentIDCardModal';
 
@@ -318,7 +321,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
   // Student Particulars Management
   const [showEditParticularsModal, setShowEditParticularsModal] = useState(false);
-  const [editRollNumber, setEditRollNumber] = useState(student.roll_number || '');
   const [editFullName, setEditFullName] = useState(student.full_name);
   const [editPhone, setEditPhone] = useState(student.phone || '');
   const [editEmail, setEditEmail] = useState(student.email || '');
@@ -434,7 +436,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   };
 
   useEffect(() => {
-    setEditRollNumber(currentStudent.roll_number || '');
     setEditFullName(currentStudent.full_name);
     setEditPhone(currentStudent.phone || '');
     setEditEmail(currentStudent.email || '');
@@ -495,7 +496,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          roll_number: editRollNumber.trim() || undefined,
           full_name: editFullName.trim(),
           phone: editPhone.trim() || undefined,
           student_whatsapp: editStudentWhatsapp.trim() || undefined,
@@ -553,6 +553,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [invoices, setInvoices] = useState<StudentInvoice[]>([]);
   const [isLoadingFinance, setIsLoadingFinance] = useState(false);
   const [showIdCardModal, setShowIdCardModal] = useState(false);
+  const [selectedIdCardEnrollmentId, setSelectedIdCardEnrollmentId] = useState<string | undefined>(undefined);
   const [challanInvoice, setChallanInvoice] = useState<StudentInvoice | null>(null);
 
   // Cashier Drawer State
@@ -715,6 +716,240 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   useEffect(() => {
     fetchInvoices();
   }, [currentStudent.id, token]);
+
+  // =========================================================================
+  // Student Enrollments State & Operations (Multi-Class Support)
+  // =========================================================================
+  const [enrollments, setEnrollments] = useState<StudentEnrollment[]>([]);
+  const [isLoadingEnrollments, setIsLoadingEnrollments] = useState(false);
+
+  // Leave Class Modal State
+  const [leaveClassEnrollment, setLeaveClassEnrollment] = useState<StudentEnrollment | null>(null);
+  const [leaveClassStatus, setLeaveClassStatus] = useState<StudentEnrollmentStatus>('withdrawn');
+  const [leaveClassReason, setLeaveClassReason] = useState('Schedule clash with college practicals');
+  const [leaveClassCancelUnpaid, setLeaveClassCancelUnpaid] = useState(true);
+  const [isLeavingClass, setIsLeavingClass] = useState(false);
+  const [leaveClassError, setLeaveClassError] = useState<string | null>(null);
+
+  // Add Class Modal State
+  const [showAddClassModal, setShowAddClassModal] = useState(false);
+  const [addClassProgramId, setAddClassProgramId] = useState('');
+  const [addClassBatchId, setAddClassBatchId] = useState('');
+  const [addClassTuitionFee, setAddClassTuitionFee] = useState<number | string>('');
+  const [addClassBillingMode, setAddClassBillingMode] = useState<'monthly' | 'installment'>('monthly');
+  const [addClassElectiveGroupId, setAddClassElectiveGroupId] = useState('');
+  const [addClassGenerateChallan, setAddClassGenerateChallan] = useState(true);
+  const [addClassDueDate, setAddClassDueDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 10);
+    return d.toISOString().split('T')[0];
+  });
+  const [isAddingClass, setIsAddingClass] = useState(false);
+  const [addClassError, setAddClassError] = useState<string | null>(null);
+
+  const fetchEnrollments = async () => {
+    if (!token || !currentStudent.id) return;
+    setIsLoadingEnrollments(true);
+    try {
+      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/enrollments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setEnrollments(data.data || []);
+      }
+    } catch (err) {
+      console.error('Error loading student enrollments:', err);
+    } finally {
+      setIsLoadingEnrollments(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEnrollments();
+  }, [currentStudent.id, token]);
+
+  const getEnrollmentBalance = (enrollmentId: string, batchId: string) => {
+    const classInvoices = invoices.filter(
+      i => (i.enrollment_id === enrollmentId || (!i.enrollment_id && i.batch_id === batchId)) &&
+           i.status !== 'voided' && i.status !== 'cancelled' && i.status !== 'rolled_over'
+    );
+    return classInvoices.reduce((sum, inv) => sum + Number(inv.balance_due ?? inv.balance_amount ?? 0), 0);
+  };
+
+  const getEnrollmentFee = (enrollment: StudentEnrollment, batch?: Batch | null) => {
+    const feeStr = enrollment.fee_structure;
+    const recurring = feeStr?.recurring_monthly ?? feeStr?.net_tuition ?? feeStr?.base_tuition;
+    if (recurring != null && Number(recurring) > 0) return Number(recurring);
+    if (batch?.fee_amount && Number(batch.fee_amount) > 0) return Number(batch.fee_amount);
+    return 0;
+  };
+
+  const handleMakePrimary = async (enrollmentId: string) => {
+    if (!token || !currentStudent.id) return;
+    try {
+      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/enrollments/${enrollmentId}/make-primary`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        await fetchEnrollments();
+        if (data.data) {
+          const updatedEnr = data.data;
+          setCurrentStudent(prev => ({
+            ...prev,
+            batch_id: updatedEnr.batch_id,
+            program_id: updatedEnr.program_id || prev.program_id,
+            admission_number: updatedEnr.admission_number || prev.admission_number,
+            roll_number: updatedEnr.admission_number || updatedEnr.roll_number || prev.roll_number,
+          }));
+        }
+        if (onStudentUpdated) onStudentUpdated();
+      } else {
+        alert(data.error?.message || 'Failed to designate primary class');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Network error updating primary class');
+    }
+  };
+
+  const handleConfirmLeaveClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !currentStudent.id || !leaveClassEnrollment) return;
+    if (!leaveClassReason.trim()) {
+      setLeaveClassError('Reason is required for exiting class.');
+      return;
+    }
+    setIsLeavingClass(true);
+    setLeaveClassError(null);
+    try {
+      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/enrollments/${leaveClassEnrollment.id}/status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: leaveClassStatus,
+          reason: leaveClassReason.trim(),
+          cancel_unpaid_invoices: leaveClassCancelUnpaid,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setLeaveClassEnrollment(null);
+        await fetchEnrollments();
+        await fetchInvoices();
+        if (onStudentUpdated) onStudentUpdated();
+      } else {
+        setLeaveClassError(data.error?.message || 'Failed to update class exit status');
+      }
+    } catch (err: any) {
+      setLeaveClassError(err.message || 'Network error updating class exit status');
+    } finally {
+      setIsLeavingClass(false);
+    }
+  };
+
+  const handleOpenAddClassModal = () => {
+    const defaultProg = programs[0]?.id || '';
+    setAddClassProgramId(defaultProg);
+    const progBatches = batches.filter(b => b.program_id === defaultProg);
+    const defaultBatch = progBatches[0];
+    if (defaultBatch) {
+      setAddClassBatchId(defaultBatch.id);
+      setAddClassTuitionFee(defaultBatch.fee_amount || '');
+      setAddClassBillingMode((defaultBatch.billing_mode as any) || 'monthly');
+    } else {
+      setAddClassBatchId('');
+      setAddClassTuitionFee('');
+    }
+    setAddClassElectiveGroupId('');
+    setAddClassGenerateChallan(true);
+    setAddClassError(null);
+    setShowAddClassModal(true);
+  };
+
+  const handleProgramChange = (progId: string) => {
+    setAddClassProgramId(progId);
+    const progBatches = batches.filter(b => b.program_id === progId);
+    const defaultBatch = progBatches[0];
+    if (defaultBatch) {
+      setAddClassBatchId(defaultBatch.id);
+      setAddClassTuitionFee(defaultBatch.fee_amount || '');
+      setAddClassBillingMode((defaultBatch.billing_mode as any) || 'monthly');
+    } else {
+      setAddClassBatchId('');
+      setAddClassTuitionFee('');
+    }
+    setAddClassElectiveGroupId('');
+  };
+
+  const handleBatchChange = (bId: string) => {
+    setAddClassBatchId(bId);
+    const b = batches.find(x => x.id === bId);
+    if (b) {
+      if (b.fee_amount) setAddClassTuitionFee(b.fee_amount);
+      if (b.billing_mode) setAddClassBillingMode(b.billing_mode as any);
+    }
+  };
+
+  const handleConfirmAddClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !currentStudent.id) return;
+    if (!addClassBatchId) {
+      setAddClassError('Please select a batch/section for enrollment.');
+      return;
+    }
+    setIsAddingClass(true);
+    setAddClassError(null);
+    try {
+      const payload: any = {
+        program_id: addClassProgramId || undefined,
+        batch_id: addClassBatchId,
+        billing_mode: addClassBillingMode,
+        generate_opening_challan: addClassGenerateChallan,
+        generate_first_month_invoice: addClassGenerateChallan,
+        opening_challan_due_date: addClassDueDate,
+        due_date: addClassDueDate,
+      };
+      if (addClassTuitionFee !== '' && Number(addClassTuitionFee) >= 0) {
+        payload.fee_structure = {
+          base_tuition: Number(addClassTuitionFee),
+          net_tuition: Number(addClassTuitionFee),
+          recurring_monthly: Number(addClassTuitionFee),
+        };
+      }
+      if (addClassElectiveGroupId) {
+        payload.elective_group_id = addClassElectiveGroupId;
+      }
+      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/enrollments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setShowAddClassModal(false);
+        await fetchEnrollments();
+        await fetchInvoices();
+        if (onStudentUpdated) onStudentUpdated();
+      } else {
+        setAddClassError(data.error?.message || 'Failed to enroll in class');
+      }
+    } catch (err: any) {
+      setAddClassError(err.message || 'Network error during class enrollment');
+    } finally {
+      setIsAddingClass(false);
+    }
+  };
 
   // Ledger Computations
   const totalBilled = useMemo(() => invoices.reduce((acc, i) => acc + (i.net_total ?? i.net_amount ?? 0), 0), [invoices]);
@@ -970,9 +1205,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                   <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-white/80">
                     <span className="px-2 py-0.5 rounded bg-white/10 text-white font-mono font-semibold border border-white/15">
-                      Roll: {currentStudent.roll_number}
-                    </span>
-                    <span className="px-2 py-0.5 rounded bg-white/10 text-white/80 font-mono border border-white/15">
                       Adm: {currentStudent.admission_number}
                     </span>
                     <span className="text-white/30">•</span>
@@ -1010,7 +1242,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </button>
 
                 <button
-                  onClick={() => setShowIdCardModal(true)}
+                  onClick={() => {
+                    setSelectedIdCardEnrollmentId(undefined);
+                    setShowIdCardModal(true);
+                  }}
                   className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                   title="Print Student ID Card"
                 >
@@ -1251,6 +1486,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           >
             <GraduationCap className={`w-4 h-4 ${activeTab === 'academic' ? 'text-amber-600' : 'text-slate-400'}`} />
             <span>Academic Placement</span>
+            {enrollments.length > 1 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                {enrollments.length} classes
+              </span>
+            )}
           </button>
 
           <button
@@ -1333,6 +1573,166 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           {/* TAB 1: ACADEMIC DETAILS */}
           {activeTab === 'academic' && (
             <div className="space-y-6">
+
+              {/* Enrolled Classes & Batches (Multi-Class SIS Structure) */}
+              <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4 text-amber-600" />
+                    <div>
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                        <span>Enrolled Classes & Batches</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                          {enrollments.length} {enrollments.length === 1 ? 'Class' : 'Classes'}
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Independent class enrollments with distinct seats, fee structures, and challans.
+                      </p>
+                    </div>
+                  </div>
+                  {canManageAcademicStatus && (
+                    <button
+                      type="button"
+                      onClick={handleOpenAddClassModal}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors self-start sm:self-center cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Class</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left border-collapse border border-slate-200 rounded">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
+                        <th className="px-3 py-2">Class / Program</th>
+                        <th className="px-3 py-2">Batch / Section</th>
+                        <th className="px-3 py-2">Shift</th>
+                        <th className="px-3 py-2 font-mono">Tuition Fee</th>
+                        <th className="px-3 py-2">Status</th>
+                        <th className="px-3 py-2 font-mono">Class Balance</th>
+                        <th className="px-3 py-2 text-center">Primary</th>
+                        <th className="px-3 py-2 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {enrollments.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="py-4 text-center text-slate-400">
+                            {isLoadingEnrollments ? 'Loading enrolled classes...' : 'No enrollments recorded for this student.'}
+                          </td>
+                        </tr>
+                      ) : (
+                        enrollments.map(enr => {
+                          const prog = programs.find(p => p.id === enr.program_id);
+                          const b = batches.find(x => x.id === enr.batch_id);
+                          const bal = getEnrollmentBalance(enr.id, enr.batch_id);
+                          const fee = getEnrollmentFee(enr, b);
+                          const isActiveOrLeave = enr.status === 'active' || enr.status === 'on_leave';
+
+                          return (
+                            <tr key={enr.id} className={enr.is_primary ? 'bg-amber-50/20' : 'hover:bg-slate-50/50'}>
+                              <td className="px-3 py-2.5 font-semibold text-slate-900">
+                                {prog?.name || 'Academic Class'}
+                              </td>
+                              <td className="px-3 py-2.5 text-slate-700">
+                                {b?.name || 'General Batch'}
+                              </td>
+                              <td className="px-3 py-2.5 text-slate-600 capitalize">
+                                {b?.shift || 'Morning'}
+                              </td>
+                              <td className="px-3 py-2.5 font-mono text-slate-900">
+                                PKR {fee.toLocaleString()}
+                                <span className="text-[10px] text-slate-400 font-sans ml-1">/mo</span>
+                              </td>
+                              <td className="px-3 py-2.5">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border capitalize ${
+                                  enr.status === 'active'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : enr.status === 'on_leave'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : enr.status === 'withdrawn'
+                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                                }`}>
+                                  {enr.status.replace('_', ' ')}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 font-mono">
+                                {bal > 0 ? (
+                                  <span className="font-bold text-rose-700">PKR {bal.toLocaleString()}</span>
+                                ) : (
+                                  <span className="text-slate-400">PKR 0</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2.5 text-center">
+                                {enr.is_primary ? (
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                    Primary
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">—</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2.5 text-right">
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {isActiveOrLeave && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedIdCardEnrollmentId(enr.id);
+                                          setShowIdCardModal(true);
+                                        }}
+                                        className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                                        title="Print Student ID Card for this specific class"
+                                      >
+                                        <CreditCard className="w-3 h-3 text-slate-500" />
+                                        <span>ID Card</span>
+                                      </button>
+                                    )}
+                                  {!enr.is_primary && isActiveOrLeave && canManageAcademicStatus && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleMakePrimary(enr.id)}
+                                      className="px-2 py-1 bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-800 border border-slate-200 hover:border-amber-200 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                                      title="Designate this class as the student's primary academic enrollment"
+                                    >
+                                      Make Primary
+                                    </button>
+                                  )}
+                                  {isActiveOrLeave && canManageAcademicStatus && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setLeaveClassEnrollment(enr);
+                                        setLeaveClassStatus('withdrawn');
+                                        setLeaveClassReason('Schedule clash with college practicals');
+                                        setLeaveClassCancelUnpaid(true);
+                                        setLeaveClassError(null);
+                                      }}
+                                      className="px-2 py-1 bg-slate-100 hover:bg-rose-50 text-rose-700 hover:text-rose-800 border border-slate-200 hover:border-rose-200 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                                      title="Exit or withdraw from this specific class"
+                                    >
+                                      Leave Class
+                                    </button>
+                                  )}
+                                  {!isActiveOrLeave && (
+                                    <span className="text-[10px] text-slate-400 italic">
+                                      Exited {enr.ended_at || ''}
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Academic Placement */}
                 <div className="bg-white border border-slate-200 rounded p-4 space-y-3">
@@ -2699,7 +3099,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </div>
                     <div className="pt-1 border-t border-slate-200">
                       <div className="text-slate-950 font-bold truncate">Student: {student.full_name}</div>
-                      <div className="text-slate-700 font-mono text-[8px]">Roll: {student.roll_number} | Adm: {student.admission_number}</div>
+                      <div className="text-slate-700 font-mono text-[8px]">Adm: {student.admission_number}</div>
                       <div className="text-slate-700 text-[8px]">Class: {activeProgram?.name || '—'} • {isBatchSection ? 'Section' : 'Batch'}: {activeBatch?.name || '—'}</div>
                     </div>
                   </div>
@@ -2780,7 +3180,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   Edit Student Particulars
                 </h2>
                 <p className="text-[11px] text-slate-300">
-                  {currentStudent.full_name} • Roll: {currentStudent.roll_number} • Admission: {currentStudent.admission_number}
+                  {currentStudent.full_name} • Admission: {currentStudent.admission_number}
                 </p>
               </div>
               <button
@@ -2858,7 +3258,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     />
                   </div>
 
-                  <div className="sm:col-span-2">
+                  <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">Student Email (Portal Login)</label>
                     <input
                       type="email"
@@ -2866,17 +3266,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       onChange={e => setEditEmail(e.target.value)}
                       placeholder="student@example.com"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Batch Roll Number</label>
-                    <input
-                      type="text"
-                      value={editRollNumber}
-                      onChange={e => setEditRollNumber(e.target.value)}
-                      placeholder="101"
-                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono font-bold"
                     />
                   </div>
 
@@ -3278,7 +3667,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 <div>
                   <h2 className="text-sm font-bold leading-tight">Reset Student Portal Password</h2>
                   <p className="text-[11px] text-slate-300">
-                    {currentStudent.full_name} • Roll: {currentStudent.roll_number}
+                    {currentStudent.full_name} • Adm: {currentStudent.admission_number}
                   </p>
                 </div>
               </div>
@@ -3487,7 +3876,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   Student Profile Audit Trail
                 </h2>
                 <p className="text-[11px] text-slate-300">
-                  {currentStudent.full_name} • Roll: {currentStudent.roll_number} • Admission: {currentStudent.admission_number}
+                  {currentStudent.full_name} • Admission: {currentStudent.admission_number}
                 </p>
               </div>
               <button
@@ -3596,7 +3985,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <span>Archiving Student: {currentStudent.full_name}</span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-amber-800">
-                  Admission No: <strong className="font-mono">{currentStudent.admission_number}</strong> • Roll No: <strong className="font-mono">{currentStudent.roll_number}</strong>
+                  Admission No: <strong className="font-mono">{currentStudent.admission_number}</strong>
                 </p>
                 <p className="text-[11px] leading-relaxed text-amber-700">
                   Archiving marks this student as inactive and releases their seat in the batch roster. All academic history, exam marks, and fee ledgers remain preserved.
@@ -3682,7 +4071,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <span>Warning: Permanent Deletion of {currentStudent.full_name}</span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-rose-800">
-                  Admission No: <strong className="font-mono">{currentStudent.admission_number}</strong> • Roll No: <strong className="font-mono">{currentStudent.roll_number}</strong>
+                  Admission No: <strong className="font-mono">{currentStudent.admission_number}</strong>
                 </p>
                 <p className="text-[11px] leading-relaxed text-rose-700">
                   This action permanently removes the student from the database, deletes associated attendance registers, exam evaluations, and portal credentials.
@@ -3754,15 +4143,294 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         document.body
       )}
 
+      {/* ADD CLASS MODAL */}
+      {showAddClassModal && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white border border-slate-300 rounded-xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                  <GraduationCap className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900">Enroll in Additional Class</h3>
+                  <p className="text-[11px] text-slate-500">
+                    {currentStudent.full_name} • Adm: <strong className="font-mono text-slate-700">{currentStudent.admission_number}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddClassModal(false)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmAddClass} className="p-5 space-y-4 text-xs">
+              {addClassError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span className="leading-tight">{addClassError}</span>
+                </div>
+              )}
+
+              {/* Program Selector */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Academic Class / Program <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={addClassProgramId}
+                  onChange={e => handleProgramChange(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium"
+                >
+                  {programs.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Batch Selector */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Batch / Section <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={addClassBatchId}
+                  onChange={e => handleBatchChange(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium"
+                >
+                  <option value="">-- Select Section or Batch --</option>
+                  {batches
+                    .filter(b => !addClassProgramId || b.program_id === addClassProgramId)
+                    .map(b => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.shift ? b.shift.toUpperCase() : 'General'}) — [{b.current_enrollment || 0}/{b.max_capacity || 0} enrolled]
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Tuition Fee & Billing Mode */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Monthly Tuition (PKR)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={addClassTuitionFee}
+                    onChange={e => setAddClassTuitionFee(e.target.value)}
+                    placeholder="Pre-filled from batch"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 font-mono focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">Batch fee baseline</span>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Billing Mode</label>
+                  <select
+                    value={addClassBillingMode}
+                    onChange={e => setAddClassBillingMode(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  >
+                    <option value="monthly">Monthly Billing</option>
+                    <option value="installment">Installment Plan</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Elective Stream */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Elective Stream</label>
+                <select
+                  value={addClassElectiveGroupId}
+                  onChange={e => setAddClassElectiveGroupId(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                >
+                  <option value="">Core Subjects</option>
+                  {subjectGroups
+                    .filter(g => (!addClassProgramId || g.program_id === addClassProgramId) && g.type === 'elective_track')
+                    .map(g => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))}
+                </select>
+              </div>
+
+              {/* Opening Challan Option */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={addClassGenerateChallan}
+                    onChange={e => setAddClassGenerateChallan(e.target.checked)}
+                    className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                  />
+                  <span className="font-semibold text-slate-800">Generate opening fee challan now</span>
+                </label>
+                {addClassGenerateChallan && (
+                  <div className="pt-1 pl-5">
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                      Challan Due Date
+                    </label>
+                    <input
+                      type="date"
+                      value={addClassDueDate}
+                      onChange={e => setAddClassDueDate(e.target.value)}
+                      className="px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs font-mono text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowAddClassModal(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAddingClass || !addClassBatchId}
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{isAddingClass ? 'Enrolling...' : 'Complete Class Enrollment'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* LEAVE CLASS MODAL */}
+      {leaveClassEnrollment && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white border border-slate-300 rounded-xl max-w-md w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700">
+                  <ShieldAlert className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900">Leave Class — Regularization</h3>
+                  <p className="text-[11px] text-slate-500">
+                    {batches.find(b => b.id === leaveClassEnrollment.batch_id)?.name || 'Class Batch'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLeaveClassEnrollment(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmLeaveClass} className="p-5 space-y-4 text-xs">
+              {leaveClassError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span className="leading-tight">{leaveClassError}</span>
+                </div>
+              )}
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-[11px] leading-relaxed">
+                Leaving this class frees the seat immediately in this batch. If this student has other active classes, their student standing and portal account remain active.
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Exit Status <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={leaveClassStatus}
+                  onChange={e => setLeaveClassStatus(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium"
+                >
+                  <option value="withdrawn">Withdrawn / Departed</option>
+                  <option value="completed">Completed / Course Finished</option>
+                  <option value="on_leave">On Temporary Leave</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Reason for Exiting Class <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={leaveClassReason}
+                  onChange={e => setLeaveClassReason(e.target.value)}
+                  placeholder="e.g. Schedule clash with college practicals"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                />
+              </div>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <label className="flex items-start gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={leaveClassCancelUnpaid}
+                    onChange={e => setLeaveClassCancelUnpaid(e.target.checked)}
+                    className="rounded border-slate-300 text-rose-600 focus:ring-rose-500 mt-0.5"
+                  />
+                  <div>
+                    <span className="font-semibold text-slate-800 block">Cancel unpaid fee challans for this class</span>
+                    <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
+                      Automatically cancels outstanding dues specifically billed for this batch without affecting other classes.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setLeaveClassEnrollment(null)}
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLeavingClass || !leaveClassReason.trim()}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  <span>{isLeavingClass ? 'Processing Exit...' : 'Confirm Class Exit'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* SINGLE ID CARD MODAL */}
       {showIdCardModal && (
         <StudentIDCardModal
           student={currentStudent}
           batch={activeBatch}
           program={activeProgram}
+          batches={batches}
+          programs={programs}
+          enrollments={enrollments}
+          initialEnrollmentId={selectedIdCardEnrollmentId}
           academyName={tenant?.name || 'Academy'}
           campusAddress={tenant?.campus_name}
-          onClose={() => setShowIdCardModal(false)}
+          onClose={() => {
+            setShowIdCardModal(false);
+            setSelectedIdCardEnrollmentId(undefined);
+          }}
         />
       )}
     </div>,

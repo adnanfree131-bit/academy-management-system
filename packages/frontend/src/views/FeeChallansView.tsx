@@ -230,14 +230,13 @@ export const FeeChallansView: React.FC = () => {
     return filtered;
   }, [students, genScope, genProgramId, genBatchId]);
 
-  // Single student match by admission number or roll number
+  // Single student match by admission number or name
   const matchedSingleStudent = useMemo(() => {
     if (genScope !== 'single_student' || !singleAdmissionSearch.trim()) return null;
     const q = singleAdmissionSearch.trim().toLowerCase();
     return students.find(s => 
       s.status === 'active' && (
         (s.admission_number && s.admission_number.toLowerCase() === q) ||
-        (s.roll_number && s.roll_number.toLowerCase() === q) ||
         (s.full_name && s.full_name.toLowerCase().includes(q))
       )
     ) || null;
@@ -249,7 +248,7 @@ export const FeeChallansView: React.FC = () => {
     return students.find(s =>
       s.status === 'active' && (
         (s.admission_number && s.admission_number.toLowerCase() === q) ||
-        (s.roll_number && s.roll_number.toLowerCase() === q)
+        (s.full_name && s.full_name.toLowerCase().includes(q))
       )
     ) || null;
   }, [students, editAdmissionQuery]);
@@ -515,8 +514,7 @@ export const FeeChallansView: React.FC = () => {
 
         return {
           challan_number: inv.invoice_number,
-          roll_number: inv.roll_number || student?.roll_number || '—',
-          admission_number: student?.admission_number || undefined,
+          admission_number: student?.admission_number || inv.admission_number || undefined,
           student_name: inv.student_name,
           father_name: fatherName,
           class_name: progName,
@@ -690,11 +688,11 @@ export const FeeChallansView: React.FC = () => {
                 </div>
               )}
 
-              {/* Single Student Admission No / Roll No Input */}
+              {/* Single Student Admission No Input */}
               {genScope === 'single_student' && (
                 <div className="space-y-2 pt-1">
                   <label className="block text-xs font-bold text-slate-700">
-                    Student Admission # or Roll #
+                    Student Admission #
                   </label>
                   <div className="relative">
                     <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -705,7 +703,7 @@ export const FeeChallansView: React.FC = () => {
                         setSingleAdmissionSearch(e.target.value);
                         setGenErrorMessage(null);
                       }}
-                      placeholder="Enter exact Admission #, Roll #, or name..."
+                      placeholder="Enter exact Admission # or name..."
                       className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
                     />
                   </div>
@@ -715,7 +713,7 @@ export const FeeChallansView: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-slate-900">{matchedSingleStudent.full_name}</span>
                         <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-mono font-bold text-[10px]">
-                          Roll #{matchedSingleStudent.roll_number}
+                          Adm #{matchedSingleStudent.admission_number}
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-600">
@@ -986,7 +984,7 @@ export const FeeChallansView: React.FC = () => {
                     setEditAdmissionQuery(e.target.value);
                     setEditingInvoice(null);
                   }}
-                  placeholder="Enter admission number or roll number"
+                  placeholder="Enter admission number or name"
                   className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium"
                 />
               </div>
@@ -994,7 +992,7 @@ export const FeeChallansView: React.FC = () => {
             </div>
 
             {editAdmissionQuery.trim() && !matchedEditStudent && (
-              <p className="text-xs text-amber-700">No student matched that admission or roll number.</p>
+              <p className="text-xs text-amber-700">No student matched that admission number.</p>
             )}
 
             {matchedEditStudent && (
@@ -1002,7 +1000,7 @@ export const FeeChallansView: React.FC = () => {
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs">
                   <p className="font-bold text-slate-900">{matchedEditStudent.full_name}</p>
                   <p className="text-slate-500 font-mono mt-0.5">
-                    Adm {matchedEditStudent.admission_number} · Roll {matchedEditStudent.roll_number}
+                    Adm #{matchedEditStudent.admission_number}
                   </p>
                 </div>
 
@@ -1014,7 +1012,7 @@ export const FeeChallansView: React.FC = () => {
                       onClick={() => {
                         setActiveTab('generate');
                         setGenScope('single_student');
-                        setSingleAdmissionSearch(matchedEditStudent.admission_number || matchedEditStudent.roll_number || '');
+                        setSingleAdmissionSearch(matchedEditStudent.admission_number || '');
                       }}
                       className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md text-xs font-semibold shadow-xs transition-colors"
                     >

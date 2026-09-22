@@ -991,7 +991,7 @@ export const ExamDeskView: React.FC = () => {
                     <option value="">No enrolled students in this subject</option>
                   ) : (
                     eligibleStudents.map(st => (
-                      <option key={st.id} value={st.id}>{st.full_name} ({st.roll_number})</option>
+                      <option key={st.id} value={st.id}>{st.full_name} ({st.admission_number})</option>
                     ))
                   )}
                 </select>
@@ -1197,7 +1197,7 @@ export const ExamDeskView: React.FC = () => {
                   <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                     <h3 className="font-semibold text-xs uppercase tracking-wider text-indigo-400">Total Final Marks</h3>
                     <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-mono font-bold">
-                      {currentStudent?.roll_number}
+                      {currentStudent?.admission_number}
                     </span>
                   </div>
 
@@ -1255,7 +1255,7 @@ export const ExamDeskView: React.FC = () => {
                         <div key={ev.id} className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-center justify-between">
                           <div>
                             <span className="font-bold text-slate-900 block">{ev.student_name}</span>
-                            <span className="text-[10px] text-slate-500">Roll: {ev.roll_number} • {ev.percentage}%</span>
+                            <span className="text-[10px] text-slate-500 font-mono">Adm: {ev.admission_number || '—'} • {ev.percentage}%</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold text-xs">
@@ -1516,10 +1516,10 @@ export const ExamDeskView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Student Roll & Name Blank */}
+              {/* Student Admission & Name Blank */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-2 border-b border-slate-300 text-xs font-sans print:grid-cols-2">
                 <div>Student Name: _____________________________________</div>
-                <div className="text-right">Roll Number: ________________________</div>
+                <div className="text-right">Admission Number: ________________________</div>
               </div>
 
               {/* SECTION A: MCQS */}
@@ -1849,7 +1849,7 @@ export const ExamDeskView: React.FC = () => {
                       academy,
                       identity: [
                         { label: 'Student', value: activeReportCard.student.full_name },
-                        { label: 'Roll No', value: activeReportCard.student.roll_number },
+                        { label: 'Admission #', value: activeReportCard.student.admission_number || '—' },
                         { label: 'Class', value: activeReportCard.student.class_name || '—' },
                         { label: 'Batch', value: activeReportCard.student.batch_name || '—' },
                         { label: 'Examination', value: exam.title },
@@ -1883,7 +1883,7 @@ export const ExamDeskView: React.FC = () => {
                       ],
                       footerNote: `Grade ${ev.grade} · ${ev.percentage}% · Rank ${activeReportCard.rank || '—'} of ${activeReportCard.total_students || '—'} · Total ${ev.total_obtained}/${exam.total_marks}`,
                     });
-                    await downloadPdfBytes(bytes, `report-card-${activeReportCard.student.roll_number}.pdf`);
+                    await downloadPdfBytes(bytes, `report-card-${activeReportCard.student.admission_number || activeReportCard.student.id}.pdf`);
                   }}
                   className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
                 >
@@ -1913,8 +1913,8 @@ export const ExamDeskView: React.FC = () => {
                   <span className="font-bold text-slate-900">{activeReportCard.student.full_name}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-slate-400 block text-[10px]">Roll Number:</span>
-                  <span className="font-bold text-indigo-700">{activeReportCard.student.roll_number}</span>
+                  <span className="text-slate-400 block text-[10px]">Admission #:</span>
+                  <span className="font-bold text-indigo-700 font-mono">{activeReportCard.student.admission_number || '—'}</span>
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px]">Guardian / Father:</span>

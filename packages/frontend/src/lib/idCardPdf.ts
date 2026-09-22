@@ -82,8 +82,7 @@ export async function buildStudentIdCardPdf(cards: IdCardPdfInput[]): Promise<Ui
 
     const rows: [string, string][] = [
       ['Name', card.student.full_name || '—'],
-      ['Roll No', card.student.roll_number || '—'],
-      ['Admission', card.student.admission_number || '—'],
+      ['Admission #', card.student.admission_number || '—'],
       ['Class', card.program?.name || '—'],
       ['Batch', card.batch?.name || '—'],
       ['Guardian', card.student.guardian_name || '—'],

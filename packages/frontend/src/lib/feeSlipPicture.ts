@@ -455,8 +455,8 @@ export async function renderFeeSlipCanvas(slip: FeeSlipData, academy: AcademyInf
   };
 
   // Field 1: Name
-  const rollDetails = `Roll #: ${slip.roll_number || 'N/A'}  •  Adm #: ${slip.admission_number || 'N/A'}`;
-  drawDashedRow('Name:', slip.student_name, rollDetails, 286);
+  const admDetails = `Adm #: ${slip.admission_number || 'N/A'}`;
+  drawDashedRow('Name:', slip.student_name, admDetails, 286);
 
   // Field 2: Class & Batch / Guardian
   const classBatchStr = [slip.program_name, slip.batch_name].filter(Boolean).join(' - ') || 'Active Course';
@@ -720,10 +720,10 @@ export async function copyAndDownloadFeeSlip(
   const blob = await canvasToBlob(canvas);
   const dataUrl = canvas.toDataURL('image/png');
 
-  const safeRoll = (slip.roll_number || slip.student_name || 'student').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const safeIdentifier = (slip.admission_number || slip.roll_number || slip.student_name || 'student').replace(/[^a-zA-Z0-9_-]/g, '_');
   const prefix = slip.slip_type === 'payment_receipt' ? 'Receipt' : 'Fee_Due_Slip';
   const idStr = (slip.receipt_number || slip.invoice_number || 'slip').replace(/[^a-zA-Z0-9_-]/g, '_');
-  const fileName = `${prefix}_${idStr}_${safeRoll}.png`;
+  const fileName = `${prefix}_${idStr}_${safeIdentifier}.png`;
 
   // 1. Download file automatically
   let downloaded = false;
@@ -736,7 +736,7 @@ export async function copyAndDownloadFeeSlip(
     document.body.removeChild(link);
     downloaded = true;
   } catch (err) {
-    console.warn('Auto download failed:', err);
+    console.warn('Auto download picture fee slip failed, skipping:', err);
   }
 
   // 2. Attempt clipboard copy (Supported in modern browsers via ClipboardItem)
@@ -756,7 +756,7 @@ export async function copyAndDownloadFeeSlip(
 }
 
 /**
- * Format official payment receipt message for WhatsApp
+ * Format official payment acknowledgement text message for WhatsApp
  */
 export function formatWhatsAppPaymentReceiptText(
   slip: FeeSlipData,
@@ -767,7 +767,7 @@ export function formatWhatsAppPaymentReceiptText(
     `Institution: ${academy.name}`,
     ``,
     `Respected Parent / Guardian,`,
-    `Fee payment for *${slip.student_name}* (Roll No: ${slip.roll_number || 'N/A'}) has been successfully received and credited to the student ledger.`,
+    `Fee payment for *${slip.student_name}* (Adm No: ${slip.admission_number || 'N/A'}) has been successfully received and credited to the student ledger.`,
     ``,
     `*Receipt Particulars:*`,
     `• Receipt Number: *${slip.receipt_number || 'REC-CONFIRMED'}*`,
@@ -799,7 +799,7 @@ export function formatWhatsAppFeeReminderText(
     `Institution: ${academy.name}`,
     ``,
     `Respected Parent / Guardian,`,
-    `This is a gentle reminder regarding the educational fee dues for *${slip.student_name}* (Roll No: ${slip.roll_number || 'N/A'}).`,
+    `This is a gentle reminder regarding the educational fee dues for *${slip.student_name}* (Adm No: ${slip.admission_number || 'N/A'}).`,
     ``,
     `*Billing Details:*`,
     `• Month: ${slip.billing_month}`,
@@ -811,7 +811,7 @@ export function formatWhatsAppFeeReminderText(
     ...(academy.bank_name ? [`• Bank: ${academy.bank_name}${academy.account_number ? ` (${academy.account_number})` : ''}`] : []),
     ...(academy.easypaisa_number || academy.phone ? [`• EasyPaisa / JazzCash / Raast: ${academy.easypaisa_number || academy.phone}`] : [`• Authorized Campus Cashier Desk`]),
     ``,
-    `_Note: Official A6 picture fee slip is attached. After depositing, kindly share payment screenshot with student roll number._`,
+    `_Note: Official A6 picture fee slip is attached. After depositing, kindly share payment screenshot with student admission number._`,
     ``,
     `Thank you,`,
     `Accounts Department, ${academy.name}`

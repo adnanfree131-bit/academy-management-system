@@ -294,7 +294,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pending Attendance</span>
             <span className="text-2xl font-bold font-mono text-slate-900 mt-0.5 block">{pendingAttendance.length} Batch</span>
-            <span className="text-[10px] text-slate-500">Roll Call Pending</span>
+            <span className="text-[10px] text-slate-500">Attendance Pending</span>
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
@@ -394,7 +394,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                       onClick={() => onNavigate('attendance')}
                       className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold rounded-lg transition-all text-center border border-slate-200/60"
                     >
-                      Roll Call
+                      Mark Attendance
                     </button>
                     <button
                       onClick={() => onNavigate('exams')}

@@ -227,6 +227,183 @@ export function sisRoutes(store: IDataStore) {
       }
     });
 
+    // --- Multi-Class Student Enrollments Endpoints ---
+    fastify.get('/students/:id/enrollments', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      const { id } = request.params as { id: string };
+      if (!await canAccessStudent(user, id)) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'You are not authorized to view enrollments for this student.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const enrollments = await store.getStudentEnrollments(user.tenant_id, id);
+      return reply.send({ success: true, data: enrollments, timestamp: new Date().toISOString() });
+    });
+
+    fastify.post('/students/:id/enrollments', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      const { id } = request.params as { id: string };
+
+      const schema = z.object({
+        batch_id: z.string().min(1, 'Target class / batch is required'),
+        roll_number: z.string().optional(),
+        subjects: z.array(z.string()).optional(),
+        elective_group_id: z.string().optional(),
+        fee_structure: z.any().optional(),
+        billing_mode: z.enum(['monthly', 'one_time', 'installment']).optional(),
+        installment_plan: z.any().optional(),
+        generate_first_month_invoice: z.boolean().optional(),
+        generate_opening_challan: z.boolean().optional(),
+        opening_challan_due_date: z.string().optional(),
+        due_date: z.string().optional(),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid enrollment data', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const enrollment = await store.createStudentEnrollment(user.tenant_id, id, parseResult.data);
+        return reply.status(201).send({ success: true, data: enrollment, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        const msg = err.message || '';
+        let errCode = 'ENROLLMENT_CREATION_FAILED';
+        if (/capacity/i.test(msg)) {
+          errCode = 'BATCH_CAPACITY_EXCEEDED';
+        } else if (/already assigned/i.test(msg) || /duplicate roll/i.test(msg)) {
+          errCode = 'DUPLICATE_ROLL_NUMBER';
+        } else if (/already actively enrolled/i.test(msg)) {
+          errCode = 'ALREADY_ENROLLED';
+        }
+        return reply.status(400).send({
+          success: false,
+          error: { code: errCode, message: msg || 'Failed to enroll student in class' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    fastify.patch('/students/:id/enrollments/:enrollmentId', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      const { id, enrollmentId } = request.params as { id: string; enrollmentId: string };
+
+      const schema = z.object({
+        roll_number: z.string().optional(),
+        subjects: z.array(z.string()).optional(),
+        elective_group_id: z.string().optional(),
+        fee_structure: z.any().optional(),
+        billing_mode: z.enum(['monthly', 'one_time', 'installment']).optional(),
+        installment_plan: z.any().optional(),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid update payload', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const updated = await store.updateStudentEnrollment(user.tenant_id, id, enrollmentId, parseResult.data);
+        if (!updated) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Enrollment not found' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'ENROLLMENT_UPDATE_FAILED', message: err.message || 'Failed to update enrollment' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    fastify.post('/students/:id/enrollments/:enrollmentId/status', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      const { id, enrollmentId } = request.params as { id: string; enrollmentId: string };
+
+      const schema = z.object({
+        status: z.enum(['active', 'on_leave', 'suspended', 'withdrawn', 'completed', 'archived']),
+        reason: z.string().min(1, 'Reason for enrollment status change is required'),
+        cancel_unpaid_invoices: z.boolean().default(false),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid status update payload', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const updated = await store.updateStudentEnrollmentStatus(
+          user.tenant_id,
+          id,
+          enrollmentId,
+          parseResult.data.status,
+          parseResult.data.reason,
+          parseResult.data.cancel_unpaid_invoices,
+          user.email || user.sub
+        );
+        if (!updated) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Enrollment not found' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'STATUS_UPDATE_FAILED', message: err.message || 'Failed to update enrollment status' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    fastify.post('/students/:id/enrollments/:enrollmentId/make-primary', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      const { id, enrollmentId } = request.params as { id: string; enrollmentId: string };
+
+      try {
+        const updated = await store.makePrimaryEnrollment(user.tenant_id, id, enrollmentId);
+        if (!updated) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Enrollment not found' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'MAKE_PRIMARY_FAILED', message: err.message || 'Failed to set primary enrollment' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
     fastify.post('/students', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;

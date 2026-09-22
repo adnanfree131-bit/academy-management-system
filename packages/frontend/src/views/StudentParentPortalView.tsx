@@ -36,7 +36,8 @@ import {
   Filter, 
   CheckSquare, 
   ArrowRight,
-  HelpCircle
+  HelpCircle,
+  GraduationCap
 } from 'lucide-react';
 
 export interface StudentPortalProps {
@@ -73,6 +74,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(studentId || null);
   const [printingReportCard, setPrintingReportCard] = useState<StudentOfficialReportCard | null>(null);
   const [selectedChallanInvoice, setSelectedChallanInvoice] = useState<StudentInvoice | null>(null);
+  const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<string | null>(null);
 
   // Timetable Screen State: active day of week
   const todayDayIndex = new Date().getDay();
@@ -178,15 +180,18 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
     }
   };
 
-  const fetchOverview = async (targetStudentIdParam?: string | null) => {
+  const fetchOverview = async (targetStudentIdParam?: string | null, targetEnrollmentIdParam?: string | null) => {
     if (!token) return;
     setLoading(true);
     setFetchError(null);
     try {
       const targetId = targetStudentIdParam !== undefined ? targetStudentIdParam : (studentId || selectedStudentId);
-      const url = targetId 
-        ? `/api/v1/portal/student-parent?student_id=${encodeURIComponent(targetId)}` 
-        : '/api/v1/portal/student-parent';
+      const targetEnrId = targetEnrollmentIdParam !== undefined ? targetEnrollmentIdParam : selectedEnrollmentId;
+      const params = new URLSearchParams();
+      if (targetId) params.append('student_id', targetId);
+      if (targetEnrId) params.append('enrollment_id', targetEnrId);
+      const queryStr = params.toString();
+      const url = queryStr ? `/api/v1/portal/student-parent?${queryStr}` : '/api/v1/portal/student-parent';
       const res = await fetch(url, {
         headers: { authorization: `Bearer ${token}` }
       });
@@ -195,6 +200,9 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
         setOverview(body.data);
         if (!selectedStudentId && body.data?.student_profile?.id) {
           setSelectedStudentId(body.data.student_profile.id);
+        }
+        if (body.data?.selected_enrollment_id) {
+          setSelectedEnrollmentId(body.data.selected_enrollment_id);
         }
       } else {
         const errorMsg = body?.error?.message || `Failed to load student portal overview (HTTP ${res.status})`;
@@ -417,7 +425,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   } else if (cleanWa.startsWith('3')) {
     cleanWa = '92' + cleanWa;
   }
-  const waMsg = `Assalam-o-Alaikum, I have transferred the tuition fee for ${profile?.full_name || 'student'} (Roll #${profile?.roll_number || '—'}, Class: ${profile?.program_name || '—'}, Section: ${profile?.batch_name || '—'}). Attached is the payment screenshot for your records.`;
+  const waMsg = `Assalam-o-Alaikum, I have transferred the tuition fee for ${profile?.full_name || 'student'} (Adm #${profile?.admission_number || profile?.roll_number || '—'}, Class: ${profile?.program_name || '—'}, Section: ${profile?.batch_name || '—'}). Attached is the payment screenshot for your records.`;
   const waUrl = cleanWa ? `https://wa.me/${cleanWa}?text=${encodeURIComponent(waMsg)}` : '#';
 
   return (
@@ -429,7 +437,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           <div className="flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
-              <strong>Admin Preview Mode:</strong> Viewing portal as <strong>{profile.full_name}</strong> (Roll #{profile.roll_number} • Batch: {profile.batch_name}).
+              <strong>Admin Preview Mode:</strong> Viewing portal as <strong>{profile.full_name}</strong> (Adm #{profile.admission_number || profile.roll_number || '—'} • Batch: {profile.batch_name}).
             </span>
           </div>
           {onNavigate && (
@@ -470,13 +478,8 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   {profile?.full_name || 'Student Profile'}
                 </h1>
                 <span className="px-2.5 py-0.5 bg-slate-100 text-slate-800 border border-slate-200 text-xs font-mono font-bold rounded-md">
-                  Roll #{profile?.roll_number || '—'}
+                  Adm #{profile?.admission_number || profile?.roll_number || '—'}
                 </span>
-                {profile?.admission_number && (
-                  <span className="px-2 py-0.5 bg-slate-50 text-slate-600 border border-slate-200 text-xs font-mono rounded-md">
-                    Adm: {profile.admission_number}
-                  </span>
-                )}
               </div>
 
               <p className="text-xs text-slate-600">
@@ -547,6 +550,44 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                       }`}
                     >
                       {child.full_name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Class Switcher for Multi-Class Enrolled Students */}
+            {overview?.enrollments && overview.enrollments.length > 1 && (
+              <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                <GraduationCap className="w-3.5 h-3.5 text-slate-500 ml-1" />
+                <span className="text-[10px] uppercase font-bold text-slate-500 px-1">Class:</span>
+                {overview.enrollments.map(enr => {
+                  const isSelected = enr.id === overview.selected_enrollment_id;
+                  return (
+                    <button
+                      key={enr.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedEnrollmentId(enr.id);
+                        fetchOverview(selectedStudentId, enr.id);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
+                      }`}
+                    >
+                      <span>{enr.batch_name || enr.program_name}</span>
+                      {(enr.admission_number || enr.roll_number) && (
+                        <span className={`text-[10px] font-mono ${isSelected ? 'text-amber-100' : 'text-slate-500'}`}>
+                          ({enr.admission_number || enr.roll_number})
+                        </span>
+                      )}
+                      {enr.is_primary && (
+                        <span className={`text-[9px] px-1 py-0.2 rounded font-mono ${isSelected ? 'bg-amber-700 text-amber-100' : 'bg-slate-100 text-slate-600'}`}>
+                          Primary
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -718,6 +759,71 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               </button>
             </div>
           </div>
+
+          {/* Linked Children & Multi-Class Enrolled Programs (Parent View) */}
+          {overview?.linked_children && overview.linked_children.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                  <GraduationCap className="w-4 h-4 text-amber-600" />
+                  <span>Enrolled Classes & Programs ({overview.linked_children.length} {overview.linked_children.length === 1 ? 'Child' : 'Children'})</span>
+                </h4>
+                <span className="text-[11px] text-slate-500 font-mono">Academic Record</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {overview.linked_children.map(child => (
+                  <div key={child.id} className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/60 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center">
+                          {child.full_name.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="font-bold text-xs text-slate-900">{child.full_name}</div>
+                          <div className="text-[10px] text-slate-500 font-mono">Adm # {child.admission_number}</div>
+                        </div>
+                      </div>
+                      <div className="text-right font-mono">
+                        <div className="text-[10px] text-slate-400">Total Unpaid</div>
+                        <div className={`text-xs font-bold ${child.unpaid_balance > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                          PKR {child.unpaid_balance.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    {child.classes && child.classes.length > 0 ? (
+                      <div className="space-y-1.5 pt-1">
+                        {child.classes.map((cls: any) => (
+                          <div key={cls.id} className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-semibold text-slate-800">{cls.program_name}</span>
+                              <span className="text-slate-400">•</span>
+                              <span className="text-slate-600">{cls.batch_name}</span>
+                              {cls.is_primary && (
+                                <span className="px-1.5 py-0.2 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[9px] font-bold">
+                                  Primary
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 font-mono text-[11px] shrink-0">
+                              <span className="text-slate-500">Adm: {cls.admission_number || cls.roll_number || '—'}</span>
+                              <span className={`px-1.5 py-0.2 rounded text-[9px] uppercase font-bold ${
+                                cls.status === 'active' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'
+                              }`}>
+                                {cls.status}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-500">{child.program_name} • {child.batch_name}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Two-Column Section: Schedule + Bank Payment Instructions */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1898,7 +2004,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-500 font-bold">Class & Section:</span>
-                          <span className="font-mono text-slate-800">{profile?.program_name || 'Class'} ({profile?.batch_name || 'Section'}) • Roll #{profile?.roll_number}</span>
+                          <span className="font-mono text-slate-800">{profile?.program_name || 'Class'} ({profile?.batch_name || 'Section'}) • Adm #{profile?.admission_number || profile?.roll_number}</span>
                         </div>
                       </div>
 
@@ -2028,7 +2134,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5 text-xs border border-slate-300 p-3 bg-slate-50/50">
                   <div className="space-y-1">
                     <div><span className="text-slate-500 font-bold uppercase text-[10px]">Student Name: </span><span className="font-bold text-slate-900">{printingReportCard.student.full_name}</span></div>
-                    <div><span className="text-slate-500 font-bold uppercase text-[10px]">Roll Number: </span><span className="font-mono font-bold text-slate-900">{printingReportCard.student.roll_number}</span></div>
+                    <div><span className="text-slate-500 font-bold uppercase text-[10px]">Admission Number: </span><span className="font-mono font-bold text-slate-900">{printingReportCard.student.admission_number || printingReportCard.student.roll_number || '—'}</span></div>
                     <div><span className="text-slate-500 font-bold uppercase text-[10px]">Class & Section: </span><span className="font-bold text-slate-900">{(printingReportCard.student as any).program_name || (printingReportCard.student as any).class_name ? `${(printingReportCard.student as any).program_name || (printingReportCard.student as any).class_name} • ` : ''}{printingReportCard.student.batch_name}</span></div>
                   </div>
                   <div className="space-y-1">
@@ -2166,10 +2272,10 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
                 <span className="text-[11px] text-slate-500 font-medium block">Login Username</span>
                 <span className="font-mono font-semibold text-slate-900 text-sm block">
-                  {profile?.guardian_id_card || profile?.roll_number || 'Registered Identifier'}
+                  {profile?.admission_number || profile?.guardian_id_card || profile?.roll_number || 'Registered Identifier'}
                 </span>
                 <p className="text-[10px] text-slate-400">
-                  Your username is your registered Father/Guardian CNIC or Student Roll Number.
+                  Your username is your registered Student Admission Number or Father/Guardian CNIC.
                 </p>
               </div>
 

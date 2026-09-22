@@ -396,7 +396,7 @@ export const HomeworkDesk: React.FC = () => {
                     <table className="w-full text-left border-collapse text-xs">
                       <thead className="sticky top-0 bg-slate-50 border-b border-slate-200/80 z-10">
                         <tr className="text-slate-500 font-mono text-[11px] uppercase tracking-wider">
-                          <th className="py-2.5 px-4">Roll</th>
+                          <th className="py-2.5 px-4">Adm #</th>
                           <th className="py-2.5 px-4">Student Name</th>
                           <th className="py-2.5 px-4 text-center">Physical Inspection Status</th>
                           <th className="py-2.5 px-4">Notebook Remarks</th>
@@ -409,7 +409,7 @@ export const HomeworkDesk: React.FC = () => {
                           return (
                             <tr key={student.id} className="hover:bg-slate-50/60 transition-colors">
                               <td className="py-3 px-4 font-mono font-bold text-slate-700">
-                                {student.roll_number}
+                                {student.admission_number}
                               </td>
                               <td className="py-3 px-4 font-bold text-slate-900">
                                 {student.full_name}

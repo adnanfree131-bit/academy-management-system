@@ -26,7 +26,7 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-50 text-slate-500 font-mono uppercase text-[10px] border-b border-slate-100">
               <tr>
-                <th className="px-4 py-3">Roll No</th>
+                <th className="px-4 py-3">Adm No</th>
                 <th className="px-4 py-3">Student Name</th>
                 <th className="px-4 py-3">Batch / Section</th>
                 <th className="px-4 py-3 text-center">Status</th>
@@ -35,13 +35,13 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {[
-                { roll: 'A-101', name: 'Muhammad Ali Raza', batch: 'Morning Batch 1', status: 'Present' },
-                { roll: 'A-102', name: 'Zainab Bibi', batch: 'Morning Batch 1', status: 'Present' },
-                { roll: 'A-103', name: 'Usman Farooq', batch: 'Morning Batch 1', status: 'Absent' },
-                { roll: 'A-104', name: 'Hamza Shahid', batch: 'Morning Batch 1', status: 'Late' },
+                { adm: 'A-101', name: 'Muhammad Ali Raza', batch: 'Morning Batch 1', status: 'Present' },
+                { adm: 'A-102', name: 'Zainab Bibi', batch: 'Morning Batch 1', status: 'Present' },
+                { adm: 'A-103', name: 'Usman Farooq', batch: 'Morning Batch 1', status: 'Absent' },
+                { adm: 'A-104', name: 'Hamza Shahid', batch: 'Morning Batch 1', status: 'Late' },
               ].map((row, i) => (
                 <tr key={i} className="hover:bg-slate-50/80">
-                  <td className="px-4 py-3 font-mono font-bold text-slate-700">{row.roll}</td>
+                  <td className="px-4 py-3 font-mono font-bold text-slate-700">{row.adm}</td>
                   <td className="px-4 py-3 font-semibold text-slate-900">{row.name}</td>
                   <td className="px-4 py-3 text-slate-500">{row.batch}</td>
                   <td className="px-4 py-3 text-center">

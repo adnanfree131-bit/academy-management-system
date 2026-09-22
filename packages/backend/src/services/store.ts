@@ -18,6 +18,8 @@ import {
   StudentInquiry, 
   Student, 
   StudentStatus,
+  StudentEnrollment,
+  StudentEnrollmentStatus,
   InquiryStage,
   Room,
   TimetableSlot,
@@ -343,6 +345,51 @@ export interface IDataStore {
     }
   ): Promise<{ student: Student; user: User; default_password: string }>;
 
+  // --- Multi-Class Student Enrollments ---
+  getStudentEnrollments(tenantId: string, studentId: string): Promise<StudentEnrollment[]>;
+  getEnrollmentById(tenantId: string, enrollmentId: string): Promise<StudentEnrollment | null>;
+  createStudentEnrollment(
+    tenantId: string,
+    studentId: string,
+    data: {
+      batch_id: string;
+      roll_number?: string;
+      subjects?: string[];
+      fee_structure?: any;
+      billing_mode?: any;
+      installment_plan?: any;
+      elective_group_id?: string;
+      generate_first_month_invoice?: boolean;
+    }
+  ): Promise<StudentEnrollment>;
+  updateStudentEnrollment(
+    tenantId: string,
+    studentId: string,
+    enrollmentId: string,
+    data: {
+      roll_number?: string;
+      subjects?: string[];
+      fee_structure?: any;
+      elective_group_id?: string;
+      billing_mode?: any;
+      installment_plan?: any;
+    }
+  ): Promise<StudentEnrollment | null>;
+  updateStudentEnrollmentStatus(
+    tenantId: string,
+    studentId: string,
+    enrollmentId: string,
+    status: StudentEnrollmentStatus,
+    reason: string,
+    cancelUnpaidInvoices?: boolean,
+    changedBy?: string
+  ): Promise<StudentEnrollment | null>;
+  makePrimaryEnrollment(
+    tenantId: string,
+    studentId: string,
+    enrollmentId: string
+  ): Promise<StudentEnrollment | null>;
+
   // --- Phase 3: Timetable & Collision Engine ---
   getRooms(tenantId: string): Promise<Room[]>;
   createRoom(data: Omit<Room, 'id' | 'created_at' | 'updated_at'>): Promise<Room>;
@@ -457,11 +504,16 @@ export interface IDataStore {
   getInvoiceById(tenantId: string, id: string): Promise<StudentInvoice | null>;
   generateInvoice(tenantId: string, data: {
     student_id: string;
+    enrollment_id?: string;
+    batch_id?: string;
     billing_month: string;
     due_date: string;
     custom_items?: Array<{ fee_head_id: string; amount: number }>;
     additional_heads?: Array<{ fee_head_id: string; amount: number }>;
+    issue_date?: string;
+    include_arrears?: boolean;
     notes?: string;
+    allow_inactive_billing?: boolean;
   }): Promise<StudentInvoice>;
   generateBatchInvoices(
     tenantId: string,
@@ -651,7 +703,7 @@ export interface IDataStore {
   reviewSubscriptionReceipt(receiptId: string, status: SubscriptionReceiptStatus, reviewedByEmail: string): Promise<SubscriptionPaymentReceipt>;
   activateAcademy(tenantId: string, durationMonths: number, reviewedByEmail?: string): Promise<Tenant>;
   getTeacherPortalOverview(tenantId: string, teacherId: string, date?: string): Promise<TeacherPortalOverview>;
-  getStudentParentPortalOverview(tenantId: string, studentId?: string): Promise<StudentParentPortalOverview>;
+  getStudentParentPortalOverview(tenantId: string, studentId?: string, enrollmentId?: string): Promise<StudentParentPortalOverview>;
   getSuperAdminOverview(): Promise<SuperAdminOverview>;
   getPlatformConfig(): Promise<PlatformGlobalConfig>;
   updatePlatformConfig(updates: Partial<PlatformGlobalConfig>): Promise<PlatformGlobalConfig>;
@@ -753,6 +805,7 @@ export class InMemoryDataStore implements IDataStore {
   private customFields: CustomFieldDefinition[] = [];
   private inquiries: StudentInquiry[] = [];
   private students: Student[] = [];
+  private studentEnrollments: StudentEnrollment[] = [];
 
   // Phase 3 Collections
   private rooms: Room[] = [];
@@ -854,6 +907,7 @@ export class InMemoryDataStore implements IDataStore {
     this.seedPlatformOperator();
     this.seedDemoAcademy();
     this.seedTestData();
+    this.ensureStudentEnrollments();
 
     if (persistenceEnabled()) {
       this.persistTimer = setInterval(() => {
@@ -881,6 +935,7 @@ export class InMemoryDataStore implements IDataStore {
       customFields: this.customFields,
       inquiries: this.inquiries,
       students: this.students,
+      studentEnrollments: this.studentEnrollments,
       rooms: this.rooms,
       timetableSlots: this.timetableSlots,
       studentAttendance: this.studentAttendance,
@@ -956,6 +1011,7 @@ export class InMemoryDataStore implements IDataStore {
     if (payload.customFields) this.customFields = asArray(payload.customFields);
     if (payload.inquiries) this.inquiries = asArray(payload.inquiries);
     if (payload.students) this.students = asArray<Student>(payload.students);
+    if (payload.studentEnrollments) this.studentEnrollments = asArray<StudentEnrollment>(payload.studentEnrollments);
     if (payload.rooms) this.rooms = asArray<any>(payload.rooms);
 
     // Clean up any dangling batches or subject groups whose parent program was deleted
@@ -1019,6 +1075,90 @@ export class InMemoryDataStore implements IDataStore {
     if (payload.tenantAliases) this.tenantAliases = asArray(payload.tenantAliases);
     if (payload.announcements) this.announcements = asArray(payload.announcements);
     if (payload.announcementReceipts) this.announcementReceipts = asArray(payload.announcementReceipts);
+    this.ensureStudentEnrollments();
+  }
+
+  /** Maintain exact batch seat occupancy matching active or on_leave enrollments */
+  private recalculateBatchSeats(tenantId?: string, batchId?: string): void {
+    const batchesToUpdate = this.batches.filter(b => (!tenantId || b.tenant_id === tenantId) && (!batchId || b.id === batchId));
+    for (const b of batchesToUpdate) {
+      const seats = this.studentEnrollments.filter(e =>
+        e.tenant_id === b.tenant_id &&
+        e.batch_id === b.id &&
+        (e.status === 'active' || e.status === 'on_leave')
+      ).length;
+      b.current_enrollment = seats;
+    }
+  }
+
+  /**
+   * On startup or state restoration, ensure every student has at least one primary enrollment
+   * mirrored from student fields, preserving one person -> multiple enrollments architecture.
+   */
+  private ensureStudentEnrollments(): void {
+    const validStatuses = ['active', 'on_leave', 'suspended', 'withdrawn', 'completed', 'archived'];
+    for (const student of this.students) {
+      if (!student || !student.id) continue;
+      const existing = this.studentEnrollments.filter(e => e.tenant_id === student.tenant_id && e.student_id === student.id);
+      if (existing.length === 0) {
+        const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === student.tenant_id);
+        const status = (validStatuses.includes(student.status) ? student.status : 'active') as StudentEnrollmentStatus;
+        const enrollment: StudentEnrollment = {
+          id: crypto.randomUUID(),
+          tenant_id: student.tenant_id,
+          student_id: student.id,
+          program_id: student.program_id || batch?.program_id || null,
+          batch_id: student.batch_id || '',
+          roll_number: student.roll_number || null,
+          subjects: Array.isArray(student.subjects) ? [...student.subjects] : [],
+          elective_group_id: student.elective_group_id || null,
+          status,
+          is_primary: true,
+          fee_structure: student.fee_structure ? JSON.parse(JSON.stringify(student.fee_structure)) : undefined,
+          billing_mode: student.billing_mode || batch?.billing_mode || 'monthly',
+          installment_plan: student.installment_plan ? JSON.parse(JSON.stringify(student.installment_plan)) : null,
+          admission_date: student.admission_date || new Date().toISOString().split('T')[0],
+          ended_at: status === 'withdrawn' || status === 'archived' ? new Date().toISOString().split('T')[0] : null,
+          created_at: student.created_at || new Date().toISOString(),
+          updated_at: student.updated_at || new Date().toISOString(),
+        };
+        this.studentEnrollments.push(enrollment);
+
+        // Backfill enrollment_id on student's invoices if missing
+        for (const inv of this.invoices) {
+          if (inv.tenant_id === student.tenant_id && inv.student_id === student.id && !inv.enrollment_id) {
+            inv.enrollment_id = enrollment.id;
+            if (!inv.batch_id && enrollment.batch_id) inv.batch_id = enrollment.batch_id;
+          }
+        }
+        // Backfill enrollment_id on attendance if missing
+        for (const att of this.studentAttendance) {
+          if (att.tenant_id === student.tenant_id && att.student_id === student.id && !att.enrollment_id) {
+            att.enrollment_id = enrollment.id;
+          }
+        }
+      } else {
+        // Ensure exactly one primary enrollment exists
+        let primary = existing.find(e => e.is_primary);
+        if (!primary) {
+          primary = existing[0];
+          primary.is_primary = true;
+        }
+        // Mirror primary enrollment fields back to student
+        student.batch_id = primary.batch_id;
+        student.program_id = primary.program_id;
+        if (primary.roll_number) student.roll_number = primary.roll_number;
+        student.subjects = Array.isArray(primary.subjects) ? [...primary.subjects] : student.subjects;
+        if (primary.fee_structure) student.fee_structure = JSON.parse(JSON.stringify(primary.fee_structure));
+        if (primary.billing_mode) student.billing_mode = primary.billing_mode;
+        if (student.installment_plan) {
+          primary.installment_plan = student.installment_plan;
+        } else if (primary.installment_plan) {
+          student.installment_plan = primary.installment_plan;
+        }
+      }
+    }
+    this.recalculateBatchSeats();
   }
 
   /** Restore fee heads / class fees when a snapshot wiped the catalog. */
@@ -3098,16 +3238,48 @@ export class InMemoryDataStore implements IDataStore {
 
   // --- Student SIS Methods ---
   async getStudents(tenantId: string, batchId?: string): Promise<Student[]> {
-    const list = this.students.filter(s => 
-      s.tenant_id === tenantId && (!batchId || s.batch_id === batchId)
-    );
+    this.ensureStudentEnrollments();
     const tenantInvoices = this.invoices.filter(i => i.tenant_id === tenantId);
+
+    if (batchId) {
+      const activeEnrollments = this.studentEnrollments.filter(e =>
+        e.tenant_id === tenantId && e.batch_id === batchId && (e.status === 'active' || e.status === 'on_leave')
+      );
+      return activeEnrollments.map((e): Student | null => {
+        const s = this.students.find(std => std.id === e.student_id && std.tenant_id === tenantId);
+        if (!s) return null;
+        const sInvs = tenantInvoices.filter(i => i.student_id === s.id);
+        const unpaid = sInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
+        const isDefaulter = sInvs.some(i => (i.status as any) === 'overdue' || (Boolean(i.due_date) && new Date(i.due_date.includes('T') ? i.due_date : i.due_date + 'T23:59:59.999Z') < new Date() && ((i.balance_due ?? i.balance_amount ?? 0) > 0)));
+        const allEnrollments = this.studentEnrollments.filter(en => en.tenant_id === tenantId && en.student_id === s.id);
+        return {
+          ...s,
+          batch_id: e.batch_id,
+          admission_number: s.admission_number || e.admission_number || '',
+          roll_number: e.roll_number || s.roll_number || undefined,
+          program_id: e.program_id || s.program_id,
+          subjects: e.subjects && e.subjects.length > 0 ? e.subjects : s.subjects,
+          status: e.status as StudentStatus,
+          enrollment_id: e.id,
+          active_enrollments_count: allEnrollments.filter(en => en.status === 'active' || en.status === 'on_leave').length,
+          enrollments: allEnrollments,
+          unpaid_balance: unpaid,
+          fee_clearance_status: unpaid === 0 ? 'cleared' : (isDefaulter ? 'defaulter' : 'partial'),
+        };
+      }).filter((s): s is Student => s !== null);
+    }
+
+    const list = this.students.filter(s => s.tenant_id === tenantId);
     return list.map(s => {
       const sInvs = tenantInvoices.filter(i => i.student_id === s.id);
       const unpaid = sInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
       const isDefaulter = sInvs.some(i => (i.status as any) === 'overdue' || (Boolean(i.due_date) && new Date(i.due_date.includes('T') ? i.due_date : i.due_date + 'T23:59:59.999Z') < new Date() && ((i.balance_due ?? i.balance_amount ?? 0) > 0)));
+      const enrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.student_id === s.id);
+      const activeCount = enrollments.filter(e => e.status === 'active' || e.status === 'on_leave').length;
       return {
         ...s,
+        active_enrollments_count: activeCount,
+        enrollments,
         unpaid_balance: unpaid,
         fee_clearance_status: unpaid === 0 ? 'cleared' : (isDefaulter ? 'defaulter' : 'partial'),
       };
@@ -3115,13 +3287,18 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async getStudentById(tenantId: string, id: string): Promise<Student | null> {
+    this.ensureStudentEnrollments();
     const student = this.students.find(s => s.id === id && s.tenant_id === tenantId);
     if (!student) return null;
     const sInvs = this.invoices.filter(i => i.tenant_id === tenantId && i.student_id === student.id);
     const unpaid = sInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
     const isDefaulter = sInvs.some(i => (i.status as any) === 'overdue' || (Boolean(i.due_date) && new Date(i.due_date.includes('T') ? i.due_date : i.due_date + 'T23:59:59.999Z') < new Date() && ((i.balance_due ?? i.balance_amount ?? 0) > 0)));
+    const enrollments = await this.getStudentEnrollments(tenantId, id);
+    const activeCount = enrollments.filter(e => e.status === 'active' || e.status === 'on_leave').length;
     return {
       ...student,
+      enrollments,
+      active_enrollments_count: activeCount,
       unpaid_balance: unpaid,
       fee_clearance_status: unpaid === 0 ? 'cleared' : (isDefaulter ? 'defaulter' : 'partial'),
     };
@@ -3244,22 +3421,26 @@ export class InMemoryDataStore implements IDataStore {
     const rawCustomRoll = (data as any).roll_number?.trim();
     let assignedRollNumber = rawCustomRoll;
     if (assignedRollNumber) {
-      const existingWithRoll = this.students.find(s =>
-        s.tenant_id === data.tenant_id &&
-        s.batch_id === data.batch_id &&
-        s.status !== 'archived' &&
-        s.roll_number?.trim().toLowerCase() === assignedRollNumber.toLowerCase()
+      const existingWithRoll = this.studentEnrollments.find(e =>
+        e.tenant_id === data.tenant_id &&
+        e.batch_id === data.batch_id &&
+        e.status !== 'archived' &&
+        e.status !== 'withdrawn' &&
+        e.roll_number?.trim().toLowerCase() === assignedRollNumber.toLowerCase()
       );
       if (existingWithRoll) {
-        throw new Error(`Roll number "${assignedRollNumber}" is already assigned to student "${existingWithRoll.full_name}" in this batch/section.`);
+        const existingStudent = this.students.find(s => s.id === existingWithRoll.student_id);
+        throw new Error(`Roll number "${assignedRollNumber}" is already assigned to student "${existingStudent?.full_name || 'Another Student'}" in this batch/section.`);
       }
     } else {
-      let rollSeq = batchStudents.length + 101;
-      while (this.students.some(s =>
-        s.tenant_id === data.tenant_id &&
-        s.batch_id === data.batch_id &&
-        s.status !== 'archived' &&
-        s.roll_number?.trim().toLowerCase() === `r-${rollSeq}`.toLowerCase()
+      const batchEnrollments = this.studentEnrollments.filter(e => e.tenant_id === data.tenant_id && e.batch_id === data.batch_id);
+      let rollSeq = batchEnrollments.length + 101;
+      while (this.studentEnrollments.some(e =>
+        e.tenant_id === data.tenant_id &&
+        e.batch_id === data.batch_id &&
+        e.status !== 'archived' &&
+        e.status !== 'withdrawn' &&
+        e.roll_number?.trim().toLowerCase() === `r-${rollSeq}`.toLowerCase()
       )) {
         rollSeq++;
       }
@@ -3332,8 +3513,9 @@ export class InMemoryDataStore implements IDataStore {
       if (!sibling) {
         throw new Error('Kinship fee concession rejected: Sibling student was not found in this institution.');
       }
-      if (sibling.status !== 'active') {
-        throw new Error(`Kinship fee concession rejected: Sibling "${sibling.full_name}" is currently ${sibling.status} (must be active).`);
+      const siblingActiveEnrollment = this.studentEnrollments.some(e => e.tenant_id === data.tenant_id && e.student_id === sibId && (e.status === 'active' || e.status === 'on_leave'));
+      if (!siblingActiveEnrollment && sibling.status !== 'active') {
+        throw new Error(`Kinship fee concession rejected: Sibling "${sibling.full_name}" is currently ${sibling.status} (must be active with at least one active enrollment).`);
       }
     }
 
@@ -3446,6 +3628,27 @@ export class InMemoryDataStore implements IDataStore {
 
     this.students.push(student);
 
+    const primaryEnrollment: StudentEnrollment = {
+      id: crypto.randomUUID(),
+      tenant_id: data.tenant_id,
+      student_id: student.id,
+      program_id: student.program_id || batch?.program_id || null,
+      batch_id: student.batch_id || '',
+      roll_number: student.roll_number,
+      subjects: Array.isArray(student.subjects) ? [...student.subjects] : [],
+      elective_group_id: student.elective_group_id || null,
+      status: (['active', 'on_leave', 'suspended', 'withdrawn', 'completed', 'archived', 'waitlisted'].includes(student.status) ? student.status : 'active') as StudentEnrollmentStatus,
+      is_primary: true,
+      fee_structure: student.fee_structure ? JSON.parse(JSON.stringify(student.fee_structure)) : undefined,
+      billing_mode: student.billing_mode || batch?.billing_mode || 'monthly',
+      installment_plan: student.installment_plan,
+      admission_date: student.admission_date,
+      ended_at: null,
+      created_at: student.created_at,
+      updated_at: student.updated_at,
+    };
+    this.studentEnrollments.push(primaryEnrollment);
+
     if (student.sibling_student_id) {
       const sibling = this.students.find(s => s.tenant_id === data.tenant_id && s.id === student.sibling_student_id);
       if (sibling && !sibling.sibling_student_id) {
@@ -3454,7 +3657,9 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
 
-    if (batch && student.status === 'active') batch.current_enrollment += 1;
+    if (batch && (primaryEnrollment.status === 'active' || primaryEnrollment.status === 'on_leave')) {
+      batch.current_enrollment += 1;
+    }
     this.schedulePersist();
 
     const shouldGenerateOpeningInvoice = (data as any).generate_first_month_invoice !== undefined
@@ -3549,6 +3754,7 @@ export class InMemoryDataStore implements IDataStore {
         try {
           const openingInvoice = await this.generateInvoice(data.tenant_id, {
             student_id: student.id,
+            enrollment_id: primaryEnrollment.id,
             billing_month: billingMonth,
             due_date: firstInst.due_date || dueDate,
             custom_items: instItems,
@@ -3559,6 +3765,10 @@ export class InMemoryDataStore implements IDataStore {
           } as any);
           firstInst.status = 'billed';
           firstInst.invoice_id = openingInvoice.id;
+          if (primaryEnrollment.installment_plan?.installments?.[0]) {
+            primaryEnrollment.installment_plan.installments[0].status = 'billed';
+            primaryEnrollment.installment_plan.installments[0].invoice_id = openingInvoice.id;
+          }
           student.first_invoice_id = openingInvoice.id;
           this.schedulePersist();
         } catch (invErr) {
@@ -3568,6 +3778,7 @@ export class InMemoryDataStore implements IDataStore {
         try {
           const openingInvoice = await this.generateInvoice(data.tenant_id, {
             student_id: student.id,
+            enrollment_id: primaryEnrollment.id,
             billing_month: billingMonth,
             due_date: dueDate,
             custom_items: customItems,
@@ -3681,6 +3892,20 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
 
+    // Sync primary enrollment
+    const primaryEnrollment = this.studentEnrollments.find(e => e.tenant_id === tenantId && e.student_id === id && e.is_primary);
+    if (primaryEnrollment) {
+      if (data.batch_id) primaryEnrollment.batch_id = data.batch_id;
+      if (data.program_id) primaryEnrollment.program_id = data.program_id;
+      if (data.roll_number) primaryEnrollment.roll_number = data.roll_number;
+      if (data.subjects) primaryEnrollment.subjects = [...data.subjects];
+      if (data.fee_structure) primaryEnrollment.fee_structure = JSON.parse(JSON.stringify(data.fee_structure));
+      if (data.billing_mode) primaryEnrollment.billing_mode = data.billing_mode;
+      if (data.installment_plan !== undefined) primaryEnrollment.installment_plan = data.installment_plan;
+      primaryEnrollment.updated_at = new Date().toISOString();
+      this.recalculateBatchSeats(tenantId);
+    }
+
     this.schedulePersist();
     return student;
   }
@@ -3705,12 +3930,25 @@ export class InMemoryDataStore implements IDataStore {
     // Seats are only released on 'withdrawn', 'archived', 'alumni', 'suspended'.
     const wasHoldingSeat = previousStatus === 'active' || previousStatus === 'on_leave';
     const willHoldSeat = status === 'active' || status === 'on_leave';
+    const isDeactivating = ['withdrawn', 'archived', 'suspended', 'alumni'].includes(status);
 
-    // 1. Validate batch capacity BEFORE mutating student state
+    const studentEnrollments = this.studentEnrollments.filter(
+      e => e.tenant_id === tenantId && e.student_id === studentId
+    );
+
+    // 1. Validate batch capacity BEFORE mutating student state if reactivating
     if (!wasHoldingSeat && willHoldSeat) {
-      const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
-      if (batch && batch.current_enrollment >= batch.max_capacity) {
-        throw new Error(`Cannot reactivate student: Batch "${batch.name}" is already at full capacity (${batch.current_enrollment}/${batch.max_capacity}). Expand batch capacity first.`);
+      const enrollmentsToReactivate = studentEnrollments.filter(
+        e => e.is_primary || e.status === (previousStatus as any) || e.status === 'archived'
+      );
+      if (enrollmentsToReactivate.length === 0 && studentEnrollments.length > 0) {
+        enrollmentsToReactivate.push(studentEnrollments[0]);
+      }
+      for (const enr of enrollmentsToReactivate) {
+        const batch = this.batches.find(b => b.id === enr.batch_id && b.tenant_id === tenantId);
+        if (batch && batch.current_enrollment >= batch.max_capacity) {
+          throw new Error(`Cannot reactivate student: Batch "${batch.name}" is already at full capacity (${batch.current_enrollment}/${batch.max_capacity}). Expand batch capacity first.`);
+        }
       }
     }
 
@@ -3729,18 +3967,40 @@ export class InMemoryDataStore implements IDataStore {
     });
     student.updated_at = new Date().toISOString();
 
-    // 3. Maintain Batch Enrollment Counters
-    if (wasHoldingSeat && !willHoldSeat) {
-      const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
-      if (batch) {
-        batch.current_enrollment = Math.max(0, batch.current_enrollment - 1);
+    // 3. Synchronize All Class Enrollments & Maintain Batch Seats
+    if (isDeactivating) {
+      const targetEnrollmentStatus: StudentEnrollmentStatus = 
+        status === 'archived' ? 'archived' :
+        status === 'withdrawn' ? 'withdrawn' :
+        status === 'suspended' ? 'suspended' :
+        status === 'alumni' ? 'completed' : 'archived';
+
+      for (const enr of studentEnrollments) {
+        if (enr.status === 'active' || enr.status === 'on_leave' || status === 'archived') {
+          enr.status = targetEnrollmentStatus;
+          enr.ended_at = new Date().toISOString().split('T')[0];
+          enr.updated_at = new Date().toISOString();
+        }
       }
     } else if (!wasHoldingSeat && willHoldSeat) {
-      const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
-      if (batch) {
-        batch.current_enrollment += 1;
+      const enrollmentsToReactivate = studentEnrollments.filter(
+        e => e.is_primary || e.status === (previousStatus as any) || e.status === 'archived'
+      );
+      if (enrollmentsToReactivate.length === 0 && studentEnrollments.length > 0) {
+        enrollmentsToReactivate.push(studentEnrollments[0]);
+      }
+      for (const enr of enrollmentsToReactivate) {
+        enr.status = (status === 'on_leave' ? 'on_leave' : 'active') as StudentEnrollmentStatus;
+        enr.ended_at = null;
+        enr.updated_at = new Date().toISOString();
       }
     }
+
+    // Recalculate batch seats across all batches immediately so primary and secondary class seats are accurate
+    this.recalculateBatchSeats(tenantId);
+    student.active_enrollments_count = this.studentEnrollments.filter(
+      e => e.tenant_id === tenantId && e.student_id === student.id && (e.status === 'active' || e.status === 'on_leave')
+    ).length;
 
     // 4. User account synchronization & portal access gating (H3)
     if (student.user_id) {
@@ -3914,6 +4174,12 @@ export class InMemoryDataStore implements IDataStore {
       this.studentProfileAuditLogs = this.studentProfileAuditLogs.filter(
         l => !(l.tenant_id === tenantId && l.student_id === studentId)
       );
+    }
+    if (this.studentEnrollments) {
+      this.studentEnrollments = this.studentEnrollments.filter(
+        e => !(e.tenant_id === tenantId && e.student_id === studentId)
+      );
+      this.recalculateBatchSeats(tenantId);
     }
 
     // Invoices cleanup: only remove unpaid or cancelled invoices, NEVER delete paid/partial invoices to preserve financial ledger
@@ -4194,9 +4460,26 @@ export class InMemoryDataStore implements IDataStore {
         };
       }
 
+      // Update corresponding enrollment
+      const targetEnrollment = this.studentEnrollments.find(e =>
+        e.tenant_id === tenantId && e.student_id === student.id && (sourceBatch ? e.batch_id === sourceBatch.id : e.is_primary)
+      ) || this.studentEnrollments.find(e => e.tenant_id === tenantId && e.student_id === student.id && e.is_primary);
+
+      if (targetEnrollment) {
+        targetEnrollment.batch_id = params.target_batch_id;
+        if (effectiveProgramId) targetEnrollment.program_id = effectiveProgramId;
+        targetEnrollment.roll_number = student.roll_number;
+        if (params.target_session) targetEnrollment.academic_session = params.target_session;
+        if (student.subjects) targetEnrollment.subjects = [...student.subjects];
+        if (student.fee_structure) targetEnrollment.fee_structure = JSON.parse(JSON.stringify(student.fee_structure));
+        targetEnrollment.updated_at = nowIso;
+      }
+
       student.updated_at = nowIso;
       updatedStudents.push(student);
     }
+
+    this.recalculateBatchSeats(tenantId);
 
     if (updatedStudents.length > 0) {
       this.schedulePersist();
@@ -4574,6 +4857,395 @@ export class InMemoryDataStore implements IDataStore {
     };
   }
 
+  // --- Multi-Class Student Enrollments ---
+  async getStudentEnrollments(tenantId: string, studentId: string): Promise<StudentEnrollment[]> {
+    this.ensureStudentEnrollments();
+    const enrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.student_id === studentId);
+    const tenantInvoices = this.invoices.filter(i => i.tenant_id === tenantId && i.student_id === studentId && i.status !== 'voided' && (i.status as any) !== 'cancelled');
+    
+    return enrollments.map(e => {
+      const b = this.batches.find(batch => batch.id === e.batch_id && batch.tenant_id === tenantId);
+      const p = this.programs.find(prog => prog.id === (e.program_id || b?.program_id) && prog.tenant_id === tenantId);
+      const eInvs = tenantInvoices.filter(i => i.enrollment_id === e.id || (!i.enrollment_id && i.batch_id === e.batch_id));
+      const unpaid = eInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
+      return {
+        ...e,
+        program_name: p?.name || 'Class',
+        batch_name: b?.name || 'Section',
+        unpaid_balance: unpaid,
+      };
+    });
+  }
+
+  async getEnrollmentById(tenantId: string, enrollmentId: string): Promise<StudentEnrollment | null> {
+    this.ensureStudentEnrollments();
+    const e = this.studentEnrollments.find(en => en.id === enrollmentId && en.tenant_id === tenantId);
+    if (!e) return null;
+    const b = this.batches.find(batch => batch.id === e.batch_id && batch.tenant_id === tenantId);
+    const p = this.programs.find(prog => prog.id === (e.program_id || b?.program_id) && prog.tenant_id === tenantId);
+    const eInvs = this.invoices.filter(i => i.tenant_id === tenantId && i.student_id === e.student_id && (i.enrollment_id === e.id || (!i.enrollment_id && i.batch_id === e.batch_id)) && i.status !== 'voided' && (i.status as any) !== 'cancelled');
+    const unpaid = eInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
+    return {
+      ...e,
+      program_name: p?.name || 'Class',
+      batch_name: b?.name || 'Section',
+      unpaid_balance: unpaid,
+    };
+  }
+
+  async createStudentEnrollment(
+    tenantId: string,
+    studentId: string,
+    data: {
+      batch_id: string;
+      roll_number?: string;
+      subjects?: string[];
+      fee_structure?: any;
+      billing_mode?: any;
+      installment_plan?: any;
+      elective_group_id?: string;
+      generate_first_month_invoice?: boolean;
+      generate_opening_challan?: boolean;
+      opening_challan_due_date?: string;
+      due_date?: string;
+    }
+  ): Promise<StudentEnrollment> {
+    this.ensureStudentEnrollments();
+    const student = this.students.find(s => s.id === studentId && s.tenant_id === tenantId);
+    if (!student) throw new Error('Student not found');
+    if (student.status === 'archived') throw new Error('Cannot add enrollment to an archived student');
+
+    const batch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === tenantId);
+    if (!batch) throw new Error('Target section/batch not found');
+
+    // Rule: Reject a full batch
+    if (batch.current_enrollment >= batch.max_capacity) {
+      throw new Error(`Batch "${batch.name}" has reached maximum capacity (${batch.current_enrollment}/${batch.max_capacity}). Please expand batch capacity before enrolling.`);
+    }
+
+    // Rule: Reject duplicate active enrollment in that batch
+    const duplicate = this.studentEnrollments.find(
+      e => e.tenant_id === tenantId &&
+           e.student_id === studentId &&
+           e.batch_id === data.batch_id &&
+           (e.status === 'active' || e.status === 'on_leave')
+    );
+    if (duplicate) {
+      throw new Error(`Student "${student.full_name}" is already actively enrolled in this batch/section.`);
+    }
+
+    // Rule: Roll uniqueness stays inside one batch, not across the academy
+    let assignedRollNumber = data.roll_number?.trim();
+    if (assignedRollNumber) {
+      const rollLower = assignedRollNumber.toLowerCase();
+      const existingWithRoll = this.studentEnrollments.find(e =>
+        e.tenant_id === tenantId &&
+        e.batch_id === data.batch_id &&
+        e.status !== 'archived' &&
+        e.status !== 'withdrawn' &&
+        e.roll_number?.trim().toLowerCase() === rollLower
+      );
+      if (existingWithRoll) {
+        throw new Error(`Roll number "${assignedRollNumber}" is already assigned to another student in this batch/section.`);
+      }
+    } else {
+      const batchEnrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.batch_id === data.batch_id);
+      let rollSeq = batchEnrollments.length + 101;
+      while (this.studentEnrollments.some(e =>
+        e.tenant_id === tenantId &&
+        e.batch_id === data.batch_id &&
+        e.status !== 'archived' &&
+        e.status !== 'withdrawn' &&
+        e.roll_number?.trim().toLowerCase() === `r-${rollSeq}`.toLowerCase()
+      )) {
+        rollSeq++;
+      }
+      assignedRollNumber = `R-${rollSeq}`;
+    }
+
+    // Resolve subjects
+    let subjects = data.subjects && data.subjects.length > 0 ? [...data.subjects] : [];
+    if (subjects.length === 0 && batch.program_id) {
+      const compGroup = this.subjectGroups.find(g => g.tenant_id === tenantId && g.program_id === batch.program_id && g.type === 'compulsory');
+      if (compGroup) subjects = [...compGroup.subject_ids];
+    }
+
+    const hasActivePrimary = this.studentEnrollments.some(e => e.tenant_id === tenantId && e.student_id === studentId && e.is_primary && (e.status === 'active' || e.status === 'on_leave'));
+    const isPrimary = !hasActivePrimary;
+
+    const resolvedFeeStructure = data.fee_structure || (batch.fee_amount ? {
+      base_tuition: batch.fee_amount,
+      net_tuition: batch.fee_amount,
+      recurring_monthly: batch.fee_amount,
+    } : undefined);
+
+    const enrollmentId = crypto.randomUUID();
+    const enrollment: StudentEnrollment = {
+      id: enrollmentId,
+      tenant_id: tenantId,
+      student_id: studentId,
+      program_id: batch.program_id || null,
+      batch_id: data.batch_id,
+      roll_number: assignedRollNumber,
+      subjects,
+      elective_group_id: data.elective_group_id || null,
+      status: 'active',
+      is_primary: isPrimary,
+      fee_structure: resolvedFeeStructure,
+      billing_mode: data.billing_mode || batch.billing_mode || 'monthly',
+      installment_plan: data.installment_plan || null,
+      admission_date: new Date().toISOString().split('T')[0],
+      ended_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    this.studentEnrollments.push(enrollment);
+    batch.current_enrollment += 1;
+
+    if (isPrimary) {
+      student.batch_id = enrollment.batch_id;
+      student.program_id = enrollment.program_id;
+      student.roll_number = enrollment.roll_number || student.roll_number;
+      student.subjects = [...enrollment.subjects];
+      if (enrollment.fee_structure) student.fee_structure = JSON.parse(JSON.stringify(enrollment.fee_structure));
+      if (enrollment.billing_mode) student.billing_mode = enrollment.billing_mode;
+      student.updated_at = new Date().toISOString();
+    }
+
+    this.schedulePersist();
+
+    // Opening invoice: only if requested
+    const shouldGenerateOpening = Boolean(
+      (data as any).generate_opening_challan !== undefined
+        ? (data as any).generate_opening_challan
+        : (data as any).generate_first_month_invoice
+    );
+    if (shouldGenerateOpening) {
+      const now = new Date();
+      const defaultDueDate = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const dueDate = (data as any).opening_challan_due_date || (data as any).due_date || defaultDueDate;
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const billingMonth = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+
+      try {
+        await this.generateInvoice(tenantId, {
+          student_id: student.id,
+          batch_id: batch.id,
+          enrollment_id: enrollment.id,
+          billing_month: billingMonth,
+          due_date: dueDate,
+          notes: `Opening Fee Challan for ${batch.name}`
+        });
+      } catch (err) {
+        console.error('Failed to generate opening invoice for enrollment:', err);
+      }
+    }
+
+    return enrollment;
+  }
+
+  async updateStudentEnrollment(
+    tenantId: string,
+    studentId: string,
+    enrollmentId: string,
+    data: {
+      roll_number?: string;
+      subjects?: string[];
+      fee_structure?: any;
+      elective_group_id?: string;
+      billing_mode?: any;
+      installment_plan?: any;
+    }
+  ): Promise<StudentEnrollment | null> {
+    this.ensureStudentEnrollments();
+    const enrollment = this.studentEnrollments.find(e => e.id === enrollmentId && e.student_id === studentId && e.tenant_id === tenantId);
+    if (!enrollment) return null;
+
+    if (data.roll_number !== undefined) {
+      const newRoll = data.roll_number.trim();
+      if (newRoll && newRoll.toLowerCase() !== enrollment.roll_number?.trim().toLowerCase()) {
+        const collision = this.studentEnrollments.find(e =>
+          e.tenant_id === tenantId &&
+          e.batch_id === enrollment.batch_id &&
+          e.id !== enrollment.id &&
+          e.status !== 'archived' &&
+          e.status !== 'withdrawn' &&
+          e.roll_number?.trim().toLowerCase() === newRoll.toLowerCase()
+        );
+        if (collision) {
+          throw new Error(`Roll number "${newRoll}" is already assigned to another student in this batch.`);
+        }
+      }
+      enrollment.roll_number = newRoll;
+    }
+
+    if (data.subjects !== undefined) enrollment.subjects = [...data.subjects];
+    if (data.fee_structure !== undefined) enrollment.fee_structure = data.fee_structure;
+    if (data.elective_group_id !== undefined) enrollment.elective_group_id = data.elective_group_id;
+    if (data.billing_mode !== undefined) enrollment.billing_mode = data.billing_mode;
+    if (data.installment_plan !== undefined) enrollment.installment_plan = data.installment_plan;
+    enrollment.updated_at = new Date().toISOString();
+
+    if (enrollment.is_primary) {
+      const student = this.students.find(s => s.id === studentId && s.tenant_id === tenantId);
+      if (student) {
+        if (enrollment.roll_number) student.roll_number = enrollment.roll_number;
+        if (data.subjects) student.subjects = [...enrollment.subjects];
+        if (data.fee_structure) student.fee_structure = JSON.parse(JSON.stringify(enrollment.fee_structure));
+        if (data.billing_mode) student.billing_mode = enrollment.billing_mode;
+        student.updated_at = new Date().toISOString();
+      }
+    }
+
+    this.schedulePersist();
+    return enrollment;
+  }
+
+  async updateStudentEnrollmentStatus(
+    tenantId: string,
+    studentId: string,
+    enrollmentId: string,
+    status: StudentEnrollmentStatus,
+    reason: string,
+    cancelUnpaidInvoices: boolean = false,
+    changedBy: string = 'Administration'
+  ): Promise<StudentEnrollment | null> {
+    this.ensureStudentEnrollments();
+    const enrollment = this.studentEnrollments.find(e => e.id === enrollmentId && e.student_id === studentId && e.tenant_id === tenantId);
+    if (!enrollment) return null;
+
+    const previousStatus = enrollment.status;
+    if (previousStatus === status) return enrollment;
+
+    const wasHoldingSeat = previousStatus === 'active' || previousStatus === 'on_leave';
+    const willHoldSeat = status === 'active' || status === 'on_leave';
+
+    // Validate batch capacity if reactivating / holding seat
+    if (!wasHoldingSeat && willHoldSeat) {
+      const batch = this.batches.find(b => b.id === enrollment.batch_id && b.tenant_id === tenantId);
+      if (batch && batch.current_enrollment >= batch.max_capacity) {
+        throw new Error(`Cannot reactivate class enrollment: Batch "${batch.name}" is already at full capacity (${batch.current_enrollment}/${batch.max_capacity}).`);
+      }
+    }
+
+    enrollment.status = status;
+    enrollment.updated_at = new Date().toISOString();
+    if (!willHoldSeat) {
+      enrollment.ended_at = new Date().toISOString().split('T')[0];
+    } else {
+      enrollment.ended_at = null;
+    }
+
+    // Maintain batch seats
+    if (wasHoldingSeat && !willHoldSeat) {
+      const batch = this.batches.find(b => b.id === enrollment.batch_id && b.tenant_id === tenantId);
+      if (batch) batch.current_enrollment = Math.max(0, batch.current_enrollment - 1);
+    } else if (!wasHoldingSeat && willHoldSeat) {
+      const batch = this.batches.find(b => b.id === enrollment.batch_id && b.tenant_id === tenantId);
+      if (batch) batch.current_enrollment += 1;
+    }
+
+    // Cancel unpaid invoices for this enrollment only
+    if (cancelUnpaidInvoices) {
+      const invoicesToCancel = this.invoices.filter(i =>
+        i.tenant_id === tenantId &&
+        i.student_id === studentId &&
+        (i.enrollment_id === enrollmentId || (!i.enrollment_id && i.batch_id === enrollment.batch_id)) &&
+        (i.status === 'unpaid' || i.status === 'UNPAID')
+      );
+      for (const inv of invoicesToCancel) {
+        inv.status = 'cancelled';
+        inv.balance_amount = 0;
+        inv.balance_due = 0;
+        inv.notes = (inv.notes ? inv.notes + ' | ' : '') + `[Class Exit] Cancelled on leaving class (${status}). Reason: ${reason}`;
+        inv.updated_at = new Date().toISOString();
+      }
+    }
+
+    // Check if student has other active enrollments
+    const hasOtherActive = this.studentEnrollments.some(e =>
+      e.tenant_id === tenantId && e.student_id === studentId && e.id !== enrollmentId && (e.status === 'active' || e.status === 'on_leave')
+    );
+
+    const student = this.students.find(s => s.id === studentId && s.tenant_id === tenantId);
+    if (student) {
+      if (enrollment.is_primary) {
+        if (!hasOtherActive) {
+          student.status = status as StudentStatus;
+          student.updated_at = new Date().toISOString();
+        } else {
+          // If primary enrollment exited but student has another active class, promote the other active class to primary
+          const nextActive = this.studentEnrollments.find(e => e.tenant_id === tenantId && e.student_id === studentId && e.id !== enrollmentId && (e.status === 'active' || e.status === 'on_leave'));
+          if (nextActive) {
+            enrollment.is_primary = false;
+            nextActive.is_primary = true;
+            student.batch_id = nextActive.batch_id;
+            student.program_id = nextActive.program_id;
+            if (nextActive.roll_number) student.roll_number = nextActive.roll_number;
+            student.subjects = [...nextActive.subjects];
+            if (nextActive.fee_structure) student.fee_structure = JSON.parse(JSON.stringify(nextActive.fee_structure));
+            student.billing_mode = nextActive.billing_mode;
+            student.status = nextActive.status as StudentStatus;
+            student.updated_at = new Date().toISOString();
+          }
+        }
+      }
+
+      // Portal account sync: only block user if student has no active enrollments remaining
+      if (student.user_id) {
+        const user = this.users.get(student.user_id);
+        if (user && user.tenant_id === tenantId) {
+          if (!user.metadata) user.metadata = {};
+          if (!hasOtherActive && willHoldSeat === false) {
+            user.status = 'inactive';
+            user.metadata.portal_blocked = true;
+          } else if (willHoldSeat || hasOtherActive) {
+            user.status = 'active';
+            user.metadata.portal_blocked = false;
+          }
+          user.updated_at = new Date().toISOString();
+        }
+      }
+    }
+
+    this.schedulePersist();
+    return enrollment;
+  }
+
+  async makePrimaryEnrollment(
+    tenantId: string,
+    studentId: string,
+    enrollmentId: string
+  ): Promise<StudentEnrollment | null> {
+    this.ensureStudentEnrollments();
+    const enrollment = this.studentEnrollments.find(e => e.id === enrollmentId && e.student_id === studentId && e.tenant_id === tenantId);
+    if (!enrollment) return null;
+
+    for (const e of this.studentEnrollments) {
+      if (e.tenant_id === tenantId && e.student_id === studentId) {
+        e.is_primary = (e.id === enrollmentId);
+        e.updated_at = new Date().toISOString();
+      }
+    }
+
+    const student = this.students.find(s => s.id === studentId && s.tenant_id === tenantId);
+    if (student) {
+      student.batch_id = enrollment.batch_id;
+      student.program_id = enrollment.program_id;
+      if (enrollment.roll_number) student.roll_number = enrollment.roll_number;
+      student.subjects = [...enrollment.subjects];
+      if (enrollment.fee_structure) student.fee_structure = JSON.parse(JSON.stringify(enrollment.fee_structure));
+      if (enrollment.billing_mode) student.billing_mode = enrollment.billing_mode;
+      student.installment_plan = enrollment.installment_plan;
+      student.status = enrollment.status as StudentStatus;
+      student.updated_at = new Date().toISOString();
+    }
+
+    this.schedulePersist();
+    return enrollment;
+  }
+
   // --- Phase 3: Rooms & Timetable Engine ---
   async getRooms(tenantId: string): Promise<Room[]> {
     return this.rooms.filter(r => r.tenant_id === tenantId);
@@ -4843,23 +5515,39 @@ export class InMemoryDataStore implements IDataStore {
 
     for (const item of records) {
       const student = this.students.find(s => s.id === item.student_id && s.tenant_id === tenantId);
-      if (!student || student.status !== 'active' || student.batch_id !== batchId) {
+      if (!student) continue;
+
+      const enrollment = this.studentEnrollments.find(e =>
+        e.tenant_id === tenantId &&
+        e.student_id === item.student_id &&
+        e.batch_id === batchId
+      );
+      const isActiveInBatch = enrollment
+        ? (enrollment.status === 'active')
+        : (student.status === 'active' && student.batch_id === batchId);
+
+      if (!isActiveInBatch) {
         // Nonexistent students, students from other batches, or inactive/withdrawn students are excluded
         continue;
       }
       const effectiveStatus: AttendanceStatus = excusedStudentIds.has(item.student_id) ? 'excused' : item.status;
 
-      // Upsert record
+      // Upsert record (match on student, batch/enrollment, and date)
       const existingIdx = this.studentAttendance.findIndex(a => 
-        a.tenant_id === tenantId && a.student_id === item.student_id && a.date === date
+        a.tenant_id === tenantId &&
+        a.student_id === item.student_id &&
+        (a.enrollment_id && enrollment ? a.enrollment_id === enrollment.id : a.batch_id === batchId) &&
+        a.date === date
       );
 
       const record: StudentAttendanceRecord = {
         id: existingIdx >= 0 ? this.studentAttendance[existingIdx].id : crypto.randomUUID(),
         tenant_id: tenantId,
         student_id: item.student_id,
+        enrollment_id: enrollment?.id,
         student_name: student?.full_name,
-        roll_number: student?.roll_number,
+        admission_number: student?.admission_number || enrollment?.admission_number || undefined,
+        roll_number: enrollment?.roll_number || student?.roll_number || undefined,
         batch_id: batchId,
         date,
         status: effectiveStatus,
@@ -6182,7 +6870,8 @@ export class InMemoryDataStore implements IDataStore {
         assignment_id: assignmentId,
         student_id: item.student_id,
         student_name: student?.full_name,
-        roll_number: student?.roll_number,
+        admission_number: student?.admission_number || undefined,
+        roll_number: student?.roll_number || undefined,
         status: item.status,
         remarks: item.remarks,
         checked_by: checkedBy,
@@ -6767,6 +7456,8 @@ export class InMemoryDataStore implements IDataStore {
 
   async generateInvoice(tenantId: string, data: {
     student_id: string;
+    enrollment_id?: string;
+    batch_id?: string;
     billing_month: string;
     due_date: string;
     custom_items?: Array<{ fee_head_id: string; amount: number }>;
@@ -6777,14 +7468,34 @@ export class InMemoryDataStore implements IDataStore {
   }): Promise<StudentInvoice> {
     const student = this.students.find(s => s.id === data.student_id && s.tenant_id === tenantId);
     if (!student) throw new Error('Student not found for invoice generation');
+
+    this.ensureStudentEnrollments();
+    let enrollment = (data as any).enrollment_id
+      ? this.studentEnrollments.find(e => e.id === (data as any).enrollment_id && e.student_id === student.id && e.tenant_id === tenantId)
+      : null;
+    if (!enrollment && (data as any).batch_id) {
+      enrollment = this.studentEnrollments.find(e => e.batch_id === (data as any).batch_id && e.student_id === student.id && e.tenant_id === tenantId && (e.status === 'active' || e.status === 'on_leave'));
+    }
+    if (!enrollment) {
+      enrollment = this.studentEnrollments.find(e => e.student_id === student.id && e.tenant_id === tenantId && e.is_primary)
+        || this.studentEnrollments.find(e => e.student_id === student.id && e.tenant_id === tenantId && (e.status === 'active' || e.status === 'on_leave'))
+        || this.studentEnrollments.find(e => e.student_id === student.id && e.tenant_id === tenantId);
+    }
+
     if (student.status !== 'active' && !(data as any).allow_inactive_billing) {
       throw new Error(`Cannot generate fee invoice: Student "${student.full_name}" is ${student.status}. Invoices can only be generated for active students.`);
     }
+    if (enrollment && enrollment.status !== 'active' && !(data as any).allow_inactive_billing) {
+      throw new Error(`Cannot generate fee invoice: Student "${student.full_name}" enrollment in this class is ${enrollment.status}. Invoices can only be generated for active enrollments.`);
+    }
 
-    // Duplicate Challan Shield: Prevent duplicate active invoices for same student and billing month
+    const targetBatchId = enrollment ? enrollment.batch_id : student.batch_id;
+
+    // Duplicate Challan Shield: Prevent duplicate active invoices for same student, enrollment/batch, and billing month
     const existingActive = this.invoices.find(i => 
       i.tenant_id === tenantId &&
       i.student_id === student.id &&
+      (enrollment && i.enrollment_id ? i.enrollment_id === enrollment.id : i.batch_id === targetBatchId) &&
       isSameBillingMonth(i.billing_month, data.billing_month) &&
       i.status !== 'voided' &&
       i.status !== 'cancelled'
@@ -6793,9 +7504,10 @@ export class InMemoryDataStore implements IDataStore {
       throw new Error(`An active fee challan (#${existingActive.invoice_number}) already exists for ${student.full_name} for ${normalizeBillingMonth(data.billing_month)}. Duplicate challans cannot be issued.`);
     }
 
-    const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
-    const programId = student.program_id || batch?.program_id || '';
+    const batch = this.batches.find(b => b.id === targetBatchId && b.tenant_id === tenantId);
+    const programId = enrollment?.program_id || student.program_id || batch?.program_id || '';
     const program = this.programs.find(p => p.id === programId && p.tenant_id === tenantId);
+    const rollNumber = enrollment?.roll_number || student.roll_number;
     const invoiceId = crypto.randomUUID();
     const count = this.invoices.filter(i => i.tenant_id === tenantId).length + 1;
     const currentYear = new Date().getFullYear();
@@ -6823,14 +7535,26 @@ export class InMemoryDataStore implements IDataStore {
         subtotal += amount;
       }
     } else {
-      const sFee = (student as any).fee_structure || {};
-      const sisNet = Number(sFee.net_tuition || sFee.recurring_monthly || 0);
-      const sisBase = Number(sFee.base_tuition || sFee.tuition_fee || sisNet || 0);
+      const eFee = enrollment?.fee_structure
+        || (batch?.fee_amount ? {
+            base_tuition: batch.fee_amount,
+            net_tuition: batch.fee_amount,
+            recurring_monthly: batch.fee_amount,
+          } : undefined)
+        || (!enrollment ? (student as any).fee_structure : undefined)
+        || {};
+      const sisNet = Number(eFee.net_tuition || eFee.recurring_monthly || 0);
+      const sisBase = Number(eFee.base_tuition || eFee.tuition_fee || sisNet || 0);
       const sisTuition = sisNet > 0 ? sisNet : sisBase;
 
-      const studentOverride = this.feeStructures.find(fs => fs.tenant_id === tenantId && fs.student_id === student.id);
+      const studentOverride = this.feeStructures.find(fs =>
+        fs.tenant_id === tenantId &&
+        fs.student_id === student.id &&
+        (enrollment ? (fs.enrollment_id === enrollment.id || (!fs.enrollment_id && fs.batch_id === targetBatchId)) : fs.batch_id === targetBatchId)
+      ) || this.feeStructures.find(fs => fs.tenant_id === tenantId && fs.student_id === student.id && !fs.batch_id);
+
       const batchDefault = this.feeStructures.find(fs =>
-        fs.tenant_id === tenantId && fs.batch_id === student.batch_id && !fs.student_id
+        fs.tenant_id === tenantId && fs.batch_id === targetBatchId && !fs.student_id
       );
 
       const pushLine = (
@@ -6891,6 +7615,13 @@ export class InMemoryDataStore implements IDataStore {
         pushLine(tuitionHead, tuitionHead.id, tuitionHead.name, sisTuition, 0);
       } else if (batchDefault?.items && batchDefault.items.length > 0) {
         applyStructureItems(batchDefault.items);
+      } else if (batch?.fee_amount && batch.fee_amount > 0) {
+        const tuitionHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'TUITION')
+          || this.feeHeads.find(h => h.tenant_id === tenantId && h.name.toLowerCase().includes('tuition'));
+        if (!tuitionHead) {
+          throw new Error('Cannot generate a challan: Monthly Tuition fee head is missing.');
+        }
+        pushLine(tuitionHead, tuitionHead.id, tuitionHead.name, batch.fee_amount, 0);
       } else {
         throw new Error('Cannot generate a challan: no fee structure, student tuition, or class fees are set. Set this student\'s fee at admission or class fees first.');
       }
@@ -6935,6 +7666,7 @@ export class InMemoryDataStore implements IDataStore {
       priorInvoices = this.invoices.filter(i =>
         i.tenant_id === tenantId &&
         i.student_id === student.id &&
+        (enrollment && i.enrollment_id ? i.enrollment_id === enrollment.id : i.batch_id === targetBatchId) &&
         i.id !== invoiceId &&
         i.status !== 'paid' &&
         i.status !== 'voided' &&
@@ -6985,9 +7717,11 @@ export class InMemoryDataStore implements IDataStore {
       tenant_id: tenantId,
       invoice_number: invoiceNumber,
       student_id: student.id,
+      enrollment_id: enrollment?.id,
       student_name: student.full_name,
-      roll_number: student.roll_number,
-      batch_id: student.batch_id || '',
+      admission_number: student.admission_number,
+      roll_number: rollNumber,
+      batch_id: targetBatchId || '',
       batch_name: batch?.name || 'General Batch',
       program_id: programId,
       program_name: program?.name || 'Class',
@@ -7017,7 +7751,7 @@ export class InMemoryDataStore implements IDataStore {
       notes: data.notes || null,
       installment_number: (data as any).installment_number ?? null,
       total_installments: (data as any).total_installments ?? null,
-      billing_mode: (data as any).billing_mode ?? student.billing_mode ?? batch?.billing_mode ?? 'monthly',
+      billing_mode: (data as any).billing_mode ?? enrollment?.billing_mode ?? student.billing_mode ?? batch?.billing_mode ?? 'monthly',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
@@ -7051,37 +7785,43 @@ export class InMemoryDataStore implements IDataStore {
       issueDate = batchIdOrParams.issue_date;
     }
 
-    const students = this.students.filter(s => {
-      if (s.tenant_id !== tenantId || s.status !== 'active') return false;
+    this.ensureStudentEnrollments();
+    const enrollmentsToBill = this.studentEnrollments.filter(e => {
+      if (e.tenant_id !== tenantId || e.status !== 'active') return false;
       if (scope === 'batch' && targetId && targetId !== 'all') {
-        return s.batch_id === targetId;
+        return e.batch_id === targetId;
       }
       if (scope === 'program' && targetId && targetId !== 'all') {
-        return s.program_id === targetId;
+        return e.program_id === targetId;
       }
       return true;
     });
 
     const created: StudentInvoice[] = [];
 
-    for (const student of students) {
-      const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
+    for (const enrollment of enrollmentsToBill) {
+      const student = this.students.find(s => s.id === enrollment.student_id && s.tenant_id === tenantId);
+      if (!student || student.status === 'archived') continue;
+
+      const batch = this.batches.find(b => b.id === enrollment.batch_id && b.tenant_id === tenantId);
 
       // Edge Case 2.7: Batch lifespan check - skip if batch concluded prior to this billing month
       if (batch?.end_date && isBatchEndedForBillingMonth(batch.end_date, billingMonth)) {
         continue;
       }
 
+      const effectiveBillingMode = enrollment.billing_mode || student.billing_mode || batch?.billing_mode || 'monthly';
+
       // One-time package billing: student or batch is billed once upfront, skip recurring monthly billing
-      if (student.billing_mode === 'one_time' || batch?.billing_mode === 'one_time') {
+      if (effectiveBillingMode === 'one_time') {
         continue;
       }
 
       // Installment Plan: student is billed according to milestone schedule
-      if (student.billing_mode === 'installment' && student.installment_plan) {
-        const pendingInst = student.installment_plan.installments?.find(ins => ins.status === 'pending');
+      const instPlan = enrollment.installment_plan || student.installment_plan;
+      if (effectiveBillingMode === 'installment' && instPlan) {
+        const pendingInst = instPlan.installments?.find((ins: any) => ins.status === 'pending');
         if (!pendingInst) {
-          // All installments have already been billed
           continue;
         }
 
@@ -7094,10 +7834,11 @@ export class InMemoryDataStore implements IDataStore {
           }
         }
 
-        // Check if invoice already exists for this student and billing month (excluding voided/cancelled)
+        // Check if invoice already exists for this student, enrollment, and billing month
         const existing = this.invoices.find(i => 
           i.tenant_id === tenantId &&
           i.student_id === student.id &&
+          (i.enrollment_id ? i.enrollment_id === enrollment.id : i.batch_id === enrollment.batch_id) &&
           isSameBillingMonth(i.billing_month, billingMonth) &&
           i.status !== 'voided' &&
           i.status !== 'cancelled'
@@ -7107,6 +7848,7 @@ export class InMemoryDataStore implements IDataStore {
         const tuitionHead = this.feeHeads.find(h => h.tenant_id === tenantId && h.code === 'TUITION') || this.feeHeads.find(h => h.tenant_id === tenantId);
         const instInv = await this.generateInvoice(tenantId, {
           student_id: student.id,
+          enrollment_id: enrollment.id,
           billing_month: normalizeBillingMonth(billingMonth),
           due_date: pendingInst.due_date || dueDate,
           issue_date: issueDate,
@@ -7116,9 +7858,9 @@ export class InMemoryDataStore implements IDataStore {
             amount: pendingInst.amount,
           }] : undefined,
           installment_number: pendingInst.installment_number,
-          total_installments: student.installment_plan.total_installments,
+          total_installments: instPlan.total_installments,
           billing_mode: 'installment',
-          notes: `Tuition Fee - Installment ${pendingInst.installment_number} of ${student.installment_plan.total_installments}`,
+          notes: `Tuition Fee - Installment ${pendingInst.installment_number} of ${instPlan.total_installments}`,
           additional_heads: typeof batchIdOrParams !== 'string' ? batchIdOrParams.additional_heads : undefined,
         } as any);
 
@@ -7133,6 +7875,7 @@ export class InMemoryDataStore implements IDataStore {
       const existing = this.invoices.find(i => 
         i.tenant_id === tenantId &&
         i.student_id === student.id &&
+        (i.enrollment_id ? i.enrollment_id === enrollment.id : i.batch_id === enrollment.batch_id) &&
         isSameBillingMonth(i.billing_month, billingMonth) &&
         i.status !== 'voided' &&
         i.status !== 'cancelled'
@@ -7140,6 +7883,7 @@ export class InMemoryDataStore implements IDataStore {
       if (!existing) {
         const inv = await this.generateInvoice(tenantId, {
           student_id: student.id,
+          enrollment_id: enrollment.id,
           billing_month: normalizeBillingMonth(billingMonth),
           due_date: dueDate,
           issue_date: issueDate,
@@ -7487,6 +8231,7 @@ export class InMemoryDataStore implements IDataStore {
       invoice_id: invoice.id,
       student_id: invoice.student_id,
       student_name: invoice.student_name,
+      admission_number: invoice.admission_number || this.students.find(s => s.id === invoice.student_id)?.admission_number,
       roll_number: invoice.roll_number,
       payment_date: data.payment_date || new Date().toISOString().split('T')[0],
       amount_paid: amountPaid,
@@ -7510,6 +8255,7 @@ export class InMemoryDataStore implements IDataStore {
     const year = new Date().getFullYear();
     const voucherNumber = `VCH-INC-${year}-${txCount.toString().padStart(4, '0')}`;
     const headId = (allocations && allocations[0]?.fee_head_id) || invoice.items[0]?.fee_head_id || 'fee-tuition';
+    const txAdm = invoice.admission_number || this.students.find(s => s.id === invoice.student_id)?.admission_number || invoice.roll_number;
     const tx: FinancialTransaction = {
       id: crypto.randomUUID(),
       tenant_id: tenantId,
@@ -7524,7 +8270,7 @@ export class InMemoryDataStore implements IDataStore {
       date: payment.payment_date,
       paid_to_or_received_from: invoice.student_name,
       payee_payer: invoice.student_name,
-      description: `Tuition & Fee Collection: ${invoice.student_name} (${invoice.roll_number}) - Receipt #${receiptNumber} [Inv #${invoice.invoice_number}]`,
+      description: `Tuition & Fee Collection: ${invoice.student_name} (${txAdm}) - Receipt #${receiptNumber} [Inv #${invoice.invoice_number}]`,
       recorded_by: data.collected_by || 'Cashier',
       created_at: new Date().toISOString(),
     };
@@ -8610,6 +9356,7 @@ export class InMemoryDataStore implements IDataStore {
         exam_id: data.exam_id,
         student_id: data.student_id,
         student_name: student.full_name,
+        admission_number: student.admission_number,
         roll_number: student.roll_number,
         batch_name: this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId)?.name,
         mcq_answers: userAnswers,
@@ -8651,6 +9398,7 @@ export class InMemoryDataStore implements IDataStore {
         return {
           ...ev,
           student_name: student ? student.full_name : ev.student_name,
+          admission_number: student ? student.admission_number : ev.admission_number,
           roll_number: student ? student.roll_number : ev.roll_number
         };
       });
@@ -8674,6 +9422,7 @@ export class InMemoryDataStore implements IDataStore {
         exam_id: examId,
         student_id: studentId,
         student_name: student.full_name,
+        admission_number: student.admission_number,
         roll_number: student.roll_number,
         mcq_answers: {},
         mcq_score: 0,
@@ -8701,6 +9450,7 @@ export class InMemoryDataStore implements IDataStore {
       student: {
         id: student.id,
         full_name: student.full_name,
+        admission_number: student.admission_number,
         roll_number: student.roll_number,
         guardian_name: student.guardian_name,
         class_name: this.programs.find(p => p.id === student.program_id && p.tenant_id === tenantId)?.name,
@@ -8824,7 +9574,8 @@ export class InMemoryDataStore implements IDataStore {
       tenant_id: tenantId,
       ...data,
       student_name: student ? student.full_name : data.student_name,
-      roll_number: student ? student.roll_number : data.roll_number,
+      admission_number: (student ? student.admission_number : (data as any).admission_number) || undefined,
+      roll_number: (student ? student.roll_number : data.roll_number) || undefined,
       dispatched_by_name: user ? user.full_name : undefined,
       dispatched_at: new Date().toISOString()
     };
@@ -8892,6 +9643,7 @@ export class InMemoryDataStore implements IDataStore {
           tenant_id: tenantId,
           student_id: att.student_id,
           student_name: student?.full_name || 'Student',
+          admission_number: student?.admission_number || 'N/A',
           roll_number: student?.roll_number || 'N/A',
           guardian_name: student?.guardian_name || 'Guardian',
           guardian_phone: student?.guardian_phone || '+923000000000',
@@ -9270,7 +10022,7 @@ export class InMemoryDataStore implements IDataStore {
     };
   }
 
-  async getStudentParentPortalOverview(tenantId: string, studentId?: string): Promise<StudentParentPortalOverview> {
+  async getStudentParentPortalOverview(tenantId: string, studentId?: string, enrollmentId?: string): Promise<StudentParentPortalOverview> {
     const student = studentId
       ? this.students.find(s => s.id === studentId && s.tenant_id === tenantId)
       : null;
@@ -9283,8 +10035,22 @@ export class InMemoryDataStore implements IDataStore {
       throw new Error('Student portal access has been blocked by the academy.');
     }
 
-    const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
-    const program = this.programs.find(p => p.id === (student.program_id || batch?.program_id) && p.tenant_id === tenantId);
+    this.ensureStudentEnrollments();
+    const studentEnrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.student_id === student.id);
+    let selectedEnrollment = enrollmentId
+      ? studentEnrollments.find(e => e.id === enrollmentId)
+      : null;
+    if (!selectedEnrollment) {
+      selectedEnrollment = studentEnrollments.find(e => e.is_primary && (e.status === 'active' || e.status === 'on_leave'))
+        || studentEnrollments.find(e => e.status === 'active' || e.status === 'on_leave')
+        || studentEnrollments[0]
+        || null;
+    }
+
+    const effectiveBatchId = selectedEnrollment?.batch_id || student.batch_id;
+    const batch = this.batches.find(b => b.id === effectiveBatchId && b.tenant_id === tenantId);
+    const effectiveProgramId = selectedEnrollment?.program_id || student.program_id || batch?.program_id;
+    const program = this.programs.find(p => p.id === effectiveProgramId && p.tenant_id === tenantId);
 
     // Timetable Slots: Today's schedule for this batch
     const daysMap: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -9292,7 +10058,7 @@ export class InMemoryDataStore implements IDataStore {
     const todayDateStr = new Date().toISOString().split('T')[0];
 
     const batchSlots = this.timetableSlots
-      .filter(s => s.tenant_id === tenantId && s.batch_id === student.batch_id && !s.is_cancelled);
+      .filter(s => s.tenant_id === tenantId && s.batch_id === effectiveBatchId && !s.is_cancelled);
 
     const todayOnlySlots = batchSlots
       .filter(s => s.day_of_week === currentDayOfWeek)
@@ -9332,7 +10098,7 @@ export class InMemoryDataStore implements IDataStore {
 
     // Homework Assignments
     const homeworkDiary = this.homeworkAssignments
-      .filter(h => h.tenant_id === tenantId && h.batch_id === student.batch_id)
+      .filter(h => h.tenant_id === tenantId && h.batch_id === effectiveBatchId)
       .sort((a, b) => (b.due_date || b.created_at || '').localeCompare(a.due_date || a.created_at || ''))
       .map(h => {
         const check = this.notebookChecks.find(c => c.tenant_id === tenantId && c.assignment_id === h.id && c.student_id === student.id);
@@ -9376,7 +10142,7 @@ export class InMemoryDataStore implements IDataStore {
           student: {
             id: student.id,
             full_name: student.full_name,
-            roll_number: student.roll_number,
+            roll_number: selectedEnrollment?.roll_number || student.roll_number,
             guardian_name: student.guardian_name,
             batch_name: batch?.name || 'Assigned Batch',
             class_name: program?.name || 'Class',
@@ -9388,9 +10154,9 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
 
-    // Dynamic Attendance calculation (Real historical order)
+    // Dynamic Attendance calculation (Real historical order for selected class if scoped)
     const studentAttendanceRecords = this.studentAttendance
-      .filter(a => a.tenant_id === tenantId && a.student_id === student.id)
+      .filter(a => a.tenant_id === tenantId && a.student_id === student.id && (selectedEnrollment ? (a.enrollment_id === selectedEnrollment.id || (!a.enrollment_id && a.batch_id === effectiveBatchId)) : true))
       .sort((a, b) => b.date.localeCompare(a.date));
 
     // Calculate monthly attendance without penalizing approved excused leaves
@@ -9437,19 +10203,19 @@ export class InMemoryDataStore implements IDataStore {
       whatsapp_number: tSettings.whatsapp_number || tSettings.phone || (tenantObj as any)?.phone || '',
     };
 
-    // Resolve enrolled subjects from direct student.subjects or compulsory core + elective stream
-    let subjectIds: string[] = Array.isArray(student.subjects) && student.subjects.length > 0
-      ? [...student.subjects]
-      : [];
+    // Resolve enrolled subjects for selected enrollment
+    let subjectIds: string[] = selectedEnrollment?.subjects && selectedEnrollment.subjects.length > 0
+      ? [...selectedEnrollment.subjects]
+      : (Array.isArray(student.subjects) && student.subjects.length > 0 ? [...student.subjects] : []);
 
     if (subjectIds.length === 0) {
-      const programId = student.program_id || batch?.program_id;
-      const compGroup = this.subjectGroups.find(g => g.tenant_id === tenantId && g.program_id === programId && g.type === 'compulsory');
+      const compGroup = this.subjectGroups.find(g => g.tenant_id === tenantId && g.program_id === effectiveProgramId && g.type === 'compulsory');
       if (compGroup) {
         subjectIds.push(...compGroup.subject_ids);
       }
-      if (student.elective_group_id) {
-        const elecGroup = this.subjectGroups.find(g => g.tenant_id === tenantId && g.id === student.elective_group_id);
+      const electiveId = selectedEnrollment?.elective_group_id || student.elective_group_id;
+      if (electiveId) {
+        const elecGroup = this.subjectGroups.find(g => g.tenant_id === tenantId && g.id === electiveId);
         if (elecGroup) {
           subjectIds.push(...elecGroup.subject_ids);
         }
@@ -9461,11 +10227,27 @@ export class InMemoryDataStore implements IDataStore {
       return sub ? sub.name : sid;
     });
 
+    const enrichedEnrollments = studentEnrollments.map(e => {
+      const b = this.batches.find(bat => bat.id === e.batch_id && bat.tenant_id === tenantId);
+      const p = this.programs.find(prg => prg.id === (e.program_id || b?.program_id) && prg.tenant_id === tenantId);
+      const eInvs = this.invoices.filter(i => i.tenant_id === tenantId && i.student_id === student.id && (i.enrollment_id === e.id || (!i.enrollment_id && i.batch_id === e.batch_id)) && i.status !== 'voided' && (i.status as any) !== 'cancelled');
+      const unpaid = eInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
+      return {
+        ...e,
+        program_name: p?.name || 'Class',
+        batch_name: b?.name || 'Section',
+        shift: b?.shift,
+        start_time: b?.start_time,
+        end_time: b?.end_time,
+        unpaid_balance: unpaid,
+      };
+    });
+
     return {
       student_profile: {
         id: student.id,
         full_name: student.full_name,
-        roll_number: student.roll_number,
+        roll_number: selectedEnrollment?.roll_number || student.roll_number,
         admission_number: student.admission_number,
         program_name: program?.name || 'Academic Program',
         batch_name: batch?.name || 'Assigned Batch',
@@ -9479,8 +10261,12 @@ export class InMemoryDataStore implements IDataStore {
         monthly_attendance_pct: computedAttendancePct,
         photo_url: student.photo_url,
         subjects: resolvedSubjects,
-        admission_date: student.admission_date,
+        admission_date: selectedEnrollment?.admission_date || student.admission_date,
+        enrollments: enrichedEnrollments,
+        selected_enrollment_id: selectedEnrollment?.id || null,
       },
+      enrollments: enrichedEnrollments,
+      selected_enrollment_id: selectedEnrollment?.id || null,
       today_schedule: effectiveSchedule,
       weekly_schedule: batchSlots,
       invoices: studentInvoices,

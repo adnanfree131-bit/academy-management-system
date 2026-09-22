@@ -32,7 +32,7 @@ export interface ChallanItem {
 
 export interface StudentChallanData {
   challan_number: string;
-  roll_number: string;
+  roll_number?: string;
   admission_number?: string;
   student_name: string;
   father_name: string;
@@ -348,7 +348,7 @@ function renderChallanColumn(
 
   // 4. Student Details Box
   const detailRows = [
-    ['Roll No:', ch.roll_number, 'Adm No:', ch.admission_number || '—'],
+    ['Adm No:', ch.admission_number || ch.roll_number || '—', '', ''],
     ['Student:', ch.student_name, '', ''],
     ['Father:', ch.father_name, '', ''],
     ['Class:', `${ch.class_name}${ch.batch_name ? ' (' + ch.batch_name + ')' : ''}`, '', ''],

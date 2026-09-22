@@ -33,7 +33,8 @@ interface AbsenteeFollowup {
   id: string;
   student_id: string;
   student_name: string;
-  roll_number: string;
+  admission_number?: string;
+  roll_number?: string;
   guardian_name?: string;
   guardian_phone?: string;
   batch_id: string;
@@ -912,7 +913,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                     <p className="font-semibold text-slate-800 truncate">
                       Student Muhammad Ali Raza enrolled into MDCAT Batch
                     </p>
-                    <p className="text-[10px] text-slate-400">Roll: A-101 • Admission verified</p>
+                    <p className="text-[10px] text-slate-400">Adm: A-101 • Admission verified</p>
                   </div>
                 </div>
                 <span className="text-[10px] text-slate-400 font-mono shrink-0">10m ago</span>
@@ -1175,7 +1176,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                         </span>
                       </div>
                       <p className="text-slate-700 font-medium truncate mt-0.5">
-                        {inv.student_name} • Roll: {inv.roll_number || 'A-101'}
+                        {inv.student_name} • Adm: {inv.admission_number || inv.roll_number || 'A-101'}
                       </p>
                       <p className="text-[10px] text-slate-400">
                         Due Date: {inv.due_date || 'Sep 15, 2026'}
@@ -1211,7 +1212,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                     </span>
                     <div>
                       <p className="font-bold text-rose-900">
-                        {pendingFollowups[0].student_name} (Roll: {pendingFollowups[0].roll_number})
+                        {pendingFollowups[0].student_name} (Adm: {pendingFollowups[0].admission_number || pendingFollowups[0].roll_number || '—'})
                       </p>
                       <p className="text-[10px] text-rose-700">
                         {pendingFollowups[0].consecutive_days}d consecutive absent • Parent: {pendingFollowups[0].guardian_phone || 'Call pending'}

@@ -33,7 +33,7 @@ const ADMIN_MODULES = [
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, onNavigate }) => {
   const { token, user } = useAuth();
   const [query, setQuery] = useState('');
-  const [students, setStudents] = useState<{ id: string; full_name: string; roll_number: string; admission_number: string; guardian_name?: string; phone?: string }[]>([]);
+  const [students, setStudents] = useState<{ id: string; full_name: string; admission_number: string; guardian_name?: string; phone?: string }[]>([]);
   const [invoices, setInvoices] = useState<{ id: string; invoice_number: string; student_name?: string }[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -60,7 +60,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
           setStudents(body.data.map((s: any) => ({
             id: s.id,
             full_name: s.full_name,
-            roll_number: s.roll_number,
             admission_number: s.admission_number,
             guardian_name: s.guardian_name,
             phone: s.phone || s.guardian_phone,
@@ -100,7 +99,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
       if (!q) return [];
       return students.filter(s =>
         s.full_name.toLowerCase().includes(q) ||
-        (s.roll_number || '').toLowerCase().includes(q) ||
         (s.admission_number || '').toLowerCase().includes(q) ||
         (s.guardian_name || '').toLowerCase().includes(q) ||
         (s.phone || '').toLowerCase().includes(q)
@@ -125,7 +123,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
       kind: 'student' as const,
       id: s.id,
       label: s.full_name,
-      hint: [s.roll_number, s.admission_number].filter(Boolean).join(' · ') || 'Student',
+      hint: s.admission_number ? `Adm: ${s.admission_number}` : 'Student',
     })),
     ...invoiceHits.map(inv => ({
       kind: 'invoice' as const,
@@ -215,7 +213,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
           ) : items.length === 0 ? (
             <div className="px-4 py-10 text-center space-y-1">
               <p className="text-xs font-semibold text-slate-600">No matching results found</p>
-              <p className="text-[11px] text-slate-400">Try searching by student name, roll number, or invoice #</p>
+              <p className="text-[11px] text-slate-400">Try searching by student name, admission number, or invoice #</p>
             </div>
           ) : (
             items.map((item, idx) => (

@@ -183,9 +183,11 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
   // Build dynamic message for student
   const buildDynamicMessage = (templateBody: string, item: AbsenteeFollowupItem) => {
     let msg = templateBody;
+    const adm = item.admission_number || item.roll_number || '';
     const data: Record<string, string> = {
       student_name: item.student_name,
-      roll_number: item.roll_number,
+      admission_number: adm,
+      roll_number: adm,
       batch_name: item.batch_name,
       guardian_name: item.guardian_name,
       current_date: item.date,
@@ -631,7 +633,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-                    <th className="p-3">Student & Roll No</th>
+                    <th className="p-3">Student & Adm No</th>
                     <th className="p-3">Batch</th>
                     <th className="p-3">Consecutive Days</th>
                     <th className="p-3">Guardian Contact</th>
@@ -662,7 +664,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                         <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="p-3">
                             <div className="font-bold text-slate-900 text-xs">{item.student_name}</div>
-                            <div className="text-[11px] font-mono text-slate-500">Roll: {item.roll_number}</div>
+                            <div className="text-[11px] font-mono text-slate-500">Adm: {item.admission_number || item.roll_number || '—'}</div>
                           </td>
 
                           <td className="p-3 font-medium text-slate-700">
@@ -822,7 +824,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                       <div>
                         <h4 className="font-bold text-slate-900 text-sm leading-tight">{item.student_name}</h4>
                         <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                          Roll: {item.roll_number} • {item.batch_name}
+                          Adm: {item.admission_number || item.roll_number || '—'} • {item.batch_name}
                         </p>
                       </div>
                       {item.consecutive_days >= 3 ? (
@@ -922,7 +924,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <h4 className="font-bold text-slate-900 text-base">{c.student_name}</h4>
-                    <p className="text-xs font-mono text-slate-500">Roll: {c.roll_number} • {c.batch_name}</p>
+                    <p className="text-xs font-mono text-slate-500">Adm: {c.admission_number || c.roll_number || '—'} • {c.batch_name}</p>
                   </div>
                   <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wider ${
                     c.risk_level === 'CRITICAL'
@@ -1210,7 +1212,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
             <form onSubmit={handleSaveLogResponse} className="space-y-3.5 text-xs">
               <div>
                 <span className="text-slate-500 block text-[11px]">Student:</span>
-                <span className="font-bold text-slate-900 text-sm">{activeLogFollowup.student_name} (Roll: {activeLogFollowup.roll_number})</span>
+                <span className="font-bold text-slate-900 text-sm">{activeLogFollowup.student_name} (Adm: {activeLogFollowup.admission_number || activeLogFollowup.roll_number || '—'})</span>
               </div>
 
               <div>
@@ -1333,7 +1335,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center">
               <div>
                 <h4 className="font-bold text-slate-900 text-sm">{rapidCurrentItem.student_name}</h4>
-                <p className="text-xs text-slate-500 font-mono">Roll: {rapidCurrentItem.roll_number} • {rapidCurrentItem.batch_name}</p>
+                <p className="text-xs text-slate-500 font-mono">Adm: {rapidCurrentItem.admission_number || rapidCurrentItem.roll_number || '—'} • {rapidCurrentItem.batch_name}</p>
                 <p className="text-xs text-slate-700 mt-1">Guardian: <strong>{rapidCurrentItem.guardian_name}</strong></p>
               </div>
               <div className="text-right">
@@ -1424,7 +1426,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
             <form onSubmit={handleScheduleMeeting} className="space-y-3.5 text-xs">
               <div>
                 <span className="text-slate-500 block text-[11px]">Student:</span>
-                <span className="font-bold text-slate-900 text-sm">{activeRetentionCase.student_name} (Roll: {activeRetentionCase.roll_number})</span>
+                <span className="font-bold text-slate-900 text-sm">{activeRetentionCase.student_name} (Adm: {activeRetentionCase.admission_number || activeRetentionCase.roll_number || '—'})</span>
                 <span className="text-rose-600 font-semibold block text-[11px] mt-0.5">
                   Monthly Attendance: {activeRetentionCase.monthly_attendance_pct}% • {activeRetentionCase.consecutive_absences} Consecutive Absences
                 </span>
@@ -1524,7 +1526,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   className="w-full p-3 font-mono border border-slate-300 rounded-lg text-xs"
                 />
                 <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg mt-1 text-[10px] text-slate-500 font-mono">
-                  Supported tags: {`{student_name}, {roll_number}, {batch_name}, {guardian_name}, {current_date}, {academy_name}, {academy_phone}`}
+                  Supported tags: {`{student_name}, {admission_number}, {batch_name}, {guardian_name}, {current_date}, {academy_name}, {academy_phone}`}
                 </div>
               </div>
 

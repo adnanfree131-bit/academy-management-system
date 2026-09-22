@@ -501,7 +501,6 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch = !q || 
         student.full_name.toLowerCase().includes(q) ||
-        student.roll_number.toLowerCase().includes(q) ||
         student.admission_number.toLowerCase().includes(q) ||
         (student.guardian_name && student.guardian_name.toLowerCase().includes(q));
 
@@ -901,14 +900,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                         { label: 'Excused', value: String(stats.excused) },
                       ],
                       columns: [
-                        { key: 'roll', label: 'Roll No', width: 65 },
-                        { key: 'name', label: 'Student Name', width: 190 },
+                        { key: 'adm', label: 'Adm #', width: 75 },
+                        { key: 'name', label: 'Student Name', width: 180 },
                         { key: 'guardian', label: 'Guardian & Mobile', width: 140 },
                         { key: 'status', label: 'Status', width: 75 },
                         { key: 'remarks', label: 'Remarks / Reason', width: 125 },
                       ],
                       rows: students.map(s => ({
-                        roll: s.roll_number,
+                        adm: s.admission_number,
                         name: s.full_name,
                         guardian: `${s.guardian_name || '—'} (${s.guardian_phone || '—'})`,
                         status: (attendanceRecords[s.id]?.status || 'present').toUpperCase(),
@@ -1043,7 +1042,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 type="text"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search student by name, roll number, or guardian..."
+                placeholder="Search student by name, admission number, or guardian..."
                 className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
               />
             </div>
@@ -1131,7 +1130,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-500 font-mono text-[10px] uppercase tracking-wider">
-                      <th className="py-2 px-3 w-20">Roll No</th>
+                      <th className="py-2 px-3 w-24">Adm #</th>
                       <th className="py-2 px-3">Student & Guardian Info</th>
                       <th className="py-2 px-3 w-28">Quick Contact</th>
                       <th className="py-2 px-3 text-center w-64">Status Action</th>
@@ -1147,9 +1146,9 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
                       return (
                         <tr key={student.id} className="hover:bg-slate-50/60 transition-colors">
-                          {/* Roll Number */}
+                          {/* Admission Number */}
                           <td className="py-2 px-3 font-mono font-bold text-slate-700">
-                            {student.roll_number}
+                            {student.admission_number}
                           </td>
 
                           {/* Student & Guardian Info */}
@@ -1214,7 +1213,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const text = `Assalam-o-Alaikum, this is regarding ${student.full_name} (Roll No: ${student.roll_number}) from ${tenant?.name || 'the academy'}.`;
+                                    const text = `Assalam-o-Alaikum, this is regarding ${student.full_name} (Adm: ${student.admission_number}) from ${tenant?.name || 'the academy'}.`;
                                     window.open(`https://wa.me/${cleanGuardianPhone}?text=${encodeURIComponent(text)}`, '_blank');
                                   }}
                                   title={`WhatsApp Guardian: ${cleanGuardianPhone}`}
@@ -1305,17 +1304,13 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="px-2 py-0.5 rounded bg-slate-100 font-mono font-bold text-xs text-slate-800 border border-slate-200">
-                              {student.roll_number}
+                              {student.admission_number}
                             </span>
                             <span className="font-bold text-slate-900 text-sm truncate">{student.full_name}</span>
                           </div>
                           <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1.5 flex-wrap">
-                            <span>Adm: {student.admission_number}</span>
                             {student.guardian_name && (
-                              <>
-                                <span>•</span>
-                                <span>{student.guardian_name}</span>
-                              </>
+                              <span>{student.guardian_name}</span>
                             )}
                             {student.fee_clearance_status === 'defaulter' && (
                               <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-100 text-rose-800 font-bold font-mono">
@@ -1339,7 +1334,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                             <button
                               type="button"
                               onClick={() => {
-                                const text = `Assalam-o-Alaikum, this is regarding ${student.full_name} (Roll No: ${student.roll_number}) from ${tenant?.name || 'the academy'}.`;
+                                const text = `Assalam-o-Alaikum, this is regarding ${student.full_name} (Adm: ${student.admission_number}) from ${tenant?.name || 'the academy'}.`;
                                 window.open(`https://wa.me/${cleanGuardianPhone}?text=${encodeURIComponent(text)}`, '_blank');
                               }}
                               className="p-2 bg-emerald-50 active:bg-emerald-100 text-emerald-700 rounded-lg touch-press"
@@ -1491,8 +1486,8 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               <table className="w-full text-left border-collapse text-xs">
                 <thead className="sticky top-0 bg-slate-50 z-10 border-b border-slate-200">
                   <tr className="text-slate-500 font-mono text-[10px] uppercase">
-                    <th className="py-2.5 px-3 sticky left-0 bg-slate-50 z-20 w-16 border-r border-slate-200">Roll</th>
-                    <th className="py-2.5 px-3 sticky left-16 bg-slate-50 z-20 min-w-[140px] border-r border-slate-200">Student Name</th>
+                    <th className="py-2.5 px-3 sticky left-0 bg-slate-50 z-20 w-20 border-r border-slate-200">Adm #</th>
+                    <th className="py-2.5 px-3 sticky left-20 bg-slate-50 z-20 min-w-[140px] border-r border-slate-200">Student Name</th>
                     {monthDays.map(day => (
                       <th
                         key={day.dateStr}
@@ -1520,9 +1515,9 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                     return (
                       <tr key={student.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="py-2 px-3 sticky left-0 bg-white z-10 font-semibold border-r border-slate-200 text-slate-800">
-                          {student.roll_number}
+                          {student.admission_number}
                         </td>
-                        <td className="py-2 px-3 sticky left-16 bg-white z-10 font-sans font-medium text-slate-900 truncate max-w-[160px] border-r border-slate-200">
+                        <td className="py-2 px-3 sticky left-20 bg-white z-10 font-sans font-medium text-slate-900 truncate max-w-[160px] border-r border-slate-200">
                           {student.full_name}
                         </td>
                         {monthDays.map(day => {
@@ -1613,7 +1608,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-500 font-mono text-[11px] uppercase">
-                    <th className="py-3 px-4">Roll No</th>
+                    <th className="py-3 px-4">Adm #</th>
                     <th className="py-3 px-4">Student Name</th>
                     <th className="py-3 px-4">Guardian & Mobile</th>
                     <th className="py-3 px-4 text-center">Sessions Held</th>
@@ -1629,7 +1624,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
                     return (
                       <tr key={item.student.id} className={item.isDefaulter ? 'bg-rose-50/30' : 'hover:bg-slate-50/60'}>
-                        <td className="py-3 px-4 font-mono font-bold text-slate-700">{item.student.roll_number}</td>
+                        <td className="py-3 px-4 font-mono font-bold text-slate-700">{item.student.admission_number}</td>
                         <td className="py-3 px-4 font-bold text-slate-900">{item.student.full_name}</td>
                         <td className="py-3 px-4 text-slate-600">
                           {item.student.guardian_name || '—'} {item.student.guardian_phone ? `(${item.student.guardian_phone})` : ''}
@@ -1653,7 +1648,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                             <button
                               type="button"
                               onClick={() => {
-                                const msg = `Assalam-o-Alaikum, this is ${tenant?.name || 'Apex Academy'}. Important Notice: Your child ${item.student.full_name} (Roll: ${item.student.roll_number}) has an attendance rate of ${item.percentage}%, which is below our mandatory 75% threshold. Please contact the administration office.`;
+                                const msg = `Assalam-o-Alaikum, this is ${tenant?.name || 'Apex Academy'}. Important Notice: Your child ${item.student.full_name} (Adm: ${item.student.admission_number}) has an attendance rate of ${item.percentage}%, which is below our mandatory 75% threshold. Please contact the administration office.`;
                                 window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, '_blank');
                               }}
                               className="px-2.5 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold inline-flex items-center gap-1 transition-colors"
@@ -1715,7 +1710,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                         <tr key={leave.id} className="hover:bg-slate-50/60 transition-colors">
                           <td className="py-3 px-4">
                             <span className="font-bold text-slate-900 block">{student?.full_name || 'Student ID: ' + leave.student_id.slice(0, 8)}</span>
-                            <span className="text-[11px] font-mono text-slate-500">{student?.roll_number || '—'}</span>
+                            <span className="text-[11px] font-mono text-slate-500">{student?.admission_number || '—'}</span>
                           </td>
                           <td className="py-3 px-4 font-mono text-slate-700">
                             {leave.start_date} to {leave.end_date}
@@ -1790,7 +1785,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 >
                   <option value="">-- Choose Student --</option>
                   {students.map(s => (
-                    <option key={s.id} value={s.id}>{s.full_name} ({s.roll_number})</option>
+                    <option key={s.id} value={s.id}>{s.full_name} ({s.admission_number})</option>
                   ))}
                 </select>
               </div>

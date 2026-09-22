@@ -147,8 +147,12 @@ export class AuthService {
     if (user.role === 'student') {
       const allStudents = await this.store.getStudents(tenant.id);
       const std = allStudents.find(s => s.user_id === user.id || (s.email && s.email.toLowerCase() === user.email.toLowerCase()));
-      if (std && std.status !== 'active') {
-        throw new Error(`Your student enrollment status is '${std.status}'. Portal access is only available to active students.`);
+      if (std) {
+        const enrollments = await this.store.getStudentEnrollments(tenant.id, std.id);
+        const hasActiveEnrollment = enrollments.some(e => e.status === 'active' || e.status === 'on_leave');
+        if (!hasActiveEnrollment && std.status !== 'active') {
+          throw new Error(`Your student enrollment status is '${std.status}'. Portal access is only available to active students.`);
+        }
       }
     }
 

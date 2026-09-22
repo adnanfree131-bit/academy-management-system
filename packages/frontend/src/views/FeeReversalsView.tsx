@@ -218,14 +218,13 @@ export const FeeReversalsView: React.FC = () => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const nameMatch = (inv.student_name || student?.full_name || '').toLowerCase().includes(q);
-        const rollMatch = (inv.roll_number || student?.roll_number || '').toLowerCase().includes(q);
-        const admMatch = (student?.admission_number || '').toLowerCase().includes(q);
+        const admMatch = (inv.admission_number || student?.admission_number || inv.roll_number || student?.roll_number || '').toLowerCase().includes(q);
         const invMatch = (inv.invoice_number || '').toLowerCase().includes(q);
         const phoneMatch = (student?.guardian_phone || student?.phone || '').toLowerCase().includes(q);
         const fatherMatch = (student?.father_name || student?.guardian_name || '').toLowerCase().includes(q);
         const receiptMatch = linkedPayments.some(p => (p.receipt_number || '').toLowerCase().includes(q));
 
-        if (!nameMatch && !rollMatch && !admMatch && !invMatch && !phoneMatch && !fatherMatch && !receiptMatch) {
+        if (!nameMatch && !admMatch && !invMatch && !phoneMatch && !fatherMatch && !receiptMatch) {
           return false;
         }
       }
@@ -290,11 +289,10 @@ export const FeeReversalsView: React.FC = () => {
     return students
       .filter(s => {
         const nameMatch = (s.full_name || '').toLowerCase().includes(q);
-        const rollMatch = (s.roll_number || '').toLowerCase().includes(q);
-        const admMatch = (s.admission_number || '').toLowerCase().includes(q);
+        const admMatch = (s.admission_number || s.roll_number || '').toLowerCase().includes(q);
         const phoneMatch = (s.guardian_phone || s.phone || '').toLowerCase().includes(q);
         const cnicMatch = (s.guardian_id_card || '').toLowerCase().includes(q);
-        return nameMatch || rollMatch || admMatch || phoneMatch || cnicMatch;
+        return nameMatch || admMatch || phoneMatch || cnicMatch;
       })
       .slice(0, 15);
   }, [searchQuery, students]);
@@ -313,6 +311,7 @@ export const FeeReversalsView: React.FC = () => {
             action: 'reversal',
             student_id: p.student_id,
             student_name: stud?.full_name || 'Student',
+            admission_number: stud?.admission_number,
             roll_number: stud?.roll_number,
             reference_number: p.receipt_number,
             amount: p.amount_paid,
@@ -349,6 +348,7 @@ export const FeeReversalsView: React.FC = () => {
       list = list.filter(l =>
         (l.student_name || '').toLowerCase().includes(q) ||
         (l.reference_number || '').toLowerCase().includes(q) ||
+        (l.admission_number || '').toLowerCase().includes(q) ||
         (l.roll_number || '').toLowerCase().includes(q) ||
         (l.reason || '').toLowerCase().includes(q)
       );
@@ -617,7 +617,7 @@ export const FeeReversalsView: React.FC = () => {
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search by student name, roll #, admission #, challan #, receipt #..."
+                    placeholder="Search by student name, admission #, challan #, receipt #..."
                     value={searchQuery}
                     onFocus={() => setIsSearchOpen(true)}
                     onClick={() => setIsSearchOpen(true)}
@@ -675,7 +675,7 @@ export const FeeReversalsView: React.FC = () => {
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="font-bold text-slate-900 text-xs">{student.full_name}</span>
                                     <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[10px] font-mono font-semibold">
-                                      #{student.roll_number || '—'}
+                                      Adm #{student.admission_number || student.roll_number || '—'}
                                     </span>
                                   </div>
                                   <p className="text-[10px] text-slate-500 truncate mt-0.5">
@@ -838,13 +838,8 @@ export const FeeReversalsView: React.FC = () => {
                     <span className="text-indigo-900 text-[11px] font-semibold">Filtered to student:</span>
                     <strong className="text-slate-900">{selectedStudent.full_name}</strong>
                     <span className="px-1.5 py-0.2 rounded bg-white text-slate-800 font-mono font-bold text-[10px] border border-indigo-200">
-                      Roll #{selectedStudent.roll_number || '—'}
+                      Adm #{selectedStudent.admission_number || selectedStudent.roll_number || '—'}
                     </span>
-                    {selectedStudent.admission_number && (
-                      <span className="px-1.5 py-0.2 rounded bg-white text-slate-600 font-mono text-[10px] border border-indigo-200">
-                        Adm #{selectedStudent.admission_number}
-                      </span>
-                    )}
                     <span className="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 font-semibold text-[10px]">
                       {getProgramName(selectedStudent.program_id)}
                       {getBatchName(selectedStudent.batch_id) ? ` • Sec ${getBatchName(selectedStudent.batch_id)}` : ''}
@@ -923,7 +918,7 @@ export const FeeReversalsView: React.FC = () => {
                                     {student?.full_name || inv.student_name}
                                   </button>
                                   <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[10px] font-mono font-semibold">
-                                    #{inv.roll_number || student?.roll_number || '—'}
+                                    Adm #{inv.admission_number || student?.admission_number || inv.roll_number || student?.roll_number || '—'}
                                   </span>
                                 </div>
                                 <p className="text-[10px] text-slate-500 mt-0.5">
@@ -1116,7 +1111,7 @@ export const FeeReversalsView: React.FC = () => {
                   <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Filter by student, roll #, ref #, remarks..."
+                    placeholder="Filter by student, admission #, ref #, remarks..."
                     value={logsSearchQuery}
                     onChange={e => setLogsSearchQuery(e.target.value)}
                     className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-md focus:outline-none focus:border-indigo-600 text-slate-900 placeholder:text-slate-400"
@@ -1217,7 +1212,7 @@ export const FeeReversalsView: React.FC = () => {
                     <th className="py-2.5 px-3">Date & Time</th>
                     <th className="py-2.5 px-3">Operation</th>
                     <th className="py-2.5 px-3">Student Name</th>
-                    <th className="py-2.5 px-3">Roll #</th>
+                    <th className="py-2.5 px-3">Adm #</th>
                     <th className="py-2.5 px-3">Reference #</th>
                     <th className="py-2.5 px-3 text-right">Amount</th>
                     <th className="py-2.5 px-3">Reason / Remarks</th>
@@ -1251,7 +1246,7 @@ export const FeeReversalsView: React.FC = () => {
                         {log.student_name}
                       </td>
                       <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
-                        {log.roll_number || '—'}
+                        {log.admission_number || log.roll_number || '—'}
                       </td>
                       <td className="py-2.5 px-3 font-bold text-slate-800 whitespace-nowrap">
                         {log.reference_number}

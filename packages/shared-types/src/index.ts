@@ -519,13 +519,40 @@ export interface StudentInquiry {
 }
 
 export type StudentStatus = 'active' | 'on_leave' | 'suspended' | 'alumni' | 'withdrawn' | 'waitlisted' | 'archived';
+export type StudentEnrollmentStatus = 'active' | 'on_leave' | 'suspended' | 'withdrawn' | 'completed' | 'archived';
+
+export interface StudentEnrollment {
+  id: string;
+  tenant_id: string;
+  student_id: string;
+  program_id?: string | null;
+  batch_id: string;
+  admission_number?: string | null;
+  roll_number?: string | null;
+  academic_session?: string;
+  subjects: string[];
+  elective_group_id?: string | null;
+  status: StudentEnrollmentStatus;
+  is_primary: boolean;
+  fee_structure?: any;
+  billing_mode?: BatchBillingMode;
+  installment_plan?: any;
+  admission_date: string;
+  ended_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  // Hydrated display properties
+  program_name?: string;
+  batch_name?: string;
+  unpaid_balance?: number;
+}
 
 export interface Student {
   id: string;
   tenant_id: string;
   user_id?: string | null;
   admission_number: string;  // Unique institutional admission no. e.g. "ADM-2026-0042"
-  roll_number: string;       // Dynamic batch roll no. e.g. "A-101"
+  roll_number?: string | null;       // Dynamic batch roll no. e.g. "A-101"
   full_name: string;
   email?: string | null;
   phone?: string | null;
@@ -591,6 +618,9 @@ export interface Student {
     changed_by: string;
     changed_at: string;
   }>;
+  active_enrollments_count?: number;
+  enrollment_id?: string;
+  enrollments?: StudentEnrollment[];
   created_at: string;
   updated_at: string;
 }
@@ -655,7 +685,9 @@ export interface StudentAttendanceRecord {
   id: string;
   tenant_id: string;
   student_id: string;
+  enrollment_id?: string;
   student_name?: string;     // Hydrated
+  admission_number?: string; // Hydrated
   roll_number?: string;      // Hydrated
   batch_id: string;
   subject_id?: string | null; // Nullable for daily batch attendance
@@ -673,6 +705,8 @@ export interface AttendanceAuditLog {
   tenant_id: string;
   student_id: string;
   student_name?: string;
+  admission_number?: string;
+  roll_number?: string;
   batch_id: string;
   date: string;
   previous_status: AttendanceStatus;
@@ -926,6 +960,7 @@ export interface NotebookCheckRecord {
   assignment_id: string;
   student_id: string;
   student_name?: string;
+  admission_number?: string;
   roll_number?: string;
   status: NotebookStatus;
   remarks?: string | null;
@@ -983,6 +1018,7 @@ export interface StudentFeeStructure {
   tenant_id: string;
   batch_id?: string | null;
   student_id?: string | null;  // If set, individual student override
+  enrollment_id?: string | null;
   items: {
     fee_head_id: string;
     head_name: string;
@@ -1013,8 +1049,10 @@ export interface StudentInvoice {
   tenant_id: string;
   invoice_number: string;      // e.g. "INV-2026-00101"
   student_id: string;
+  enrollment_id?: string;
   student_name: string;
-  roll_number: string;
+  admission_number?: string;
+  roll_number?: string | null;
   program_id?: string;
   program_name?: string;       // e.g. "Class 7", "Class 10", "F.Sc Pre-Medical"
   batch_id: string;
@@ -1081,7 +1119,8 @@ export interface FeePayment {
   invoice_id: string;
   student_id: string;
   student_name: string;
-  roll_number: string;
+  admission_number?: string;
+  roll_number?: string | null;
   payment_date: string;        // YYYY-MM-DD
   amount_paid: number;
   payment_method: PaymentMethod;
@@ -1105,7 +1144,8 @@ export interface FeeDiscount {
   tenant_id: string;
   student_id: string;
   student_name: string;
-  roll_number: string;
+  admission_number?: string;
+  roll_number?: string | null;
   invoice_id?: string | null;
   fee_head_id?: string | null;
   discount_type: 'flat' | 'percentage';
@@ -1222,7 +1262,8 @@ export interface DailyCashbookEntry {
   date: string;
   receipt_number: string;
   student_name: string;
-  roll_number: string;
+  admission_number?: string;
+  roll_number?: string | null;
   payment_method: PaymentMethod;
   amount: number;
   collected_by: string;
@@ -1338,7 +1379,8 @@ export interface StudentExamEvaluation {
   exam_id: string;
   student_id: string;
   student_name?: string;
-  roll_number?: string;
+  admission_number?: string;
+  roll_number?: string | null;
   batch_name?: string;
   mcq_answers: Record<string, string>;   // questionId -> chosenOptionKey ('A', 'B', etc.)
   mcq_score: number;                     // 100% auto-calculated
@@ -1377,7 +1419,8 @@ export interface StudentOfficialReportCard {
   student: {
     id: string;
     full_name: string;
-    roll_number: string;
+    admission_number?: string;
+    roll_number?: string | null;
     guardian_name: string;
     class_name?: string;
     program_name?: string;
@@ -1410,6 +1453,7 @@ export interface WhatsAppAuditLog {
   tenant_id: string;
   student_id: string;
   student_name?: string;
+  admission_number?: string;
   roll_number?: string;
   recipient_phone: string;
   phone_type: WhatsAppPhoneType;
@@ -1440,7 +1484,8 @@ export interface AbsenteeFollowupItem {
   tenant_id: string;
   student_id: string;
   student_name: string;
-  roll_number: string;
+  admission_number?: string;
+  roll_number?: string;
   guardian_name: string;
   guardian_phone: string;
   backup_phone?: string | null;
@@ -1476,7 +1521,8 @@ export interface RetentionCounselingCase {
   tenant_id: string;
   student_id: string;
   student_name: string;
-  roll_number: string;
+  admission_number?: string;
+  roll_number?: string;
   batch_name: string;
   monthly_attendance_pct: number;
   consecutive_absences: number;
@@ -1567,19 +1613,28 @@ export interface TeacherPortalOverview {
 export interface SiblingStudentSummary {
   id: string;
   full_name: string;
-  roll_number: string;
+  roll_number?: string;
   admission_number?: string;
   program_name: string;
   batch_name: string;
   photo_url?: string;
   unpaid_balance: number;
+  classes?: Array<{
+    id: string;
+    program_name: string;
+    batch_name: string;
+    admission_number?: string;
+    roll_number?: string;
+    status: string;
+    is_primary: boolean;
+  }>;
 }
 
 export interface StudentParentPortalOverview {
   student_profile: {
     id: string;
     full_name: string;
-    roll_number: string;
+    roll_number?: string;
     admission_number?: string;
     program_name?: string;
     batch_name: string;
@@ -1596,6 +1651,18 @@ export interface StudentParentPortalOverview {
     admission_date?: string;
   };
   linked_children?: SiblingStudentSummary[];
+  enrollments?: Array<{
+    id: string;
+    program_id?: string | null;
+    batch_id: string;
+    program_name: string;
+    batch_name: string;
+    admission_number?: string;
+    roll_number?: string;
+    status: string;
+    is_primary: boolean;
+  }>;
+  selected_enrollment_id?: string | null;
   today_schedule: TimetableSlot[];
   weekly_schedule?: TimetableSlot[];
   invoices: StudentInvoice[];

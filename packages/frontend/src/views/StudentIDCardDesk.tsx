@@ -101,8 +101,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
       const q = searchQuery.toLowerCase().trim();
       const matchesQuery = !q || 
         s.full_name.toLowerCase().includes(q) ||
-        s.admission_number.toLowerCase().includes(q) ||
-        s.roll_number.toLowerCase().includes(q);
+        s.admission_number.toLowerCase().includes(q);
       const matchesBatch = selectedBatchId === 'all' || s.batch_id === selectedBatchId;
       const matchesProg = selectedProgramId === 'all' || s.program_id === selectedProgramId;
       return matchesQuery && matchesBatch && matchesProg;
@@ -410,7 +409,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
                       <div className="min-w-0">
                         <h4 className="font-bold text-xs text-slate-900 truncate">{student.full_name}</h4>
                         <div className="text-[10.5px] text-slate-500 font-mono flex items-center gap-1.5 truncate">
-                          <span>Roll: {student.roll_number}</span>
+                          <span>Adm: {student.admission_number}</span>
                           <span>•</span>
                           <span className="truncate">{batch?.name || 'Section'}</span>
                         </div>

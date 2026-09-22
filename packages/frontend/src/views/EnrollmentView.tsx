@@ -222,7 +222,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [dob, setDob] = useState<string>('');
   const [gender, setGender] = useState<string>('');
   const [studentBForm, setStudentBForm] = useState<string>('');
-  const [customRollNumber, setCustomRollNumber] = useState<string>('');
   const [previousSchool, setPreviousSchool] = useState<string>('');
   const [religion, setReligion] = useState<string>('');
   const [residentialAddress, setResidentialAddress] = useState<string>('');
@@ -266,7 +265,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       .filter(s => s.status !== 'archived')
       .filter(s =>
         s.full_name.toLowerCase().includes(q) ||
-        (s.roll_number && s.roll_number.toLowerCase().includes(q)) ||
         (s.admission_number && s.admission_number.toLowerCase().includes(q)) ||
         (s.guardian_phone && s.guardian_phone.includes(q)) ||
         (s.father_cnic && s.father_cnic.includes(q))
@@ -338,7 +336,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     billingMonth: string;
     items: { name: string; amount: number }[];
   } | null>(null);
-  const [receiptWhatsappNumber, setReceiptWhatsappNumber] = useState('');
   const [copiedReceipt, setCopiedReceipt] = useState(false);
 
   const [createdStudentResult, setCreatedStudentResult] = useState<Student | null>(null);
@@ -584,7 +581,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       const matchesSearch = 
         s.full_name.toLowerCase().includes(q) ||
         s.admission_number.toLowerCase().includes(q) ||
-        s.roll_number.toLowerCase().includes(q) ||
         (s.phone && s.phone.includes(searchQuery));
       
       const matchesProgram = selectedProgramFilter === 'all' || s.program_id === selectedProgramFilter;
@@ -776,7 +772,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         });
         rows.push({
           full_name: rowObj.full_name || rowObj.name || rowObj['student name'] || '',
-          roll_number: rowObj.roll_number || rowObj.roll_no || rowObj.roll || undefined,
           phone: rowObj.phone || rowObj.mobile || undefined,
           email: rowObj.email || undefined,
           guardian_name: rowObj.guardian_name || rowObj.father_name || rowObj['guardian name'] || 'Guardian',
@@ -1327,7 +1322,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         },
         body: JSON.stringify({
           inquiry_id: transferInquiryId || undefined,
-          roll_number: customRollNumber.trim() || undefined,
           full_name: enrollForm.full_name.trim(),
           phone: enrollForm.phone.trim() || undefined,
           student_whatsapp: studentWhatsapp.trim() || undefined,
@@ -1409,7 +1403,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
       if (res.ok && result.success) {
         setCreatedStudentResult(result.data);
-        setEnrollSuccessMessage(`Enrollment confirmed! Admission: ${result.data.admission_number} | Roll: ${result.data.roll_number}`);
+        setEnrollSuccessMessage(`Enrollment confirmed! Admission: ${result.data.admission_number}`);
 
         let recordedPayment: any = null;
         const payAmt = typeof initialPaymentAmount === 'number' && initialPaymentAmount > 0 ? initialPaymentAmount : firstChallanDue;
@@ -1464,7 +1458,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           billingMonth: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
           items: receiptItems,
         });
-        setReceiptWhatsappNumber(guardianWhatsapp.trim() || effectiveGuardianPhone.trim());
 
         setEnrollForm({
           full_name: '',
@@ -1505,7 +1498,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         setDob('');
         setGender('');
         setStudentBForm('');
-        setCustomRollNumber('');
         setPreviousSchool('');
         setReligion('');
         setSubmittedDocuments(defaultChecklistState);
@@ -1613,7 +1605,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
       const challanData: StudentChallanData = {
         challan_number: inv?.invoice_number || `CH-${student.admission_number}`,
-        roll_number: student.roll_number || '—',
+        roll_number: student.admission_number || '—',
         admission_number: student.admission_number || undefined,
         student_name: student.full_name,
         father_name: fatherName,
@@ -1635,7 +1627,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       });
 
       setFeeChallanPdfBytes(bytes);
-      setFeeChallanPdfFilename(`Fee_Challan_${student.roll_number || student.admission_number}.pdf`);
+      setFeeChallanPdfFilename(`Fee_Challan_${student.admission_number}.pdf`);
       setShowFeeChallanModal(true);
     } catch (err) {
       console.error('Failed to generate fee challan PDF:', err);
@@ -2209,7 +2201,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     </th>
                     <th className="py-2 px-3">Student Details</th>
                     <th className="py-2 px-3">Admission #</th>
-                    <th className="py-2 px-3">Roll #</th>
                     <th className="py-2 px-3">
                       {directoryCohortType === 'section' ? 'Class & Section' : directoryCohortType === 'batch' ? 'Class & Batch' : 'Class & Section / Batch'}
                     </th>
@@ -2222,14 +2213,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <tbody className="divide-y divide-slate-200/70">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-slate-400 font-mono">
+                      <td colSpan={8} className="py-8 text-center text-slate-400 font-mono">
                         <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                         Loading student records...
                       </td>
                     </tr>
                   ) : filteredStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-8 text-center text-slate-400">
+                      <td colSpan={8} className="py-8 text-center text-slate-400">
                         No students found matching current filters.
                       </td>
                     </tr>
@@ -2275,12 +2266,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           {student.admission_number}
                         </td>
                         <td className="py-2 px-3">
-                          <span className="px-1.5 py-0.5 bg-slate-100 text-[#0E2A47] rounded font-mono font-bold text-[10px] border border-slate-200">
-                            {student.roll_number}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3">
-                          <div className="font-semibold text-slate-800">{getProgramName(student.program_id)}</div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-slate-800">{getProgramName(student.program_id)}</span>
+                            {((student.active_enrollments_count ?? 1) > 1) && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                +{(student.active_enrollments_count ?? 1) - 1} {((student.active_enrollments_count ?? 1) - 1) === 1 ? 'class' : 'classes'}
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[10.5px] text-[#B88634] font-medium">{getBatchName(student.batch_id)}</div>
                         </td>
                         <td className="py-2 px-3">
@@ -2293,13 +2286,26 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           <div className="text-[10.5px] text-slate-500 font-mono">{student.guardian_phone}</div>
                         </td>
                         <td className="py-2 px-3">
-                          <div className="flex flex-wrap gap-1 max-w-[200px]">
-                            {getSubjectNames(student.subjects).map((subName, idx) => (
-                              <span key={idx} className="px-1.5 py-0.2 bg-slate-100 text-slate-700 text-[9.5px] font-semibold rounded border border-slate-200">
-                                {subName}
-                              </span>
-                            ))}
-                          </div>
+                          {(() => {
+                            const subNames = getSubjectNames(student.subjects);
+                            if (subNames.length === 0) return <span className="text-slate-400 italic text-[11px]">—</span>;
+                            const visible = subNames.slice(0, 2);
+                            const remaining = subNames.length - 2;
+                            return (
+                              <div className="flex items-center gap-1 flex-nowrap" title={subNames.join(', ')}>
+                                {visible.map((subName, idx) => (
+                                  <span key={idx} className="px-1.5 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-medium rounded border border-slate-200 truncate max-w-[85px]">
+                                    {subName}
+                                  </span>
+                                ))}
+                                {remaining > 0 && (
+                                  <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 text-[10px] font-bold rounded border border-amber-200 shrink-0" title={subNames.slice(2).join(', ')}>
+                                    +{remaining}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="py-2 px-3">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${
@@ -2441,10 +2447,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         <div className="font-bold text-slate-900 text-sm truncate">
                           {student.full_name}
                         </div>
-                        <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5">
-                          <span className="font-semibold text-slate-700">Roll {student.roll_number}</span>
-                          <span>•</span>
-                          <span className="text-slate-400">{student.admission_number}</span>
+                        <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <span className="font-semibold text-slate-700">{student.admission_number}</span>
+                          {((student.active_enrollments_count ?? 1) > 1) && (
+                            <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              +{(student.active_enrollments_count ?? 1) - 1} classes
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2910,7 +2919,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   {enrollmentType === 'class' ? (
                     <>
                       <div>
@@ -3020,19 +3029,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       value={admissionDate}
                       onChange={e => setAdmissionDate(e.target.value)}
                       className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Roll Number (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={customRollNumber}
-                      onChange={e => setCustomRollNumber(e.target.value)}
-                      placeholder=""
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono placeholder:font-sans placeholder:text-slate-400"
                     />
                   </div>
                 </div>
@@ -3558,7 +3554,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                           <span className="text-xs font-bold text-emerald-950">{selectedSibling.full_name}</span>
                           <span className="text-[10px] font-mono text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded">
-                            Roll: {selectedSibling.roll_number || 'N/A'} • Adm: {selectedSibling.admission_number}
+                            Adm: {selectedSibling.admission_number}
                           </span>
                         </div>
                         <p className="text-[11px] text-emerald-800">
@@ -3604,7 +3600,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                 <div>
                                   <span className="font-bold text-slate-900">{s.full_name}</span>
                                   <span className="text-[10px] font-mono text-slate-500 ml-2">
-                                    (Roll: {s.roll_number || 'N/A'} • Adm: {s.admission_number})
+                                    (Adm: {s.admission_number})
                                   </span>
                                   <span className="text-[10px] text-slate-400 ml-2">
                                     Parent: {s.father_name || s.guardian_name} ({s.guardian_phone})
@@ -3630,7 +3626,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           type="text"
                           value={siblingSearchQuery}
                           onChange={e => setSiblingSearchQuery(e.target.value)}
-                          placeholder="Search by student name, roll #, admission #, or CNIC..."
+                          placeholder="Search by student name, admission #, or CNIC..."
                           className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                         {siblingSearchQuery && (
@@ -3658,7 +3654,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                               <div>
                                 <span className="font-bold text-slate-900">{s.full_name}</span>
                                 <span className="text-[10px] font-mono text-slate-500 ml-2">
-                                  Roll: {s.roll_number || 'N/A'} • Adm: {s.admission_number}
+                                  Adm: {s.admission_number}
                                 </span>
                                 <span className="text-[10px] text-slate-400 block font-sans">
                                   Father/Guardian: {s.father_name || s.guardian_name} • Phone: {s.guardian_phone}
@@ -5351,7 +5347,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Contact Options</h3>
-                <p className="text-[11px] text-slate-500 font-medium">{contactStudentModal.full_name} • Roll: {contactStudentModal.roll_number}</p>
+                <p className="text-[11px] text-slate-500 font-medium">{contactStudentModal.full_name} • Adm: {contactStudentModal.admission_number}</p>
               </div>
               <button
                 type="button"
@@ -5503,18 +5499,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   <span className="font-bold text-slate-900">{receiptModalData.student.full_name}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Roll / Admission #:</span>
-                  <span className="font-mono font-bold text-slate-900">{receiptModalData.student.roll_number} ({receiptModalData.student.admission_number})</span>
+                  <span className="text-slate-500 block">Admission #:</span>
+                  <span className="font-mono font-bold text-slate-900">{receiptModalData.student.admission_number}</span>
                 </div>
                 <div>
                   <span className="text-slate-500 block">Guardian:</span>
                   <span className="text-slate-800 font-medium">
                     {receiptModalData.student.guardian_name} {receiptModalData.student.guardian_relation ? `(${receiptModalData.student.guardian_relation})` : ''}
                   </span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Date & Session:</span>
-                  <span className="font-mono text-slate-800">{receiptModalData.student.admission_date}</span>
                 </div>
               </div>
 
@@ -5530,57 +5522,60 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   <tbody className="divide-y divide-slate-100 font-mono">
                     {receiptModalData.items.map((item, idx) => (
                       <tr key={idx}>
-                        <td className="py-1.5 px-3 text-slate-700 font-sans">{item.name}</td>
-                        <td className="py-1.5 px-3 text-right text-slate-900 font-semibold">{item.amount.toLocaleString()}</td>
+                        <td className="py-1.5 px-3">{item.name}</td>
+                        <td className="py-1.5 px-3 text-right font-bold">PKR {item.amount.toLocaleString()}</td>
                       </tr>
                     ))}
-                    <tr className="bg-slate-50 font-bold">
-                      <td className="py-2 px-3 text-slate-900 font-sans">Total Due</td>
-                      <td className="py-2 px-3 text-right text-slate-900">PKR {receiptModalData.totalDue.toLocaleString()}</td>
+                  </tbody>
+                  <tfoot className="bg-slate-50 border-t border-slate-200 font-bold">
+                    <tr>
+                      <td className="py-1.5 px-3">Total Billed</td>
+                      <td className="py-1.5 px-3 text-right font-mono text-slate-900">PKR {receiptModalData.totalDue.toLocaleString()}</td>
                     </tr>
                     {receiptModalData.amountPaid > 0 && (
-                      <>
-                        <tr className="bg-emerald-50 text-emerald-800 font-bold">
-                          <td className="py-1.5 px-3 font-sans">Amount Paid ({receiptModalData.payment?.payment_method?.toUpperCase() || 'PAID'})</td>
-                          <td className="py-1.5 px-3 text-right">PKR {receiptModalData.amountPaid.toLocaleString()}</td>
-                        </tr>
-                        <tr className="font-bold">
-                          <td className="py-1.5 px-3 text-slate-600 font-sans">Balance Remaining</td>
-                          <td className="py-1.5 px-3 text-right text-amber-700">
-                            PKR {Math.max(0, receiptModalData.totalDue - receiptModalData.amountPaid).toLocaleString()}
-                          </td>
-                        </tr>
-                      </>
+                      <tr>
+                        <td className="py-1.5 px-3 text-emerald-700">Amount Received</td>
+                        <td className="py-1.5 px-3 text-right font-mono text-emerald-700">PKR {receiptModalData.amountPaid.toLocaleString()}</td>
+                      </tr>
                     )}
-                  </tbody>
+                    {receiptModalData.totalDue - receiptModalData.amountPaid > 0 && (
+                      <tr>
+                        <td className="py-1.5 px-3 text-rose-700">Balance Due</td>
+                        <td className="py-1.5 px-3 text-right font-mono text-rose-700">PKR {(receiptModalData.totalDue - receiptModalData.amountPaid).toLocaleString()}</td>
+                      </tr>
+                    )}
+                  </tfoot>
                 </table>
               </div>
+
+              {receiptModalData.payment?.receipt_number && (
+                <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 text-[11px] text-emerald-800 flex items-center justify-between font-mono">
+                  <span>Receipt #{receiptModalData.payment.receipt_number}</span>
+                  <span className="capitalize">{receiptModalData.payment.payment_method?.replace('_', ' ')}</span>
+                </div>
+              )}
             </div>
 
-            {/* WhatsApp Messaging Control */}
-            <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2 text-xs">
-              <label className="block text-[11px] font-bold text-emerald-900">
-                Send Fee Slip via WhatsApp:
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={receiptWhatsappNumber}
-                  onChange={e => setReceiptWhatsappNumber(e.target.value)}
-                  placeholder=""
-                  className="flex-1 px-3 py-1.5 bg-white border border-emerald-300 rounded-lg text-xs font-mono font-semibold"
-                />
+            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => setReceiptModalData(null)}
+                className="px-3 py-1.5 border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold rounded-lg text-xs transition-colors"
+              >
+                Close
+              </button>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
-                    const cleanPhone = cleanPhoneForWhatsApp(receiptWhatsappNumber);
+                    const cleanPhone = cleanPhoneForWhatsApp(receiptModalData.student.guardian_whatsapp || receiptModalData.student.guardian_phone);
                     const academyTitle = tenant?.name || 'Apex Academy';
                     const lines = [
                       `*${academyTitle.toUpperCase()}*`,
                       `*OFFICIAL ADMISSION & FEE RECEIPT*`,
                       ``,
                       `Student: *${receiptModalData.student.full_name}*`,
-                      `Roll No: *${receiptModalData.student.roll_number}* | Admission No: *${receiptModalData.student.admission_number}*`,
+                      `Admission No: *${receiptModalData.student.admission_number}*`,
                       `Guardian: ${receiptModalData.student.guardian_name}`,
                       `Date: ${receiptModalData.student.admission_date}`,
                       ``,
@@ -5589,7 +5584,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       `---------------------------`,
                       `Total Billed: PKR ${receiptModalData.totalDue.toLocaleString()}`,
                       receiptModalData.amountPaid > 0 ? `Amount Received: PKR ${receiptModalData.amountPaid.toLocaleString()}` : `Payment Status: Due`,
-                      receiptModalData.amountPaid > 0 ? `Balance Due: PKR ${Math.max(0, receiptModalData.totalDue - receiptModalData.amountPaid).toLocaleString()}` : ``,
+                      receiptModalData.totalDue - receiptModalData.amountPaid > 0 ? `Balance Due: PKR ${(receiptModalData.totalDue - receiptModalData.amountPaid).toLocaleString()}` : ``,
                       receiptModalData.payment?.receipt_number ? `Receipt No: ${receiptModalData.payment.receipt_number}` : ``,
                       ``,
                       `Thank you. For any inquiries, please contact the academy administration.`
@@ -5598,7 +5593,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(lines)}`;
                     window.open(url, '_blank');
                   }}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-xs transition-colors"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>Send WhatsApp</span>
@@ -5612,7 +5607,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       `*OFFICIAL ADMISSION & FEE RECEIPT*`,
                       ``,
                       `Student: *${receiptModalData.student.full_name}*`,
-                      `Roll No: *${receiptModalData.student.roll_number}* | Admission No: *${receiptModalData.student.admission_number}*`,
+                      `Admission No: *${receiptModalData.student.admission_number}*`,
                       `Guardian: ${receiptModalData.student.guardian_name}`,
                       `Date: ${receiptModalData.student.admission_date}`,
                       ``,
@@ -5817,7 +5812,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   <span>Archiving Student: {studentToArchive.full_name}</span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-amber-800">
-                  Admission No: <strong className="font-mono">{studentToArchive.admission_number}</strong> • Roll No: <strong className="font-mono">{studentToArchive.roll_number}</strong>
+                  Admission No: <strong className="font-mono">{studentToArchive.admission_number}</strong>
                 </p>
                 <p className="text-[11px] leading-relaxed text-amber-700">
                   Archiving marks this student as inactive and releases their seat in the batch roster. All academic history, exam marks, and fee ledgers remain preserved.
@@ -5903,7 +5898,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   <span>Warning: Permanent Deletion of {studentToDelete.full_name}</span>
                 </div>
                 <p className="text-[11px] leading-relaxed text-rose-800">
-                  Admission No: <strong className="font-mono">{studentToDelete.admission_number}</strong> • Roll No: <strong className="font-mono">{studentToDelete.roll_number}</strong>
+                  Admission No: <strong className="font-mono">{studentToDelete.admission_number}</strong>
                 </p>
                 <p className="text-[11px] leading-relaxed text-rose-700">
                   This action permanently removes the student from the database, deletes associated attendance registers, exam evaluations, and portal credentials.

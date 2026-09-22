@@ -1,17 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   X, 
   Printer, 
-  CreditCard,
-  Building2
+  CreditCard, 
+  Building2,
+  GraduationCap
 } from 'lucide-react';
-import { Student, Batch, AcademicProgram } from '@apex/shared-types';
+import { Student, Batch, AcademicProgram, StudentEnrollment } from '@apex/shared-types';
 import { StudentIDCardItem } from './StudentIDCardItem';
 
-interface StudentIDCardModalProps {
+export interface StudentIDCardModalProps {
   student: Student;
   batch?: Batch | null;
   program?: AcademicProgram | null;
+  batches?: Batch[];
+  programs?: AcademicProgram[];
+  enrollments?: StudentEnrollment[];
+  initialEnrollmentId?: string;
   academyName?: string;
   campusPhone?: string;
   campusAddress?: string;
@@ -22,12 +27,68 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
   student,
   batch,
   program,
+  batches = [],
+  programs = [],
+  enrollments = [],
+  initialEnrollmentId,
   academyName = 'Academy',
   campusPhone = '+92 42 35889000',
   campusAddress = 'Main Campus',
   onClose,
 }) => {
   const [viewMode, setViewMode] = useState<'both' | 'front' | 'back'>('both');
+
+  // Filter to active / on-leave enrollments, or all if none active
+  const availableEnrollments = useMemo(() => {
+    if (!enrollments || enrollments.length === 0) return [];
+    const activeList = enrollments.filter(e => e.status === 'active' || e.status === 'on_leave');
+    return activeList.length > 0 ? activeList : enrollments;
+  }, [enrollments]);
+
+  // Selected enrollment state
+  const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<string>(() => {
+    if (initialEnrollmentId) return initialEnrollmentId;
+    if (availableEnrollments.length > 0) {
+      const primary = availableEnrollments.find(e => e.is_primary);
+      return primary ? primary.id : availableEnrollments[0].id;
+    }
+    return '';
+  });
+
+  const selectedEnrollment = useMemo(() => {
+    return enrollments.find(e => e.id === selectedEnrollmentId) || null;
+  }, [enrollments, selectedEnrollmentId]);
+
+  // Derive effective batch, program, and student for the selected class
+  const effectiveBatch = useMemo(() => {
+    if (selectedEnrollment && batches.length > 0) {
+      const found = batches.find(b => b.id === selectedEnrollment.batch_id);
+      if (found) return found;
+    }
+    return batch || null;
+  }, [selectedEnrollment, batches, batch]);
+
+  const effectiveProgram = useMemo(() => {
+    const progId = effectiveBatch?.program_id || selectedEnrollment?.program_id;
+    if (progId && programs.length > 0) {
+      const found = programs.find(p => p.id === progId);
+      if (found) return found;
+    }
+    return program || null;
+  }, [effectiveBatch, selectedEnrollment, programs, program]);
+
+  const effectiveStudent = useMemo((): Student => {
+    if (!selectedEnrollment) return student;
+    return {
+      ...student,
+      batch_id: selectedEnrollment.batch_id,
+      program_id: selectedEnrollment.program_id || effectiveProgram?.id || student.program_id,
+      roll_number: selectedEnrollment.roll_number || student.roll_number,
+      subjects: selectedEnrollment.subjects && selectedEnrollment.subjects.length > 0
+        ? selectedEnrollment.subjects
+        : student.subjects,
+    };
+  }, [student, selectedEnrollment, effectiveProgram]);
 
   const handlePrint = () => {
     window.print();
@@ -65,8 +126,9 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
       <div className="bg-white border-t sm:border border-slate-300 rounded-t-3xl sm:rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-none print:border-none print:shadow-none print:bg-white print:max-w-none animate-in slide-in-from-bottom-5 sm:zoom-in-95 duration-200">
         {/* Mobile Swipe Grab Handle Pill */}
         <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto my-2.5 sm:hidden shrink-0 no-print" />
+
         {/* Header Toolbar */}
-        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50 no-print">
+        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50 no-print">
           <div className="flex items-center gap-3">
             <span className="p-2 rounded-xl bg-slate-900 text-white shadow-xs">
               <CreditCard className="w-4 h-4" />
@@ -79,18 +141,45 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
                 </span>
               </h2>
               <p className="text-xs text-slate-500">
-                {student.full_name} • Roll: <strong className="font-mono text-slate-700">{student.roll_number}</strong> • Adm: <span className="font-mono">{student.admission_number}</span>
+                {effectiveStudent.full_name} • Adm: <strong className="font-mono text-slate-700">{effectiveStudent.admission_number}</strong>
+                {effectiveBatch && <span className="ml-1 text-slate-500">• {effectiveBatch.name}</span>}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Class / Enrollment Selector if student attends multiple classes */}
+            {availableEnrollments.length > 1 && (
+              <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl px-2.5 py-1 text-xs shadow-2xs">
+                <GraduationCap className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <label htmlFor="id-card-class-select" className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Class:</label>
+                <select
+                  id="id-card-class-select"
+                  value={selectedEnrollmentId}
+                  onChange={e => setSelectedEnrollmentId(e.target.value)}
+                  className="text-xs font-semibold text-slate-800 bg-transparent outline-none cursor-pointer pr-1"
+                >
+                  {availableEnrollments.map(enr => {
+                    const b = batches.find(x => x.id === enr.batch_id);
+                    const prog = programs.find(p => p.id === (enr.program_id || b?.program_id));
+                    const label = b?.name || prog?.name || 'Class Enrollment';
+                    const primaryTag = enr.is_primary ? ' (Primary)' : '';
+                    return (
+                      <option key={enr.id} value={enr.id}>
+                        {label}{primaryTag}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+
             {/* View Mode Toggle */}
             <div className="bg-slate-200/80 p-1 rounded-xl flex items-center gap-1 border border-slate-300 text-xs">
               <button
                 type="button"
                 onClick={() => setViewMode('both')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   viewMode === 'both' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -99,7 +188,7 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMode('front')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   viewMode === 'front' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -108,7 +197,7 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
               <button
                 type="button"
                 onClick={() => setViewMode('back')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   viewMode === 'back' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -128,7 +217,7 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
               title="Close"
             >
               <X className="w-5 h-5" />
@@ -139,9 +228,9 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
         {/* Printable Card Area */}
         <div id="printable-id-card-area" className="p-2 sm:p-8 overflow-x-auto bg-slate-100/60 flex flex-col items-center justify-center min-h-[320px] print:p-0 print:bg-white">
           <StudentIDCardItem
-            student={student}
-            batch={batch}
-            program={program}
+            student={effectiveStudent}
+            batch={effectiveBatch}
+            program={effectiveProgram}
             academyName={academyName}
             campusPhone={campusPhone}
             campusAddress={campusAddress}
@@ -158,7 +247,7 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors"
+            className="px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
           >
             Close
           </button>

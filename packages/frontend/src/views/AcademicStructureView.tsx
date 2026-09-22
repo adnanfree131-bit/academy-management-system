@@ -3530,7 +3530,7 @@ export const AcademicStructureView: React.FC = () => {
                                 }}
                                 className="rounded text-indigo-600 focus:ring-indigo-500"
                               />
-                              <span className="font-mono text-slate-500 text-[11px]">{s.roll_number || '—'}</span>
+                              <span className="font-mono text-slate-500 text-[11px]">{s.admission_number || '—'}</span>
                               <span className="font-medium text-slate-800">{s.full_name}</span>
                             </div>
                             <span className="font-mono text-slate-500 text-[11px]">
