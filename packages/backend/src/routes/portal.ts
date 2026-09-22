@@ -146,7 +146,7 @@ export function portalRoutes(store: IDataStore) {
           linkedChildren = children.map(c => {
             const b = allBatches.find(batch => batch.id === c.batch_id);
             const p = allPrograms.find(prog => prog.id === c.program_id);
-            const cInvoices = allInvoices.filter(i => (i.student_id === c.id || i.roll_number === c.roll_number) && i.status !== 'voided');
+            const cInvoices = allInvoices.filter(i => i.student_id === c.id && i.status !== 'voided');
             const unpaid = cInvoices.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
             return {
               id: c.id,
@@ -183,7 +183,7 @@ export function portalRoutes(store: IDataStore) {
           linkedChildren = tenantStudents.slice(0, 20).map(c => {
             const b = allBatches.find(batch => batch.id === c.batch_id);
             const p = allPrograms.find(prog => prog.id === c.program_id);
-            const cInvoices = allInvoices.filter(i => (i.student_id === c.id || i.roll_number === c.roll_number) && i.status !== 'voided');
+            const cInvoices = allInvoices.filter(i => i.student_id === c.id && i.status !== 'voided');
             const unpaid = cInvoices.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
             return {
               id: c.id,

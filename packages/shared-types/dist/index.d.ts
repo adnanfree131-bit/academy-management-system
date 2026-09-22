@@ -200,6 +200,7 @@ export interface JWTPayload {
     student_id?: string;
     admission_number?: string;
     cnic?: string;
+    must_change_password?: boolean;
     iat?: number;
     exp?: number;
 }
@@ -231,6 +232,7 @@ export interface AuthSessionResponse {
         avatar_url?: string | null;
         permissions?: string[];
         designation?: string;
+        must_change_password?: boolean;
     };
     tenant: {
         id: string;
@@ -457,6 +459,7 @@ export interface Student {
     mother_occupation?: string | null;
     primary_contact?: 'father' | 'mother' | 'guardian' | string;
     sibling_student_id?: string | null;
+    concession_category?: string | null;
     custom_field_values: Record<string, unknown>;
     subjects: string[];
     blood_group?: string | null;

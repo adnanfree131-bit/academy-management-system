@@ -391,7 +391,7 @@ export function examRoutes(store: IDataStore) {
     fastify.post('/:id/evaluate', evaluateHandler);
     fastify.post('/exams/:id/evaluate', evaluateHandler);
 
-    const STAFF_ROLES = ['tenant_admin', 'academic_head', 'admissions_counselor', 'teacher', 'finance_officer', 'accountant'];
+    const STAFF_ROLES = ['tenant_admin', 'academic_head', 'teacher', 'finance_manager'];
 
     const canAccessStudentReportCard = async (user: JWTPayload, studentId: string): Promise<boolean> => {
       if (user.role === 'super_admin' || STAFF_ROLES.includes(user.role)) {

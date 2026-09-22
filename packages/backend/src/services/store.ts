@@ -3103,7 +3103,7 @@ export class InMemoryDataStore implements IDataStore {
     );
     const tenantInvoices = this.invoices.filter(i => i.tenant_id === tenantId);
     return list.map(s => {
-      const sInvs = tenantInvoices.filter(i => i.student_id === s.id || i.roll_number === s.roll_number);
+      const sInvs = tenantInvoices.filter(i => i.student_id === s.id);
       const unpaid = sInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
       const isDefaulter = sInvs.some(i => (i.status as any) === 'overdue' || (Boolean(i.due_date) && new Date(i.due_date.includes('T') ? i.due_date : i.due_date + 'T23:59:59.999Z') < new Date() && ((i.balance_due ?? i.balance_amount ?? 0) > 0)));
       return {
@@ -3117,7 +3117,7 @@ export class InMemoryDataStore implements IDataStore {
   async getStudentById(tenantId: string, id: string): Promise<Student | null> {
     const student = this.students.find(s => s.id === id && s.tenant_id === tenantId);
     if (!student) return null;
-    const sInvs = this.invoices.filter(i => i.tenant_id === tenantId && (i.student_id === student.id || i.roll_number === student.roll_number));
+    const sInvs = this.invoices.filter(i => i.tenant_id === tenantId && i.student_id === student.id);
     const unpaid = sInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
     const isDefaulter = sInvs.some(i => (i.status as any) === 'overdue' || (Boolean(i.due_date) && new Date(i.due_date.includes('T') ? i.due_date : i.due_date + 'T23:59:59.999Z') < new Date() && ((i.balance_due ?? i.balance_amount ?? 0) > 0)));
     return {
@@ -3147,7 +3147,11 @@ export class InMemoryDataStore implements IDataStore {
     // 1. Exams & Evaluations (include current batch exams + historical evaluations from prior batches)
     const evals = this.studentExamEvaluations.filter(e => e.tenant_id === tenantId && e.student_id === studentId);
     const evalExamIds = new Set(evals.map(e => e.exam_id));
-    const allRelevantExams = this.exams.filter(ex => ex.tenant_id === tenantId && (ex.batch_id === student.batch_id || evalExamIds.has(ex.id)));
+    const allRelevantExams = this.exams.filter(ex => ex.tenant_id === tenantId && (
+      ex.batch_id === student.batch_id || 
+      (ex as any).batch_ids?.includes(student.batch_id) || 
+      evalExamIds.has(ex.id)
+    ));
     const examsSummary = allRelevantExams.map(ex => {
       const ev = evals.find(e => e.exam_id === ex.id);
       return {
@@ -3166,7 +3170,11 @@ export class InMemoryDataStore implements IDataStore {
     // 2. Homework & Checks (include current batch homework + historical checks from prior batches)
     const checks = this.notebookChecks.filter(c => c.tenant_id === tenantId && c.student_id === studentId);
     const checkedHwIds = new Set(checks.map(c => c.assignment_id));
-    const allRelevantHomework = this.homeworkAssignments.filter(h => h.tenant_id === tenantId && (h.batch_id === student.batch_id || checkedHwIds.has(h.id)));
+    const allRelevantHomework = this.homeworkAssignments.filter(h => h.tenant_id === tenantId && (
+      h.batch_id === student.batch_id || 
+      (h as any).batch_ids?.includes(student.batch_id) || 
+      checkedHwIds.has(h.id)
+    ));
     const homeworkSummary = allRelevantHomework.map(h => {
       const check = checks.find(c => c.assignment_id === h.id);
       return {
@@ -3260,6 +3268,11 @@ export class InMemoryDataStore implements IDataStore {
 
     const student: Student = {
       ...data,
+      concession_category: (data as any).concession_category || (data as any).fee_structure?.concession_category || null,
+      fee_structure: (data as any).fee_structure ? {
+        ...(data as any).fee_structure,
+        concession_category: (data as any).fee_structure?.concession_category || (data as any).concession_category || undefined,
+      } : (data as any).fee_structure,
       date_of_birth: (data as any).date_of_birth || null,
       gender: (data as any).gender || null,
       student_b_form: (data as any).student_b_form || null,
@@ -3301,6 +3314,29 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     };
 
+    // H4: Kinship concession enforcement against active sibling requirement
+    const feeRules = tenant?.settings?.fee_rules;
+    const kinshipRules = feeRules?.kinship_rules;
+    const isKinshipConcession = 
+      (data as any).fee_structure?.concession_category === 'kinship' ||
+      (data as any).concession_category === 'kinship' ||
+      (data as any).concession_type === 'kinship' ||
+      ((data as any).fee_structure?.concession_reason || '').toLowerCase().includes('kinship');
+
+    if (isKinshipConcession && kinshipRules?.require_active_sibling) {
+      const sibId = (data as any).sibling_student_id;
+      if (!sibId) {
+        throw new Error('Kinship fee concession requires an active sibling enrolled at this institution.');
+      }
+      const sibling = this.students.find(s => s.tenant_id === data.tenant_id && s.id === sibId);
+      if (!sibling) {
+        throw new Error('Kinship fee concession rejected: Sibling student was not found in this institution.');
+      }
+      if (sibling.status !== 'active') {
+        throw new Error(`Kinship fee concession rejected: Sibling "${sibling.full_name}" is currently ${sibling.status} (must be active).`);
+      }
+    }
+
     if ((data as any).inquiry_id) {
       await this.updateInquiryStage(data.tenant_id, (data as any).inquiry_id, 'admitted');
     }
@@ -3328,7 +3364,7 @@ export class InMemoryDataStore implements IDataStore {
             guardian_id_card: rawGuardianCnic || undefined,
             roll_number: student.roll_number,
             admission_number: student.admission_number,
-            default_password: 'Student@123',
+            must_change_password: true,
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -3336,8 +3372,33 @@ export class InMemoryDataStore implements IDataStore {
         this.users.set(studentUserId, newStudentUser);
         this.users.set(`${data.tenant_id}:${userEmail.toLowerCase()}`, newStudentUser);
         student.user_id = studentUserId;
-      } else {
+      } else if (existingUser.role === 'student') {
         student.user_id = existingUser.id;
+      } else {
+        // M9: Staff/admin email collision: do NOT attach student to staff/admin!
+        // Create distinct student portal email std.<admClean>@<tenantDomain>
+        const distinctEmail = `std.${admClean}@${tenantDomain}`;
+        const newStudentUser: User = {
+          id: studentUserId,
+          tenant_id: data.tenant_id,
+          email: distinctEmail,
+          full_name: data.full_name,
+          role: 'student',
+          status: 'active',
+          password_hash: hashPassword('Student@123'),
+          phone: data.phone || undefined,
+          metadata: {
+            guardian_id_card: rawGuardianCnic || undefined,
+            roll_number: student.roll_number,
+            admission_number: student.admission_number,
+            must_change_password: true,
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        this.users.set(studentUserId, newStudentUser);
+        this.users.set(`${data.tenant_id}:${distinctEmail.toLowerCase()}`, newStudentUser);
+        student.user_id = studentUserId;
       }
     }
 
@@ -3350,7 +3411,7 @@ export class InMemoryDataStore implements IDataStore {
       const existingParent = Array.from(this.users.values()).find(u =>
         u.tenant_id === data.tenant_id && u.role === 'parent' && (
           (cleanGuardianCnic && (u.metadata as any)?.clean_guardian_id_card === cleanGuardianCnic) ||
-          (cleanGuardianCnic && u.email.toLowerCase() === `guardian.${cleanGuardianCnic}@kampus.pk`) ||
+          (cleanGuardianCnic && u.email.toLowerCase() === `guardian.${cleanGuardianCnic}@${tenantDomain}`) ||
           (gEmail && u.email.toLowerCase() === gEmail)
         )
       );
@@ -3369,6 +3430,7 @@ export class InMemoryDataStore implements IDataStore {
           metadata: {
             guardian_id_card: rawGuardianCnic || undefined,
             clean_guardian_id_card: cleanGuardianCnic || undefined,
+            must_change_password: true,
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -3680,25 +3742,60 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
 
-    // 4. User account synchronization & portal access gating
+    // 4. User account synchronization & portal access gating (H3)
     if (student.user_id) {
       const user = this.users.get(student.user_id);
       if (user && user.tenant_id === tenantId) {
-        if (['withdrawn', 'archived', 'suspended'].includes(status)) {
+        if (!user.metadata) user.metadata = {};
+        if (['withdrawn', 'archived', 'suspended', 'alumni'].includes(status)) {
           user.status = 'inactive';
-          (user as any).portal_blocked = true;
+          user.metadata.portal_blocked = true;
         } else if (status === 'active') {
           user.status = 'active';
-          (user as any).portal_blocked = false;
+          user.metadata.portal_blocked = false;
         }
         user.updated_at = new Date().toISOString();
+      }
+    }
+
+    // Synchronize parent user portal account if family has no other active enrolled children
+    const cleanGuardianCnic = student.guardian_id_card ? student.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+    if (cleanGuardianCnic) {
+      const tenant = this.tenants.get(tenantId);
+      const tenantDomain = tenant?.domain || (tenant?.slug ? `${tenant.slug}.kampus.pk` : 'kampus.pk');
+      const parentUser = Array.from(this.users.values()).find(u =>
+        u.tenant_id === tenantId && u.role === 'parent' && (
+          (u.metadata as any)?.clean_guardian_id_card === cleanGuardianCnic ||
+          u.email.toLowerCase() === `guardian.${cleanGuardianCnic}@${tenantDomain}`
+        )
+      );
+      if (parentUser) {
+        if (!parentUser.metadata) parentUser.metadata = {};
+        const otherActiveChildren = this.students.some(s =>
+          s.tenant_id === tenantId &&
+          s.id !== student.id &&
+          s.status === 'active' &&
+          s.guardian_id_card &&
+          s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() === cleanGuardianCnic
+        );
+        if (['withdrawn', 'archived', 'suspended', 'alumni'].includes(status)) {
+          if (!otherActiveChildren) {
+            parentUser.status = 'inactive';
+            parentUser.metadata.portal_blocked = true;
+            parentUser.updated_at = new Date().toISOString();
+          }
+        } else if (status === 'active') {
+          parentUser.status = 'active';
+          parentUser.metadata.portal_blocked = false;
+          parentUser.updated_at = new Date().toISOString();
+        }
       }
     }
 
     // 5. Invoices cancellation / waiver without destroying payment audit history
     if (cancelUnpaidInvoices) {
       const studentInvoices = this.invoices.filter(
-        i => i.tenant_id === tenantId && (i.student_id === studentId || i.roll_number === student.roll_number)
+        i => i.tenant_id === tenantId && i.student_id === studentId
       );
       for (const inv of studentInvoices) {
         if (inv.status === 'unpaid' || inv.status === 'UNPAID') {
@@ -3751,7 +3848,7 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     const studentInvoices = this.invoices.filter(
-      i => i.tenant_id === tenantId && (i.student_id === studentId || i.roll_number === student.roll_number)
+      i => i.tenant_id === tenantId && i.student_id === studentId
     );
     const paidInvoices = studentInvoices.filter(
       i => i.status === 'paid' || i.status === 'partially_paid' || (i.paid_amount && i.paid_amount > 0)
@@ -3822,7 +3919,7 @@ export class InMemoryDataStore implements IDataStore {
     // Invoices cleanup: only remove unpaid or cancelled invoices, NEVER delete paid/partial invoices to preserve financial ledger
     if (this.invoices) {
       this.invoices = this.invoices.filter(
-        i => !(i.tenant_id === tenantId && (i.student_id === studentId || i.roll_number === student.roll_number) && (i.status === 'unpaid' || i.status === 'cancelled'))
+        i => !(i.tenant_id === tenantId && i.student_id === studentId && (i.status === 'unpaid' || i.status === 'cancelled'))
       );
     }
 
@@ -4268,10 +4365,10 @@ export class InMemoryDataStore implements IDataStore {
     options: {
       newPassword?: string;
       reason?: string;
-      adminName: string;
-      adminUserId: string;
+      adminName?: string;
+      adminUserId?: string;
       guardianIdCard?: string;
-    }
+    } = {}
   ): Promise<{ student: Student; user: User; default_password: string }> {
     const student = this.students.find(s => s.tenant_id === tenantId && s.id === studentId);
     if (!student) {
@@ -4279,35 +4376,49 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     const previousCnic = student.guardian_id_card;
-    if (options.guardianIdCard && options.guardianIdCard.trim()) {
+    if (options?.guardianIdCard && options.guardianIdCard.trim()) {
       student.guardian_id_card = options.guardianIdCard.trim();
     }
 
     const rawCnic = student.guardian_id_card?.trim() || '';
     const cleanCnic = rawCnic ? rawCnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : '';
-    const newPwd = options.newPassword?.trim() || 'Student@123';
+    const newPwd = options?.newPassword?.trim() || 'Student@123';
     const pwdHash = hashPassword(newPwd);
 
+    const tenant = this.tenants.get(tenantId);
+    const tenantDomain = tenant?.domain || (tenant?.slug ? `${tenant.slug}.kampus.pk` : 'kampus.pk');
+
     let studentUser: User | null = null;
+    // 1. Match directly by student.user_id if set
     if (student.user_id) {
       studentUser = Array.from(this.users.values()).find(u => u.tenant_id === tenantId && u.id === student.user_id) || null;
     }
 
-    if (!studentUser && cleanCnic) {
+    const admClean = (student.admission_number || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    // 2. If student.user_id is not set, match ONLY by identity belonging strictly to this specific student:
+    // - metadata.student_id === student.id
+    // - student personal email
+    // - metadata.admission_number === student.admission_number OR email === std.${admClean}@${tenantDomain}
+    // NEVER match by guardian CNIC (shared across siblings) and NEVER match by wildcard startsWith('std.')!
+    if (!studentUser) {
       studentUser = Array.from(this.users.values()).find(u => 
         u.tenant_id === tenantId && u.role === 'student' && (
-          (u.metadata as any)?.clean_guardian_id_card === cleanCnic ||
-          u.email.toLowerCase() === `cnic.${cleanCnic}@kampus.pk` ||
-          u.email.toLowerCase().startsWith('std.')
+          (u.metadata as any)?.student_id === student.id ||
+          (student.email && u.email.toLowerCase() === student.email.toLowerCase().trim()) ||
+          (admClean && (
+            (u.metadata as any)?.admission_number === student.admission_number ||
+            u.email.toLowerCase() === `std.${admClean}@${tenantDomain}`
+          ))
         )
       ) || null;
     }
 
     if (!studentUser) {
       const newUserId = crypto.randomUUID();
-      const userEmail = cleanCnic 
-        ? `cnic.${cleanCnic}@kampus.pk` 
-        : `std.${student.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '')}@kampus.pk`;
+      const userEmail = student.email 
+        ? student.email.toLowerCase().trim() 
+        : `std.${admClean || crypto.randomUUID().slice(0, 8)}@${tenantDomain}`;
 
       studentUser = {
         id: newUserId,
@@ -4318,10 +4429,14 @@ export class InMemoryDataStore implements IDataStore {
         status: 'active',
         password_hash: pwdHash,
         metadata: {
+          student_id: student.id,
+          admission_number: student.admission_number,
+          roll_number: student.roll_number,
           guardian_id_card: student.guardian_id_card || undefined,
           clean_guardian_id_card: cleanCnic || undefined,
           password_last_reset_at: new Date().toISOString(),
-          password_reset_by: options.adminName,
+          password_reset_by: options.adminName || 'Academy Administrator',
+          must_change_password: true,
         },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -4332,8 +4447,12 @@ export class InMemoryDataStore implements IDataStore {
     } else {
       studentUser.password_hash = pwdHash;
       if (!studentUser.metadata) studentUser.metadata = {};
+      studentUser.metadata.student_id = student.id;
+      studentUser.metadata.admission_number = student.admission_number;
+      studentUser.metadata.roll_number = student.roll_number;
       studentUser.metadata.password_last_reset_at = new Date().toISOString();
-      studentUser.metadata.password_reset_by = options.adminName;
+      studentUser.metadata.password_reset_by = options.adminName || 'Academy Administrator';
+      studentUser.metadata.must_change_password = true;
       if (cleanCnic) {
         studentUser.metadata.guardian_id_card = student.guardian_id_card;
         studentUser.metadata.clean_guardian_id_card = cleanCnic;
@@ -4342,29 +4461,12 @@ export class InMemoryDataStore implements IDataStore {
       student.user_id = studentUser.id;
     }
 
-    // Also synchronize password for any parent user account sharing this CNIC
-    if (cleanCnic) {
-      const parentUser = Array.from(this.users.values()).find(u => 
-        u.tenant_id === tenantId && u.role === 'parent' && (
-          (u.metadata as any)?.clean_guardian_id_card === cleanCnic ||
-          u.email.toLowerCase() === `guardian.${cleanCnic}@kampus.pk`
-        )
-      );
-      if (parentUser && parentUser.id !== studentUser.id) {
-        parentUser.password_hash = pwdHash;
-        if (!parentUser.metadata) parentUser.metadata = {};
-        parentUser.metadata.password_last_reset_at = new Date().toISOString();
-        parentUser.metadata.password_reset_by = options.adminName;
-        parentUser.updated_at = new Date().toISOString();
-      }
-    }
-
     // Record audit log
     await this.logStudentProfileChange(tenantId, {
       student_id: studentId,
       action: 'RESET_PASSWORD',
-      changed_by_user_id: options.adminUserId,
-      changed_by_name: options.adminName,
+      changed_by_user_id: options.adminUserId || 'system',
+      changed_by_name: options.adminName || 'Academy Administrator',
       changes: {
         password: {
           old: '••••••••',
@@ -9213,7 +9315,7 @@ export class InMemoryDataStore implements IDataStore {
     // Invoices and Balance (Excluding voided or cancelled)
     const studentInvoices = this.invoices.filter(
       i => i.tenant_id === tenantId && 
-           (i.student_id === student.id || i.roll_number === student.roll_number) &&
+           i.student_id === student.id &&
            i.status !== 'voided' && (i.status as any) !== 'cancelled'
     );
     const unpaidBalance = studentInvoices.reduce((sum, inv) => {
@@ -9224,7 +9326,7 @@ export class InMemoryDataStore implements IDataStore {
     // Payments / Receipts (Excluding voided)
     const studentPayments = this.feePayments.filter(
       p => p.tenant_id === tenantId && 
-           (p.student_id === student.id || (student.roll_number && p.roll_number === student.roll_number)) &&
+           p.student_id === student.id &&
            p.status !== 'voided'
     ).sort((a, b) => (b.payment_date || b.created_at || '').localeCompare(a.payment_date || a.created_at || ''));
 

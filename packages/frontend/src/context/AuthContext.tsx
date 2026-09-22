@@ -10,6 +10,7 @@ export interface UserSession {
   avatar_url?: string | null;
   permissions?: string[];
   designation?: string;
+  must_change_password?: boolean;
 }
 
 export interface TenantSession {

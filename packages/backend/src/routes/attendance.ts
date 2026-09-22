@@ -19,7 +19,7 @@ export function attendanceRoutes(store: IDataStore) {
       return true;
     };
 
-    const STAFF_ROLES = ['tenant_admin', 'academic_head', 'admissions_counselor', 'teacher', 'finance_officer', 'accountant'];
+    const STAFF_ROLES = ['tenant_admin', 'academic_head', 'teacher', 'finance_manager'];
 
     const getVerifiedStudentId = async (user: JWTPayload): Promise<string | null> => {
       if (user.student_id) return user.student_id;

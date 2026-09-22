@@ -65,6 +65,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 }) => {
   const { token, tenant, user } = useAuth();
   const isAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin';
+  const canManageAcademicStatus = isAdmin || user?.role === 'academic_head';
   const [currentStudent, setCurrentStudent] = useState<Student>(student);
   useEffect(() => {
     setCurrentStudent(student);
@@ -1190,7 +1191,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <span>WhatsApp</span>
                 </a>
 
-                {isAdmin && (
+                {canManageAcademicStatus && (
                   <>
                     {currentStudent.status === 'archived' ? (
                       <button
@@ -1214,22 +1215,24 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         <span>Archive</span>
                       </button>
                     )}
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDeleteModalForce(false);
-                        setDeleteModalRequiresForce(false);
-                        setDeleteModalError(null);
-                        setShowDeleteDialog(true);
-                      }}
-                      className="px-2.5 py-1.5 bg-white/10 hover:bg-rose-500/20 text-white/80 hover:text-rose-200 border border-white/15 hover:border-rose-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
-                      title="Permanently Delete Student Record"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      <span>Delete</span>
-                    </button>
                   </>
+                )}
+
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteModalForce(false);
+                      setDeleteModalRequiresForce(false);
+                      setDeleteModalError(null);
+                      setShowDeleteDialog(true);
+                    }}
+                    className="px-2.5 py-1.5 bg-white/10 hover:bg-rose-500/20 text-white/80 hover:text-rose-200 border border-white/15 hover:border-rose-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Permanently Delete Student Record"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Delete</span>
+                  </button>
                 )}
               </div>
             </div>
@@ -1531,7 +1534,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                   {/* Actions */}
                   <div className="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
-                    {isAdmin && (
+                    {canManageAcademicStatus && (
                       <button
                         type="button"
                         onClick={() => {
@@ -1549,13 +1552,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                     {currentStudent.guardian_id_card && (
                       <a
-                        href={getWhatsAppCredentialsUrl(currentStudent.guardian_id_card, '[As provided upon admission/reset]')}
+                        href={getWhatsAppCredentialsUrl(currentStudent.guardian_id_card)}
                         target="_blank"
                         rel="noreferrer"
                         className="w-full py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
                       >
                         <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Share Portal Login (WhatsApp)</span>
+                        <span>Share Portal Link (WhatsApp)</span>
                       </a>
                     )}
                   </div>
@@ -1753,10 +1756,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <div>
                     <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
                       <FileCheck className="w-4 h-4 text-slate-600" />
-                      Document Submission & Verification Status
+                      Physical Document Verification Status
                     </h3>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Verification status of legal certificates, CNICs, and photographs required upon admission.
+                      Physical verification status of paper certificates, CNIC copies, and photographs on file. Status tracking only (no file uploads).
                     </p>
                   </div>
                 </div>
@@ -1921,7 +1924,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   </div>
                   {currentStudent.fee_structure.concession_val ? (
                     <div className="px-2.5 py-1 bg-slate-50 border border-slate-300 rounded text-slate-800 font-medium text-[11px]">
-                      Concession: <strong>{currentStudent.fee_structure.concession_type === 'percentage' ? `${currentStudent.fee_structure.concession_val}%` : `PKR ${currentStudent.fee_structure.concession_val}`}</strong> ({currentStudent.fee_structure.concession_reason || 'Approved'})
+                      Concession: <strong>{currentStudent.fee_structure.concession_type === 'percentage' ? `${currentStudent.fee_structure.concession_val}%` : `PKR ${currentStudent.fee_structure.concession_val}`}</strong> {currentStudent.fee_structure.concession_category ? `[${currentStudent.fee_structure.concession_category.toUpperCase()}]` : ''} ({currentStudent.fee_structure.concession_reason || 'Approved'})
                     </div>
                   ) : null}
                 </div>

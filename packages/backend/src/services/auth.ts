@@ -15,95 +15,56 @@ export class AuthService {
     return crypto.createHash('sha256').update(data).digest('hex');
   }
 
+  private cnicKey(value: string | null | undefined): string {
+    return String(value || '').replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
+  }
+
+  private isPortalRole(role: string | undefined): boolean {
+    return role === 'student' || role === 'parent';
+  }
+
   private async findUsersByIdentifierInTenant(tenantId: string, cleanEmail: string): Promise<User[]> {
     const results: User[] = [];
-    const directUser = await this.store.getUserByEmail(tenantId, cleanEmail);
-    if (directUser) results.push(directUser);
 
-    const cleanInputCnic = cleanEmail.replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
+    // Staff sign in with email. Student and parent portal accounts do not.
+    if (cleanEmail.includes('@')) {
+      const directUser = await this.store.getUserByEmail(tenantId, cleanEmail);
+      if (directUser && !this.isPortalRole(directUser.role)) {
+        results.push(directUser);
+      }
+      return results;
+    }
+
+    // Portal sign-in is father CNIC or the registered guardian CNIC only.
+    const cleanInputCnic = this.cnicKey(cleanEmail);
+    if (cleanInputCnic.length < 5) return results;
+
     const students = await this.store.getStudents(tenantId);
     const tenantUsers = await this.store.getTenantUsers(tenantId);
-    const tenantObj = await this.store.getTenantById(tenantId);
-    const tenantDomain = tenantObj?.domain || (tenantObj?.slug ? `${tenantObj.slug}.kampus.pk` : 'kampus.pk');
 
-    // 1. Check students with matching guardian_id_card, roll_number, admission_number, or student email
-    // ONLY match active students. Inactive, withdrawn, waitlisted, or archived students cannot log in.
     const matchingStudents = students.filter(s => {
       if (s.status !== 'active') return false;
-      if (cleanInputCnic.length >= 5 && s.guardian_id_card) {
-        const stdCnic = s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
-        if (stdCnic === cleanInputCnic) return true;
-      }
-      if (s.roll_number && s.roll_number.toLowerCase() === cleanEmail) return true;
-      if (s.admission_number && s.admission_number.toLowerCase().replace(/[^0-9a-zA-Z]/g, '') === cleanInputCnic) return true;
-      if (s.email && s.email.toLowerCase() === cleanEmail) return true;
-      return false;
+      const keys = [s.guardian_id_card, s.father_cnic].map(v => this.cnicKey(v)).filter(v => v.length >= 5);
+      return keys.includes(cleanInputCnic);
     });
 
     for (const s of matchingStudents) {
-      let u: User | undefined;
-      if (s.user_id) {
-        u = tenantUsers.find(tu => tu.id === s.user_id);
-      }
-      if (!u) {
-        // Provision student user on-the-fly and persist linkage to store
-        const studentUserId = s.user_id || crypto.randomUUID();
-        const admClean = s.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const userEmail = (s.email && s.email.trim()) ? s.email.toLowerCase() : `std.${admClean}@${tenantDomain}`;
-        const newStudentUser: User = {
-          id: studentUserId,
-          tenant_id: tenantId,
-          email: userEmail,
-          full_name: s.full_name,
-          role: 'student',
-          status: 'active',
-          password_hash: hashPassword('Student@123'),
-          phone: s.phone || s.guardian_phone || undefined,
-          metadata: {
-            guardian_id_card: s.guardian_id_card,
-            clean_guardian_id_card: s.guardian_id_card ? s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : undefined,
-            roll_number: s.roll_number,
-            admission_number: s.admission_number,
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        (this.store as any).users.set(studentUserId, newStudentUser);
-        (this.store as any).users.set(`${tenantId}:${userEmail.toLowerCase()}`, newStudentUser);
-        await this.store.updateStudent(tenantId, s.id, { user_id: studentUserId });
-        s.user_id = studentUserId;
-        (this.store as any).schedulePersist();
-        u = newStudentUser;
-      }
-      if (u && !results.some(r => r.id === u!.id)) {
+      const u = s.user_id
+        ? tenantUsers.find(tu => tu.id === s.user_id && tu.role === 'student')
+        : undefined;
+      if (u && !results.some(r => r.id === u.id)) {
         results.push(u);
       }
     }
 
-    if (cleanInputCnic.length >= 5) {
-      // 2. Check parent users
-      const parentUsers = tenantUsers.filter(u => 
-        u.role === 'parent' && (
-          (u.metadata as any)?.clean_guardian_id_card === cleanInputCnic ||
-          u.email.toLowerCase() === `guardian.${cleanInputCnic}@${tenantDomain}` ||
-          u.email.toLowerCase() === `guardian.${cleanInputCnic}@kampus.pk`
-        )
-      );
-      for (const pu of parentUsers) {
-        if (!results.some(r => r.id === pu.id)) results.push(pu);
-      }
-
-      // 3. Check direct match in tenantUsers
-      const directUsers = tenantUsers.filter(u => 
-        (u.metadata as any)?.clean_guardian_id_card === cleanInputCnic ||
-        u.email.toLowerCase() === `guardian.${cleanInputCnic}@${tenantDomain}` ||
-        u.email.toLowerCase() === `guardian.${cleanInputCnic}@kampus.pk` ||
-        u.email.toLowerCase() === `cnic.${cleanInputCnic}@${tenantDomain}` ||
-        u.email.toLowerCase() === `cnic.${cleanInputCnic}@kampus.pk`
-      );
-      for (const du of directUsers) {
-        if (!results.some(r => r.id === du.id)) results.push(du);
-      }
+    const parentUsers = tenantUsers.filter(u => {
+      if (u.role !== 'parent') return false;
+      const meta = u.metadata as any;
+      const keys = [meta?.clean_guardian_id_card, meta?.guardian_id_card].map((v: string) => this.cnicKey(v)).filter((v: string) => v.length >= 5);
+      return keys.includes(cleanInputCnic);
+    });
+    for (const pu of parentUsers) {
+      if (!results.some(r => r.id === pu.id)) results.push(pu);
     }
 
     return results;
@@ -131,12 +92,15 @@ export class AuthService {
     // Collect candidate accounts across matching tenant scopes
     const candidateAccounts: { user: User; tenant: Tenant }[] = [];
 
-    // Direct email global lookup
-    const directUsers = await this.store.getUserByEmailGlobal(cleanEmail);
-    for (const u of directUsers) {
-      const t = candidateTenants.find(ct => ct.id === u.tenant_id);
-      if (t && !candidateAccounts.some(ca => ca.user.id === u.id)) {
-        candidateAccounts.push({ user: u, tenant: t });
+    // Staff email only. Student and parent portal accounts are CNIC-only.
+    if (cleanEmail.includes('@')) {
+      const directUsers = await this.store.getUserByEmailGlobal(cleanEmail);
+      for (const u of directUsers) {
+        if (this.isPortalRole(u.role)) continue;
+        const t = candidateTenants.find(ct => ct.id === u.tenant_id);
+        if (t && !candidateAccounts.some(ca => ca.user.id === u.id)) {
+          candidateAccounts.push({ user: u, tenant: t });
+        }
       }
     }
 
@@ -563,25 +527,9 @@ export class AuthService {
     user.password_hash = newHash;
     if (!user.metadata) user.metadata = {};
     (user.metadata as any).password_last_reset_at = new Date().toISOString();
+    (user.metadata as any).must_change_password = false;
+    (user.metadata as any).requires_password_change = false;
     user.updated_at = new Date().toISOString();
-
-    // Synchronize if guardian CNIC is linked
-    const cleanCnic = (user.metadata as any)?.clean_guardian_id_card;
-    if (cleanCnic) {
-      const allUsers = await this.store.getTenantUsers(tenantId);
-      for (const otherUser of allUsers) {
-        if (otherUser.id !== user.id && (
-          (otherUser.metadata as any)?.clean_guardian_id_card === cleanCnic ||
-          otherUser.email.toLowerCase() === `cnic.${cleanCnic}@kampus.pk` ||
-          otherUser.email.toLowerCase() === `guardian.${cleanCnic}@kampus.pk`
-        )) {
-          otherUser.password_hash = newHash;
-          if (!otherUser.metadata) otherUser.metadata = {};
-          (otherUser.metadata as any).password_last_reset_at = new Date().toISOString();
-          otherUser.updated_at = new Date().toISOString();
-        }
-      }
-    }
 
     (this.store as any).schedulePersist?.();
     return { user, tenant };

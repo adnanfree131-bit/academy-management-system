@@ -107,7 +107,7 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
     expect(parentUser?.role).toBe('parent');
   });
 
-  it('2. Student can log in with Father/Guardian CNIC or email', async () => {
+  it('2. Student can log in with Father/Guardian CNIC only, not email', async () => {
     const students = await store.getStudents(tenantId);
     const student = students.find(s => s.full_name === 'Haris Rauf SIS')!;
     expect(student.guardian_id_card).toBe('35201-9988776-1');
@@ -142,6 +142,17 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
 
     expect(loginNoDashRes.statusCode).toBe(200);
     expect(loginNoDashRes.json().success).toBe(true);
+
+    const emailLogin = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: {
+        email: student.email || 'haris.rauf@kampus.pk',
+        password: 'Student@123',
+        tenant_id: tenantId,
+      },
+    });
+    expect(emailLogin.statusCode).toBe(401);
   });
 
   it('3. GET /api/v1/sis/students/:id returns single student', async () => {

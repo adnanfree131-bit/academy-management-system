@@ -66,8 +66,10 @@ export interface EnrollmentViewProps {
   onNavigate?: (screen: string) => void;
 }
 
-export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'directory', initialStudentId, onNavigate: _onNavigate }) => {
-  const { token, tenant, refreshSession } = useAuth();
+export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'directory', initialStudentId, onNavigate }) => {
+  const { token, tenant, user, refreshSession } = useAuth();
+  const canDeleteStudents = user?.role === 'tenant_admin' || user?.role === 'super_admin';
+  const canArchiveStudents = canDeleteStudents || user?.role === 'academic_head';
   const [activeTab, setActiveTab] = useState<'directory' | 'inquiries' | 'new_admission' | 'id_cards'>(defaultTab);
   const [selectedDirectoryStudentIds, setSelectedDirectoryStudentIds] = useState<Set<string>>(new Set());
   const [showBulkIdCardsModal, setShowBulkIdCardsModal] = useState(false);
@@ -873,9 +875,12 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           previous_marks: '',
           notes: '',
         });
+      } else {
+        alert(result.error?.message || 'Failed to create prospective candidate inquiry.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to create inquiry:', err);
+      alert(err?.message || 'Network error occurred while submitting student inquiry.');
     }
   };
 
@@ -1131,7 +1136,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         ?? p?.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount;
       if (tuition !== undefined) setAdmissionTuition(tuition);
       if (b?.billing_mode) {
-        setBillingMode(b.billing_mode === 'quarterly' ? 'monthly' : b.billing_mode);
+        setBillingMode(b.billing_mode);
       }
     }
   }, [enrollForm.batch_id, enrollForm.program_id, batches, programs]);
@@ -1284,6 +1289,20 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       return;
     }
 
+    const feeRules = tenant?.settings?.fee_rules;
+    const kinshipRules = feeRules?.kinship_rules;
+    if (concessionType === 'kinship' && kinshipRules?.require_active_sibling) {
+      if (!siblingStudentId) {
+        alert('Kinship fee concession requires selecting an active enrolled sibling.');
+        return;
+      }
+      const sib = students.find(s => s.id === siblingStudentId);
+      if (!sib || sib.status !== 'active') {
+        alert(`Kinship fee concession requires an active sibling currently enrolled at this institution.${sib ? ` (Selected student status is ${sib.status})` : ''}`);
+        return;
+      }
+    }
+
     setIsSubmittingEnrollment(true);
     setEnrollSuccessMessage(null);
     setCreatedStudentResult(null);
@@ -1335,6 +1354,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           mother_occupation: motherOccupation.trim() || undefined,
           primary_contact: primaryContact,
           sibling_student_id: siblingStudentId || undefined,
+          concession_category: concessionType !== 'none' ? concessionType : undefined,
           guardian_name: effectiveGuardianName,
           guardian_relation: effectiveGuardianRelation,
           guardian_phone: effectiveGuardianPhone,
@@ -1355,6 +1375,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               amount: Number(h.amount) || 0
             })),
             concession_type: concessionMode,
+            concession_category: concessionType !== 'none' ? concessionType : undefined,
             concession_val: discountAmount > 0 ? concessionValNum : 0,
             concession_reason: discountAmount > 0 ? concessionReason : undefined,
             net_tuition: netMonthlyTuition,
@@ -1708,7 +1729,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-[#E6ECF2] rounded-xl text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <FileText className="w-3.5 h-3.5 text-slate-500" />
-            <span>Document Checklist</span>
+            <span>Document Requirements</span>
           </button>
 
           <button
@@ -2127,32 +2148,36 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   <CreditCard className="w-3.5 h-3.5" />
                   <span>Print ID Cards ({selectedDirectoryStudentIds.size})</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBulkArchiveReason('Bulk administrative student archival');
-                    setBulkArchiveCancelUnpaid(false);
-                    setShowBulkArchiveModal(true);
-                  }}
-                  className="px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Archive Selected Students"
-                >
-                  <Archive className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Archive ({selectedDirectoryStudentIds.size})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBulkDeleteForce(false);
-                    setBulkDeleteReason('Bulk administrative student deletion');
-                    setShowBulkDeleteModal(true);
-                  }}
-                  className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Permanently Delete Selected Students"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                  <span>Delete ({selectedDirectoryStudentIds.size})</span>
-                </button>
+                {canArchiveStudents && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkArchiveReason('Bulk administrative student archival');
+                      setBulkArchiveCancelUnpaid(false);
+                      setShowBulkArchiveModal(true);
+                    }}
+                    className="px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Archive Selected Students"
+                  >
+                    <Archive className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Archive ({selectedDirectoryStudentIds.size})</span>
+                  </button>
+                )}
+                {canDeleteStudents && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBulkDeleteForce(false);
+                      setBulkDeleteReason('Bulk administrative student deletion');
+                      setShowBulkDeleteModal(true);
+                    }}
+                    className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    title="Permanently Delete Selected Students"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Delete ({selectedDirectoryStudentIds.size})</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setSelectedDirectoryStudentIds(new Set())}
@@ -2312,43 +2337,47 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             >
                               <Phone className="w-3.5 h-3.5" />
                             </button>
-                            {student.status === 'archived' ? (
-                              <button
-                                type="button"
-                                onClick={() => handleUnarchiveStudent(student)}
-                                className="p-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 rounded-lg transition-colors border border-slate-200 hover:border-emerald-200"
-                                title="Restore student to active standing"
-                              >
-                                <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
-                              </button>
-                            ) : (
+                            {canArchiveStudents && (
+                              student.status === 'archived' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnarchiveStudent(student)}
+                                  className="p-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 rounded-lg transition-colors border border-slate-200 hover:border-emerald-200"
+                                  title="Restore student to active standing"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setStudentToArchive(student);
+                                    setArchiveReason('Administrative student archival');
+                                    setCancelUnpaidOnArchive(false);
+                                  }}
+                                  className="p-1.5 bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-700 rounded-lg transition-colors border border-slate-200 hover:border-amber-200"
+                                  title="Archive student record"
+                                >
+                                  <Archive className="w-3.5 h-3.5 text-amber-600" />
+                                </button>
+                              )
+                            )}
+                            {canDeleteStudents && (
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setStudentToArchive(student);
-                                  setArchiveReason('Administrative student archival');
-                                  setCancelUnpaidOnArchive(false);
+                                  setStudentToDelete(student);
+                                  setDeleteReason('Administrative student deletion');
+                                  setDeleteForce(false);
+                                  setDeleteRequiresForce(false);
+                                  setDeleteErrorMessage(null);
                                 }}
-                                className="p-1.5 bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-700 rounded-lg transition-colors border border-slate-200 hover:border-amber-200"
-                                title="Archive student record"
+                                className="p-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 rounded-lg transition-colors border border-slate-200 hover:border-rose-200"
+                                title="Permanently delete student record"
                               >
-                                <Archive className="w-3.5 h-3.5 text-amber-600" />
+                                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                               </button>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setStudentToDelete(student);
-                                setDeleteReason('Administrative student deletion');
-                                setDeleteForce(false);
-                                setDeleteRequiresForce(false);
-                                setDeleteErrorMessage(null);
-                              }}
-                              className="p-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 rounded-lg transition-colors border border-slate-200 hover:border-rose-200"
-                              title="Permanently delete student record"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                            </button>
                             <button
                               onClick={() => setSelectedStudent(student)}
                               className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 hover:text-amber-900 border border-amber-200/80 rounded-lg text-xs font-semibold transition-all shadow-2xs inline-flex items-center gap-1 cursor-pointer"
@@ -2484,43 +2513,47 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     </div>
 
                     <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                      {student.status === 'archived' ? (
-                        <button
-                          type="button"
-                          onClick={() => handleUnarchiveStudent(student)}
-                          className="p-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 rounded-md transition-colors border border-slate-200"
-                          title="Restore student"
-                        >
-                          <RotateCcw className="w-3 h-3 text-emerald-600" />
-                        </button>
-                      ) : (
+                      {canArchiveStudents && (
+                        student.status === 'archived' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleUnarchiveStudent(student)}
+                            className="p-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 rounded-md transition-colors border border-slate-200"
+                            title="Restore student"
+                          >
+                            <RotateCcw className="w-3 h-3 text-emerald-600" />
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStudentToArchive(student);
+                              setArchiveReason('Administrative student archival');
+                              setCancelUnpaidOnArchive(false);
+                            }}
+                            className="p-1.5 bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-700 rounded-md transition-colors border border-slate-200"
+                            title="Archive student"
+                          >
+                            <Archive className="w-3 h-3 text-amber-600" />
+                          </button>
+                        )
+                      )}
+                      {canDeleteStudents && (
                         <button
                           type="button"
                           onClick={() => {
-                            setStudentToArchive(student);
-                            setArchiveReason('Administrative student archival');
-                            setCancelUnpaidOnArchive(false);
+                            setStudentToDelete(student);
+                            setDeleteReason('Administrative student deletion');
+                            setDeleteForce(false);
+                            setDeleteRequiresForce(false);
+                            setDeleteErrorMessage(null);
                           }}
-                          className="p-1.5 bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-700 rounded-md transition-colors border border-slate-200"
-                          title="Archive student"
+                          className="p-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 rounded-md transition-colors border border-slate-200"
+                          title="Delete student"
                         >
-                          <Archive className="w-3 h-3 text-amber-600" />
+                          <Trash2 className="w-3 h-3 text-rose-600" />
                         </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStudentToDelete(student);
-                          setDeleteReason('Administrative student deletion');
-                          setDeleteForce(false);
-                          setDeleteRequiresForce(false);
-                          setDeleteErrorMessage(null);
-                        }}
-                        className="p-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 rounded-md transition-colors border border-slate-200"
-                        title="Delete student"
-                      >
-                        <Trash2 className="w-3 h-3 text-rose-600" />
-                      </button>
                       <button
                         type="button"
                         onClick={() => setSelectedStudent(student)}
@@ -2832,6 +2865,16 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       <CreditCard className="w-3.5 h-3.5 text-slate-600" />
                       <span>Print ID Card</span>
                     </button>
+                    {onNavigate && (
+                      <button
+                        type="button"
+                        onClick={() => onNavigate('fee_desk')}
+                        className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <CreditCard className="w-3.5 h-3.5 text-emerald-200" />
+                        <span>Collect Fee Now</span>
+                      </button>
+                    )}
                   </>
                 )}
                 <button
@@ -4147,10 +4190,10 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <FileText className="w-4 h-4 text-indigo-600" />
                     <div>
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                        4. Document Submission Checklist
+                        4. Physical Document Verification Status
                       </h3>
                       <p className="text-[11px] text-slate-500">
-                        Document submission status.
+                        Verification status of physical documents, certificates, and hardcopy records on file (status tracking only, no file uploads).
                       </p>
                     </div>
                   </div>
@@ -6102,7 +6145,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-slate-700" />
-                <h3 className="text-sm font-bold text-slate-900">Document Checklist</h3>
+                <h3 className="text-sm font-bold text-slate-900">Physical Document Requirements</h3>
               </div>
               <button
                 type="button"

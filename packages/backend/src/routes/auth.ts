@@ -92,6 +92,7 @@ export function authRoutes(
         tenant_id: tenantId,
         email: user.email,
         role: user.role,
+        must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
         ...(boundStudent ? {
           student_id: boundStudent.id,
           admission_number: boundStudent.admission_number,
@@ -129,6 +130,13 @@ export function authRoutes(
       try {
         const { email, password, tenant_slug, tenant_id } = parseResult.data;
         const { user, tenant } = await authService.loginWithPassword(email, password, tenant_slug, tenant_id);
+        
+        // C1: Flag must_change_password if using known default credentials
+        if (password === 'Student@123' || password === 'Parent@123') {
+          if (!user.metadata) user.metadata = {};
+          (user.metadata as any).must_change_password = true;
+        }
+
         const jwtPayload = await buildJwtPayload(tenant.id, user);
 
         const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
@@ -145,6 +153,7 @@ export function authRoutes(
             avatar_url: user.avatar_url,
             permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
             designation: (user.metadata?.designation as string) || undefined,
+            must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
           },
           tenant: {
             id: tenant.id,
@@ -365,6 +374,7 @@ export function authRoutes(
             avatar_url: user.avatar_url,
             permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
             designation: (user.metadata?.designation as string) || undefined,
+            must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
           },
           tenant: {
             id: tenant.id,
@@ -561,6 +571,7 @@ export function authRoutes(
               full_name: user.full_name,
               role: user.role,
               avatar_url: user.avatar_url,
+              must_change_password: false,
             },
             tenant: {
               id: tenant.id,
@@ -722,6 +733,7 @@ export function authRoutes(
             avatar_url: user.avatar_url,
             permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
             designation: (user.metadata?.designation as string) || undefined,
+            must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
           },
           tenant: {
             id: tenant.id,
@@ -783,6 +795,7 @@ export function authRoutes(
             avatar_url: user.avatar_url,
             permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
             designation: (user.metadata?.designation as string) || undefined,
+            must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
           },
           tenant: {
             ...tenant,

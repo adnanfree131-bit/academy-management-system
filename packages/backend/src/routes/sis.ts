@@ -8,7 +8,7 @@ export function sisRoutes(store: IDataStore) {
     // All routes require authentication
     fastify.addHook('onRequest', (fastify as any).authenticate);
 
-    const STAFF_ROLES = ['tenant_admin', 'academic_head', 'admissions_counselor', 'teacher', 'finance_officer', 'accountant'];
+    const STAFF_ROLES = ['tenant_admin', 'academic_head', 'teacher', 'finance_manager'];
 
     const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
       if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
@@ -61,12 +61,14 @@ export function sisRoutes(store: IDataStore) {
     // --- Inquiries Desk ---
     fastify.get('/inquiries', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, STAFF_ROLES, reply)) return;
       const inquiries = await store.getInquiries(user.tenant_id);
       return reply.send({ success: true, data: inquiries, timestamp: new Date().toISOString() });
     });
 
     fastify.post('/inquiries', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, STAFF_ROLES, reply)) return;
       const schema = z.object({
         student_name: z.string().min(1),
         phone: z.string().min(1),
@@ -102,6 +104,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.patch('/inquiries/:id/stage', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertRole(user, STAFF_ROLES, reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         stage: z.enum(['new', 'follow_up', 'trial_scheduled', 'trial_attended', 'fee_discussion', 'admitted', 'closed']),
@@ -131,7 +134,7 @@ export function sisRoutes(store: IDataStore) {
     // 1-Click Admit from Inquiry into Batch
     fastify.post('/inquiries/:id/admit', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head', 'admissions_counselor'], reply)) return;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         batch_id: z.string().min(1),
@@ -226,7 +229,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.post('/students', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head', 'admissions_counselor'], reply)) return;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const rawBody = request.body || {};
       const derivedPhone = rawBody.phone || '';
       const derivedFullName = rawBody.full_name || `${rawBody.first_name || ''} ${rawBody.last_name || ''}`.trim() || 'Enrolled Student';
@@ -276,6 +279,7 @@ export function sisRoutes(store: IDataStore) {
           exam_fee: z.number().nonnegative().optional(),
           exam_lab_charges: z.number().nonnegative().optional(),
           concession_type: z.string().optional(),
+          concession_category: z.string().optional(),
           concession_val: z.number().optional(),
           concession_value: z.number().optional(),
           concession_reason: z.string().optional(),
@@ -295,6 +299,7 @@ export function sisRoutes(store: IDataStore) {
             admission_fee: fs.admission_fee ?? 0,
             exam_fee: fs.exam_fee ?? fs.exam_lab_charges ?? 0,
             concession_type: (cType === 'percentage' || cType === 'flat') ? cType : 'percentage',
+            concession_category: fs.concession_category || undefined,
             concession_val: fs.concession_val ?? fs.concession_value ?? 0,
             concession_reason: fs.concession_reason,
             net_tuition: net,
@@ -302,6 +307,7 @@ export function sisRoutes(store: IDataStore) {
             additional_heads: fs.additional_heads,
           };
         }).optional(),
+        concession_category: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         generate_first_month_invoice: z.boolean().optional(),
         status: z.enum(['active', 'on_leave', 'suspended', 'alumni', 'withdrawn', 'waitlisted', 'archived']).default('active'),
         custom_field_values: z.record(z.any()).default({}),
@@ -366,7 +372,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.post('/students/bulk-import', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head', 'admissions_counselor'], reply)) return;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
 
       const studentRowSchema = z.object({
         full_name: z.string().min(1),
@@ -446,7 +452,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.patch('/students/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head', 'admissions_counselor'], reply)) return;
+      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
       const { id } = request.params as { id: string };
 
       if (request.body && 'status' in request.body && request.body.status !== undefined) {

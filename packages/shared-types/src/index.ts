@@ -255,6 +255,7 @@ export interface JWTPayload {
   student_id?: string; // Bound student record UUID for student role
   admission_number?: string; // Bound student admission number if available
   cnic?: string; // Bound CNIC / B-Form if available
+  must_change_password?: boolean; // Requires password change on first login
   iat?: number;
   exp?: number;
 }
@@ -291,6 +292,7 @@ export interface AuthSessionResponse {
     avatar_url?: string | null;
     permissions?: string[];
     designation?: string;
+    must_change_password?: boolean;
   };
   tenant: {
     id: string;
@@ -557,6 +559,7 @@ export interface Student {
   mother_occupation?: string | null;
   primary_contact?: 'father' | 'mother' | 'guardian' | string;
   sibling_student_id?: string | null;
+  concession_category?: string | null;
   custom_field_values: Record<string, unknown>;
   subjects: string[];        // Array of enrolled Subject UUIDs
   blood_group?: string | null;

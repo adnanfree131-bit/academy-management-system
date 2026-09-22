@@ -5,6 +5,7 @@ import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { canOpenScreen, isManagedStaff } from './lib/portalAccess';
 import { TrialExpiredLockoutModal } from './components/TrialExpiredLockoutModal';
+import { ForcePasswordChangeModal } from './components/ForcePasswordChangeModal';
 import { AnnouncementPopupModal } from './components/AnnouncementPopupModal';
 import { CommandPalette } from './components/CommandPalette';
 import { MobileBottomNav } from './components/MobileBottomNav';
@@ -316,6 +317,11 @@ const MainLayout: React.FC = () => {
       {/* 30-Day Trial Expired Lockout & Billing Settlement Desk */}
       {(isTenantLocked || (isTenantSuspended && user.role === 'tenant_admin')) && (
         <TrialExpiredLockoutModal onUnlocked={refreshSession} />
+      )}
+
+      {/* Mandatory Password Change Enforcement for Default / Temporary Credentials */}
+      {user.must_change_password && (
+        <ForcePasswordChangeModal />
       )}
 
       {/* Platform Broadcast Announcement Popup Modal */}

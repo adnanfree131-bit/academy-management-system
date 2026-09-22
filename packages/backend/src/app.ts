@@ -79,6 +79,31 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
           timestamp: new Date().toISOString(),
         });
       }
+
+      const isMustChange = Boolean(
+        request.user.must_change_password ||
+        (dbUser?.metadata as any)?.must_change_password ||
+        (dbUser?.metadata as any)?.requires_password_change
+      );
+      if (isMustChange) {
+        const reqPath = request.url.split('?')[0];
+        const allowedPaths = [
+          '/api/v1/auth/change-password',
+          '/api/v1/auth/session',
+          '/api/v1/auth/me',
+          '/api/v1/auth/logout',
+        ];
+        if (!allowedPaths.includes(reqPath)) {
+          return reply.status(403).send({
+            success: false,
+            error: {
+              code: 'MUST_CHANGE_PASSWORD',
+              message: 'You must change your default password before accessing the system.',
+            },
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
     }
 
     // Role-segregated academy suspension check

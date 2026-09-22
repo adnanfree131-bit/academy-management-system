@@ -2583,6 +2583,11 @@ export const FeeDeskView: React.FC = () => {
                           {selectedStudent.guardian_id_card && (
                             <span>• CNIC: <strong className="text-slate-700 font-mono">{selectedStudent.guardian_id_card}</strong></span>
                           )}
+                          {((selectedStudent as any).fee_structure?.concession_category || (selectedStudent as any).concession_category) && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                              {((selectedStudent as any).fee_structure?.concession_category || (selectedStudent as any).concession_category).toUpperCase()} CONCESSION
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
