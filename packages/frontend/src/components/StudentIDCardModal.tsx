@@ -95,7 +95,7 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 print:p-0 print:bg-white print:static print:inset-auto">
+    <div className="fixed inset-0 z-[10000] overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 print:p-0 print:bg-white print:static print:inset-auto">
       <style>{`
         @media print {
           body * {
