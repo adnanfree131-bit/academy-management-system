@@ -1315,18 +1315,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         {/* Mobile Swipe / Grab Handle Pill */}
         <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
         
-        {/* Header - Deep Navy Hero Card (Behance Slide 17) */}
-        <div className="bg-[#0E2A47] text-white border-b border-[#163a5f] px-5 sm:px-6 py-5 shrink-0 relative overflow-hidden">
-          {/* Subtle background ambient accents */}
-          <div className="absolute -top-24 -right-24 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-[#B88634]/10 rounded-full blur-2xl pointer-events-none" />
-
-          <div className="relative z-10 space-y-4">
+        {/* Institutional Student Profile Header */}
+        <div className="bg-white border-b border-slate-200 px-5 sm:px-6 py-4 shrink-0">
+          <div className="space-y-3.5">
             {/* Top Tier: Identity & Primary Actions */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4 min-w-0">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+              <div className="flex items-center gap-3.5 min-w-0">
                 {/* 3:4 Passport Portrait Frame */}
-                <div className="w-14 h-18 sm:w-16 sm:h-20 rounded-xl border border-white/20 bg-white/10 flex items-center justify-center font-mono font-bold text-white text-sm overflow-hidden shrink-0 shadow-inner">
+                <div className="w-13 h-16 sm:w-14 sm:h-18 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
                   {currentStudent.photo_url ? (
                     <img 
                       src={currentStudent.photo_url} 
@@ -1334,53 +1330,52 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       className="w-full h-full object-cover" 
                     />
                   ) : (
-                    <div className="flex flex-col items-center justify-center text-white/40">
-                      <User className="w-6 h-6 stroke-1 mb-0.5" />
-                      <span className="text-[9px] uppercase tracking-widest font-sans font-medium text-white/50">Photo</span>
+                    <div className="flex flex-col items-center justify-center text-slate-300">
+                      <User className="w-6 h-6 stroke-1.5" />
                     </div>
                   )}
                 </div>
 
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2.5">
-                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white leading-tight">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 leading-tight">
                       {currentStudent.full_name}
                     </h1>
 
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border flex items-center gap-1.5 ${
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border flex items-center gap-1.5 ${
                       currentStudent.status === 'active'
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                        : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
-                        currentStudent.status === 'active' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
+                        currentStudent.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'
                       }`} />
                       <span className="capitalize">{currentStudent.status === 'active' ? 'Active' : currentStudent.status}</span>
                     </span>
 
                     {currentStudent.blood_group && (
-                      <span className="px-2 py-0.5 rounded text-xs font-mono bg-white/10 text-white/90 border border-white/15">
+                      <span className="px-1.5 py-0.5 rounded text-[11px] font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200">
                         {currentStudent.blood_group}
                       </span>
                     )}
 
                     {currentStudent.id_card_reprint_required && (
-                      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/25 text-amber-200 border border-amber-400/40 flex items-center gap-1">
-                        <span>Class Updated — Reprint ID Card</span>
+                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                        Class Updated — Reprint Card
                       </span>
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-white/80">
-                    <span className="px-2 py-0.5 rounded bg-white/10 text-white font-mono font-semibold border border-white/15">
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-500">
+                    <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 font-mono font-medium border border-slate-200">
                       Adm: {currentStudent.admission_number}
                     </span>
-                    <span className="text-white/30">•</span>
-                    <span className="text-white font-medium">
+                    <span className="text-slate-300">•</span>
+                    <span className="text-slate-800 font-medium">
                       {activeProgram?.name || '—'}
                     </span>
-                    <span className="text-white/30">•</span>
-                    <span className="text-white/80">
+                    <span className="text-slate-300">•</span>
+                    <span className="text-slate-600">
                       {isBatchSection ? 'Section:' : 'Batch:'} {activeBatch?.name || '—'} ({activeBatch?.shift || 'Morning'})
                     </span>
                   </div>
@@ -1394,7 +1389,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     setActiveTab('finance');
                     setIsCashierOpen(true);
                   }}
-                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                 >
                   <CreditCard className="w-3.5 h-3.5" />
                   <span>Receive Fee</span>
@@ -1402,10 +1397,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                 <button
                   onClick={() => setShowEditParticularsModal(true)}
-                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                   title="Edit Student Particulars & Photo"
                 >
-                  <Edit3 className="w-3.5 h-3.5 text-white/80" />
+                  <Edit3 className="w-3.5 h-3.5 text-slate-500" />
                   <span>Edit Profile</span>
                 </button>
 
@@ -1414,17 +1409,17 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     setSelectedIdCardEnrollmentId(undefined);
                     setShowIdCardModal(true);
                   }}
-                  className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                   title="Print Student ID Card"
                 >
-                  <CreditCard className="w-3.5 h-3.5 text-white/80" />
+                  <CreditCard className="w-3.5 h-3.5 text-slate-500" />
                   <span>ID Card</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={onClose}
-                  className="p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors ml-1 cursor-pointer"
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
                   title="Close"
                 >
                   <X className="w-5 h-5" />
@@ -1432,32 +1427,32 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               </div>
             </div>
 
-            {/* Bottom Tier: Guardian Contact Details & Secondary Actions */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2.5 border-t border-white/10 text-xs">
-              <div className="text-white/75 flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span>Guardian: <strong className="text-white font-medium">{currentStudent.guardian_name}</strong> <span className="text-white/40">({guardianRelation})</span></span>
-                <span className="text-white/20">•</span>
-                <span className="font-mono text-white/90">{currentStudent.guardian_phone}</span>
+            {/* Bottom Tier: Guardian Contact Details & Utilities */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100 text-xs">
+              <div className="text-slate-600 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <span>Guardian: <strong className="text-slate-900 font-semibold">{currentStudent.guardian_name}</strong> <span className="text-slate-400 font-normal">({guardianRelation})</span></span>
+                <span className="text-slate-300">•</span>
+                <span className="font-mono font-medium text-slate-800">{currentStudent.guardian_phone}</span>
                 {currentStudent.guardian_id_card && (
                   <>
-                    <span className="text-white/20">•</span>
-                    <span className="text-white/50 text-[11px]">CNIC:</span>
-                    <span className="font-mono text-white font-bold">{currentStudent.guardian_id_card}</span>
+                    <span className="text-slate-300">•</span>
+                    <span className="text-slate-400 text-[11px]">CNIC:</span>
+                    <span className="font-mono font-semibold text-slate-800">{currentStudent.guardian_id_card}</span>
                   </>
                 )}
               </div>
 
-              {/* Secondary Actions Row */}
+              {/* Utility Actions Row */}
               <div className="flex items-center gap-1.5 flex-wrap shrink-0">
                 <button
                   onClick={() => {
                     fetchAuditLogs();
                     setShowAuditLogsModal(true);
                   }}
-                  className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white/90 border border-white/15 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
                   title="View Student Profile Audit Trail"
                 >
-                  <History className="w-3 h-3 text-white/70" />
+                  <History className="w-3 h-3 text-slate-500" />
                   <span>Audit Trail</span>
                 </button>
 
@@ -1468,26 +1463,26 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     setResetSuccessData(null);
                     setResetErrorMsg(null);
                   }}
-                  className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white/90 border border-white/15 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
                   title="Reset Student & Guardian Portal Login Password"
                 >
-                  <Key className="w-3 h-3 text-white/70" />
+                  <Key className="w-3 h-3 text-slate-500" />
                   <span>Password</span>
                 </button>
 
-                {/* Contact Options: Call & WhatsApp */}
+                {/* Contact Options: Call */}
                 <div className="relative">
                   <button
                     type="button"
                     onClick={() => setShowContactPopup(!showContactPopup)}
-                    className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-white/90 border border-white/15 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
                   >
-                    <Phone className="w-3 h-3 text-white/70" />
+                    <Phone className="w-3 h-3 text-slate-500" />
                     <span>Call</span>
                   </button>
 
                   {showContactPopup && (
-                    <div className="absolute right-0 mt-1.5 w-72 bg-white rounded-xl shadow-2xl border border-slate-200 p-3 z-50 text-xs space-y-3 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
+                    <div className="absolute right-0 mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-xs space-y-3 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                         <span className="font-bold text-slate-900">Contact Options</span>
                         <button onClick={() => setShowContactPopup(false)} className="text-slate-400 hover:text-slate-600">
@@ -1505,7 +1500,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         <div className="flex items-center gap-1.5 pt-1">
                           <a
                             href={`tel:${student.guardian_phone.replace(/[^0-9+]/g, '')}`}
-                            className="flex-1 py-1.5 px-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+                            className="flex-1 py-1.5 px-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
                           >
                             <Phone className="w-3 h-3" />
                             <span>Call</span>
@@ -1538,7 +1533,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           <div className="flex items-center gap-1.5 pt-1">
                             <a
                               href={`tel:${student.phone.replace(/[^0-9+]/g, '')}`}
-                              className="flex-1 py-1.5 px-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+                              className="flex-1 py-1.5 px-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
                             >
                               <Phone className="w-3 h-3" />
                               <span>Call</span>
@@ -1570,7 +1565,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                             <div className="flex items-center gap-1.5 pt-1">
                               <a
                                 href={`tel:${student.emergency_contact_phone.replace(/[^0-9+]/g, '')}`}
-                                className="flex-1 py-1.5 px-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+                                className="flex-1 py-1.5 px-2 bg-rose-600 hover:bg-rose-700 text-white rounded text-center text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
                               >
                                 <Phone className="w-3 h-3" />
                                 <span>Call Emergency</span>
@@ -1587,10 +1582,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   href={`https://wa.me/${(student.guardian_whatsapp || student.guardian_phone).replace(/[^0-9]/g, '')}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-2.5 py-1.5 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/30 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors"
+                  className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[11px] font-medium flex items-center gap-1 transition-colors"
                   title="Send WhatsApp Message"
                 >
-                  <MessageSquare className="w-3 h-3 text-emerald-300" />
+                  <MessageSquare className="w-3 h-3 text-emerald-600" />
                   <span>WhatsApp</span>
                 </a>
 
@@ -1601,20 +1596,20 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         type="button"
                         onClick={handleUnarchiveFromModal}
                         disabled={isArchivingStudent}
-                        className="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
                         title="Restore Student to Active Standing"
                       >
-                        <RotateCcw className="w-3 h-3" />
+                        <RotateCcw className="w-3 h-3 text-emerald-600" />
                         <span>Restore</span>
                       </button>
                     ) : (
                       <button
                         type="button"
                         onClick={() => setShowArchiveDialog(true)}
-                        className="px-2.5 py-1.5 bg-white/10 hover:bg-amber-500/20 text-white/80 hover:text-amber-200 border border-white/15 hover:border-amber-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
                         title="Archive Student Record"
                       >
-                        <Archive className="w-3 h-3" />
+                        <Archive className="w-3 h-3 text-slate-500" />
                         <span>Archive</span>
                       </button>
                     )}
@@ -1630,10 +1625,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       setDeleteModalError(null);
                       setShowDeleteDialog(true);
                     }}
-                    className="px-2.5 py-1.5 bg-white/10 hover:bg-rose-500/20 text-white/80 hover:text-rose-200 border border-white/15 hover:border-rose-500/40 rounded-md text-[11px] font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="px-2.5 py-1 bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
                     title="Permanently Delete Student Record"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash2 className="w-3 h-3 text-slate-500 hover:text-rose-600" />
                     <span>Delete</span>
                   </button>
                 )}
@@ -1642,75 +1637,75 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs (Behance Slide 17 Unnumbered Segmented Bar) */}
-        <div className="flex items-center overflow-x-auto no-scrollbar border-b border-slate-200 px-6 bg-[#F8FAFC] text-xs font-medium gap-1 whitespace-nowrap shrink-0">
+        {/* Clean Institutional Navigation Tabs */}
+        <div className="flex items-center overflow-x-auto no-scrollbar border-b border-slate-200 px-6 bg-slate-50/70 text-xs font-medium gap-1 whitespace-nowrap shrink-0">
           <button
             onClick={() => setActiveTab('academic')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all ${
+            className={`py-2.5 px-3.5 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'academic'
-                ? 'border-amber-600 text-amber-700 font-bold bg-white -mb-px shadow-xs'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60 font-medium'
+                ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <GraduationCap className={`w-4 h-4 ${activeTab === 'academic' ? 'text-amber-600' : 'text-slate-400'}`} />
+            <GraduationCap className={`w-4 h-4 ${activeTab === 'academic' ? 'text-slate-800' : 'text-slate-400'}`} />
             <span>Academic Placement</span>
             {enrollments.length > 1 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                {enrollments.length} classes
+              <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-medium bg-slate-200 text-slate-700">
+                {enrollments.length}
               </span>
             )}
           </button>
 
           <button
             onClick={() => setActiveTab('finance')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all ${
+            className={`py-2.5 px-3.5 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'finance'
-                ? 'border-amber-600 text-amber-700 font-bold bg-white -mb-px shadow-xs'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60 font-medium'
+                ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <DollarSign className={`w-4 h-4 ${activeTab === 'finance' ? 'text-amber-600' : 'text-slate-400'}`} />
+            <DollarSign className={`w-4 h-4 ${activeTab === 'finance' ? 'text-slate-800' : 'text-slate-400'}`} />
             <span>Fee Ledger & Invoices</span>
             {totalOutstanding > 0 && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                Due: PKR {totalOutstanding.toLocaleString()}
+              <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                PKR {totalOutstanding.toLocaleString()}
               </span>
             )}
           </button>
 
           <button
             onClick={() => setActiveTab('attendance')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all ${
+            className={`py-2.5 px-3.5 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'attendance'
-                ? 'border-amber-600 text-amber-700 font-bold bg-white -mb-px shadow-xs'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60 font-medium'
+                ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <Clock className={`w-4 h-4 ${activeTab === 'attendance' ? 'text-amber-600' : 'text-slate-400'}`} />
+            <Clock className={`w-4 h-4 ${activeTab === 'attendance' ? 'text-slate-800' : 'text-slate-400'}`} />
             <span>Attendance History</span>
           </button>
 
           <button
             onClick={() => setActiveTab('exams')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all ${
+            className={`py-2.5 px-3.5 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'exams'
-                ? 'border-amber-600 text-amber-700 font-bold bg-white -mb-px shadow-xs'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60 font-medium'
+                ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <TrendingUp className={`w-4 h-4 ${activeTab === 'exams' ? 'text-amber-600' : 'text-slate-400'}`} />
+            <TrendingUp className={`w-4 h-4 ${activeTab === 'exams' ? 'text-slate-800' : 'text-slate-400'}`} />
             <span>Examination Results</span>
           </button>
 
           <button
             onClick={() => setActiveTab('notebook')}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all ${
+            className={`py-2.5 px-3.5 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'notebook'
-                ? 'border-amber-600 text-amber-700 font-bold bg-white -mb-px shadow-xs'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60 font-medium'
+                ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <BookOpen className={`w-4 h-4 ${activeTab === 'notebook' ? 'text-amber-600' : 'text-slate-400'}`} />
+            <BookOpen className={`w-4 h-4 ${activeTab === 'notebook' ? 'text-slate-800' : 'text-slate-400'}`} />
             <span>Notebook Checking</span>
           </button>
 
@@ -1719,16 +1714,16 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               setActiveTab('status');
               setStatusTarget(currentStudent.status || 'active');
             }}
-            className={`py-3 px-4 border-b-2 flex items-center gap-2 transition-all ${
+            className={`py-2.5 px-3.5 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'status'
-                ? 'border-amber-600 text-amber-700 font-bold bg-white -mb-px shadow-xs'
-                : 'border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-100/60 font-medium'
+                ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <ShieldAlert className={`w-4 h-4 ${activeTab === 'status' ? 'text-amber-600' : 'text-slate-400'}`} />
+            <ShieldAlert className={`w-4 h-4 ${activeTab === 'status' ? 'text-slate-800' : 'text-slate-400'}`} />
             <span>Status & Standing</span>
             {currentStudent.status !== 'active' && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-200 capitalize">
+              <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-200 text-slate-700 capitalize">
                 {currentStudent.status}
               </span>
             )}
@@ -1746,11 +1741,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-2">
-                    <GraduationCap className="w-4 h-4 text-amber-600" />
+                    <GraduationCap className="w-4 h-4 text-slate-700" />
                     <div>
                       <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
                         <span>Enrolled Classes & Batches</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200">
                           {enrollments.length} {enrollments.length === 1 ? 'Class' : 'Classes'}
                         </span>
                       </h3>
@@ -1763,7 +1758,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <button
                       type="button"
                       onClick={handleOpenAddClassModal}
-                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors self-start sm:self-center cursor-pointer"
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors self-start sm:self-center cursor-pointer shadow-2xs"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Class/Batch</span>
@@ -1801,7 +1796,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           const isActiveOrLeave = enr.status === 'active' || enr.status === 'on_leave';
 
                           return (
-                            <tr key={enr.id} className={enr.is_primary ? 'bg-amber-50/20' : 'hover:bg-slate-50/50'}>
+                            <tr key={enr.id} className={enr.is_primary ? 'bg-slate-50/70' : 'hover:bg-slate-50/50'}>
                               <td className="px-3 py-2.5 font-semibold text-slate-900">
                                 {prog?.name || 'Academic Class'}
                               </td>
@@ -1837,7 +1832,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                               </td>
                               <td className="px-3 py-2.5 text-center">
                                 {enr.is_primary ? (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
                                     Primary
                                   </span>
                                 ) : (
@@ -1864,7 +1859,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                                     <button
                                       type="button"
                                       onClick={() => handleMakePrimary(enr.id)}
-                                      className="px-2 py-1 bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-800 border border-slate-200 hover:border-amber-200 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded text-[11px] font-medium transition-colors cursor-pointer"
                                       title="Designate this class as the student's primary academic enrollment"
                                     >
                                       Make Primary
@@ -1874,10 +1869,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                                     <button
                                       type="button"
                                       onClick={() => handleOpenTransferModal(enr)}
-                                      className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 text-blue-700 hover:text-blue-800 border border-blue-200 rounded text-[11px] font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
+                                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-300 rounded text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1.5"
                                       title="Change this student's class, section, or batch"
                                     >
-                                      <ArrowRightLeft className="w-3 h-3 text-blue-600" />
+                                      <ArrowRightLeft className="w-3 h-3 text-slate-500" />
                                       <span>Change Class/Batch</span>
                                     </button>
                                   )}
@@ -2030,7 +2025,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       <tr>
                         <td className="py-2 text-slate-500">Guardian CNIC</td>
                         <td className="py-2 font-mono font-bold text-slate-900">
-                          {student.guardian_id_card || <span className="text-amber-600 font-sans font-normal italic text-[11px]">Not assigned</span>}
+                          {student.guardian_id_card || <span className="text-slate-400 font-sans font-normal italic text-[11px]">Not assigned</span>}
                         </td>
                       </tr>
                       <tr>
@@ -2050,7 +2045,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <div>
                     <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                       <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                        <Key className="w-4 h-4 text-indigo-600" />
+                        <Key className="w-4 h-4 text-slate-700" />
                         Portal Access & Credentials
                       </h3>
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -2063,7 +2058,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       <div>
                         <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium mb-1">
                           <span>Username (Guardian CNIC)</span>
-                          <span className="text-[10px] text-indigo-600 font-semibold font-sans">Login Identifier</span>
+                          <span className="text-[10px] text-slate-500 font-medium font-sans">Login Identifier</span>
                         </div>
                         {currentStudent.guardian_id_card ? (
                           <div className="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200">
@@ -2082,12 +2077,12 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                             </button>
                           </div>
                         ) : (
-                          <div className="p-2 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-800">
+                          <div className="p-2 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-700">
                             <div className="flex items-center gap-1 font-bold">
-                              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <AlertCircle className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                               <span>No Guardian CNIC Assigned</span>
                             </div>
-                            <span className="text-[10px]">Student cannot log in without Guardian CNIC.</span>
+                            <span className="text-[10px] text-slate-500">Student cannot log in without Guardian CNIC.</span>
                           </div>
                         )}
                       </div>
@@ -2122,9 +2117,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           setResetSuccessData(null);
                           setResetErrorMsg(null);
                         }}
-                        className="w-full py-1.5 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                        className="w-full py-1.5 px-3 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                       >
-                        <Key className="w-3.5 h-3.5 text-indigo-300" />
+                        <Key className="w-3.5 h-3.5 text-slate-300" />
                         <span>Reset Password</span>
                       </button>
                     )}
@@ -2211,7 +2206,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         type="button"
                         onClick={handleDiscardSubjectChanges}
                         disabled={isSavingSubjects}
-                        className="px-2.5 py-1 text-xs font-semibold rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors"
+                        className="px-2.5 py-1 text-xs font-medium rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                       >
                         Discard
                       </button>
@@ -2220,7 +2215,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="button"
                       onClick={handleSaveSubjects}
                       disabled={isSavingSubjects || !hasSubjectChanges}
-                      className="px-3 py-1 text-xs font-bold rounded bg-amber-600 text-white hover:bg-amber-700 active:bg-amber-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      className="px-3 py-1 text-xs font-semibold rounded bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
                     >
                       {isSavingSubjects ? 'Saving...' : 'Save Subject Changes'}
                     </button>
@@ -2235,7 +2230,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       <button
                         type="button"
                         onClick={handleSelectCompulsorySubjects}
-                        className="font-semibold text-amber-700 hover:text-amber-800 hover:underline"
+                        className="font-medium text-slate-700 hover:text-slate-900 hover:underline cursor-pointer"
                       >
                         Compulsory Only
                       </button>
@@ -2244,7 +2239,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <button
                       type="button"
                       onClick={handleSelectAllSubjects}
-                      className="font-semibold text-amber-700 hover:text-amber-800 hover:underline"
+                      className="font-medium text-slate-700 hover:text-slate-900 hover:underline cursor-pointer"
                     >
                       Select All
                     </button>
@@ -2252,7 +2247,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <button
                       type="button"
                       onClick={handleClearAllSubjects}
-                      className="text-slate-500 hover:text-slate-800 hover:underline"
+                      className="text-slate-500 hover:text-slate-800 hover:underline cursor-pointer"
                     >
                       Clear All
                     </button>
@@ -2364,7 +2359,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="button"
                       onClick={handleSaveSubjects}
                       disabled={isSavingSubjects}
-                      className="px-3 py-1 text-xs font-bold rounded bg-amber-600 text-white hover:bg-amber-700 active:bg-amber-800 disabled:opacity-40 transition-colors shadow-xs cursor-pointer"
+                      className="px-3 py-1 text-xs font-semibold rounded bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950 disabled:opacity-40 transition-colors shadow-2xs cursor-pointer"
                     >
                       {isSavingSubjects ? 'Saving...' : 'Save Subject Changes'}
                     </button>
@@ -2554,7 +2549,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
               {/* Payment Counter Drawer */}
               {isCashierOpen && (
-                <div className="bg-white border border-emerald-600 rounded p-5 space-y-4">
+                <div className="bg-white border border-slate-300 rounded-lg p-5 space-y-4 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                     <div>
                       <h4 className="font-bold text-xs uppercase tracking-wider text-slate-900 flex items-center gap-2">
@@ -2701,7 +2696,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </p>
                   </div>
                   <span className="font-mono text-xs text-slate-500">
-                    {invoices.length} Challans
+                    {invoices.length} {invoices.length === 1 ? 'Challan' : 'Challans'}
                   </span>
                 </div>
 
@@ -2767,9 +2762,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                               <button
                                 onClick={() => setChallanInvoice(inv)}
-                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-[11px] font-medium inline-flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 hover:text-slate-900 border border-slate-300 rounded text-[11px] font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
                               >
-                                <Printer className="w-3 h-3 text-slate-300" />
+                                <Printer className="w-3 h-3 text-slate-500" />
                                 <span>Challan</span>
                               </button>
                             </td>
@@ -3139,7 +3134,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <button
                       type="submit"
                       disabled={isUpdatingStatus || !statusReason.trim()}
-                      className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 disabled:opacity-50 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                     >
                       <ShieldAlert className="w-3.5 h-3.5" />
                       <span>{isUpdatingStatus ? 'Updating Status...' : 'Apply Status Transition'}</span>
@@ -3398,7 +3393,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold flex items-center gap-2">
-                  <Edit3 className="w-4 h-4 text-emerald-400" />
+                  <Edit3 className="w-4 h-4 text-slate-300" />
                   Edit Student Particulars
                 </h2>
                 <p className="text-[11px] text-slate-300">
@@ -3515,7 +3510,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <span>Academic Placement & Section Transfer</span>
                   </h4>
                   {editBatchId !== currentStudent.batch_id && (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
                       Transfer Pending
                     </span>
                   )}
@@ -3604,9 +3599,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                 {/* Section Transfer Sub-Panel (Only displays when batch has changed) */}
                 {editBatchId !== currentStudent.batch_id && (
-                  <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-lg space-y-3 mt-2 animate-in fade-in duration-150">
-                    <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
-                      <ArrowRightLeft className="w-4 h-4 text-amber-700" />
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-3 mt-2 animate-in fade-in duration-150">
+                    <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
+                      <ArrowRightLeft className="w-4 h-4 text-slate-600" />
                       <span>Class Transfer Details & Fee Allocation</span>
                     </div>
 
@@ -3643,19 +3638,19 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </div>
 
                     {/* Tuition Fee Adjustment Options */}
-                    <div className="pt-2 border-t border-amber-200/60 space-y-1.5">
+                    <div className="pt-2 border-t border-slate-200 space-y-1.5">
                       <label className="block text-[10.5px] font-bold text-slate-800">
                         Monthly Tuition Fee Policy
                       </label>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <label className={`p-2.5 rounded border text-xs cursor-pointer transition-colors ${editFeeMode === 'keep_current' ? 'bg-white border-amber-600 shadow-xs' : 'bg-white/60 border-slate-200 hover:bg-white'}`}>
+                        <label className={`p-2.5 rounded border text-xs cursor-pointer transition-colors ${editFeeMode === 'keep_current' ? 'bg-white border-slate-900 shadow-xs' : 'bg-white/60 border-slate-200 hover:bg-white'}`}>
                           <div className="flex items-center gap-2">
                             <input
                               type="radio"
                               name="editFeeMode"
                               checked={editFeeMode === 'keep_current'}
                               onChange={() => setEditFeeMode('keep_current')}
-                              className="text-amber-600 focus:ring-amber-500"
+                              className="text-slate-900 focus:ring-slate-900"
                             />
                             <span className="font-semibold text-slate-900">Keep Current Fee</span>
                           </div>
@@ -3664,14 +3659,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           </span>
                         </label>
 
-                        <label className={`p-2.5 rounded border text-xs cursor-pointer transition-colors ${editFeeMode === 'batch_standard' ? 'bg-white border-amber-600 shadow-xs' : 'bg-white/60 border-slate-200 hover:bg-white'}`}>
+                        <label className={`p-2.5 rounded border text-xs cursor-pointer transition-colors ${editFeeMode === 'batch_standard' ? 'bg-white border-slate-900 shadow-xs' : 'bg-white/60 border-slate-200 hover:bg-white'}`}>
                           <div className="flex items-center gap-2">
                             <input
                               type="radio"
                               name="editFeeMode"
                               checked={editFeeMode === 'batch_standard'}
                               onChange={() => setEditFeeMode('batch_standard')}
-                              className="text-amber-600 focus:ring-amber-500"
+                              className="text-slate-900 focus:ring-slate-900"
                             />
                             <span className="font-semibold text-slate-900">New Batch Standard</span>
                           </div>
@@ -3680,14 +3675,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           </span>
                         </label>
 
-                        <label className={`p-2.5 rounded border text-xs cursor-pointer transition-colors ${editFeeMode === 'custom' ? 'bg-white border-amber-600 shadow-xs' : 'bg-white/60 border-slate-200 hover:bg-white'}`}>
+                        <label className={`p-2.5 rounded border text-xs cursor-pointer transition-colors ${editFeeMode === 'custom' ? 'bg-white border-slate-900 shadow-xs' : 'bg-white/60 border-slate-200 hover:bg-white'}`}>
                           <div className="flex items-center gap-2">
                             <input
                               type="radio"
                               name="editFeeMode"
                               checked={editFeeMode === 'custom'}
                               onChange={() => setEditFeeMode('custom')}
-                              className="text-amber-600 focus:ring-amber-500"
+                              className="text-slate-900 focus:ring-slate-900"
                             />
                             <span className="font-semibold text-slate-900">Custom Negotiated</span>
                           </div>
@@ -3708,13 +3703,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </div>
 
                     {/* Unpaid Challans & Arrears Note */}
-                    <div className="pt-2 border-t border-amber-200/60 space-y-1">
+                    <div className="pt-2 border-t border-slate-200 space-y-1">
                       <label className="flex items-start gap-2 cursor-pointer select-none">
                         <input
                           type="checkbox"
                           checked={editUpdateUnpaidChallans}
                           onChange={e => setEditUpdateUnpaidChallans(e.target.checked)}
-                          className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 mt-0.5"
+                          className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 mt-0.5"
                         />
                         <div>
                           <span className="font-semibold text-slate-800 block text-xs">
@@ -4089,7 +4084,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 <button
                   type="submit"
                   disabled={isSavingParticulars}
-                  className="px-4 py-2 rounded bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-4 py-2 rounded bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 >
                   {isSavingParticulars ? 'Saving...' : 'Save Particulars'}
                 </button>
@@ -4106,7 +4101,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             {/* Header */}
             <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                <div className="w-8 h-8 rounded bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
                   <Key className="w-4 h-4" />
                 </div>
                 <div>
@@ -4151,7 +4146,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500 font-medium">New Password:</span>
-                    <span className="font-mono font-bold text-indigo-700 bg-white px-2.5 py-1 rounded border border-slate-200 text-sm">
+                    <span className="font-mono font-bold text-slate-900 bg-white px-2.5 py-1 rounded border border-slate-200 text-sm">
                       {resetSuccessData.password}
                     </span>
                   </div>
@@ -4190,7 +4185,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       setShowResetPasswordModal(false);
                       setResetSuccessData(null);
                     }}
-                    className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+                    className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
                   >
                     Done
                   </button>
@@ -4230,13 +4225,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       onClick={() => setResetPasswordType('default')}
                       className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
                         resetPasswordType === 'default'
-                          ? 'border-indigo-600 bg-indigo-50/40 text-indigo-950 font-semibold shadow-2xs'
+                          ? 'border-slate-900 bg-slate-50 text-slate-900 font-semibold shadow-2xs'
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs">Standard Default</span>
-                        {resetPasswordType === 'default' && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />}
+                        {resetPasswordType === 'default' && <CheckCircle2 className="w-3.5 h-3.5 text-slate-900" />}
                       </div>
                       <span className="font-mono text-xs text-slate-900 block font-semibold">Student@123</span>
                     </button>
@@ -4246,13 +4241,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       onClick={() => setResetPasswordType('custom')}
                       className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
                         resetPasswordType === 'custom'
-                          ? 'border-indigo-600 bg-indigo-50/40 text-indigo-950 font-semibold shadow-2xs'
+                          ? 'border-slate-900 bg-slate-50 text-slate-900 font-semibold shadow-2xs'
                           : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs">Custom Password</span>
-                        {resetPasswordType === 'custom' && <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />}
+                        {resetPasswordType === 'custom' && <CheckCircle2 className="w-3.5 h-3.5 text-slate-900" />}
                       </div>
                       <span className="text-[11px] text-slate-500 block">Enter temporary password</span>
                     </button>
@@ -4298,9 +4293,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <button
                     type="submit"
                     disabled={isResettingPassword || !resetGuardianCnic.trim()}
-                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="px-5 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   >
-                    <Key className="w-3.5 h-3.5" />
+                    <Key className="w-3.5 h-3.5 text-slate-300" />
                     <span>{isResettingPassword ? 'Resetting Password...' : 'Confirm & Reset Password'}</span>
                   </button>
                 </div>
@@ -4408,10 +4403,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       {/* ARCHIVE STUDENT CONFIRMATION MODAL */}
       {showArchiveDialog && createPortal(
         <div className="fixed inset-0 w-screen h-screen z-[10000] bg-white/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 m-0 animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-amber-300 ring-1 ring-amber-900/10 overflow-hidden flex flex-col">
+          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col">
             <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between border-b border-slate-800">
               <div className="flex items-center gap-2">
-                <Archive className="w-4 h-4 text-amber-400" />
+                <Archive className="w-4 h-4 text-slate-300" />
                 <h2 className="text-sm font-bold">Archive Student Record</h2>
               </div>
               <button
@@ -4424,15 +4419,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             </div>
 
             <div className="p-5 space-y-4 text-xs text-slate-700">
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 space-y-1">
-                <div className="font-bold flex items-center gap-1.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-slate-900">
+                  <AlertTriangle className="w-4 h-4 text-slate-600 shrink-0" />
                   <span>Archiving Student: {currentStudent.full_name}</span>
                 </div>
-                <p className="text-[11px] leading-relaxed text-amber-800">
+                <p className="text-[11px] leading-relaxed text-slate-700">
                   Admission No: <strong className="font-mono">{currentStudent.admission_number}</strong>
                 </p>
-                <p className="text-[11px] leading-relaxed text-amber-700">
+                <p className="text-[11px] leading-relaxed text-slate-600">
                   Archiving marks this student as inactive and releases their seat in the batch roster. All academic history, exam marks, and fee ledgers remain preserved.
                 </p>
               </div>
@@ -4480,9 +4475,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 type="button"
                 onClick={handleArchiveFromModal}
                 disabled={isArchivingStudent || !archiveModalReason.trim()}
-                className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
               >
-                <Archive className="w-3.5 h-3.5" />
+                <Archive className="w-3.5 h-3.5 text-slate-300" />
                 <span>{isArchivingStudent ? 'Archiving...' : 'Confirm Archival'}</span>
               </button>
             </div>
@@ -4594,7 +4589,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           <div className="bg-white border border-slate-300 rounded-xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                <div className="p-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">
                   <GraduationCap className="w-4 h-4" />
                 </div>
                 <div>
@@ -4712,7 +4707,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     type="checkbox"
                     checked={addClassGenerateChallan}
                     onChange={e => setAddClassGenerateChallan(e.target.checked)}
-                    className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                    className="rounded border-slate-300 text-slate-900 focus:ring-slate-900"
                   />
                   <span className="font-semibold text-slate-800">Generate opening fee challan now</span>
                 </label>
@@ -4742,7 +4737,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 <button
                   type="submit"
                   disabled={isAddingClass || !addClassBatchId}
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{isAddingClass ? 'Enrolling...' : 'Complete Class Enrollment'}</span>
@@ -4787,7 +4782,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               )}
 
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-[11px] leading-relaxed">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 text-[11px] leading-relaxed">
                 Leaving this class frees the seat immediately in this batch. If this student has other active classes, their student standing and portal account remain active.
               </div>
 
@@ -4865,8 +4860,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           <div className="bg-white border border-slate-300 rounded-xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700">
-                  <ArrowRightLeft className="w-4 h-4" />
+                <div className="p-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">
+                  <ArrowRightLeft className="w-4 h-4 text-slate-600" />
                 </div>
                 <div>
                   <h3 className="font-bold text-sm text-slate-900">Change Class/Batch</h3>
@@ -5012,7 +5007,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       name="transferFeeMode"
                       checked={transferFeeMode === 'keep_current'}
                       onChange={() => setTransferFeeMode('keep_current')}
-                      className="text-blue-600 focus:ring-blue-500"
+                      className="text-slate-900 focus:ring-slate-900"
                     />
                     <span className="text-slate-800 font-medium">Keep current agreed fee (carry-forward locked fee)</span>
                   </label>
@@ -5023,7 +5018,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       name="transferFeeMode"
                       checked={transferFeeMode === 'batch_standard'}
                       onChange={() => setTransferFeeMode('batch_standard')}
-                      className="text-blue-600 focus:ring-blue-500"
+                      className="text-slate-900 focus:ring-slate-900"
                     />
                     <span className="text-slate-800 font-medium">
                       Adopt new batch standard fee (Rs. {batches.find(b => b.id === transferTargetBatchId)?.fee_amount?.toLocaleString() || 0} / month)
@@ -5036,7 +5031,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       name="transferFeeMode"
                       checked={transferFeeMode === 'custom'}
                       onChange={() => setTransferFeeMode('custom')}
-                      className="text-blue-600 focus:ring-blue-500 mt-0.5"
+                      className="text-slate-900 focus:ring-slate-900 mt-0.5"
                     />
                     <div className="flex-1">
                       <span className="text-slate-800 font-medium block">Custom negotiated fee</span>
@@ -5057,13 +5052,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
               {/* Unpaid Challan Update Checkbox — only shown when fee rate changes (batch_standard or custom) */}
               {transferFeeMode !== 'keep_current' && (
-                <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-lg animate-in fade-in duration-150">
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg animate-in fade-in duration-150">
                   <label className="flex items-start gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={transferUpdateUnpaidChallans}
                       onChange={e => setTransferUpdateUnpaidChallans(e.target.checked)}
-                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 mt-0.5"
+                      className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 mt-0.5"
                     />
                     <div>
                       <span className="font-semibold text-slate-800 block">
@@ -5088,7 +5083,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmittingTransfer}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 >
                   <ArrowRightLeft className="w-3.5 h-3.5" />
                   <span>{isSubmittingTransfer ? 'Changing Class/Batch...' : 'Confirm Class/Batch Change'}</span>
