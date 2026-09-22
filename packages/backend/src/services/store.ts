@@ -367,12 +367,18 @@ export interface IDataStore {
     studentId: string,
     enrollmentId: string,
     data: {
+      batch_id?: string;
+      program_id?: string;
       roll_number?: string;
       subjects?: string[];
       fee_structure?: any;
       elective_group_id?: string;
       billing_mode?: any;
       installment_plan?: any;
+      transfer_effective_date?: string;
+      transfer_reason?: string;
+      update_unpaid_challans?: boolean;
+      changed_by?: string;
     }
   ): Promise<StudentEnrollment | null>;
   updateStudentEnrollmentStatus(
@@ -3829,11 +3835,55 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     // Adjust batch counters if batch is changing
-    if (isBatchChanging && student.status === 'active') {
-      const sourceBatch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
-      const targetBatch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === tenantId);
-      if (sourceBatch) sourceBatch.current_enrollment = Math.max(0, sourceBatch.current_enrollment - 1);
-      if (targetBatch) targetBatch.current_enrollment += 1;
+    let transferRecord: any = null;
+    if (isBatchChanging) {
+      if (student.status === 'active') {
+        const sourceBatch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
+        const targetBatch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === tenantId);
+        if (sourceBatch) sourceBatch.current_enrollment = Math.max(0, sourceBatch.current_enrollment - 1);
+        if (targetBatch) targetBatch.current_enrollment += 1;
+      }
+      student.id_card_reprint_required = true;
+      transferRecord = {
+        from_batch_id: student.batch_id || '',
+        to_batch_id: data.batch_id!,
+        from_program_id: student.program_id || null,
+        to_program_id: data.program_id || student.program_id || null,
+        effective_date: (data as any).transfer_effective_date || new Date().toISOString().split('T')[0],
+        reason: (data as any).transfer_reason || (data as any).audit_reason || 'Academic section transfer',
+        changed_by: (data as any).changed_by_name || 'Administration',
+        timestamp: new Date().toISOString(),
+      };
+      student.transfer_history = [...(student.transfer_history || []), transferRecord];
+    }
+
+    // Update unpaid challans if requested
+    if ((data as any).update_unpaid_challans && (data.batch_id || data.fee_structure)) {
+      const targetBatchObj = data.batch_id ? this.batches.find(b => b.id === data.batch_id && b.tenant_id === tenantId) : undefined;
+      const newTuition = Number(data.fee_structure?.tuition_fee ?? data.fee_structure?.base_tuition_fee ?? data.fee_structure?.recurring_monthly ?? targetBatchObj?.fee_amount ?? 0);
+      const unpaidInvoices = this.invoices.filter(
+        inv => inv.tenant_id === tenantId &&
+               inv.student_id === id &&
+               inv.status === 'unpaid' &&
+               inv.paid_amount === 0
+      );
+      for (const inv of unpaidInvoices) {
+        if (data.batch_id) inv.batch_id = data.batch_id;
+        if (newTuition > 0 && Array.isArray(inv.items)) {
+          const tuitionItem = inv.items.find(
+            it => it.head_code?.toLowerCase() === 'tuition' || it.head_name?.toLowerCase().includes('tuition')
+          );
+          if (tuitionItem) {
+            const diff = newTuition - tuitionItem.net_amount;
+            tuitionItem.original_amount = newTuition;
+            tuitionItem.net_amount = newTuition;
+            tuitionItem.balance_due = newTuition;
+            inv.total_amount = Math.max(0, Number(inv.total_amount || 0) + diff);
+            inv.balance_due = Math.max(0, Number(inv.balance_due || 0) + diff);
+            inv.updated_at = new Date().toISOString();
+          }
+        }
+      }
     }
 
     // 3. Sibling validation and bidirectional linking
@@ -3898,9 +3948,14 @@ export class InMemoryDataStore implements IDataStore {
       if (data.program_id) primaryEnrollment.program_id = data.program_id;
       if (data.roll_number) primaryEnrollment.roll_number = data.roll_number;
       if (data.subjects) primaryEnrollment.subjects = [...data.subjects];
+      if (data.elective_group_id !== undefined) primaryEnrollment.elective_group_id = data.elective_group_id;
       if (data.fee_structure) primaryEnrollment.fee_structure = JSON.parse(JSON.stringify(data.fee_structure));
       if (data.billing_mode) primaryEnrollment.billing_mode = data.billing_mode;
       if (data.installment_plan !== undefined) primaryEnrollment.installment_plan = data.installment_plan;
+      if (isBatchChanging && transferRecord) {
+        primaryEnrollment.id_card_reprint_required = true;
+        primaryEnrollment.transfer_history = [...(primaryEnrollment.transfer_history || []), transferRecord];
+      }
       primaryEnrollment.updated_at = new Date().toISOString();
       this.recalculateBatchSeats(tenantId);
     }
@@ -5049,17 +5104,65 @@ export class InMemoryDataStore implements IDataStore {
     studentId: string,
     enrollmentId: string,
     data: {
+      batch_id?: string;
+      program_id?: string;
       roll_number?: string;
       subjects?: string[];
       fee_structure?: any;
       elective_group_id?: string;
       billing_mode?: any;
       installment_plan?: any;
+      transfer_effective_date?: string;
+      transfer_reason?: string;
+      update_unpaid_challans?: boolean;
+      changed_by?: string;
     }
   ): Promise<StudentEnrollment | null> {
     this.ensureStudentEnrollments();
     const enrollment = this.studentEnrollments.find(e => e.id === enrollmentId && e.student_id === studentId && e.tenant_id === tenantId);
     if (!enrollment) return null;
+
+    const student = this.students.find(s => s.id === studentId && s.tenant_id === tenantId);
+    const isBatchChanging = Boolean(data.batch_id && data.batch_id !== enrollment.batch_id);
+
+    if (isBatchChanging) {
+      const targetBatch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === tenantId);
+      if (!targetBatch) {
+        throw new Error('Target batch/section not found.');
+      }
+      const holdsSeat = enrollment.status === 'active' || enrollment.status === 'on_leave';
+      if (holdsSeat && targetBatch.current_enrollment >= targetBatch.max_capacity) {
+        throw new Error(`Cannot move student: Target batch "${targetBatch.name}" has reached maximum capacity (${targetBatch.current_enrollment}/${targetBatch.max_capacity}).`);
+      }
+
+      if (holdsSeat) {
+        const sourceBatch = this.batches.find(b => b.id === enrollment.batch_id && b.tenant_id === tenantId);
+        if (sourceBatch) sourceBatch.current_enrollment = Math.max(0, sourceBatch.current_enrollment - 1);
+        targetBatch.current_enrollment += 1;
+      }
+
+      const transferRecord = {
+        from_batch_id: enrollment.batch_id,
+        to_batch_id: data.batch_id!,
+        from_program_id: enrollment.program_id || null,
+        to_program_id: data.program_id || enrollment.program_id || null,
+        effective_date: data.transfer_effective_date || new Date().toISOString().split('T')[0],
+        reason: data.transfer_reason || 'Academic section transfer',
+        changed_by: data.changed_by || 'Administration',
+        timestamp: new Date().toISOString(),
+      };
+      enrollment.transfer_history = [...(enrollment.transfer_history || []), transferRecord];
+      enrollment.batch_id = data.batch_id!;
+      if (data.program_id) enrollment.program_id = data.program_id;
+      enrollment.id_card_reprint_required = true;
+
+      if (student && enrollment.is_primary) {
+        student.batch_id = enrollment.batch_id;
+        if (enrollment.program_id) student.program_id = enrollment.program_id;
+        student.id_card_reprint_required = true;
+        student.transfer_history = [...(student.transfer_history || []), transferRecord];
+      }
+    }
 
     if (data.roll_number !== undefined) {
       const newRoll = data.roll_number.trim();
@@ -5086,17 +5189,45 @@ export class InMemoryDataStore implements IDataStore {
     if (data.installment_plan !== undefined) enrollment.installment_plan = data.installment_plan;
     enrollment.updated_at = new Date().toISOString();
 
-    if (enrollment.is_primary) {
-      const student = this.students.find(s => s.id === studentId && s.tenant_id === tenantId);
-      if (student) {
-        if (enrollment.roll_number) student.roll_number = enrollment.roll_number;
-        if (data.subjects) student.subjects = [...enrollment.subjects];
-        if (data.fee_structure) student.fee_structure = JSON.parse(JSON.stringify(enrollment.fee_structure));
-        if (data.billing_mode) student.billing_mode = enrollment.billing_mode;
-        student.updated_at = new Date().toISOString();
+    if (data.update_unpaid_challans && (data.batch_id || data.fee_structure)) {
+      const targetBatchObj = data.batch_id ? this.batches.find(b => b.id === data.batch_id && b.tenant_id === tenantId) : undefined;
+      const newTuition = Number(data.fee_structure?.tuition_fee ?? data.fee_structure?.base_tuition_fee ?? data.fee_structure?.recurring_monthly ?? targetBatchObj?.fee_amount ?? 0);
+      const unpaidInvoices = this.invoices.filter(
+        inv => inv.tenant_id === tenantId &&
+               inv.student_id === studentId &&
+               inv.status === 'unpaid' &&
+               inv.paid_amount === 0 &&
+               (inv.enrollment_id === enrollmentId || !inv.enrollment_id)
+      );
+      for (const inv of unpaidInvoices) {
+        if (data.batch_id) inv.batch_id = data.batch_id;
+        if (newTuition > 0 && Array.isArray(inv.items)) {
+          const tuitionItem = inv.items.find(
+            it => it.head_code?.toLowerCase() === 'tuition' || it.head_name?.toLowerCase().includes('tuition')
+          );
+          if (tuitionItem) {
+            const diff = newTuition - tuitionItem.net_amount;
+            tuitionItem.original_amount = newTuition;
+            tuitionItem.net_amount = newTuition;
+            tuitionItem.balance_due = newTuition;
+            inv.total_amount = Math.max(0, Number(inv.total_amount || 0) + diff);
+            inv.balance_due = Math.max(0, Number(inv.balance_due || 0) + diff);
+            inv.updated_at = new Date().toISOString();
+          }
+        }
       }
     }
 
+    if (enrollment.is_primary && student) {
+      if (enrollment.roll_number) student.roll_number = enrollment.roll_number;
+      if (data.subjects) student.subjects = [...enrollment.subjects];
+      if (data.elective_group_id !== undefined) student.elective_group_id = data.elective_group_id;
+      if (data.fee_structure) student.fee_structure = JSON.parse(JSON.stringify(enrollment.fee_structure));
+      if (data.billing_mode) student.billing_mode = enrollment.billing_mode;
+      student.updated_at = new Date().toISOString();
+    }
+
+    this.recalculateBatchSeats(tenantId);
     this.schedulePersist();
     return enrollment;
   }

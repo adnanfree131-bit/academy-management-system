@@ -30,7 +30,8 @@ import {
   RotateCcw,
   AlertTriangle,
   FileCheck,
-  Plus
+  Plus,
+  ArrowRightLeft
 } from 'lucide-react';
 import { 
   Student, 
@@ -355,6 +356,33 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [editCustomFields, setEditCustomFields] = useState<Record<string, any>>(student.custom_field_values || {});
   const [isSavingParticulars, setIsSavingParticulars] = useState(false);
 
+  // Academic Placement & Class Transfer in Particulars
+  const [editProgramId, setEditProgramId] = useState(student.program_id);
+  const [editBatchId, setEditBatchId] = useState(student.batch_id);
+  const [editElectiveGroupId, setEditElectiveGroupId] = useState(student.elective_group_id || '');
+  const [editTransferDate, setEditTransferDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [editTransferReason, setEditTransferReason] = useState('Administrative class/section transfer');
+  const [editFeeMode, setEditFeeMode] = useState<'keep_current' | 'batch_standard' | 'custom'>('keep_current');
+  const [editCustomFeeAmount, setEditCustomFeeAmount] = useState<number | string>(() => {
+    const curB = batches.find(b => b.id === student.batch_id);
+    return curB?.fee_amount || 0;
+  });
+  const [editUpdateUnpaidChallans, setEditUpdateUnpaidChallans] = useState(true);
+  const [editParticularsError, setEditParticularsError] = useState<string | null>(null);
+
+  // Dedicated Class Transfer Modal (Multi-Class Support)
+  const [transferEnrollment, setTransferEnrollment] = useState<StudentEnrollment | null>(null);
+  const [transferTargetProgramId, setTransferTargetProgramId] = useState('');
+  const [transferTargetBatchId, setTransferTargetBatchId] = useState('');
+  const [transferTargetElectiveGroupId, setTransferTargetElectiveGroupId] = useState('');
+  const [transferDate, setTransferDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [transferReason, setTransferReason] = useState('Academic schedule adjustment or batch transfer');
+  const [transferFeeMode, setTransferFeeMode] = useState<'keep_current' | 'batch_standard' | 'custom'>('keep_current');
+  const [transferCustomFee, setTransferCustomFee] = useState<number | string>('');
+  const [transferUpdateUnpaidChallans, setTransferUpdateUnpaidChallans] = useState(true);
+  const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
+
   // Document Verification Quick Switcher State
   const [updatingDocCode, setUpdatingDocCode] = useState<string | null>(null);
 
@@ -468,7 +496,17 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setEditBloodGroup(currentStudent.blood_group || '');
     setEditPhotoUrl(currentStudent.photo_url || '');
     setEditCustomFields(currentStudent.custom_field_values || {});
-  }, [currentStudent]);
+    setEditProgramId(currentStudent.program_id);
+    setEditBatchId(currentStudent.batch_id);
+    setEditElectiveGroupId(currentStudent.elective_group_id || '');
+    setEditTransferDate(new Date().toISOString().split('T')[0]);
+    setEditTransferReason('Administrative class/section transfer');
+    setEditFeeMode('keep_current');
+    const curB = batches.find(b => b.id === currentStudent.batch_id);
+    setEditCustomFeeAmount(curB?.fee_amount || 0);
+    setEditUpdateUnpaidChallans(true);
+    setEditParticularsError(null);
+  }, [currentStudent, batches]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -487,8 +525,37 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const handleSaveParticulars = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
+    setEditParticularsError(null);
+
+    const isBatchTransfer = Boolean(editBatchId && editBatchId !== currentStudent.batch_id);
+    if (isBatchTransfer) {
+      const targetB = batches.find(b => b.id === editBatchId);
+      if (targetB && targetB.max_capacity > 0 && (targetB.current_enrollment || 0) >= targetB.max_capacity) {
+        setEditParticularsError(`Target batch "${targetB.name}" has reached full capacity (${targetB.current_enrollment}/${targetB.max_capacity}). Transfer blocked.`);
+        return;
+      }
+    }
+
     setIsSavingParticulars(true);
     try {
+      let resolvedFeeStructure: any = undefined;
+      if (isBatchTransfer) {
+        const targetB = batches.find(b => b.id === editBatchId);
+        if (editFeeMode === 'batch_standard') {
+          resolvedFeeStructure = {
+            ...(currentStudent.fee_structure || {}),
+            tuition_fee: targetB?.fee_amount || 0,
+            base_tuition_fee: targetB?.fee_amount || 0,
+          };
+        } else if (editFeeMode === 'custom') {
+          resolvedFeeStructure = {
+            ...(currentStudent.fee_structure || {}),
+            tuition_fee: Number(editCustomFeeAmount),
+            base_tuition_fee: Number(editCustomFeeAmount),
+          };
+        }
+      }
+
       const res = await fetch(`/api/v1/sis/students/${currentStudent.id}`, {
         method: 'PATCH',
         headers: {
@@ -497,6 +564,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         },
         body: JSON.stringify({
           full_name: editFullName.trim(),
+          program_id: editProgramId,
+          batch_id: editBatchId,
+          elective_group_id: editElectiveGroupId || undefined,
+          ...(isBatchTransfer ? {
+            transfer_effective_date: editTransferDate,
+            transfer_reason: editTransferReason.trim() || 'Administrative class/section transfer',
+            update_unpaid_challans: editUpdateUnpaidChallans,
+            ...(resolvedFeeStructure ? { fee_structure: resolvedFeeStructure } : {}),
+          } : {}),
           phone: editPhone.trim() || undefined,
           student_whatsapp: editStudentWhatsapp.trim() || undefined,
           email: editEmail.trim() || undefined,
@@ -537,13 +613,16 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       if (res.ok && data.success) {
         setCurrentStudent(data.data);
         setShowEditParticularsModal(false);
+        if (isBatchTransfer) {
+          await Promise.all([fetchEnrollments(), fetchInvoices()]);
+        }
         if (onStudentUpdated) onStudentUpdated();
       } else {
-        alert(data.error?.message || 'Failed to update student particulars');
+        setEditParticularsError(data.error?.message || 'Failed to update student particulars');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating student particulars:', err);
-      alert('Failed to update student particulars');
+      setEditParticularsError(err.message || 'Failed to update student particulars');
     } finally {
       setIsSavingParticulars(false);
     }
@@ -852,6 +931,92 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       setLeaveClassError(err.message || 'Network error updating class exit status');
     } finally {
       setIsLeavingClass(false);
+    }
+  };
+
+  const handleOpenTransferModal = (enr: StudentEnrollment) => {
+    setTransferEnrollment(enr);
+    setTransferTargetProgramId(enr.program_id || '');
+    setTransferTargetBatchId(enr.batch_id);
+    setTransferTargetElectiveGroupId(enr.elective_group_id || '');
+    setTransferDate(new Date().toISOString().split('T')[0]);
+    setTransferReason('Academic schedule adjustment or batch transfer');
+    setTransferFeeMode('keep_current');
+    const curB = batches.find(b => b.id === enr.batch_id);
+    setTransferCustomFee(curB?.fee_amount || 0);
+    setTransferUpdateUnpaidChallans(true);
+    setTransferError(null);
+  };
+
+  const handleConfirmTransferClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !currentStudent.id || !transferEnrollment) return;
+    if (transferTargetBatchId === transferEnrollment.batch_id) {
+      setTransferError('Please select a different batch or section to transfer into.');
+      return;
+    }
+    const targetB = batches.find(b => b.id === transferTargetBatchId);
+    if (targetB && targetB.max_capacity > 0 && (targetB.current_enrollment || 0) >= targetB.max_capacity) {
+      setTransferError(`Target batch "${targetB.name}" has reached full capacity (${targetB.current_enrollment}/${targetB.max_capacity}). Transfer blocked.`);
+      return;
+    }
+
+    setIsSubmittingTransfer(true);
+    setTransferError(null);
+    try {
+      let feeObj: any = undefined;
+      if (transferFeeMode === 'batch_standard') {
+        feeObj = {
+          ...(transferEnrollment.fee_structure || {}),
+          tuition_fee: targetB?.fee_amount || 0,
+          base_tuition_fee: targetB?.fee_amount || 0,
+        };
+      } else if (transferFeeMode === 'custom') {
+        feeObj = {
+          ...(transferEnrollment.fee_structure || {}),
+          tuition_fee: Number(transferCustomFee),
+          base_tuition_fee: Number(transferCustomFee),
+        };
+      }
+
+      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/enrollments/${transferEnrollment.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          program_id: transferTargetProgramId,
+          batch_id: transferTargetBatchId,
+          elective_group_id: transferTargetElectiveGroupId || undefined,
+          transfer_effective_date: transferDate,
+          transfer_reason: transferReason.trim() || 'Academic class/section transfer',
+          update_unpaid_challans: transferUpdateUnpaidChallans,
+          ...(feeObj ? { fee_structure: feeObj } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTransferEnrollment(null);
+        await Promise.all([
+          fetchEnrollments(),
+          fetchInvoices(),
+        ]);
+        const sRes = await fetch(`/api/v1/sis/students/${currentStudent.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const sData = await sRes.json();
+        if (sData.success) {
+          setCurrentStudent(sData.data);
+        }
+        if (onStudentUpdated) onStudentUpdated();
+      } else {
+        setTransferError(data.error?.message || 'Failed to transfer class enrollment');
+      }
+    } catch (err: any) {
+      setTransferError(err.message || 'Network error executing transfer');
+    } finally {
+      setIsSubmittingTransfer(false);
     }
   };
 
@@ -1199,6 +1364,12 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     {currentStudent.blood_group && (
                       <span className="px-2 py-0.5 rounded text-xs font-mono bg-white/10 text-white/90 border border-white/15">
                         {currentStudent.blood_group}
+                      </span>
+                    )}
+
+                    {currentStudent.id_card_reprint_required && (
+                      <span className="px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/25 text-amber-200 border border-amber-400/40 flex items-center gap-1">
+                        <span>Class Updated — Reprint ID Card</span>
                       </span>
                     )}
                   </div>
@@ -1705,6 +1876,17 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                                   {isActiveOrLeave && canManageAcademicStatus && (
                                     <button
                                       type="button"
+                                      onClick={() => handleOpenTransferModal(enr)}
+                                      className="px-2 py-1 bg-slate-100 hover:bg-blue-50 text-blue-700 hover:text-blue-800 border border-slate-200 hover:border-blue-200 rounded text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1"
+                                      title="Transfer this student to another section or batch"
+                                    >
+                                      <ArrowRightLeft className="w-3 h-3 text-blue-600" />
+                                      <span>Transfer</span>
+                                    </button>
+                                  )}
+                                  {isActiveOrLeave && canManageAcademicStatus && (
+                                    <button
+                                      type="button"
                                       onClick={() => {
                                         setLeaveClassEnrollment(enr);
                                         setLeaveClassStatus('withdrawn');
@@ -1964,6 +2146,49 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Class & Section Transfer History */}
+              {currentStudent.transfer_history && currentStudent.transfer_history.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded p-4 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                      <ArrowRightLeft className="w-4 h-4 text-blue-600" />
+                      <span>Class & Section Transfer History</span>
+                    </h3>
+                    <span className="text-[11px] font-mono text-slate-500">
+                      {currentStudent.transfer_history.length} {currentStudent.transfer_history.length === 1 ? 'Record' : 'Records'}
+                    </span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                        <tr>
+                          <th className="py-2 px-3">Effective Date</th>
+                          <th className="py-2 px-3">From Section</th>
+                          <th className="py-2 px-3">To Section</th>
+                          <th className="py-2 px-3">Reason</th>
+                          <th className="py-2 px-3">Authorized By</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                        {currentStudent.transfer_history.map((t, idx) => {
+                          const fromB = batches.find(b => b.id === t.from_batch_id)?.name || t.from_batch_id;
+                          const toB = batches.find(b => b.id === t.to_batch_id)?.name || t.to_batch_id;
+                          return (
+                            <tr key={(t as any).id || idx} className="hover:bg-slate-50/60">
+                              <td className="py-2 px-3 font-mono text-slate-600">{t.effective_date}</td>
+                              <td className="py-2 px-3 text-rose-700 font-medium">{fromB}</td>
+                              <td className="py-2 px-3 text-emerald-700 font-medium">{toB}</td>
+                              <td className="py-2 px-3 text-slate-600">{t.reason || '—'}</td>
+                              <td className="py-2 px-3 font-mono text-slate-500 text-[11px]">{t.changed_by || 'Administration'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {/* Enrolled Subjects Card */}
               <div className="bg-white border border-slate-200 rounded overflow-hidden">
@@ -3285,6 +3510,229 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               </div>
 
+              {/* Academic Placement & Section Transfer */}
+              <div className="space-y-3 pb-3 border-b border-slate-200">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <GraduationCap className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Academic Placement & Section Transfer</span>
+                  </h4>
+                  {editBatchId !== currentStudent.batch_id && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                      Transfer Pending
+                    </span>
+                  )}
+                </div>
+
+                {editParticularsError && (
+                  <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 rounded text-xs flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <span className="leading-tight">{editParticularsError}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Academic Class / Program *
+                    </label>
+                    <select
+                      value={editProgramId || ''}
+                      onChange={e => {
+                        const newProgId = e.target.value;
+                        setEditProgramId(newProgId);
+                        const pBatches = batches.filter(b => b.program_id === newProgId);
+                        if (pBatches.length > 0 && !pBatches.some(b => b.id === editBatchId)) {
+                          setEditBatchId(pBatches[0].id);
+                        }
+                        const electives = subjectGroups.filter(g => g.program_id === newProgId && g.type === 'elective_track');
+                        if (electives.length > 0 && !electives.some(g => g.id === editElectiveGroupId)) {
+                          setEditElectiveGroupId(electives[0].id);
+                        } else if (electives.length === 0) {
+                          setEditElectiveGroupId('');
+                        }
+                      }}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium bg-white"
+                    >
+                      {programs.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Batch / Section *
+                    </label>
+                    <select
+                      value={editBatchId || ''}
+                      onChange={e => {
+                        setEditBatchId(e.target.value);
+                        setEditParticularsError(null);
+                      }}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium bg-white"
+                    >
+                      {batches
+                        .filter(b => !editProgramId || b.program_id === editProgramId)
+                        .map(b => {
+                          const isCurrent = b.id === currentStudent.batch_id;
+                          const isFull = !isCurrent && b.max_capacity > 0 && (b.current_enrollment || 0) >= b.max_capacity;
+                          return (
+                            <option key={b.id} value={b.id} disabled={isFull}>
+                              {b.name} ({b.shift}) {isFull ? `[FULL: ${b.current_enrollment}/${b.max_capacity}]` : `(${b.current_enrollment || 0}/${b.max_capacity || '∞'})`}
+                            </option>
+                          );
+                        })}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Elective Track Stream
+                    </label>
+                    <select
+                      value={editElectiveGroupId}
+                      onChange={e => setEditElectiveGroupId(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium bg-white"
+                    >
+                      <option value="">-- General / Core Only --</option>
+                      {subjectGroups
+                        .filter(g => g.program_id === editProgramId && g.type === 'elective_track')
+                        .map(g => (
+                          <option key={g.id} value={g.id}>{g.name}</option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Section Transfer Sub-Panel (Only displays when batch has changed) */}
+                {editBatchId !== currentStudent.batch_id && (
+                  <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-lg space-y-3 mt-2 animate-in fade-in duration-150">
+                    <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                      <ArrowRightLeft className="w-4 h-4 text-amber-700" />
+                      <span>Class Transfer Details & Fee Allocation</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10.5px] font-semibold text-slate-700 mb-1">
+                          Effective Transfer Date *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={editTransferDate}
+                          onChange={e => setEditTransferDate(e.target.value)}
+                          className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white focus:ring-1 focus:ring-slate-900 font-mono"
+                        />
+                        <span className="text-[10px] text-slate-500 mt-0.5 block">
+                          Attendance & gradebook records transition from this date forward.
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10.5px] font-semibold text-slate-700 mb-1">
+                          Administrative Reason *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={editTransferReason}
+                          onChange={e => setEditTransferReason(e.target.value)}
+                          placeholder="e.g. Schedule clash, academic stream transfer"
+                          className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white focus:ring-1 focus:ring-slate-900"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Tuition Fee Adjustment Options */}
+                    <div className="pt-2 border-t border-amber-200/60 space-y-1.5">
+                      <label className="block text-[10.5px] font-bold text-slate-800">
+                        Monthly Tuition Fee Policy
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <label className={`p-2.5 rounded border text-xs cursor-pointer transition-colors ${editFeeMode === 'keep_current' ? 'bg-white border-amber-600 shadow-xs' : 'bg-white/60 border-slate-200 hover:bg-white'}`}>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="editFeeMode"
+                              checked={editFeeMode === 'keep_current'}
+                              onChange={() => setEditFeeMode('keep_current')}
+                              className="text-amber-600 focus:ring-amber-500"
+                            />
+                            <span className="font-semibold text-slate-900">Keep Current Fee</span>
+                          </div>
+                          <span className="text-[10.5px] text-slate-500 block mt-1">
+                            Carry forward locked agreed fee without rate increase.
+                          </span>
+                        </label>
+
+                        <label className={`p-2.5 rounded border text-xs cursor-pointer transition-colors ${editFeeMode === 'batch_standard' ? 'bg-white border-amber-600 shadow-xs' : 'bg-white/60 border-slate-200 hover:bg-white'}`}>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="editFeeMode"
+                              checked={editFeeMode === 'batch_standard'}
+                              onChange={() => setEditFeeMode('batch_standard')}
+                              className="text-amber-600 focus:ring-amber-500"
+                            />
+                            <span className="font-semibold text-slate-900">New Batch Standard</span>
+                          </div>
+                          <span className="text-[10.5px] text-slate-500 block mt-1">
+                            Rs. {batches.find(b => b.id === editBatchId)?.fee_amount?.toLocaleString() || 0} / month
+                          </span>
+                        </label>
+
+                        <label className={`p-2.5 rounded border text-xs cursor-pointer transition-colors ${editFeeMode === 'custom' ? 'bg-white border-amber-600 shadow-xs' : 'bg-white/60 border-slate-200 hover:bg-white'}`}>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="editFeeMode"
+                              checked={editFeeMode === 'custom'}
+                              onChange={() => setEditFeeMode('custom')}
+                              className="text-amber-600 focus:ring-amber-500"
+                            />
+                            <span className="font-semibold text-slate-900">Custom Negotiated</span>
+                          </div>
+                          {editFeeMode === 'custom' && (
+                            <div className="mt-1.5">
+                              <input
+                                type="number"
+                                min="0"
+                                value={editCustomFeeAmount}
+                                onChange={e => setEditCustomFeeAmount(e.target.value)}
+                                placeholder="Fee in PKR"
+                                className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white font-mono"
+                              />
+                            </div>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Unpaid Challans & Arrears Note */}
+                    <div className="pt-2 border-t border-amber-200/60 space-y-1">
+                      <label className="flex items-start gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={editUpdateUnpaidChallans}
+                          onChange={e => setEditUpdateUnpaidChallans(e.target.checked)}
+                          className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 mt-0.5"
+                        />
+                        <div>
+                          <span className="font-semibold text-slate-800 block text-xs">
+                            Update unpaid fee challan(s) to new batch rate
+                          </span>
+                          <span className="text-[10.5px] text-slate-600 leading-tight block mt-0.5">
+                            Automatically updates pending challans for this class. Past arrears from previous months remain locked on the student ledger and roll forward onto future challans.
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Student Demographics & Identification */}
               <div className="space-y-3 pb-3 border-b border-slate-200">
                 <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Demographics & Academic Background</h4>
@@ -4407,6 +4855,246 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 >
                   <ShieldAlert className="w-3.5 h-3.5" />
                   <span>{isLeavingClass ? 'Processing Exit...' : 'Confirm Class Exit'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* TRANSFER CLASS MODAL (MULTI-CLASS SUPPORT) */}
+      {transferEnrollment && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white border border-slate-300 rounded-xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700">
+                  <ArrowRightLeft className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900">Class & Section Transfer</h3>
+                  <p className="text-[11px] text-slate-500">
+                    Current: {batches.find(b => b.id === transferEnrollment.batch_id)?.name || 'Class Batch'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTransferEnrollment(null)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmTransferClass} className="p-5 space-y-4 text-xs">
+              {transferError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span className="leading-tight">{transferError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Target Class / Program <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={transferTargetProgramId}
+                    onChange={e => {
+                      const newProgId = e.target.value;
+                      setTransferTargetProgramId(newProgId);
+                      const pBatches = batches.filter(b => b.program_id === newProgId);
+                      if (pBatches.length > 0) {
+                        setTransferTargetBatchId(pBatches[0].id);
+                      }
+                      const electives = subjectGroups.filter(g => g.program_id === newProgId && g.type === 'elective_track');
+                      if (electives.length > 0) {
+                        setTransferTargetElectiveGroupId(electives[0].id);
+                      } else {
+                        setTransferTargetElectiveGroupId('');
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium"
+                  >
+                    {programs.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Target Batch / Section <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={transferTargetBatchId}
+                    onChange={e => {
+                      setTransferTargetBatchId(e.target.value);
+                      setTransferError(null);
+                    }}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium"
+                  >
+                    {batches
+                      .filter(b => !transferTargetProgramId || b.program_id === transferTargetProgramId)
+                      .map(b => {
+                        const isCurrent = b.id === transferEnrollment.batch_id;
+                        const isFull = !isCurrent && b.max_capacity > 0 && (b.current_enrollment || 0) >= b.max_capacity;
+                        return (
+                          <option key={b.id} value={b.id} disabled={isFull}>
+                            {b.name} ({b.shift}) {isFull ? `[FULL: ${b.current_enrollment}/${b.max_capacity}]` : `(${b.current_enrollment || 0}/${b.max_capacity || '∞'})`}
+                          </option>
+                        );
+                      })}
+                  </select>
+                </div>
+              </div>
+
+              {/* Elective Track Stream (if applicable) */}
+              {subjectGroups.some(g => g.program_id === transferTargetProgramId && g.type === 'elective_track') && (
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Target Elective Track Stream
+                  </label>
+                  <select
+                    value={transferTargetElectiveGroupId}
+                    onChange={e => setTransferTargetElectiveGroupId(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium"
+                  >
+                    <option value="">-- General / Core Only --</option>
+                    {subjectGroups
+                      .filter(g => g.program_id === transferTargetProgramId && g.type === 'elective_track')
+                      .map(g => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Effective Transfer Date <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={transferDate}
+                    onChange={e => setTransferDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 font-mono"
+                  />
+                  <span className="text-[10px] text-slate-500 mt-0.5 block">
+                    Attendance and gradebooks shift from this date.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Administrative Reason <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={transferReason}
+                    onChange={e => setTransferReason(e.target.value)}
+                    placeholder="e.g. Batch schedule adjustment"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                  />
+                </div>
+              </div>
+
+              {/* Monthly Tuition Fee Policy */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                <label className="block font-bold text-slate-800 text-[11px]">
+                  Monthly Tuition Fee Policy
+                </label>
+                <div className="space-y-1.5">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="transferFeeMode"
+                      checked={transferFeeMode === 'keep_current'}
+                      onChange={() => setTransferFeeMode('keep_current')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-slate-800 font-medium">Keep current agreed fee (carry-forward locked fee)</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="transferFeeMode"
+                      checked={transferFeeMode === 'batch_standard'}
+                      onChange={() => setTransferFeeMode('batch_standard')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-slate-800 font-medium">
+                      Adopt new batch standard fee (Rs. {batches.find(b => b.id === transferTargetBatchId)?.fee_amount?.toLocaleString() || 0} / month)
+                    </span>
+                  </label>
+
+                  <label className="flex items-start gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="transferFeeMode"
+                      checked={transferFeeMode === 'custom'}
+                      onChange={() => setTransferFeeMode('custom')}
+                      className="text-blue-600 focus:ring-blue-500 mt-0.5"
+                    />
+                    <div className="flex-1">
+                      <span className="text-slate-800 font-medium block">Custom negotiated fee</span>
+                      {transferFeeMode === 'custom' && (
+                        <input
+                          type="number"
+                          min="0"
+                          value={transferCustomFee}
+                          onChange={e => setTransferCustomFee(e.target.value)}
+                          placeholder="Tuition amount in PKR"
+                          className="w-full mt-1 px-3 py-1.5 bg-white border border-slate-300 rounded text-xs font-mono"
+                        />
+                      )}
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Unpaid Challan Update Checkbox */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <label className="flex items-start gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={transferUpdateUnpaidChallans}
+                    onChange={e => setTransferUpdateUnpaidChallans(e.target.checked)}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 mt-0.5"
+                  />
+                  <div>
+                    <span className="font-semibold text-slate-800 block">
+                      Update unpaid fee challan(s) for this class
+                    </span>
+                    <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
+                      Adjusts pending challans to the new batch rate. Past arrears from previous months remain locked on the student ledger and roll forward onto future challans.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setTransferEnrollment(null)}
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingTransfer || !transferReason.trim()}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5" />
+                  <span>{isSubmittingTransfer ? 'Executing Transfer...' : 'Confirm Class Transfer'}</span>
                 </button>
               </div>
             </form>

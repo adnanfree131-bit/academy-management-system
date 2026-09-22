@@ -416,11 +416,18 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
                       </div>
                     </div>
 
-                    {student.blood_group ? (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-                        {student.blood_group}
-                      </span>
-                    ) : null}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {student.id_card_reprint_required && (
+                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+                          Reprint Needed
+                        </span>
+                      )}
+                      {student.blood_group ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                          {student.blood_group}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 );
               })}

@@ -628,4 +628,197 @@ describe('Multi-Class Student Enrollments & Lifecycle Integrity Suite', () => {
     const morningRestored = batchesRestored.find(b => b.id === morningBatchId)?.current_enrollment || 0;
     expect(morningRestored).toBe(morningBefore);
   });
+
+  // =========================================================================
+  // 13. Student Batch Transfer & Capacity Enforcement
+  // =========================================================================
+  it('13. Enforces strict capacity blocking and processes valid batch transfer with counters and ID reprint flag', async () => {
+    // Create a full batch (capacity 1, enrollment 1)
+    const fullBatch = await store.createBatch({
+      tenant_id: tenantId,
+      program_id: programId,
+      name: 'Class 10 - Overflow Test Batch',
+      shift: 'evening',
+      max_capacity: 0,
+      fee_amount: 9000,
+      billing_mode: 'monthly',
+    });
+
+    // Attempt transfer into full batch -> must be strictly blocked (400)
+    const blockRes = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/sis/students/${testStudentId}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: {
+        batch_id: fullBatch.id,
+        transfer_reason: 'Testing capacity block',
+      },
+    });
+    expect(blockRes.statusCode).toBe(400);
+    const blockBody = JSON.parse(blockRes.body);
+    expect(blockBody.error.message).toMatch(/maximum capacity/i);
+
+    // Create target batch with available capacity
+    const targetBatch = await store.createBatch({
+      tenant_id: tenantId,
+      program_id: programId,
+      name: 'Class 10 - Transfer Target Batch',
+      shift: 'morning',
+      max_capacity: 35,
+      current_enrollment: 0,
+      fee_amount: 8500,
+      billing_mode: 'monthly',
+    });
+
+    const studentBefore = await store.getStudentById(tenantId, testStudentId);
+    const oldBatchId = studentBefore!.batch_id!;
+    const oldBatchBefore = (await store.getBatches(tenantId)).find(b => b.id === oldBatchId)!.current_enrollment;
+
+    // Successful transfer
+    const transferRes = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/sis/students/${testStudentId}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: {
+        batch_id: targetBatch.id,
+        transfer_effective_date: '2026-09-22',
+        transfer_reason: 'Parent shift timing request',
+      },
+    });
+    expect(transferRes.statusCode).toBe(200);
+
+    const studentAfter = await store.getStudentById(tenantId, testStudentId);
+    expect(studentAfter?.batch_id).toBe(targetBatch.id);
+    expect(studentAfter?.id_card_reprint_required).toBe(true);
+    expect(studentAfter?.transfer_history?.length).toBeGreaterThanOrEqual(1);
+
+    const latestTransfer = studentAfter?.transfer_history?.[studentAfter.transfer_history.length - 1];
+    expect(latestTransfer?.from_batch_id).toBe(oldBatchId);
+    expect(latestTransfer?.to_batch_id).toBe(targetBatch.id);
+    expect(latestTransfer?.reason).toBe('Parent shift timing request');
+    expect(latestTransfer?.effective_date).toBe('2026-09-22');
+
+    // Counters: old batch decremented, target batch incremented
+    const batchesNow = await store.getBatches(tenantId);
+    const oldBatchAfter = batchesNow.find(b => b.id === oldBatchId)!.current_enrollment;
+    const targetBatchAfter = batchesNow.find(b => b.id === targetBatch.id)!.current_enrollment;
+    expect(oldBatchAfter).toBe(oldBatchBefore - 1);
+    expect(targetBatchAfter).toBe(1);
+
+    // Primary enrollment synced
+    const enrollments = await store.getStudentEnrollments(tenantId, testStudentId);
+    const primary = enrollments.find(e => e.is_primary);
+    expect(primary?.batch_id).toBe(targetBatch.id);
+    expect(primary?.id_card_reprint_required).toBe(true);
+  });
+
+  // =========================================================================
+  // 14. Enrollment Specific Transfer via Enrollment PATCH
+  // =========================================================================
+  it('14. Transfers individual enrollment via PATCH /students/:id/enrollments/:enrollmentId with history and sync', async () => {
+    const enrollments = await store.getStudentEnrollments(tenantId, testStudentId);
+    const targetEnrollment = enrollments[0];
+    expect(targetEnrollment).toBeDefined();
+
+    const newSectionBatch = await store.createBatch({
+      tenant_id: tenantId,
+      program_id: programId,
+      name: 'Class 10 - Section B Special',
+      shift: 'evening',
+      max_capacity: 40,
+      current_enrollment: 0,
+      fee_amount: 8200,
+      billing_mode: 'monthly',
+    });
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/sis/students/${testStudentId}/enrollments/${targetEnrollment.id}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: {
+        batch_id: newSectionBatch.id,
+        transfer_effective_date: '2026-09-23',
+        transfer_reason: 'Clerical error correction',
+      },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const updated = await store.getStudentEnrollments(tenantId, testStudentId);
+    const modifiedEnr = updated.find(e => e.id === targetEnrollment.id);
+    expect(modifiedEnr?.batch_id).toBe(newSectionBatch.id);
+    expect(modifiedEnr?.id_card_reprint_required).toBe(true);
+    expect(modifiedEnr?.transfer_history?.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // =========================================================================
+  // 15. Unpaid Fee Challan Sync on Batch Transfer
+  // =========================================================================
+  it('15. Updates unpaid fee challan when update_unpaid_challans is true with new batch tuition', async () => {
+    // Generate an unpaid invoice for test student with 5000 tuition
+    const inv: any = {
+      id: 'inv-test-transfer-01',
+      tenant_id: tenantId,
+      student_id: testStudentId,
+      student_name: 'Hamza Tariq Multi',
+      admission_number: 'ADM-TEST-HAMZA',
+      invoice_number: 'INV-TEST-TRANSFER-01',
+      issue_date: '2026-09-01',
+      due_date: '2026-09-15',
+      status: 'unpaid',
+      paid_amount: 0,
+      total_amount: 5000,
+      balance_due: 5000,
+      items: [
+        {
+          id: 'item-tuition-1',
+          invoice_id: 'inv-test-transfer-01',
+          fee_head_id: 'fh-tuition',
+          head_name: 'Monthly Tuition Fee',
+          head_code: 'tuition',
+          original_amount: 5000,
+          discount_amount: 0,
+          net_amount: 5000,
+          paid_amount: 0,
+          balance_due: 5000,
+        },
+      ],
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    (store as any).invoices.push(inv);
+
+    const higherFeeBatch = await store.createBatch({
+      tenant_id: tenantId,
+      program_id: programId,
+      name: 'Class 10 - Premium Lab Batch',
+      shift: 'morning',
+      max_capacity: 30,
+      current_enrollment: 0,
+      fee_amount: 7500,
+      billing_mode: 'monthly',
+    });
+
+    // Transfer student and request unpaid challan update with new tuition 7500
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/sis/students/${testStudentId}`,
+      headers: { authorization: `Bearer ${adminToken}` },
+      payload: {
+        batch_id: higherFeeBatch.id,
+        fee_structure: { tuition_fee: 7500 },
+        update_unpaid_challans: true,
+        transfer_reason: 'Upgraded to Premium Lab Batch',
+      },
+    });
+    expect(res.statusCode).toBe(200);
+
+    // Verify invoice was updated to 7500
+    const invoices = await store.getInvoices(tenantId);
+    const updatedInv = invoices.find(i => i.id === inv.id);
+    expect(updatedInv).toBeDefined();
+    expect(updatedInv?.total_amount).toBe(7500);
+    expect(updatedInv?.balance_due).toBe(7500);
+    expect(updatedInv?.items[0].net_amount).toBe(7500);
+    expect(updatedInv?.batch_id).toBe(higherFeeBatch.id);
+  });
 });

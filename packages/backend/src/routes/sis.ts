@@ -297,12 +297,17 @@ export function sisRoutes(store: IDataStore) {
       const { id, enrollmentId } = request.params as { id: string; enrollmentId: string };
 
       const schema = z.object({
+        batch_id: z.string().optional(),
+        program_id: z.string().optional(),
         roll_number: z.string().optional(),
         subjects: z.array(z.string()).optional(),
-        elective_group_id: z.string().optional(),
+        elective_group_id: z.string().optional().nullable(),
         fee_structure: z.any().optional(),
         billing_mode: z.enum(['monthly', 'one_time', 'installment']).optional(),
         installment_plan: z.any().optional(),
+        transfer_effective_date: z.string().optional(),
+        transfer_reason: z.string().optional(),
+        update_unpaid_challans: z.boolean().optional(),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -315,7 +320,10 @@ export function sisRoutes(store: IDataStore) {
       }
 
       try {
-        const updated = await store.updateStudentEnrollment(user.tenant_id, id, enrollmentId, parseResult.data);
+        const updated = await store.updateStudentEnrollment(user.tenant_id, id, enrollmentId, {
+          ...parseResult.data,
+          changed_by: user.email || 'Administration',
+        } as any);
         if (!updated) {
           return reply.status(404).send({
             success: false,
@@ -661,12 +669,16 @@ export function sisRoutes(store: IDataStore) {
         photo_url: z.string().optional(),
         batch_id: z.string().optional(),
         program_id: z.string().optional(),
+        elective_group_id: z.string().optional().nullable(),
         subjects: z.array(z.string()).optional(),
         fee_structure: z.any().optional(),
         billing_mode: z.enum(['monthly', 'one_time', 'installment', 'quarterly']).optional(),
         installment_plan: z.any().optional(),
         custom_field_values: z.record(z.any()).optional(),
         audit_reason: z.string().optional(),
+        transfer_effective_date: z.string().optional().nullable(),
+        transfer_reason: z.string().optional().nullable(),
+        update_unpaid_challans: z.boolean().optional(),
         roll_number: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         date_of_birth: z.string().optional().nullable(),
         gender: z.string().optional().nullable(),
@@ -740,7 +752,10 @@ export function sisRoutes(store: IDataStore) {
       }
 
       try {
-        const updated = await store.updateStudent(user.tenant_id, id, parseResult.data);
+        const updated = await store.updateStudent(user.tenant_id, id, {
+          ...parseResult.data,
+          changed_by_name: user.email || 'Administrator',
+        } as any);
         if (!updated) {
           return reply.status(404).send({
             success: false,

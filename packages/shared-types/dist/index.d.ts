@@ -444,6 +444,17 @@ export interface StudentEnrollment {
     program_name?: string;
     batch_name?: string;
     unpaid_balance?: number;
+    id_card_reprint_required?: boolean;
+    transfer_history?: Array<{
+        from_batch_id: string;
+        to_batch_id: string;
+        from_program_id?: string | null;
+        to_program_id?: string | null;
+        effective_date: string;
+        reason?: string;
+        changed_by?: string;
+        timestamp: string;
+    }>;
 }
 export interface Student {
     id: string;
@@ -519,6 +530,17 @@ export interface Student {
     active_enrollments_count?: number;
     enrollment_id?: string;
     enrollments?: StudentEnrollment[];
+    id_card_reprint_required?: boolean;
+    transfer_history?: Array<{
+        from_batch_id: string;
+        to_batch_id: string;
+        from_program_id?: string | null;
+        to_program_id?: string | null;
+        effective_date: string;
+        reason?: string;
+        changed_by?: string;
+        timestamp: string;
+    }>;
     created_at: string;
     updated_at: string;
 }
