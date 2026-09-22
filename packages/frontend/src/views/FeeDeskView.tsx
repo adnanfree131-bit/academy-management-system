@@ -99,6 +99,8 @@ export const FeeDeskView: React.FC = () => {
   const [showCounterDiscount, setShowCounterDiscount] = useState<boolean>(false);
   const [counterDiscounts, setCounterDiscounts] = useState<Record<string, number>>({});
   const [counterDiscountReason, setCounterDiscountReason] = useState<string>('');
+  const [showDiscountSection, setShowDiscountSection] = useState<boolean>(false);
+  const [showAllocationBreakdown, setShowAllocationBreakdown] = useState<boolean>(false);
 
   // Unified Concessions Report Modal State
   const [showConcessionReportModal, setShowConcessionReportModal] = useState<boolean>(false);
@@ -1468,6 +1470,8 @@ export const FeeDeskView: React.FC = () => {
     setPaymentClearingDate('');
     setIsOverrideActive(false);
     setOverrideReason('');
+    setShowDiscountSection(false);
+    setShowAllocationBreakdown(false);
 
     try {
       const res = await fetch('/api/v1/finance/distribute-preview', {
@@ -1528,7 +1532,26 @@ export const FeeDeskView: React.FC = () => {
       return;
     }
 
-    const totalAllocated = distributionItems.reduce((s, i) => s + Number(i.allocated_amount), 0);
+    let currentItems = distributionItems;
+    const currentAllocSum = currentItems.reduce((s, i) => s + Number(i.allocated_amount), 0);
+    if (Math.abs(currentAllocSum - numCollectionAmount) > 0.05 && !isOverrideActive) {
+      try {
+        const previewRes = await fetch('/api/v1/finance/distribute-preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify({ invoice_id: activeInvoice.id, amount: numCollectionAmount }),
+        });
+        const previewData = await previewRes.json();
+        if (previewData.success && Array.isArray(previewData.data)) {
+          currentItems = previewData.data;
+          setDistributionItems(previewData.data);
+        }
+      } catch (err) {
+        console.error('Failed to sync allocation preview:', err);
+      }
+    }
+
+    const totalAllocated = currentItems.reduce((s, i) => s + Number(i.allocated_amount), 0);
     if (Math.abs(totalAllocated - numCollectionAmount) > 0.05) {
       alert(`Allocated sum (${totalAllocated} PKR) must match collected amount (${numCollectionAmount} PKR)`);
       return;
@@ -3948,223 +3971,110 @@ export const FeeDeskView: React.FC = () => {
       )}
 
       {/* ========================================================================= */}
-      {/* EMBEDDED CASHIER DRAWER (SLIDE-OVER ON FEE LEDGER) */}
+      {/* RECEIVE FEE PAYMENT MODAL (CENTERED INSTITUTIONAL DIALOG) */}
       {/* ========================================================================= */}
       {showCashierDrawer && activeInvoice && (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-white/75 backdrop-blur-md flex justify-end">
-          <div className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-200">
-            <div className="p-5 space-y-5">
-              {/* Drawer Header */}
-              <div className="flex justify-between items-start border-b border-slate-200 pb-3.5">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden my-auto max-h-[92vh]">
+            {/* Modal Header */}
+            <div className="px-5 py-3.5 bg-slate-50/90 border-b border-slate-200 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+                  <CreditCard className="w-5 h-5" />
+                </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <CreditCard className="w-5 h-5 text-emerald-600" />
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">
                     Receive Fee Payment
                   </h3>
                   <p className="text-xs text-slate-500 font-mono mt-0.5">
-                    Challan: {activeInvoice.invoice_number} • Month: {activeInvoice.billing_month}
+                    Challan: <span className="font-semibold text-slate-700">{activeInvoice.invoice_number}</span> • Month: <span className="font-semibold text-slate-700">{activeInvoice.billing_month}</span>
                   </p>
                 </div>
-                <button
-                  onClick={() => setShowCashierDrawer(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-                >
-                  <X className="w-5 h-5" />
-                </button>
               </div>
+              <button
+                type="button"
+                onClick={() => setShowCashierDrawer(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              {/* Student Details Card */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex justify-between items-center">
-                <div>
-                  <p className="font-bold text-slate-900 text-sm">{activeInvoice.student_name}</p>
-                  <p className="text-xs text-slate-500 font-mono mt-0.5">
-                    Adm: {activeInvoice.admission_number || activeInvoice.roll_number} • {activeInvoice.batch_name}
-                  </p>
+            {/* Scrollable Modal Body */}
+            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+              {/* Student & Due Summary */}
+              <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Student</span>
+                  <div className="font-bold text-slate-900 text-sm truncate">{activeInvoice.student_name}</div>
+                  <div className="text-xs text-slate-600 font-mono mt-0.5 flex items-center gap-2 flex-wrap">
+                    <span>Adm: <strong className="text-slate-800 font-bold whitespace-nowrap">{activeInvoice.admission_number || activeInvoice.roll_number || '—'}</strong></span>
+                    <span>•</span>
+                    <span className="text-slate-700 font-medium truncate">{activeInvoice.batch_name}</span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-mono text-slate-400 uppercase block">Balance Due</span>
-                  <span className="text-lg font-bold font-mono text-rose-600">
+                <div className="text-right shrink-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Balance Due</span>
+                  <div className="text-lg font-bold font-mono text-rose-600 tabular-nums">
                     PKR {activeInvoice.balance_amount.toLocaleString()}
-                  </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Payment Entry Form */}
               <form onSubmit={handleCommitPayment} id="cashierDrawerForm" className="space-y-4">
-                {/* Quick Payment Action Buttons */}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleAmountChange(activeInvoice.balance_amount)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-colors flex-1"
-                  >
-                    Pay Full (PKR {activeInvoice.balance_amount.toLocaleString()})
-                  </button>
-                  {activeInvoice.balance_amount > 1000 && (
-                    <button
-                      type="button"
-                      onClick={() => handleAmountChange(Math.round(activeInvoice.balance_amount / 2))}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 transition-colors flex-1"
-                    >
-                      Pay 50% (PKR {Math.round(activeInvoice.balance_amount / 2).toLocaleString()})
-                    </button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Amount Received (PKR) *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={collectionAmount}
-                      onChange={e => handleAmountChange(e.target.value === '' ? '' : Number(e.target.value))}
-                      className="w-full px-3 py-2 text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600 text-slate-900"
-                      placeholder="e.g. 1400"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Discount / Concession (PKR)
+                {/* Payment Fields: Amount, Method, Date */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Amount Received (PKR) *
                     </label>
-                    <input
-                      type="number"
-                      min="0"
-                      max={activeInvoice.balance_amount}
-                      value={quickDiscountAmount === 0 ? '' : quickDiscountAmount}
-                      placeholder="0"
-                      onChange={e => {
-                        const disc = Math.min(activeInvoice.balance_amount, Math.max(0, Number(e.target.value) || 0));
-                        setQuickDiscountAmount(disc);
-                        const payable = Math.max(0, activeInvoice.balance_amount - disc);
-                        setCollectionAmount(payable);
-                        void handleAmountChange(payable);
-                      }}
-                      className="w-full px-3 py-2 text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600 text-indigo-700"
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400 font-mono pointer-events-none">PKR</span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={collectionAmount}
+                        onChange={e => handleAmountChange(e.target.value === '' ? '' : Number(e.target.value))}
+                        className="w-full pl-12 pr-3 py-2 text-base font-mono font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-slate-900 tabular-nums"
+                        placeholder="e.g. 1500"
+                        required
+                        autoFocus
+                      />
+                    </div>
                   </div>
+
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Payment Date *</label>
-                    <input
-                      type="date"
-                      value={paymentDate}
-                      onChange={e => setPaymentDate(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-mono font-semibold bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Payment Method</label>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Method *</label>
                     <select
                       value={paymentMethod}
                       onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-600 text-slate-800 font-medium"
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 text-slate-800 font-medium cursor-pointer"
                     >
                       <option value="cash">Cash (Counter)</option>
-                      <option value="bank_transfer">Online Bank Transfer / Meezan IBFT</option>
+                      <option value="bank_transfer">Bank Transfer / Meezan IBFT</option>
                       <option value="easypaisa">EasyPaisa</option>
                       <option value="jazzcash">JazzCash</option>
                       <option value="cheque">Bank Cheque</option>
                     </select>
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Date *</label>
+                    <input
+                      type="date"
+                      value={paymentDate}
+                      onChange={e => setPaymentDate(e.target.value)}
+                      className="w-full px-3 py-2 text-xs font-mono font-medium bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 cursor-pointer"
+                      required
+                    />
+                  </div>
                 </div>
 
-                {quickDiscountAmount > 0 && (
-                  <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-1.5">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-indigo-900 flex items-center gap-1.5">
-                        <Percent className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Discount Applied: PKR {quickDiscountAmount.toLocaleString()}</span>
-                      </span>
-                      <span className="text-[11px] text-indigo-700 font-mono">
-                        Net Payable: PKR {Math.max(0, activeInvoice.balance_amount - quickDiscountAmount).toLocaleString()}
-                      </span>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-indigo-900 mb-1">Mandatory Discount Reason *</label>
-                      <input
-                        type="text"
-                        placeholder="State reason (e.g. Approved by Director, Hardship concession, Staff discount)..."
-                        value={counterDiscountReason}
-                        onChange={e => setCounterDiscountReason(e.target.value)}
-                        className="w-full px-3 py-1.5 text-xs bg-white border border-indigo-300 rounded-lg text-slate-800"
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Head-Wise Counter Concession Option */}
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <Percent className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Itemized Head-Wise Concession (Advanced)</span>
-                    </span>
-                    <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={showCounterDiscount}
-                        onChange={e => setShowCounterDiscount(e.target.checked)}
-                        className="rounded text-indigo-600"
-                      />
-                      <span>Head-Wise Breakdown</span>
-                    </label>
-                  </div>
-
-                  {showCounterDiscount && (
-                    <div className="p-3 bg-indigo-50/20 space-y-3">
-                      <p className="text-[11px] text-slate-500">
-                        Specify head-wise flat concession amounts to reduce before recording payment.
-                      </p>
-                      <div className="space-y-2">
-                        {activeInvoice.items.map(item => (
-                          <div key={item.fee_head_id} className="flex items-center justify-between gap-3 text-xs bg-white p-2 rounded-lg border border-slate-200">
-                            <div>
-                              <span className="font-bold text-slate-800">{item.head_name}</span>
-                              <span className="text-[10px] text-slate-400 font-mono ml-2">Due: PKR {item.balance_due.toLocaleString()}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs text-slate-500">PKR</span>
-                              <input
-                                type="number"
-                                min="0"
-                                max={item.balance_due}
-                                value={counterDiscounts[item.fee_head_id] || ''}
-                                onChange={e => {
-                                  const val = e.target.value === '' ? 0 : Number(e.target.value);
-                                  setCounterDiscounts(prev => ({ ...prev, [item.fee_head_id]: val }));
-                                }}
-                                placeholder="0"
-                                className="w-24 px-2 py-1 text-right text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded"
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Mandatory Reason / Audit Remark *
-                        </label>
-                        <textarea
-                          rows={2}
-                          value={counterDiscountReason}
-                          onChange={e => setCounterDiscountReason(e.target.value)}
-                          placeholder="State operational reason (e.g. Approved by Director, Hardship concession, Staff ward discount)..."
-                          className="w-full p-2 text-xs bg-white border border-slate-300 rounded-lg text-slate-800"
-                          required={showCounterDiscount && Object.values(counterDiscounts).some(v => Number(v) > 0)}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Conditional Fields for Bank / Cheque */}
+                {/* Conditional Bank / Cheque Details */}
                 {(paymentMethod === 'bank_transfer' || paymentMethod === 'cheque') && (
-                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                    <p className="text-[11px] font-bold text-slate-700">Bank / Cheque Verification Particulars</p>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                    <p className="text-[11px] font-bold text-slate-700">Bank / Cheque Details</p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <div>
                         <label className="block text-[10px] text-slate-500 font-semibold mb-0.5">Bank Name</label>
@@ -4173,19 +4083,20 @@ export const FeeDeskView: React.FC = () => {
                           placeholder="e.g. Meezan Bank"
                           value={paymentBankName}
                           onChange={e => setPaymentBankName(e.target.value)}
-                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md"
+                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800"
                         />
                       </div>
                       <div>
                         <label className="block text-[10px] text-slate-500 font-semibold mb-0.5">
-                          {paymentMethod === 'cheque' ? 'Cheque number *' : 'Transaction ref / RRN'}
+                          {paymentMethod === 'cheque' ? 'Cheque # *' : 'Transaction Ref / Trx ID'}
                         </label>
                         <input
                           type="text"
-                          placeholder="e.g. CHQ-991248"
+                          placeholder={paymentMethod === 'cheque' ? 'e.g. CHQ-991248' : 'e.g. TRX-881290'}
                           value={paymentChequeNumber}
                           onChange={e => setPaymentChequeNumber(e.target.value)}
-                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md"
+                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800"
+                          required={paymentMethod === 'cheque'}
                         />
                       </div>
                       <div>
@@ -4194,115 +4105,223 @@ export const FeeDeskView: React.FC = () => {
                           type="date"
                           value={paymentClearingDate}
                           onChange={e => setPaymentClearingDate(e.target.value)}
-                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md"
+                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800"
                         />
                       </div>
                     </div>
                   </div>
                 )}
 
+                {/* Concession / Discount Section (Clean & Collapsible) */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setShowDiscountSection(!showDiscountSection)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50/70 hover:bg-slate-100 flex items-center justify-between text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Percent className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Concession / Discount</span>
+                      {quickDiscountAmount > 0 && (
+                        <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-[10px] font-bold">
+                          -PKR {quickDiscountAmount.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-slate-500 text-[11px] font-normal hover:underline">
+                      {showDiscountSection ? 'Hide' : quickDiscountAmount > 0 ? 'Edit Discount' : '+ Add Discount'}
+                    </span>
+                  </button>
+
+                  {showDiscountSection && (
+                    <div className="p-3 bg-indigo-50/20 border-t border-slate-200 space-y-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">Discount Amount (PKR)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max={activeInvoice.balance_amount}
+                            value={quickDiscountAmount === 0 ? '' : quickDiscountAmount}
+                            placeholder="0"
+                            onChange={e => {
+                              const disc = Math.min(activeInvoice.balance_amount, Math.max(0, Number(e.target.value) || 0));
+                              setQuickDiscountAmount(disc);
+                              const payable = Math.max(0, activeInvoice.balance_amount - disc);
+                              setCollectionAmount(payable);
+                              void handleAmountChange(payable);
+                            }}
+                            className="w-full px-3 py-1.5 text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg text-indigo-700 focus:outline-none focus:border-indigo-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">Approval Reason *</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Director approved, sibling discount"
+                            value={counterDiscountReason}
+                            onChange={e => setCounterDiscountReason(e.target.value)}
+                            className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-indigo-600"
+                            required={quickDiscountAmount > 0}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Optional Note / Reference */}
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Receipt Note / Reference # (Optional)</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Receipt Note / Memo (Optional)</label>
                   <input
                     type="text"
-                    placeholder="e.g. Parent paid at counter"
+                    placeholder="e.g. Paid at counter by father"
                     value={paymentReference}
                     onChange={e => setPaymentReference(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 text-slate-800"
                   />
                 </div>
 
-                {/* Live Payment Allocation Preview */}
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  <div className="bg-slate-50 p-2.5 border-b border-slate-200 flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
-                      Payment Allocation Breakdown
+                {/* Calculation Summary Strip */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Due</span>
+                    <span className="font-mono font-bold text-slate-700 text-xs sm:text-sm">
+                      PKR {activeInvoice.balance_amount.toLocaleString()}
                     </span>
-                    <label className="flex items-center gap-1.5 text-[11px] text-slate-600 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isOverrideActive}
-                        onChange={e => setIsOverrideActive(e.target.checked)}
-                        className="rounded text-indigo-600"
-                      />
-                      <span>Manual Override</span>
-                    </label>
                   </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Receiving</span>
+                    <span className="font-mono font-bold text-emerald-700 text-xs sm:text-sm">
+                      PKR {(Number(collectionAmount) || 0).toLocaleString()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Remaining</span>
+                    {(() => {
+                      const remaining = Math.max(0, activeInvoice.balance_amount - (quickDiscountAmount || 0) - (Number(collectionAmount) || 0));
+                      return (
+                        <span className={`font-mono font-bold text-xs sm:text-sm ${remaining === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                          {remaining === 0 ? 'PKR 0 (Settled)' : `PKR ${remaining.toLocaleString()}`}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
 
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50/50 text-slate-500 font-mono text-[10px] uppercase border-b border-slate-100">
-                      <tr>
-                        <th className="py-1.5 px-3">Fee Head</th>
-                        <th className="py-1.5 px-3 text-right">Due</th>
-                        <th className="py-1.5 px-3 text-right">Allocated</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {distributionItems.map(item => {
-                        const invItem = activeInvoice.items.find(i => i.fee_head_id === item.fee_head_id);
-                        const due = invItem ? invItem.balance_due : 0;
-                        return (
-                          <tr key={item.fee_head_id}>
-                            <td className="py-2 px-3 font-medium text-slate-800">{item.head_name}</td>
-                            <td className="py-2 px-3 text-right font-mono text-slate-500">{due.toLocaleString()}</td>
-                            <td className="py-2 px-3 text-right">
-                              {isOverrideActive ? (
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={item.allocated_amount}
-                                  onChange={e => handleEditAllocation(item.fee_head_id, Number(e.target.value) || 0)}
-                                  className="w-24 px-2 py-1 text-right font-mono font-bold text-xs bg-amber-50 border border-amber-300 rounded"
-                                />
-                              ) : (
-                                <span className="font-mono font-bold text-emerald-600">
-                                  {item.allocated_amount.toLocaleString()} PKR
-                                </span>
-                              )}
-                            </td>
+                {/* Collapsible Advanced Payment Allocation */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllocationBreakdown(!showAllocationBreakdown)}
+                    className="w-full px-3.5 py-2 bg-slate-50/50 hover:bg-slate-100 flex items-center justify-between text-[11px] font-semibold text-slate-600 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Fee Head Allocation Details</span>
+                    </div>
+                    <span className="text-slate-400">{showAllocationBreakdown ? 'Hide Details' : 'Show Details'}</span>
+                  </button>
+
+                  {showAllocationBreakdown && (
+                    <div className="p-3 border-t border-slate-200 space-y-2">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="text-slate-500">Distribution across fee heads</span>
+                        <label className="flex items-center gap-1.5 text-slate-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={isOverrideActive}
+                            onChange={e => setIsOverrideActive(e.target.checked)}
+                            className="rounded text-emerald-600"
+                          />
+                          <span>Manual Override</span>
+                        </label>
+                      </div>
+
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 text-slate-500 font-mono text-[10px] uppercase border-b border-slate-100">
+                          <tr>
+                            <th className="py-1 px-2">Fee Head</th>
+                            <th className="py-1 px-2 text-right">Due</th>
+                            <th className="py-1 px-2 text-right">Allocated</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {distributionItems.map(item => {
+                            const invItem = activeInvoice.items.find(i => i.fee_head_id === item.fee_head_id);
+                            const due = invItem ? invItem.balance_due : 0;
+                            return (
+                              <tr key={item.fee_head_id}>
+                                <td className="py-1.5 px-2 font-medium text-slate-800">{item.head_name}</td>
+                                <td className="py-1.5 px-2 text-right font-mono text-slate-500">{due.toLocaleString()}</td>
+                                <td className="py-1.5 px-2 text-right">
+                                  {isOverrideActive ? (
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={item.allocated_amount}
+                                      onChange={e => handleEditAllocation(item.fee_head_id, Number(e.target.value) || 0)}
+                                      className="w-20 px-2 py-0.5 text-right font-mono font-bold text-xs bg-amber-50 border border-amber-300 rounded"
+                                    />
+                                  ) : (
+                                    <span className="font-mono font-bold text-emerald-600">
+                                      {item.allocated_amount.toLocaleString()} PKR
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
 
-                  {isOverrideActive && (
-                    <div className="p-3 bg-amber-50/50 border-t border-amber-200 space-y-1.5">
-                      <label className="block text-xs font-bold text-amber-900">
-                        Mandatory Reason for Allocation Override *
-                      </label>
-                      <textarea
-                        rows={2}
-                        placeholder="State reason (e.g. Parent requested full payment to tuition first)"
-                        value={overrideReason}
-                        onChange={e => setOverrideReason(e.target.value)}
-                        className="w-full p-2 text-xs bg-white border border-amber-300 rounded-lg text-slate-800"
-                        required
-                      />
+                      {isOverrideActive && (
+                        <div className="p-2 bg-amber-50 border border-amber-200 rounded-lg space-y-1">
+                          <label className="block text-[11px] font-bold text-amber-900">
+                            Reason for Allocation Override *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Parent requested paying tuition first"
+                            value={overrideReason}
+                            onChange={e => setOverrideReason(e.target.value)}
+                            className="w-full px-2.5 py-1 text-xs bg-white border border-amber-300 rounded text-slate-800"
+                            required
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               </form>
             </div>
 
-            {/* Drawer Footer Actions */}
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+            {/* Modal Footer */}
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowCashierDrawer(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-lg"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 form="cashierDrawerForm"
-                disabled={isCommittingPayment}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2"
+                disabled={isCommittingPayment || (Number(collectionAmount) || 0) <= 0}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
               >
-                <Check className="w-4 h-4" />
-                <span>{isCommittingPayment ? 'Committing...' : 'Commit & Issue Receipt'}</span>
+                {isCommittingPayment ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Receiving Payment...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Receive Payment</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
