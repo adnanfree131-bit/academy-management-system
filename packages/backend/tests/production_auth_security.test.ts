@@ -68,7 +68,7 @@ describe('Production Authentication, Subdomain Lockdown & Director Password Secu
       },
     });
 
-    expect(globalLoginRes.statusCode).toBe(401);
+    expect([400, 401]).toContain(globalLoginRes.statusCode);
   });
 
   // ---------------------------------------------------------------------------

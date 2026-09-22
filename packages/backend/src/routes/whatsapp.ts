@@ -2,16 +2,30 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, WhatsAppTemplateCategory, WhatsAppPhoneType } from '@apex/shared-types';
+import { can, FeatureId, AccessLevel } from '../lib/access.js';
 
 export function whatsappRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
     fastify.addHook('onRequest', (fastify as any).authenticate);
+
+    const assertFeature = (user: any, feature: FeatureId, level: AccessLevel, reply: any): boolean => {
+      if (user.role === 'student' || user.role === 'parent' || !can(user, feature, level)) {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: `Access denied. Requires '${feature}' (${level}) permission.` },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
 
     // =========================================================================
     // 1. TEMPLATES MANAGEMENT
     // =========================================================================
     const getTemplatesHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'view', reply)) return;
       const { category } = request.query as { category?: string };
       const templates = await store.getWhatsAppTemplates(user.tenant_id, category);
       return reply.send({ success: true, data: templates, timestamp: new Date().toISOString() });
@@ -21,6 +35,7 @@ export function whatsappRoutes(store: IDataStore) {
 
     const createTemplateHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'edit', reply)) return;
       const schema = z.object({
         title: z.string().min(1),
         category: z.enum(['ABSENCE', 'FEE_REMINDER', 'EXAM_RESULT', 'GENERAL']),
@@ -45,6 +60,7 @@ export function whatsappRoutes(store: IDataStore) {
 
     const updateTemplateHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         title: z.string().optional(),
@@ -77,6 +93,7 @@ export function whatsappRoutes(store: IDataStore) {
 
     const deleteTemplateHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const success = await store.deleteWhatsAppTemplate(user.tenant_id, id);
       if (!success) {
@@ -95,6 +112,8 @@ export function whatsappRoutes(store: IDataStore) {
     // 2. PHONE SANITIZATION & DYNAMIC LINK GENERATOR
     // =========================================================================
     const generateLinkHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'edit', reply)) return;
       const schema = z.object({
         phone: z.string().min(1),
         message: z.string().min(1),
@@ -121,6 +140,7 @@ export function whatsappRoutes(store: IDataStore) {
     // =========================================================================
     const checkDuplicateHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'view', reply)) return;
       const { student_id, category } = request.query as { student_id: string; category: string };
       const check = await store.checkDuplicateAlertToday(user.tenant_id, student_id, category || 'ABSENCE');
       return reply.send({ success: true, data: check, timestamp: new Date().toISOString() });
@@ -130,6 +150,7 @@ export function whatsappRoutes(store: IDataStore) {
 
     const dispatchLogHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'edit', reply)) return;
       const schema = z.object({
         student_id: z.string().min(1),
         recipient_phone: z.string().min(1),
@@ -167,6 +188,7 @@ export function whatsappRoutes(store: IDataStore) {
 
     const getAuditLogsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'view', reply)) return;
       const { student_id } = request.query as { student_id?: string };
       const logs = await store.getWhatsAppAuditLogs(user.tenant_id, student_id);
       return reply.send({ success: true, data: logs, timestamp: new Date().toISOString() });

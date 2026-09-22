@@ -2,11 +2,24 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, StaffMemberRecord, StaffTeachingAssignment, StaffDepartment, EmploymentType, StaffStatus } from '@apex/shared-types';
+import { can, resolveUserAccess, derivePermissions, FeatureId, AccessLevel } from '../lib/access.js';
 
 export function academicRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
     // All routes require authentication
     fastify.addHook('onRequest', (fastify as any).authenticate);
+
+    const assertFeature = (user: any, feature: FeatureId, level: AccessLevel, reply: any): boolean => {
+      if (!can(user, feature, level)) {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: `Access denied. Requires '${feature}' (${level}) permission.` },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
 
     const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
       if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
@@ -23,13 +36,14 @@ export function academicRoutes(store: IDataStore) {
     // --- Programs ---
     fastify.get('/programs', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'classes', 'view', reply)) return;
       const programs = await store.getPrograms(user.tenant_id);
       return reply.send({ success: true, data: programs, timestamp: new Date().toISOString() });
     });
 
     fastify.put('/programs/reorder', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const schema = z.object({
         ordered_ids: z.array(z.string()),
       });
@@ -47,7 +61,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.post('/programs', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const schema = z.object({
         name: z.string().min(1),
         code: z.string().optional().nullable(),
@@ -89,7 +103,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.put('/programs/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
 
       const schema = z.object({
@@ -131,7 +145,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.delete('/programs/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const { transfer_to_program_id } = (request.query || {}) as { transfer_to_program_id?: string };
       const deleted = await store.deleteProgram(user.tenant_id, id, transfer_to_program_id);
@@ -148,13 +162,14 @@ export function academicRoutes(store: IDataStore) {
     // --- Subjects ---
     fastify.get('/subjects', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'classes', 'view', reply)) return;
       const subjects = await store.getSubjects(user.tenant_id);
       return reply.send({ success: true, data: subjects, timestamp: new Date().toISOString() });
     });
 
     fastify.post('/subjects', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const schema = z.object({
         name: z.string().min(1),
         code: z.string().optional().default(''),
@@ -180,7 +195,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.delete('/subjects/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const deleted = await store.deleteSubject(user.tenant_id, id);
       if (!deleted) {
@@ -196,6 +211,7 @@ export function academicRoutes(store: IDataStore) {
     // --- Subject Groups ---
     fastify.get('/groups', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'classes', 'view', reply)) return;
       const { program_id } = request.query as { program_id?: string };
       const groups = await store.getSubjectGroups(user.tenant_id, program_id);
       return reply.send({ success: true, data: groups, timestamp: new Date().toISOString() });
@@ -203,7 +219,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.post('/groups', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const schema = z.object({
         program_id: z.string().min(1),
         name: z.string().min(1),
@@ -230,7 +246,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.delete('/groups/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const deleted = await store.deleteSubjectGroup(user.tenant_id, id);
       if (!deleted) {
@@ -246,6 +262,7 @@ export function academicRoutes(store: IDataStore) {
     // --- Batches ---
     fastify.get('/batches', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'classes', 'view', reply)) return;
       const { program_id, cohort_type } = request.query as { program_id?: string; cohort_type?: 'section' | 'batch' };
       const batches = await store.getBatches(user.tenant_id, program_id, cohort_type);
       return reply.send({ success: true, data: batches, timestamp: new Date().toISOString() });
@@ -253,7 +270,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.post('/batches', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const schema = z.object({
         program_id: z.string().optional().nullable().or(z.literal('')).transform(v => v || undefined),
         name: z.string().min(1),
@@ -303,7 +320,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.put('/batches/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
 
       const schema = z.object({
@@ -357,7 +374,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.delete('/batches/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const { transfer_to_batch_id } = (request.query || {}) as { transfer_to_batch_id?: string };
       const deleted = await store.deleteBatch(user.tenant_id, id, transfer_to_batch_id);
@@ -374,7 +391,13 @@ export function academicRoutes(store: IDataStore) {
     // Student Class Promotion & Section Transfer
     fastify.post('/students/promote', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!can(user, 'classes', 'edit') && !can(user, 'enrollment', 'edit')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: "Access denied. Requires 'classes' (edit) or 'enrollment' (edit) permission." },
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       const schema = z.object({
         student_ids: z.array(z.string().min(1)).min(1, 'At least one student must be selected'),
@@ -409,6 +432,7 @@ export function academicRoutes(store: IDataStore) {
     // --- Custom Fields ---
     fastify.get('/custom-fields', async (request: any, reply) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'enrollment', 'view', reply)) return;
       const { entity_type } = request.query as { entity_type?: 'student' | 'inquiry' };
       const fields = await store.getCustomFields(user.tenant_id, entity_type || 'student');
       return reply.send({ success: true, data: fields, timestamp: new Date().toISOString() });
@@ -416,7 +440,7 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.post('/custom-fields', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const schema = z.object({
         entity_type: z.enum(['student', 'inquiry']),
         field_key: z.string().min(1),
@@ -512,6 +536,7 @@ export function academicRoutes(store: IDataStore) {
     const publicStaff = (u: any): StaffMemberRecord => {
       const meta = u.metadata || {};
       const fallbackCode = `EMP-${u.id.substring(0, 4).toUpperCase()}`;
+      const userAccess = resolveUserAccess(u);
       return {
         id: u.id,
         tenant_id: u.tenant_id,
@@ -543,7 +568,8 @@ export function academicRoutes(store: IDataStore) {
         bank_account_number: meta.bank_account_number || '',
         bank_iban: meta.bank_iban || '',
         teaching_assignments: Array.isArray(meta.teaching_assignments) ? meta.teaching_assignments : [],
-        permissions: Array.isArray(meta.permissions) ? meta.permissions : [],
+        permissions: Array.isArray(meta.permissions) ? meta.permissions : derivePermissions(userAccess),
+        access: userAccess,
         status: (u.status as StaffStatus) || 'active',
         role: u.role,
         avatar_url: u.avatar_url || null,
@@ -667,6 +693,7 @@ export function academicRoutes(store: IDataStore) {
           subject_name: z.string(),
           weekly_periods: z.number().optional(),
         })).optional().nullable(),
+        access: z.record(z.enum(['view', 'edit'])).optional().nullable(),
         permissions: z.array(z.string()).optional().nullable(),
         status: z.enum(['active', 'on_leave', 'inactive', 'archived']).optional().nullable(),
       });
@@ -695,6 +722,7 @@ export function academicRoutes(store: IDataStore) {
           experience_years: parse.data.experience_years ?? 0,
           base_salary: parse.data.base_salary ?? 0,
           teaching_assignments: parse.data.teaching_assignments || [],
+          access: parse.data.access || undefined,
           permissions: parse.data.permissions || [],
           status: parse.data.status || 'active',
         });
@@ -761,6 +789,7 @@ export function academicRoutes(store: IDataStore) {
           subject_name: z.string(),
           weekly_periods: z.number().optional(),
         })).optional().nullable(),
+        access: z.record(z.enum(['view', 'edit'])).optional().nullable(),
         permissions: z.array(z.string()).optional().nullable(),
         status: z.enum(['active', 'on_leave', 'inactive', 'archived']).optional().nullable(),
       });
@@ -820,6 +849,7 @@ export function academicRoutes(store: IDataStore) {
       }
       const { id } = request.params as { id: string };
       const schema = z.object({
+        access: z.record(z.enum(['view', 'edit'])).optional().nullable(),
         permissions: z.array(z.string()).optional(),
         status: z.enum(['active', 'inactive', 'suspended', 'on_leave', 'archived']).optional(),
         designation: z.string().optional(),

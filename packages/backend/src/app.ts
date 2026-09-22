@@ -6,6 +6,8 @@ import fs from 'fs';
 import path from 'path';
 import { IDataStore, InMemoryDataStore } from './services/store.js';
 import { IMailerService, createMailerService } from './services/mailer.js';
+import { User } from '@apex/shared-types';
+import { resolveUserAccess } from './lib/access.js';
 import { authRoutes } from './routes/auth.js';
 import { academicRoutes } from './routes/academic.js';
 import { sisRoutes } from './routes/sis.js';
@@ -29,6 +31,10 @@ export interface AppOptions {
 }
 
 export async function buildApp(options: AppOptions = {}): Promise<FastifyInstance> {
+  if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET && !options.jwtSecret) {
+    throw new Error('FATAL: JWT_SECRET environment variable is required in production.');
+  }
+
   const store = options.store || new InMemoryDataStore();
   if (!options.store && store instanceof InMemoryDataStore) {
     await store.hydrateFromDatabase();
@@ -65,50 +71,92 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       });
     }
 
+    const payload = request.user;
+    const userId = payload?.sub || payload?.user_id;
+    const tenantId = payload?.tenant_id;
+
+    // Load the live user by email/id and tenant_id. If missing, 401.
+    let dbUser: User | null = null;
+    if (payload?.email && tenantId) {
+      dbUser = await store.getUserByEmail(tenantId, payload.email);
+    }
+    if (!dbUser && userId) {
+      dbUser = await store.getUserById(tenantId, userId);
+    }
+    if (!dbUser && payload?.email) {
+      const globalUsers = await store.getUserByEmailGlobal(payload.email);
+      dbUser = globalUsers.find(u => u.role === 'super_admin') || null;
+    }
+    if (!dbUser) {
+      return reply.status(401).send({
+        success: false,
+        error: { code: 'UNAUTHORIZED', message: 'User account no longer exists.' },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     // Account active status revocation check (rejects archived, suspended, or inactive accounts)
-    if (request.user && request.user.tenant_id && request.user.email && request.user.role !== 'super_admin') {
-      const dbUser = await store.getUserByEmail(request.user.tenant_id, request.user.email);
-      if (dbUser && dbUser.status !== 'active') {
-        const errorCode = dbUser.status === 'archived' ? 'ACCOUNT_ARCHIVED' : 'ACCOUNT_NOT_ACTIVE';
+    if (dbUser.status !== 'active') {
+      const errorCode = dbUser.status === 'archived' ? 'ACCOUNT_ARCHIVED' : 'ACCOUNT_NOT_ACTIVE';
+      return reply.status(403).send({
+        success: false,
+        error: {
+          code: errorCode,
+          message: `Your account access has been revoked (status: ${dbUser.status}). Please contact academy administration.`,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Portal blocked restriction
+    const portalBlocked = Boolean((dbUser.metadata as any)?.portal_blocked);
+    if (portalBlocked) {
+      const reqPath = (request.url || '').split('?')[0];
+      const isAllowedPortalPath =
+        reqPath.endsWith('/change-password') ||
+        reqPath.endsWith('/session') ||
+        reqPath.endsWith('/me') ||
+        reqPath.endsWith('/logout');
+      if (!isAllowedPortalPath) {
         return reply.status(403).send({
           success: false,
           error: {
-            code: errorCode,
-            message: `Your account access has been revoked (status: ${dbUser.status}). Please contact academy administration.`,
+            code: 'PORTAL_BLOCKED',
+            message: 'Student portal access has been blocked by the academy.',
           },
           timestamp: new Date().toISOString(),
         });
       }
+    }
 
-      const isMustChange = Boolean(
-        request.user.must_change_password ||
-        (dbUser?.metadata as any)?.must_change_password ||
-        (dbUser?.metadata as any)?.requires_password_change
-      );
-      if (isMustChange) {
-        const reqPath = request.url.split('?')[0];
-        const allowedPaths = [
-          '/api/v1/auth/change-password',
-          '/api/v1/auth/session',
-          '/api/v1/auth/me',
-          '/api/v1/auth/logout',
-        ];
-        if (!allowedPaths.includes(reqPath)) {
-          return reply.status(403).send({
-            success: false,
-            error: {
-              code: 'MUST_CHANGE_PASSWORD',
-              message: 'You must change your default password before accessing the system.',
-            },
-            timestamp: new Date().toISOString(),
-          });
-        }
+    const isMustChange = Boolean(
+      payload.must_change_password ||
+      (dbUser?.metadata as any)?.must_change_password ||
+      (dbUser?.metadata as any)?.requires_password_change
+    );
+    if (isMustChange) {
+      const reqPath = (request.url || '').split('?')[0];
+      const allowedPaths = [
+        '/api/v1/auth/change-password',
+        '/api/v1/auth/session',
+        '/api/v1/auth/me',
+        '/api/v1/auth/logout',
+      ];
+      if (!allowedPaths.includes(reqPath)) {
+        return reply.status(403).send({
+          success: false,
+          error: {
+            code: 'MUST_CHANGE_PASSWORD',
+            message: 'You must change your default password before accessing the system.',
+          },
+          timestamp: new Date().toISOString(),
+        });
       }
     }
 
     // Role-segregated academy suspension check
-    if (request.user && request.user.tenant_id && request.user.role !== 'super_admin') {
-      const tenant = await store.getTenantById(request.user.tenant_id);
+    if (tenantId && dbUser.role !== 'super_admin') {
+      const tenant = await store.getTenantById(tenantId);
       if (tenant && tenant.status === 'suspended') {
         const url = request.url || '';
         const isAllowedBillingPath =
@@ -119,7 +167,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
           url.includes('/auth/me') ||
           url.includes('/tenant/active-popup');
 
-        if (request.user.role === 'tenant_admin' && isAllowedBillingPath) {
+        if (dbUser.role === 'tenant_admin' && isAllowedBillingPath) {
           // Allow tenant_admin/director restricted access to billing settlement desk
         } else {
           return reply.status(403).send({
@@ -135,6 +183,26 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
         }
       }
     }
+
+    // Put live role, live access map, teaching_assignments, and portal_blocked on request.user
+    const liveRole = dbUser.role;
+    const liveAccess = resolveUserAccess(dbUser);
+    const teachingAssignments = Array.isArray(dbUser.metadata?.teaching_assignments)
+      ? dbUser.metadata.teaching_assignments
+      : [];
+
+    request.user = {
+      ...payload,
+      id: dbUser.id,
+      sub: dbUser.id,
+      user_id: dbUser.id,
+      email: dbUser.email,
+      role: liveRole,
+      access: liveAccess,
+      teaching_assignments: teachingAssignments,
+      portal_blocked: portalBlocked,
+      status: dbUser.status,
+    };
   });
 
   // Decorate fastify with role-based access control preHandler

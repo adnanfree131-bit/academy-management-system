@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, InquiryStage } from '@apex/shared-types';
+import { can, batchScope, FeatureId, AccessLevel } from '../lib/access.js';
 
 export function sisRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -9,6 +10,18 @@ export function sisRoutes(store: IDataStore) {
     fastify.addHook('onRequest', (fastify as any).authenticate);
 
     const STAFF_ROLES = ['tenant_admin', 'academic_head', 'teacher', 'finance_manager'];
+
+    const assertFeature = (user: any, feature: FeatureId, level: AccessLevel, reply: any): boolean => {
+      if (!can(user, feature, level)) {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: `Access denied. Requires '${feature}' (${level}) permission.` },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
 
     const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
       if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
@@ -22,8 +35,8 @@ export function sisRoutes(store: IDataStore) {
       return true;
     };
 
-    const canAccessStudent = async (user: JWTPayload, studentId: string): Promise<boolean> => {
-      if (user.role === 'super_admin' || STAFF_ROLES.includes(user.role)) {
+    const canAccessStudent = async (user: any, studentId: string): Promise<boolean> => {
+      if (user.role === 'super_admin' || user.role === 'tenant_admin') {
         return true;
       }
       const student = await store.getStudentById(user.tenant_id, studentId);
@@ -55,20 +68,28 @@ export function sisRoutes(store: IDataStore) {
         return false;
       }
 
+      // Staff member: must have enrollment view AND be within batchScope
+      if (!can(user, 'enrollment', 'view')) return false;
+
+      const scope = batchScope(user);
+      if (scope === 'all') return true;
+      if (Array.isArray(scope)) {
+        return student.batch_id ? scope.includes(student.batch_id) : false;
+      }
       return false;
     };
 
     // --- Inquiries Desk ---
     fastify.get('/inquiries', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, STAFF_ROLES, reply)) return;
+      if (!assertFeature(user, 'enrollment', 'view', reply)) return;
       const inquiries = await store.getInquiries(user.tenant_id);
       return reply.send({ success: true, data: inquiries, timestamp: new Date().toISOString() });
     });
 
     fastify.post('/inquiries', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, STAFF_ROLES, reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const schema = z.object({
         student_name: z.string().min(1),
         phone: z.string().min(1),
@@ -104,7 +125,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.patch('/inquiries/:id/stage', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, STAFF_ROLES, reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         stage: z.enum(['new', 'follow_up', 'trial_scheduled', 'trial_attended', 'fee_discussion', 'admitted', 'closed']),
@@ -134,7 +155,7 @@ export function sisRoutes(store: IDataStore) {
     // 1-Click Admit from Inquiry into Batch
     fastify.post('/inquiries/:id/admit', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         batch_id: z.string().min(1),
@@ -178,9 +199,13 @@ export function sisRoutes(store: IDataStore) {
     // --- Student Directory / SIS ---
     fastify.get('/students', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, STAFF_ROLES, reply)) return;
+      if (!assertFeature(user, 'enrollment', 'view', reply)) return;
       const { batch_id } = request.query as { batch_id?: string };
-      const students = await store.getStudents(user.tenant_id, batch_id);
+      let students = await store.getStudents(user.tenant_id, batch_id);
+      const scope = batchScope(user);
+      if (Array.isArray(scope)) {
+        students = students.filter(s => s.batch_id ? scope.includes(s.batch_id) : false);
+      }
       return reply.send({ success: true, data: students, timestamp: new Date().toISOString() });
     });
 
@@ -244,7 +269,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.post('/students/:id/enrollments', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
 
       const schema = z.object({
@@ -293,7 +318,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.patch('/students/:id/enrollments/:enrollmentId', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id, enrollmentId } = request.params as { id: string; enrollmentId: string };
 
       const schema = z.object({
@@ -343,7 +368,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.post('/students/:id/enrollments/:enrollmentId/status', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id, enrollmentId } = request.params as { id: string; enrollmentId: string };
 
       const schema = z.object({
@@ -390,7 +415,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.post('/students/:id/enrollments/:enrollmentId/make-primary', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id, enrollmentId } = request.params as { id: string; enrollmentId: string };
 
       try {
@@ -414,7 +439,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.post('/students', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const rawBody = request.body || {};
       const derivedPhone = rawBody.phone || '';
       const derivedFullName = rawBody.full_name || `${rawBody.first_name || ''} ${rawBody.last_name || ''}`.trim() || 'Enrolled Student';
@@ -557,7 +582,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.post('/students/bulk-import', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
 
       const studentRowSchema = z.object({
         full_name: z.string().min(1),
@@ -637,7 +662,7 @@ export function sisRoutes(store: IDataStore) {
 
     fastify.patch('/students/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
 
       if (request.body && 'status' in request.body && request.body.status !== undefined) {
@@ -783,7 +808,7 @@ export function sisRoutes(store: IDataStore) {
     // Administrative Student Portal Password Reset
     fastify.post('/students/:id/reset-password', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
 
       const schema = z.object({
@@ -834,7 +859,7 @@ export function sisRoutes(store: IDataStore) {
     // Administrative Student Status Transition & Exit Regularization
     fastify.post('/students/:id/status', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
 
       const schema = z.object({
@@ -884,7 +909,7 @@ export function sisRoutes(store: IDataStore) {
     // Dedicated Archive Student Endpoint
     fastify.post('/students/:id/archive', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
 
       const schema = z.object({
@@ -937,7 +962,7 @@ export function sisRoutes(store: IDataStore) {
     // Dedicated Unarchive / Restore Student Endpoint
     fastify.post('/students/:id/unarchive', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
 
       const schema = z.object({
@@ -1034,7 +1059,7 @@ export function sisRoutes(store: IDataStore) {
     // Bulk Archive Students Endpoint
     fastify.post('/students/bulk-archive', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
 
       const schema = z.object({
         student_ids: z.array(z.string()).min(1, 'At least one student ID is required'),

@@ -1,6 +1,14 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { ALL_PORTAL_DESKS, PORTAL_GROUPS, deskCount } from '../lib/portalAccess';
+import {
+  PORTAL_GROUPS,
+  ALL_FEATURE_IDS,
+  deskCount,
+  UserAccessMap,
+  ROLE_DEFAULT_TEMPLATES,
+  derivePermissions,
+  resolveUserAccessMap,
+} from '../lib/portalAccess';
 import { QRCodeSVG } from '../lib/qrCode';
 import {
   StaffMemberRecord,
@@ -18,7 +26,6 @@ import {
   Search,
   X,
   ShieldCheck,
-  ShieldOff,
   RefreshCw,
   Check,
   Edit2,
@@ -99,6 +106,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   >('personal');
 
   const [accessDrawerStaff, setAccessDrawerStaff] = useState<StaffMemberRecord | null>(null);
+  const [drawerAccess, setDrawerAccess] = useState<UserAccessMap>({});
   const [savingAccessId, setSavingAccessId] = useState<string | null>(null);
 
   const [teachingModalStaff, setTeachingModalStaff] = useState<StaffMemberRecord | null>(null);
@@ -156,7 +164,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
     bank_account_title: '',
     bank_account_number: '',
     bank_iban: '',
-    permissions: ['attendance', 'homework', 'exams'] as string[],
+    access: { ...ROLE_DEFAULT_TEMPLATES.teacher } as UserAccessMap,
+    permissions: derivePermissions(ROLE_DEFAULT_TEMPLATES.teacher),
     status: 'active' as StaffStatus,
   };
 
@@ -309,8 +318,11 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   // Open Create Modal
   const openCreateModal = () => {
     setEditingStaff(null);
+    const defaultAccess = { ...ROLE_DEFAULT_TEMPLATES.teacher };
     setForm({
       ...initialFormState,
+      access: defaultAccess,
+      permissions: derivePermissions(defaultAccess),
       department: (availableDepartments[0] || 'Science') as StaffDepartment,
     });
     setDossierTab('personal');
@@ -321,6 +333,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   // Open Edit Modal
   const openEditModal = (staff: StaffMemberRecord) => {
     setEditingStaff(staff);
+    const resolvedAccess = resolveUserAccessMap(staff.role, staff.permissions, staff.access);
     setForm({
       full_name: staff.full_name || '',
       email: staff.email || '',
@@ -348,7 +361,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       bank_account_title: staff.bank_account_title || '',
       bank_account_number: staff.bank_account_number || '',
       bank_iban: staff.bank_iban || '',
-      permissions: staff.permissions || [],
+      access: resolvedAccess,
+      permissions: derivePermissions(resolvedAccess),
       status: staff.status || 'active',
     });
     setDossierTab('personal');
@@ -370,6 +384,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
 
     const payload: any = {
       ...form,
+      access: form.access,
+      permissions: derivePermissions(form.access),
       experience_years: Number(form.experience_years) || 0,
       base_salary: Number(form.base_salary) || 0,
     };
@@ -404,57 +420,51 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   };
 
   // Preset Applicator
-  const applyPreset = (preset: 'teacher' | 'accountant' | 'coordinator' | 'all' | 'clear') => {
-    let perms: string[] = [];
+  const applyPreset = (preset: 'teacher' | 'accountant' | 'academic_head' | 'clear') => {
+    let nextAccess: UserAccessMap = {};
     if (preset === 'teacher') {
-      perms = ['attendance', 'homework', 'exams', 'timetable'];
+      nextAccess = { ...ROLE_DEFAULT_TEMPLATES.teacher };
     } else if (preset === 'accountant') {
-      perms = ['voucher', 'expenses', 'payroll'];
-    } else if (preset === 'coordinator') {
-      perms = [
-        'enrollment',
-        'id_cards',
-        'classes',
-        'timetable',
-        'attendance',
-        'absentee',
-        'complaints',
-      ];
-    } else if (preset === 'all') {
-      perms = ALL_PORTAL_DESKS.map(d => d.id);
+      nextAccess = { ...ROLE_DEFAULT_TEMPLATES.finance_manager };
+    } else if (preset === 'academic_head') {
+      nextAccess = { ...ROLE_DEFAULT_TEMPLATES.academic_head };
+    } else if (preset === 'clear') {
+      nextAccess = {};
     }
-    setForm(prev => ({ ...prev, permissions: perms }));
+    setForm(prev => ({
+      ...prev,
+      access: nextAccess,
+      permissions: derivePermissions(nextAccess),
+    }));
   };
 
   // Quick Access Toggle in Drawer
-  const saveDrawerAccess = async (staff: StaffMemberRecord, newPermissions: string[]) => {
+  const openAccessDrawer = (staff: StaffMemberRecord) => {
+    const resolved = resolveUserAccessMap(staff.role, staff.permissions, staff.access);
+    setDrawerAccess(resolved);
+    setAccessDrawerStaff(staff);
+  };
+
+  const saveDrawerAccess = async (staff: StaffMemberRecord, newAccess: UserAccessMap) => {
     if (!token) return;
     setSavingAccessId(staff.id);
+    const newPermissions = derivePermissions(newAccess);
     try {
       const res = await fetch(`/api/v1/academic/staff/${staff.id}/access`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permissions: newPermissions }),
+        body: JSON.stringify({ access: newAccess, permissions: newPermissions }),
       });
       const body = await res.json();
       if (!res.ok) throw new Error(body.error?.message || 'Could not update access.');
-      setRows(prev => prev.map(r => (r.id === staff.id ? { ...r, permissions: newPermissions } : r)));
-      setAccessDrawerStaff(prev => (prev ? { ...prev, permissions: newPermissions } : null));
+      setRows(prev => prev.map(r => (r.id === staff.id ? { ...r, access: newAccess, permissions: newPermissions } : r)));
+      setAccessDrawerStaff(prev => (prev ? { ...prev, access: newAccess, permissions: newPermissions } : null));
       notifySuccess(`Access permissions for ${staff.full_name} updated.`);
     } catch (err: any) {
       setError(err.message || 'Error saving access.');
     } finally {
       setSavingAccessId(null);
     }
-  };
-
-  const toggleDrawerDesk = (deskId: string) => {
-    if (!accessDrawerStaff) return;
-    const exists = accessDrawerStaff.permissions.includes(deskId);
-    const next = exists
-      ? accessDrawerStaff.permissions.filter(p => p !== deskId)
-      : [...accessDrawerStaff.permissions, deskId];
-    saveDrawerAccess(accessDrawerStaff, next);
   };
 
   // Teaching Allocations
@@ -1031,7 +1041,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                                   type="button"
                                   onClick={() => {
                                     setActiveActionMenuId(null);
-                                    setAccessDrawerStaff(row);
+                                    openAccessDrawer(row);
                                   }}
                                   className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors font-medium"
                                 >
@@ -1706,7 +1716,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 </div>
               )}
 
-              {/* Tab 4: Access Presets */}
+              {/* Tab 4: Access Presets & Permissions */}
               {dossierTab === 'access' && (
                 <div className="space-y-4">
                   {/* Preset Buttons */}
@@ -1718,76 +1728,114 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                       <button
                         type="button"
                         onClick={() => applyPreset('teacher')}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-800"
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-800 cursor-pointer"
                       >
                         Teacher Preset
                       </button>
                       <button
                         type="button"
                         onClick={() => applyPreset('accountant')}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-800"
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-800 cursor-pointer"
                       >
                         Accountant Preset
                       </button>
                       <button
                         type="button"
-                        onClick={() => applyPreset('coordinator')}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-800"
+                        onClick={() => applyPreset('academic_head')}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-800 cursor-pointer"
                       >
-                        Coordinator Preset
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyPreset('all')}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-semibold text-white"
-                      >
-                        Full Administrator Access
+                        Academic Head Preset
                       </button>
                       <button
                         type="button"
                         onClick={() => applyPreset('clear')}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
                       >
                         Clear All
                       </button>
                     </div>
                   </div>
 
-                  {/* Desk Checkboxes */}
-                  <div className="space-y-4 pt-2">
+                  {/* All Classes Scope Switch */}
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-amber-50/40">
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">All Classes Scope</p>
+                      <p className="text-[10px] text-slate-500">Apply student/attendance/homework/exam features to the whole academy</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(form.access?.all_classes)}
+                        onChange={e => {
+                          const next = { ...(form.access || {}) };
+                          if (e.target.checked) next.all_classes = 'edit';
+                          else delete next.all_classes;
+                          setForm({ ...form, access: next, permissions: derivePermissions(next) });
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Feature Groups with View & Edit Checkboxes */}
+                  <div className="space-y-4 pt-1">
                     {PORTAL_GROUPS.map(group => (
                       <div key={group.group} className="border border-slate-200 rounded-xl p-3 bg-slate-50/50">
                         <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-2">
                           {group.group}
                         </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {group.desks.map(desk => {
-                            const isChecked = form.permissions.includes(desk.id);
+                        <div className="space-y-1.5">
+                          {group.features.map(feat => {
+                            const level = form.access?.[feat.id];
+                            const hasView = level === 'view' || level === 'edit';
+                            const hasEdit = level === 'edit';
                             return (
-                              <label
-                                key={desk.id}
-                                className={`flex items-start gap-2.5 p-2 rounded-lg border cursor-pointer transition-colors ${
-                                  isChecked
-                                    ? 'bg-emerald-50/70 border-emerald-300'
-                                    : 'bg-white border-slate-200 hover:bg-slate-50'
-                                }`}
+                              <div
+                                key={feat.id}
+                                className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50/80 transition-colors"
                               >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={e => {
-                                    const next = e.target.checked
-                                      ? [...form.permissions, desk.id]
-                                      : form.permissions.filter(p => p !== desk.id);
-                                    setForm({ ...form, permissions: next });
-                                  }}
-                                  className="mt-0.5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
-                                />
-                                <div className="min-w-0">
-                                  <p className="text-xs font-semibold text-slate-900">{desk.label}</p>
-                                  <p className="text-[10px] text-slate-500 leading-tight">{desk.hint}</p>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-semibold text-slate-900">{feat.label}</p>
+                                  <p className="text-[10px] text-slate-500 leading-tight">{feat.hint}</p>
                                 </div>
-                              </label>
+                                <div className="flex items-center gap-4 shrink-0 text-xs">
+                                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={hasView}
+                                      onChange={e => {
+                                        const next = { ...(form.access || {}) };
+                                        if (!e.target.checked) {
+                                          delete next[feat.id];
+                                        } else {
+                                          next[feat.id] = next[feat.id] === 'edit' ? 'edit' : 'view';
+                                        }
+                                        setForm({ ...form, access: next, permissions: derivePermissions(next) });
+                                      }}
+                                      className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                                    />
+                                    <span className={`text-[11px] font-medium ${hasView ? 'text-slate-900 font-bold' : 'text-slate-500'}`}>View</span>
+                                  </label>
+                                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                    <input
+                                      type="checkbox"
+                                      checked={hasEdit}
+                                      onChange={e => {
+                                        const next = { ...(form.access || {}) };
+                                        if (e.target.checked) {
+                                          next[feat.id] = 'edit';
+                                        } else {
+                                          next[feat.id] = 'view';
+                                        }
+                                        setForm({ ...form, access: next, permissions: derivePermissions(next) });
+                                      }}
+                                      className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                                    />
+                                    <span className={`text-[11px] font-medium ${hasEdit ? 'text-amber-700 font-bold' : 'text-slate-500'}`}>Edit</span>
+                                  </label>
+                                </div>
+                              </div>
                             );
                           })}
                         </div>
@@ -1801,7 +1849,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
             {/* Modal Footer */}
             <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
               <span className="text-[11px] text-slate-500 font-medium">
-                {form.permissions.length} of {totalDesks} portal desks granted
+                {Object.keys(form.access || {}).length} of {ALL_FEATURE_IDS.length} features granted
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -1828,15 +1876,16 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* ========================================================================= */}
       {accessDrawerStaff && (
         <div className="fixed inset-0 z-[80] bg-slate-900/40 backdrop-blur-sm flex justify-end">
-          <div className="w-full max-w-md h-full bg-white border-l border-slate-200 flex flex-col shadow-2xl">
+          <div className="w-full max-w-lg h-full bg-white border-l border-slate-200 flex flex-col shadow-2xl">
+            {/* Drawer Header */}
             <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between bg-slate-50">
               <div>
-                <h2 className="text-sm font-bold text-slate-900">Portal Access Desks</h2>
+                <h2 className="text-sm font-bold text-slate-900">Feature Access Control</h2>
                 <p className="text-xs text-slate-700 font-medium mt-0.5">
-                  {accessDrawerStaff.full_name} ({accessDrawerStaff.employee_code})
+                  {accessDrawerStaff.full_name} ({accessDrawerStaff.employee_code}) · {accessDrawerStaff.designation || accessDrawerStaff.role}
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  {accessDrawerStaff.permissions.length} of {totalDesks} desks open
+                  {Object.keys(drawerAccess || {}).length} of {ALL_FEATURE_IDS.length} features granted
                 </p>
               </div>
               <button
@@ -1848,54 +1897,119 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               </button>
             </div>
 
-            <div className="px-5 py-2.5 border-b border-slate-200 bg-white flex gap-2">
+            {/* Role Presets */}
+            <div className="px-5 py-2.5 border-b border-slate-200 bg-white flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-semibold text-slate-500 mr-1">Presets:</span>
               <button
                 type="button"
-                onClick={() => saveDrawerAccess(accessDrawerStaff, ALL_PORTAL_DESKS.map(d => d.id))}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white"
+                onClick={() => setDrawerAccess({ ...ROLE_DEFAULT_TEMPLATES.teacher })}
+                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800"
               >
-                Grant All
+                Teacher
               </button>
               <button
                 type="button"
-                onClick={() => saveDrawerAccess(accessDrawerStaff, [])}
-                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
+                onClick={() => setDrawerAccess({ ...ROLE_DEFAULT_TEMPLATES.finance_manager })}
+                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800"
               >
-                Revoke All
+                Accountant
+              </button>
+              <button
+                type="button"
+                onClick={() => setDrawerAccess({ ...ROLE_DEFAULT_TEMPLATES.academic_head })}
+                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800"
+              >
+                Academic Head
+              </button>
+              <button
+                type="button"
+                onClick={() => setDrawerAccess({})}
+                className="px-2.5 py-1 text-[11px] font-semibold rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 ml-auto"
+              >
+                Clear
               </button>
             </div>
 
+            {/* Drawer Body */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* All Classes Scope Switch */}
+              <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-amber-50/40">
+                <div>
+                  <p className="text-xs font-bold text-slate-900">All Classes Scope</p>
+                  <p className="text-[10px] text-slate-500">Apply student/attendance/homework/exam features to whole academy</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(drawerAccess?.all_classes)}
+                    onChange={e => {
+                      const next = { ...(drawerAccess || {}) };
+                      if (e.target.checked) next.all_classes = 'edit';
+                      else delete next.all_classes;
+                      setDrawerAccess(next);
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                </label>
+              </div>
+
+              {/* Feature Groups */}
               {PORTAL_GROUPS.map(group => (
-                <div key={group.group}>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                <div key={group.group} className="border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                  <p className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-2">
                     {group.group}
                   </p>
                   <div className="space-y-1.5">
-                    {group.desks.map(desk => {
-                      const on = accessDrawerStaff.permissions.includes(desk.id);
+                    {group.features.map(feat => {
+                      const level = drawerAccess?.[feat.id];
+                      const hasView = level === 'view' || level === 'edit';
+                      const hasEdit = level === 'edit';
                       return (
                         <div
-                          key={desk.id}
-                          className="flex items-center justify-between gap-3 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/50"
+                          key={feat.id}
+                          className="flex items-center justify-between gap-3 p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50/80 transition-colors"
                         >
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-slate-900">{desk.label}</p>
-                            <p className="text-[10px] text-slate-500 leading-tight">{desk.hint}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-slate-900">{feat.label}</p>
+                            <p className="text-[10px] text-slate-500 leading-tight">{feat.hint}</p>
                           </div>
-                          <button
-                            type="button"
-                            disabled={savingAccessId === accessDrawerStaff.id}
-                            onClick={() => toggleDrawerDesk(desk.id)}
-                            className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${
-                              on
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-                            }`}
-                          >
-                            {on ? <ShieldCheck className="w-3.5 h-3.5" /> : <ShieldOff className="w-3.5 h-3.5" />}
-                            {on ? 'Open' : 'Off'}
-                          </button>
+                          <div className="flex items-center gap-4 shrink-0 text-xs">
+                            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={hasView}
+                                onChange={e => {
+                                  const next = { ...(drawerAccess || {}) };
+                                  if (!e.target.checked) {
+                                    delete next[feat.id];
+                                  } else {
+                                    next[feat.id] = next[feat.id] === 'edit' ? 'edit' : 'view';
+                                  }
+                                  setDrawerAccess(next);
+                                }}
+                                className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                              />
+                              <span className={`text-[11px] font-medium ${hasView ? 'text-slate-900 font-bold' : 'text-slate-500'}`}>View</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={hasEdit}
+                                onChange={e => {
+                                  const next = { ...(drawerAccess || {}) };
+                                  if (e.target.checked) {
+                                    next[feat.id] = 'edit';
+                                  } else {
+                                    next[feat.id] = 'view';
+                                  }
+                                  setDrawerAccess(next);
+                                }}
+                                className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                              />
+                              <span className={`text-[11px] font-medium ${hasEdit ? 'text-amber-700 font-bold' : 'text-slate-500'}`}>Edit</span>
+                            </label>
+                          </div>
                         </div>
                       );
                     })}
@@ -1904,9 +2018,29 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               ))}
             </div>
 
-            <div className="px-5 py-3 border-t border-slate-200 bg-slate-50 text-[11px] text-slate-500 flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5 text-emerald-600" />
-              Permissions apply immediately on the next navigation request.
+            {/* Drawer Footer */}
+            <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Takes effect on next request</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAccessDrawerStaff(null)}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={savingAccessId === accessDrawerStaff.id}
+                  onClick={() => saveDrawerAccess(accessDrawerStaff, drawerAccess)}
+                  className="px-4 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {savingAccessId === accessDrawerStaff.id ? 'Saving...' : 'Save Access'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

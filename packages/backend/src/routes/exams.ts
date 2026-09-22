@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, ExamQuestionType, QuestionDifficulty, ExamStatus, EvaluationStatus } from '@apex/shared-types';
+import { can, batchScope } from '../lib/access.js';
 
 export function examRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -24,6 +25,13 @@ export function examRoutes(store: IDataStore) {
     // =========================================================================
     const getChaptersHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!can(user, 'exams_bank', 'view')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires exams_bank view permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const { subject_id, program_id } = request.query as { subject_id?: string; program_id?: string };
       const chapters = await store.getQuestionChapters(user.tenant_id, subject_id, program_id);
       return reply.send({ success: true, data: chapters, timestamp: new Date().toISOString() });
@@ -33,7 +41,13 @@ export function examRoutes(store: IDataStore) {
 
     const createChapterHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
+      if (!can(user, 'exams_bank', 'edit')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires exams_bank edit permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const schema = z.object({
         program_id: z.string().min(1),
         subject_id: z.string().min(1),
@@ -61,6 +75,13 @@ export function examRoutes(store: IDataStore) {
     // =========================================================================
     const getQuestionsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (user.role === 'student' || user.role === 'parent' || !can(user, 'exams_bank', 'view')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Question bank access requires exams_bank view permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const { chapter_id, subject_id, type, is_quiz_bank } = request.query as {
         chapter_id?: string;
         subject_id?: string;
@@ -68,12 +89,18 @@ export function examRoutes(store: IDataStore) {
         is_quiz_bank?: string;
       };
 
-      const questions = await store.getBankQuestions(user.tenant_id, {
+      let questions = await store.getBankQuestions(user.tenant_id, {
         chapterId: chapter_id,
         subjectId: subject_id,
         type,
         isQuizBank: is_quiz_bank !== undefined ? is_quiz_bank === 'true' : undefined
       });
+      if (!can(user, 'exams_bank', 'view')) {
+        questions = questions.map((q: any) => {
+          const { correct_option, ...rest } = q;
+          return rest;
+        });
+      }
       return reply.send({ success: true, data: questions, timestamp: new Date().toISOString() });
     };
     fastify.get('/questions', getQuestionsHandler);
@@ -81,7 +108,13 @@ export function examRoutes(store: IDataStore) {
 
     const createQuestionHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
+      if (!can(user, 'exams_bank', 'edit')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires exams_bank edit permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const schema = z.object({
         chapter_id: z.string().optional().nullable(),
         subject_id: z.string().min(1),
@@ -112,7 +145,13 @@ export function examRoutes(store: IDataStore) {
 
     const deleteQuestionHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
+      if (!can(user, 'exams_bank', 'edit')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires exams_bank edit permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const { id } = request.params as { id: string };
       const success = await store.deleteBankQuestion(user.tenant_id, id);
       if (!success) {
@@ -132,6 +171,13 @@ export function examRoutes(store: IDataStore) {
     // =========================================================================
     const importExcelHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!can(user, 'exams_bank', 'edit')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires exams_bank edit permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const schema = z.object({
         subject_id: z.string().min(1),
         program_id: z.string().min(1),
@@ -182,6 +228,14 @@ export function examRoutes(store: IDataStore) {
     // =========================================================================
     const getExamsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      const hasView = can(user, 'exams_bank', 'view') || can(user, 'exams_marks', 'view') || can(user, 'exams_reports', 'view');
+      if (user.role === 'student' || user.role === 'parent' || !hasView) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires examination view permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const { batch_id, subject_id } = request.query as { batch_id?: string; subject_id?: string };
       const exams = await store.getExams(user.tenant_id, batch_id, subject_id);
       return reply.send({ success: true, data: exams, timestamp: new Date().toISOString() });
@@ -191,6 +245,14 @@ export function examRoutes(store: IDataStore) {
 
     const getExamByIdHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      const hasView = can(user, 'exams_bank', 'view') || can(user, 'exams_marks', 'view') || can(user, 'exams_reports', 'view');
+      if (user.role === 'student' || user.role === 'parent' || !hasView) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires examination view permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const { id } = request.params as { id: string };
       const exam = await store.getExamById(user.tenant_id, id);
       if (!exam) {
@@ -207,7 +269,13 @@ export function examRoutes(store: IDataStore) {
 
     const createExamHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
+      if (!can(user, 'exams_bank', 'edit') && !can(user, 'exams_marks', 'edit')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires exams_bank or exams_marks edit permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const schema = z.object({
         batch_id: z.string().min(1),
         subject_id: z.string().min(1),
@@ -253,7 +321,13 @@ export function examRoutes(store: IDataStore) {
 
     const updateExamHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
+      if (!can(user, 'exams_bank', 'edit') && !can(user, 'exams_marks', 'edit')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires exams_bank or exams_marks edit permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const { id } = request.params as { id: string };
       const schema = z.object({
         title: z.string().optional(),
@@ -295,8 +369,22 @@ export function examRoutes(store: IDataStore) {
     // =========================================================================
     const getExamQuestionsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      const hasView = can(user, 'exams_bank', 'view') || can(user, 'exams_marks', 'view') || can(user, 'exams_reports', 'view');
+      if (user.role === 'student' || user.role === 'parent' || !hasView) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires examination view permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const { id } = request.params as { id: string };
-      const questions = await store.getExamQuestions(user.tenant_id, id);
+      let questions = await store.getExamQuestions(user.tenant_id, id);
+      if (!can(user, 'exams_bank', 'view')) {
+        questions = questions.map((q: any) => {
+          const { correct_option, ...rest } = q;
+          return rest;
+        });
+      }
       return reply.send({ success: true, data: questions, timestamp: new Date().toISOString() });
     };
     fastify.get('/:id/questions', getExamQuestionsHandler);
@@ -304,7 +392,13 @@ export function examRoutes(store: IDataStore) {
 
     const addExamQuestionsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
+      if (!can(user, 'exams_bank', 'edit') && !can(user, 'exams_marks', 'edit')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires exams_bank or exams_marks edit permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const { id } = request.params as { id: string };
       const schema = z.object({
         questions: z.array(z.object({
@@ -346,8 +440,25 @@ export function examRoutes(store: IDataStore) {
     // =========================================================================
     const evaluateHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
+      if (!can(user, 'exams_marks', 'edit')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires exams_marks edit permission.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const { id } = request.params as { id: string };
+      const exam = await store.getExamById(user.tenant_id, id);
+      if (exam) {
+        const scope = batchScope(user);
+        if (scope !== 'all' && !scope.includes(exam.batch_id)) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. You are not assigned to this exam batch.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
       const schema = z.object({
         student_id: z.string().min(1),
         mcq_answers: z.record(z.string()).optional(),
@@ -394,7 +505,15 @@ export function examRoutes(store: IDataStore) {
     const STAFF_ROLES = ['tenant_admin', 'academic_head', 'teacher', 'finance_manager'];
 
     const canAccessStudentReportCard = async (user: JWTPayload, studentId: string): Promise<boolean> => {
-      if (user.role === 'super_admin' || STAFF_ROLES.includes(user.role)) {
+      if (user.role === 'super_admin' || user.role === 'tenant_admin') {
+        return true;
+      }
+      if (user.role !== 'student' && user.role !== 'parent') {
+        if (!can(user, 'exams_reports', 'view')) return false;
+        const student = await store.getStudentById(user.tenant_id, studentId);
+        if (!student) return false;
+        const scope = batchScope(user);
+        if (scope !== 'all' && (!student.batch_id || !scope.includes(student.batch_id))) return false;
         return true;
       }
       const student = await store.getStudentById(user.tenant_id, studentId);
@@ -455,8 +574,25 @@ export function examRoutes(store: IDataStore) {
           return (normCnic && (sCnic === normCnic || sFather === normCnic || sMother === normCnic)) || (normEmail && sEmail === normEmail);
         }).map(s => s.id));
         evals = evals.filter(ev => childIds.has(ev.student_id));
-      } else if (!assertRole(user, STAFF_ROLES, reply)) {
-        return;
+      } else {
+        if (!can(user, 'exams_reports', 'view')) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires exams_reports view permission.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        const exam = await store.getExamById(user.tenant_id, id);
+        if (exam) {
+          const scope = batchScope(user);
+          if (scope !== 'all' && !scope.includes(exam.batch_id)) {
+            return reply.status(403).send({
+              success: false,
+              error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. You are not assigned to this exam batch.' },
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
       }
 
       return reply.send({ success: true, data: evals, timestamp: new Date().toISOString() });

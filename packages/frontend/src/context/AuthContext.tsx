@@ -9,6 +9,8 @@ export interface UserSession {
   role: string;
   avatar_url?: string | null;
   permissions?: string[];
+  access?: Record<string, 'view' | 'edit'>;
+  teaching_assignments?: any[];
   designation?: string;
   must_change_password?: boolean;
 }

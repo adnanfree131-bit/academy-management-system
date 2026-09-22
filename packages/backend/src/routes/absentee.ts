@@ -2,16 +2,30 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, AbsenteeCallOutcome, AbsenteeReasonCategory, AbsenteeFollowupStatus } from '@apex/shared-types';
+import { can, FeatureId, AccessLevel } from '../lib/access.js';
 
 export function absenteeRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
     fastify.addHook('onRequest', (fastify as any).authenticate);
+
+    const assertFeature = (user: any, feature: FeatureId, level: AccessLevel, reply: any): boolean => {
+      if (user.role === 'student' || user.role === 'parent' || !can(user, feature, level)) {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: `Access denied. Requires '${feature}' (${level}) permission.` },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
 
     // =========================================================================
     // 1. ABSENTEE ROSTER & FOLLOW-UP DESK
     // =========================================================================
     const getFollowupsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'view', reply)) return;
       const { date, batch_id, status } = request.query as { date?: string; batch_id?: string; status?: string };
       const followups = await store.getAbsenteeFollowups(user.tenant_id, {
         date,
@@ -25,6 +39,7 @@ export function absenteeRoutes(store: IDataStore) {
 
     const getKpiHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'view', reply)) return;
       const { date } = request.query as { date?: string };
       const today = date || new Date().toISOString().split('T')[0];
       const kpi = await store.getAbsenteeDeskKPI(user.tenant_id, today);
@@ -35,6 +50,7 @@ export function absenteeRoutes(store: IDataStore) {
 
     const syncRosterHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'edit', reply)) return;
       const schema = z.object({
         date: z.string().optional()
       });
@@ -55,6 +71,7 @@ export function absenteeRoutes(store: IDataStore) {
 
     const logResponseHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'edit', reply)) return;
       const { id } = request.params as { id: string };
 
       const schema = z.object({
@@ -105,6 +122,7 @@ export function absenteeRoutes(store: IDataStore) {
     // =========================================================================
     const getRetentionHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'view', reply)) return;
       const cases = await store.getRetentionCases(user.tenant_id);
       return reply.send({ success: true, data: cases, timestamp: new Date().toISOString() });
     };
@@ -113,6 +131,7 @@ export function absenteeRoutes(store: IDataStore) {
 
     const scheduleMeetingHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'edit', reply)) return;
       const { id } = request.params as { id: string };
 
       const schema = z.object({
@@ -148,6 +167,7 @@ export function absenteeRoutes(store: IDataStore) {
     // =========================================================================
     const getReportHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'absentee', 'view', reply)) return;
       const { month } = request.query as { month?: string };
       const targetMonth = month || new Date().toISOString().substring(0, 7); // YYYY-MM
       const report = await store.getAbsenteeResolutionReport(user.tenant_id, targetMonth);

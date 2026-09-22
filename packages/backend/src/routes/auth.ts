@@ -7,6 +7,7 @@ import { IMailerService } from '../services/mailer.js';
 import { ICloudflareService, CloudflareService } from '../services/cloudflare.js';
 import { hashPassword } from '../services/password.js';
 import { JWTPayload, AuthSessionResponse, User, Student } from '@apex/shared-types';
+import { resolveUserAccess, derivePermissions } from '../lib/access.js';
 
 export function authRoutes(
   store: IDataStore,
@@ -128,7 +129,21 @@ export function authRoutes(
       }
 
       try {
-        const { email, password, tenant_slug, tenant_id } = parseResult.data;
+        let { email, password, tenant_slug, tenant_id } = parseResult.data;
+        if ((!tenant_id || !tenant_id.trim()) && (!tenant_slug || !tenant_slug.trim())) {
+          if (email.toLowerCase().trim() === 'kampuserp@gmail.com') {
+            tenant_id = 'p0000000-0000-0000-0000-000000000001';
+          } else {
+            return reply.status(400).send({
+              success: false,
+              error: {
+                code: 'TENANT_REQUIRED',
+                message: 'Academy identifier (tenant_slug or tenant_id) is required.',
+              },
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
         const { user, tenant } = await authService.loginWithPassword(email, password, tenant_slug, tenant_id);
         
         // C1: Flag must_change_password if using known default credentials
@@ -141,6 +156,7 @@ export function authRoutes(
 
         const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
 
+        const userAccess = resolveUserAccess(user);
         const sessionResponse: AuthSessionResponse = {
           token,
           expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
@@ -151,7 +167,8 @@ export function authRoutes(
             full_name: user.full_name,
             role: user.role,
             avatar_url: user.avatar_url,
-            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
+            access: userAccess as any,
+            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : derivePermissions(userAccess),
             designation: (user.metadata?.designation as string) || undefined,
             must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
           },
@@ -362,6 +379,7 @@ export function authRoutes(
 
         const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
 
+        const userAccess = resolveUserAccess(user);
         const sessionResponse: AuthSessionResponse = {
           token,
           expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
@@ -372,7 +390,8 @@ export function authRoutes(
             full_name: user.full_name,
             role: user.role,
             avatar_url: user.avatar_url,
-            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
+            access: userAccess as any,
+            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : derivePermissions(userAccess),
             designation: (user.metadata?.designation as string) || undefined,
             must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
           },
@@ -413,6 +432,7 @@ export function authRoutes(
       const schema = z.object({
         email: z.string().email('Valid institutional email is required'),
         tenant_slug: z.string().optional(),
+        tenant_id: z.string().optional(),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -425,8 +445,19 @@ export function authRoutes(
       }
 
       try {
-        const { email, tenant_slug } = parseResult.data;
-        const result = await authService.requestPasswordReset(email, tenant_slug);
+        let { email, tenant_slug, tenant_id } = parseResult.data;
+        if ((!tenant_id || !tenant_id.trim()) && (!tenant_slug || !tenant_slug.trim())) {
+          if (email.toLowerCase().trim() === 'kampuserp@gmail.com') {
+            tenant_id = 'p0000000-0000-0000-0000-000000000001';
+          } else {
+            return reply.status(400).send({
+              success: false,
+              error: { code: 'TENANT_REQUIRED', message: 'Academy identifier (tenant_slug or tenant_id) is required.' },
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
+        const result = await authService.requestPasswordReset(email, tenant_slug, tenant_id);
         return reply.send({
           success: true,
           data: result,
@@ -450,6 +481,7 @@ export function authRoutes(
         otp: z.string().length(6, 'Verification code must be 6 digits'),
         new_password: z.string().min(6, 'Password must be at least 6 characters'),
         tenant_slug: z.string().optional(),
+        tenant_id: z.string().optional(),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -462,8 +494,19 @@ export function authRoutes(
       }
 
       try {
-        const { email, otp, new_password, tenant_slug } = parseResult.data;
-        await authService.resetPassword(email, otp, new_password, tenant_slug);
+        let { email, otp, new_password, tenant_slug, tenant_id } = parseResult.data;
+        if ((!tenant_id || !tenant_id.trim()) && (!tenant_slug || !tenant_slug.trim())) {
+          if (email.toLowerCase().trim() === 'kampuserp@gmail.com') {
+            tenant_id = 'p0000000-0000-0000-0000-000000000001';
+          } else {
+            return reply.status(400).send({
+              success: false,
+              error: { code: 'TENANT_REQUIRED', message: 'Academy identifier (tenant_slug or tenant_id) is required.' },
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
+        await authService.resetPassword(email, otp, new_password, tenant_slug, tenant_id);
         return reply.send({
           success: true,
           message: 'Password updated successfully. You can now sign in with your new password.',
@@ -793,7 +836,8 @@ export function authRoutes(
             full_name: user.full_name,
             role: user.role,
             avatar_url: user.avatar_url,
-            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
+            access: resolveUserAccess(user) as any,
+            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : derivePermissions(resolveUserAccess(user)),
             designation: (user.metadata?.designation as string) || undefined,
             must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
           },

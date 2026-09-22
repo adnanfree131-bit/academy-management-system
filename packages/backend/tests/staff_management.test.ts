@@ -396,6 +396,7 @@ describe('Staff & Faculty Management Module: End-to-End API Verification', () =>
       payload: {
         full_name: 'Zahid Hassan',
         email: 'zahid.hassan@apexacademy.edu.pk',
+        permissions: ['classes'],
       },
     });
     const staff = JSON.parse(createRes.body).data;

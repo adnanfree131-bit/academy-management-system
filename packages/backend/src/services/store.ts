@@ -114,6 +114,13 @@ import {
   saveSnapshot,
   type DataBackupMeta,
 } from './store-persist.js';
+import {
+  AccessLevel,
+  FeatureId,
+  ROLE_DEFAULT_TEMPLATES,
+  derivePermissions,
+  resolveUserAccess,
+} from '../lib/access.js';
 
 export interface StoredOTP {
   id: string;
@@ -172,6 +179,7 @@ export interface CreateStaffInput {
   bank_account_number?: string | null;
   bank_iban?: string | null;
   teaching_assignments?: StaffTeachingAssignment[] | null;
+  access?: Record<string, AccessLevel> | null;
   permissions?: string[] | null;
   status?: StaffStatus | null;
   role?: UserRole;
@@ -205,6 +213,7 @@ export interface UpdateStaffInput {
   bank_account_number?: string | null;
   bank_iban?: string | null;
   teaching_assignments?: StaffTeachingAssignment[] | null;
+  access?: Record<string, AccessLevel> | null;
   permissions?: string[] | null;
   status?: UserStatus | null;
   role?: UserRole;
@@ -229,6 +238,7 @@ export interface IDataStore {
   }): Promise<{ tenant: Tenant; admin: User }>;
   updateTenantSettings(tenantId: string, updates: { name?: string; slug?: string; settings?: Partial<TenantSettings> }): Promise<Tenant | null>;
   getUserByEmail(tenantId: string, email: string): Promise<User | null>;
+  getUserById(tenantId: string, userId: string): Promise<User | null>;
   getUserByEmailGlobal(email: string): Promise<User[]>;
   checkSlugAvailable(slug: string): Promise<boolean>;
   updateUserPassword(tenantId: string, email: string, passwordHash: string): Promise<boolean>;
@@ -1700,6 +1710,32 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Sir Tariq Physics',
         role: 'teacher',
         status: 'active',
+        metadata: {
+          permissions: ['classes'],
+          access: { classes: 'view' },
+        },
+        password_hash: defaultPasswordHash,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'fin-00000000-0000-0000-0000-000000000001',
+        tenant_id: tenantAId,
+        email: 'finance@apexacademy.edu.pk',
+        full_name: 'Academy Accountant',
+        role: 'finance_manager',
+        status: 'active',
+        password_hash: defaultPasswordHash,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'academic-head-1',
+        tenant_id: tenantAId,
+        email: 'head@apex.edu.pk',
+        full_name: 'Academic Head',
+        role: 'academic_head',
+        status: 'active',
         password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -1764,6 +1800,28 @@ export class InMemoryDataStore implements IDataStore {
         tenant_id: tenantB.id,
         email: 'fatima@crescent.edu.pk',
         full_name: 'Principal Fatima',
+        role: 'tenant_admin',
+        status: 'active',
+        password_hash: defaultPasswordHash,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'u0000000-0000-0000-0000-000000000003',
+        tenant_id: tenantAId,
+        email: 'teacher@apexacademy.edu.pk',
+        full_name: 'Regular Teacher',
+        role: 'teacher',
+        status: 'active',
+        password_hash: defaultPasswordHash,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: 'u0000000-0000-0000-0000-000000000002',
+        tenant_id: tenantB.id,
+        email: 'principal@crescent.edu.pk',
+        full_name: 'Principal Crescent',
         role: 'tenant_admin',
         status: 'active',
         password_hash: defaultPasswordHash,
@@ -2889,6 +2947,15 @@ export class InMemoryDataStore implements IDataStore {
   async getUserByEmail(tenantId: string, email: string): Promise<User | null> {
     const key = `${tenantId}:${email.toLowerCase()}`;
     return this.users.get(key) || null;
+  }
+
+  async getUserById(tenantId: string, userId: string): Promise<User | null> {
+    for (const u of this.users.values()) {
+      if ((!tenantId || u.tenant_id === tenantId || u.role === 'super_admin') && u.id === userId) {
+        return u;
+      }
+    }
+    return null;
   }
 
   async getUserByEmailGlobal(email: string): Promise<User[]> {
@@ -7272,6 +7339,31 @@ export class InMemoryDataStore implements IDataStore {
     const userRole: UserRole = data.role || (data.department === 'Accounts' ? 'finance_manager' : (data.department === 'Administration' ? 'academic_head' : 'teacher'));
     const joiningDate = data.joining_date || new Date().toISOString().split('T')[0];
 
+    let staffAccess: Record<string, AccessLevel>;
+    if (data.access && typeof data.access === 'object' && Object.keys(data.access).length > 0) {
+      staffAccess = { ...data.access };
+      delete (staffAccess as any).staff;
+      delete (staffAccess as any).settings;
+    } else if (Array.isArray(data.permissions) && data.permissions.length > 0) {
+      staffAccess = {};
+      for (const p of data.permissions) {
+        if (p === 'staff' || p === 'settings') continue;
+        if (p === 'exams') {
+          staffAccess.exams_bank = 'edit';
+          staffAccess.exams_marks = 'edit';
+          staffAccess.exams_reports = 'edit';
+        } else {
+          staffAccess[p] = 'edit';
+        }
+      }
+    } else if (data.access && typeof data.access === 'object' && Object.keys(data.access).length === 0) {
+      staffAccess = {};
+    } else {
+      const template = ROLE_DEFAULT_TEMPLATES[userRole] || {};
+      staffAccess = { ...template };
+    }
+    const staffPermissions = derivePermissions(staffAccess);
+
     const user: User = {
       id: crypto.randomUUID(),
       tenant_id: data.tenant_id,
@@ -7305,7 +7397,8 @@ export class InMemoryDataStore implements IDataStore {
         bank_account_number: data.bank_account_number || '',
         bank_iban: data.bank_iban || '',
         teaching_assignments: Array.isArray(data.teaching_assignments) ? data.teaching_assignments : [],
-        permissions: Array.isArray(data.permissions) ? data.permissions : [],
+        access: staffAccess,
+        permissions: staffPermissions,
         leave_balance: {
           casual_allowed: 12,
           casual_used: 0,
@@ -7370,6 +7463,28 @@ export class InMemoryDataStore implements IDataStore {
     if (patch.role) user.role = patch.role;
 
     const meta = user.metadata || {};
+    let newAccess = meta.access as Record<string, AccessLevel> | undefined;
+    let newPermissions = meta.permissions as string[] | undefined;
+
+    if (patch.access !== undefined && patch.access !== null) {
+      newAccess = { ...patch.access };
+      delete (newAccess as any).staff;
+      delete (newAccess as any).settings;
+      newPermissions = derivePermissions(newAccess);
+    } else if (patch.permissions !== undefined && patch.permissions !== null) {
+      newPermissions = patch.permissions.filter(p => p !== 'staff' && p !== 'settings');
+      newAccess = {};
+      for (const p of newPermissions) {
+        if (p === 'exams') {
+          newAccess.exams_bank = 'edit';
+          newAccess.exams_marks = 'edit';
+          newAccess.exams_reports = 'edit';
+        } else {
+          newAccess[p] = 'edit';
+        }
+      }
+    }
+
     user.metadata = {
       ...meta,
       managed_staff: true,
@@ -7397,7 +7512,8 @@ export class InMemoryDataStore implements IDataStore {
       ...(patch.bank_account_number !== undefined ? { bank_account_number: patch.bank_account_number } : {}),
       ...(patch.bank_iban !== undefined ? { bank_iban: patch.bank_iban } : {}),
       ...(patch.teaching_assignments !== undefined ? { teaching_assignments: patch.teaching_assignments } : {}),
-      ...(patch.permissions !== undefined ? { permissions: patch.permissions } : {}),
+      ...(newAccess !== undefined ? { access: newAccess } : {}),
+      ...(newPermissions !== undefined ? { permissions: newPermissions } : {}),
     };
 
     user.updated_at = new Date().toISOString();
@@ -10170,14 +10286,17 @@ export class InMemoryDataStore implements IDataStore {
     const today = date || new Date().toISOString().split('T')[0];
     const teacherUser = Array.from(this.users.values()).find(
       u => (u.id === teacherId || u.email.toLowerCase() === teacherId.toLowerCase()) && u.tenant_id === tenantId
-    ) || Array.from(this.users.values()).find(u => u.role === 'teacher' && u.tenant_id === tenantId);
+    );
+    if (!teacherUser) {
+      throw new Error('Teacher not found');
+    }
 
-    const teacherName = teacherUser?.full_name || 'Sir Tariq Physics';
-    const teacherUserId = teacherUser?.id || teacherId;
+    const teacherName = teacherUser.full_name;
+    const teacherUserId = teacherUser.id;
 
     // Timetable slots for this teacher today
     const teacherSchedule = this.timetableSlots.filter(
-      s => s.tenant_id === tenantId && (s.teacher_id === teacherUserId || (s.teacher_name?.toLowerCase() || '').includes('tariq'))
+      s => s.tenant_id === tenantId && s.teacher_id === teacherUserId
     );
 
     // Batches assigned
@@ -10203,14 +10322,14 @@ export class InMemoryDataStore implements IDataStore {
 
     // Geofence status
     const clockInRecord = this.staffAttendance.find(
-      sa => sa.tenant_id === tenantId && (sa.staff_id === teacherUserId || (sa.staff_name?.toLowerCase() || '').includes('tariq')) && sa.date === today
+      sa => sa.tenant_id === tenantId && sa.staff_id === teacherUserId && sa.date === today
     );
 
     return {
       teacher_id: teacherUserId,
       teacher_name: teacherName,
       today_date: today,
-      today_schedule: teacherSchedule.length > 0 ? teacherSchedule : this.timetableSlots.filter(s => s.tenant_id === tenantId),
+      today_schedule: teacherSchedule,
       assigned_batches: assignedBatches,
       pending_attendance_batches: pendingAttendanceBatches,
       pending_grading_exams: pendingGradingExams,

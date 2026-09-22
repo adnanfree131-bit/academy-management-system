@@ -2,14 +2,28 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload } from '@apex/shared-types';
+import { can, FeatureId, AccessLevel } from '../lib/access.js';
 
 export function geofenceRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
     fastify.addHook('onRequest', (fastify as any).authenticate);
 
+    const assertFeature = (user: any, feature: FeatureId, level: AccessLevel, reply: any): boolean => {
+      if (user.role === 'student' || user.role === 'parent' || !can(user, feature, level)) {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: `Access denied. Requires '${feature}' (${level}) permission.` },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
+
     // --- Geofence Configuration ---
     const getConfigHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'geofence', 'view', reply)) return;
       const config = await store.getGeofenceConfig(user.tenant_id);
       return reply.send({ success: true, data: config, timestamp: new Date().toISOString() });
     };
@@ -21,7 +35,7 @@ export function geofenceRoutes(store: IDataStore) {
       if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
         return reply.status(403).send({
           success: false,
-          error: { code: 'FORBIDDEN', message: 'Only campus administrators can configure geofence rules.' },
+          error: { code: 'FORBIDDEN_ROLE', message: 'Only academy administrator can update geofence configuration.' },
           timestamp: new Date().toISOString(),
         });
       }
@@ -80,6 +94,8 @@ export function geofenceRoutes(store: IDataStore) {
     // --- Staff Attendance & Geofence Verification ---
     const clockInHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'geofence', 'edit', reply)) return;
+
       const schema = z.object({
         latitude: z.number().min(-90).max(90),
         longitude: z.number().min(-180).max(180),
@@ -119,6 +135,8 @@ export function geofenceRoutes(store: IDataStore) {
     // Clock-Out
     const clockOutHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'geofence', 'edit', reply)) return;
+
       const schema = z.object({
         latitude: z.number().min(-90).max(90),
         longitude: z.number().min(-180).max(180),
@@ -154,6 +172,7 @@ export function geofenceRoutes(store: IDataStore) {
 
     const getStaffAttendanceHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'staff_attendance', 'view', reply)) return;
       const { date } = request.query as { date?: string };
       const records = await store.getStaffAttendance(user.tenant_id, date);
       return reply.send({ success: true, data: records, timestamp: new Date().toISOString() });
@@ -164,6 +183,7 @@ export function geofenceRoutes(store: IDataStore) {
     // Roster of all staff for a specific date (Muster Roll)
     const getStaffRosterHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'staff_attendance', 'view', reply)) return;
       const { date } = request.query as { date?: string };
       const roster = await store.getStaffRoster(user.tenant_id, date);
       return reply.send({ success: true, data: roster, timestamp: new Date().toISOString() });
@@ -174,6 +194,7 @@ export function geofenceRoutes(store: IDataStore) {
     // Monthly Staff Attendance Summary (for HR & Payroll)
     const getStaffMonthlySummaryHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'staff_attendance', 'view', reply)) return;
       const { month } = request.query as { month?: string };
       const monthStr = month && /^\d{4}-\d{2}$/.test(month) 
         ? month 
@@ -187,6 +208,7 @@ export function geofenceRoutes(store: IDataStore) {
     // Attendance Audit Logs / Regularization History
     const getAuditLogsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'staff_attendance', 'view', reply)) return;
       const { staff_id, date, start_date, end_date } = request.query as {
         staff_id?: string;
         date?: string;
@@ -207,13 +229,7 @@ export function geofenceRoutes(store: IDataStore) {
     // Manual Regularization / Attendance Override Entry
     const manualAttendanceHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
-        return reply.status(403).send({
-          success: false,
-          error: { code: 'FORBIDDEN', message: 'Only campus administrators can regularize staff attendance.' },
-          timestamp: new Date().toISOString(),
-        });
-      }
+      if (!assertFeature(user, 'staff_attendance', 'edit', reply)) return;
 
       const schema = z.object({
         staff_id: z.string().min(1),
@@ -256,6 +272,8 @@ export function geofenceRoutes(store: IDataStore) {
     // Admin Adjustment
     const adjustStaffAttendanceHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'staff_attendance', 'edit', reply)) return;
+
       const { id } = request.params as { id: string };
       const schema = z.object({
         status: z.enum(['on_time', 'late', 'half_day', 'absent', 'on_leave']),
@@ -293,10 +311,13 @@ export function geofenceRoutes(store: IDataStore) {
     // --- Faculty Self-Service Regularization Requests ---
     const getRegularizationRequestsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (user.role === 'student' || user.role === 'parent') {
+        return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' }, timestamp: new Date().toISOString() });
+      }
       const query = request.query as { staff_id?: string; status?: string };
-      const isAdmin = user.role === 'tenant_admin' || user.role === 'super_admin';
+      const canViewAll = can(user, 'staff_attendance', 'view');
       const userId = user.sub || user.user_id || 'staff-user';
-      const targetStaffId = isAdmin ? query.staff_id : userId;
+      const targetStaffId = canViewAll ? query.staff_id : userId;
 
       const requests = await store.getStaffRegularizationRequests(user.tenant_id, {
         staff_id: targetStaffId,
@@ -309,7 +330,16 @@ export function geofenceRoutes(store: IDataStore) {
 
     const submitRegularizationRequestHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      const isAdmin = user.role === 'tenant_admin' || user.role === 'super_admin';
+      if (user.role === 'student' || user.role === 'parent') {
+        return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' }, timestamp: new Date().toISOString() });
+      }
+      if (!can(user, 'geofence', 'edit') && !can(user, 'staff_attendance', 'edit')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: "Access denied. Requires 'geofence' (edit) permission." },
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       const schema = z.object({
         staff_id: z.string().optional(),
@@ -330,8 +360,9 @@ export function geofenceRoutes(store: IDataStore) {
         });
       }
 
+      const canEditAll = can(user, 'staff_attendance', 'edit');
       const userId = user.sub || user.user_id || 'staff-user';
-      const assignedStaffId = !isAdmin || !parse.data.staff_id ? userId : parse.data.staff_id;
+      const assignedStaffId = !canEditAll || !parse.data.staff_id ? userId : parse.data.staff_id;
 
       try {
         const record = await store.submitStaffRegularizationRequest(user.tenant_id, {
@@ -352,13 +383,7 @@ export function geofenceRoutes(store: IDataStore) {
 
     const reviewRegularizationRequestHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
-        return reply.status(403).send({
-          success: false,
-          error: { code: 'FORBIDDEN', message: 'Only administrators can approve or reject regularization requests.' },
-          timestamp: new Date().toISOString(),
-        });
-      }
+      if (!assertFeature(user, 'staff_attendance', 'edit', reply)) return;
 
       const { id } = request.params as { id: string };
       const schema = z.object({

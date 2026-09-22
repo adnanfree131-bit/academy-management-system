@@ -29,35 +29,38 @@ export function saasRoutes(store: IDataStore) {
       return true;
     };
 
-    // 1. Get Tenant Trial & Lockout Status (Public or Authenticated)
+    // 1. Get Tenant Trial & Lockout Status (Requires JWT Authentication)
     const getTrialStatusHandler = async (req: any, reply: any) => {
       try {
-        let tenantId = req.query.tenant_id;
-        if (req.headers.authorization) {
-          try {
-            await req.jwtVerify();
-            const user = req.user as JWTPayload;
-            if (user?.role !== 'super_admin' && user?.tenant_id) {
-              tenantId = user.tenant_id;
-            }
-          } catch (err: any) {
-            return reply.status(401).send({
-              success: false,
-              error: { code: 'UNAUTHORIZED', message: 'Invalid authorization token.' },
-              timestamp: new Date().toISOString()
-            });
-          }
+        try {
+          await req.jwtVerify();
+        } catch (err: any) {
+          return reply.status(401).send({
+            success: false,
+            error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required.' },
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        const user = req.user as JWTPayload;
+        let tenantId = user?.tenant_id;
+        if (user?.role === 'super_admin' && req.query.tenant_id) {
+          tenantId = req.query.tenant_id;
         }
 
         if (!tenantId) {
           return reply.status(400).send({
             success: false,
-            error: { code: 'TENANT_REQUIRED', message: 'tenant_id query parameter or Bearer token required' }
+            error: { code: 'TENANT_REQUIRED', message: 'Tenant identifier required' }
           });
         }
 
         const status = await store.getTenantTrialStatus(tenantId);
-        return reply.send({ success: true, data: status, timestamp: new Date().toISOString() });
+        const data = { ...status };
+        if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+          delete (data as any).pending_receipt;
+        }
+        return reply.send({ success: true, data, timestamp: new Date().toISOString() });
       } catch (err: any) {
         req.log.error(err);
         return reply.status(500).send({
@@ -70,29 +73,31 @@ export function saasRoutes(store: IDataStore) {
     fastify.get('/trial-status', getTrialStatusHandler);
     fastify.get('/saas/trial-status', getTrialStatusHandler);
 
-    // 2. Submit Subscription Payment Proof Receipt
+    // 2. Submit Subscription Payment Proof Receipt (tenant_admin or super_admin only)
     const submitReceiptHandler = async (req: any, reply: any) => {
       try {
-        let tenantId = req.body.tenant_id;
-        let uploadedByUserId: string | undefined;
-        let uploadedByEmail: string | undefined;
+        try {
+          await req.jwtVerify();
+        } catch (err: any) {
+          return reply.status(401).send({
+            success: false,
+            error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required.' },
+            timestamp: new Date().toISOString()
+          });
+        }
 
-        if (req.headers.authorization) {
-          try {
-            await req.jwtVerify();
-            const user = req.user as JWTPayload;
-            if (user?.role !== 'super_admin' && user?.tenant_id) {
-              tenantId = user.tenant_id;
-            }
-            uploadedByUserId = user?.user_id || user?.sub;
-            uploadedByEmail = user?.email;
-          } catch (err: any) {
-            return reply.status(401).send({
-              success: false,
-              error: { code: 'UNAUTHORIZED', message: 'Invalid authorization token.' },
-              timestamp: new Date().toISOString()
-            });
-          }
+        const user = req.user as JWTPayload;
+        if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN', message: 'Only academy administrator or super admin can submit receipts.' },
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        let tenantId = user.tenant_id;
+        if (user.role === 'super_admin' && req.body.tenant_id) {
+          tenantId = req.body.tenant_id;
         }
 
         if (!tenantId) {
@@ -116,8 +121,8 @@ export function saasRoutes(store: IDataStore) {
           payment_method: payment_method || 'BANK_TRANSFER',
           reference_number,
           notes,
-          uploaded_by_user_id: uploadedByUserId,
-          uploaded_by_email: uploadedByEmail,
+          uploaded_by_user_id: user.user_id || user.sub,
+          uploaded_by_email: user.email,
           receipt_image_url
         });
 
@@ -139,7 +144,7 @@ export function saasRoutes(store: IDataStore) {
     fastify.post('/receipts', submitReceiptHandler);
     fastify.post('/saas/receipts', submitReceiptHandler);
 
-    // 3. List Subscription Receipts (Requires Authentication)
+    // 3. List Subscription Receipts (tenant_admin or super_admin only)
     const listReceiptsHandler = async (req: any, reply: any) => {
       try {
         await req.jwtVerify();
@@ -153,19 +158,19 @@ export function saasRoutes(store: IDataStore) {
 
       try {
         const user = req.user as JWTPayload;
-        let tenantId: string | undefined;
+        if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN', message: 'Subscription receipts can only be viewed by academy administration or super admin.' },
+            timestamp: new Date().toISOString()
+          });
+        }
 
+        let tenantId: string | undefined;
         if (user.role === 'super_admin') {
           tenantId = req.query.tenant_id;
         } else {
           tenantId = user.tenant_id;
-          if (!tenantId) {
-            return reply.status(403).send({
-              success: false,
-              error: { code: 'FORBIDDEN', message: 'Tenant identifier required.' },
-              timestamp: new Date().toISOString()
-            });
-          }
         }
 
         const receipts = await store.getSubscriptionReceipts(tenantId);
@@ -219,7 +224,9 @@ export function saasRoutes(store: IDataStore) {
     const getBankingConfigHandler = async (_req: any, reply: any) => {
       try {
         const config = await store.getPlatformBankingConfig();
-        return reply.send({ success: true, data: config, timestamp: new Date().toISOString() });
+        const data = { ...config };
+        delete (data as any).pending_receipt;
+        return reply.send({ success: true, data, timestamp: new Date().toISOString() });
       } catch (err: any) {
         return reply.status(500).send({
           success: false,
@@ -624,27 +631,23 @@ export function saasRoutes(store: IDataStore) {
     // 13. Tenant Active Popup Resolution (on Director Login)
     const getActivePopupHandler = async (req: any, reply: any) => {
       try {
-        let tenantId = req.query.tenant_id;
-        let userId = req.query.user_id || 'anonymous';
-        let role: string | undefined;
-
-        if (req.headers.authorization) {
-          try {
-            await req.jwtVerify();
-            const user = req.user as JWTPayload;
-            if (user?.role !== 'super_admin' && user?.tenant_id) {
-              tenantId = user.tenant_id;
-            }
-            if (user?.sub) userId = user.sub;
-            if (user?.role) role = user.role;
-          } catch (err: any) {
-            return reply.status(401).send({
-              success: false,
-              error: { code: 'UNAUTHORIZED', message: 'Invalid authorization token.' },
-              timestamp: new Date().toISOString()
-            });
-          }
+        try {
+          await req.jwtVerify();
+        } catch (err: any) {
+          return reply.status(401).send({
+            success: false,
+            error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required.' },
+            timestamp: new Date().toISOString()
+          });
         }
+
+        const user = req.user as JWTPayload;
+        let tenantId = user?.tenant_id;
+        if (user?.role === 'super_admin' && req.query.tenant_id) {
+          tenantId = req.query.tenant_id;
+        }
+        const userId = user?.sub || user?.user_id || 'anonymous';
+        const role = user?.role;
 
         if (!tenantId) {
           return reply.status(400).send({
@@ -666,25 +669,23 @@ export function saasRoutes(store: IDataStore) {
     const dismissAnnouncementHandler = async (req: any, reply: any) => {
       try {
         const { id } = req.params;
-        let tenantId = req.body.tenant_id;
-        let userId = req.body.user_id || 'anonymous';
 
-        if (req.headers.authorization) {
-          try {
-            await req.jwtVerify();
-            const user = req.user as JWTPayload;
-            if (user?.role !== 'super_admin' && user?.tenant_id) {
-              tenantId = user.tenant_id;
-            }
-            if (user?.sub) userId = user.sub;
-          } catch (err: any) {
-            return reply.status(401).send({
-              success: false,
-              error: { code: 'UNAUTHORIZED', message: 'Invalid authorization token.' },
-              timestamp: new Date().toISOString()
-            });
-          }
+        try {
+          await req.jwtVerify();
+        } catch (err: any) {
+          return reply.status(401).send({
+            success: false,
+            error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required.' },
+            timestamp: new Date().toISOString()
+          });
         }
+
+        const user = req.user as JWTPayload;
+        let tenantId = user?.tenant_id;
+        if (user?.role === 'super_admin' && req.body.tenant_id) {
+          tenantId = req.body.tenant_id;
+        }
+        const userId = user?.sub || user?.user_id || 'anonymous';
 
         if (!tenantId) {
           return reply.status(400).send({

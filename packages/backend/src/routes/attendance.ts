@@ -2,10 +2,23 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload } from '@apex/shared-types';
+import { can, batchScope, FeatureId, AccessLevel } from '../lib/access.js';
 
 export function attendanceRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
     fastify.addHook('onRequest', (fastify as any).authenticate);
+
+    const assertFeature = (user: any, feature: FeatureId, level: AccessLevel, reply: any): boolean => {
+      if (!can(user, feature, level)) {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: `Access denied. Requires '${feature}' (${level}) permission.` },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
 
     const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
       if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
@@ -96,14 +109,28 @@ export function attendanceRoutes(store: IDataStore) {
         return reply.send({ success: true, data: flattened, timestamp: new Date().toISOString() });
       }
 
-      if (!assertRole(user, STAFF_ROLES, reply)) return;
+      if (!assertFeature(user, 'attendance', 'view', reply)) return;
 
       if (studentId) {
         const records = await store.getStudentAttendanceHistory(user.tenant_id, studentId);
         return reply.send({ success: true, data: records, timestamp: new Date().toISOString() });
       }
 
+      const scope = batchScope(user);
+      if (Array.isArray(scope)) {
+        if (batch_id && !scope.includes(batch_id)) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN_SCOPE', message: 'You are not authorized to view attendance for this batch.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
       let records = await store.getStudentAttendance(user.tenant_id, batch_id, date);
+      if (Array.isArray(scope)) {
+        records = records.filter(r => scope.includes(r.batch_id));
+      }
       if (month) {
         records = records.filter(r => r.date.startsWith(month));
       }
@@ -117,7 +144,7 @@ export function attendanceRoutes(store: IDataStore) {
     // Rapid batch attendance submission
     const recordBatchHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head', 'teacher'], reply)) return;
+      if (!assertFeature(user, 'attendance', 'edit', reply)) return;
       const schema = z.object({
         batch_id: z.string().min(1),
         date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -133,6 +160,15 @@ export function attendanceRoutes(store: IDataStore) {
         return reply.status(400).send({
           success: false,
           error: { code: 'VALIDATION_ERROR', message: 'Invalid attendance submission payload', details: parse.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const scope = batchScope(user);
+      if (Array.isArray(scope) && !scope.includes(parse.data.batch_id)) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_SCOPE', message: 'You are not assigned to this batch.' },
           timestamp: new Date().toISOString(),
         });
       }
@@ -205,6 +241,7 @@ export function attendanceRoutes(store: IDataStore) {
         }
       }
 
+      if (!assertFeature(user, 'attendance', 'view', reply)) return;
       const leaves = await store.getLeaveApplications(user.tenant_id, student_id);
       return reply.send({ success: true, data: leaves, timestamp: new Date().toISOString() });
     };
@@ -286,7 +323,7 @@ export function attendanceRoutes(store: IDataStore) {
 
     const reviewLeaveHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'attendance', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         status: z.enum(['approved', 'rejected']),
@@ -324,10 +361,18 @@ export function attendanceRoutes(store: IDataStore) {
     // --- Staff Leaves ---
     const getStaffLeavesHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (user.role === 'student' || user.role === 'parent') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Students and parents cannot view staff leaves.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const { staff_id } = request.query as { staff_id?: string };
       let effectiveStaffId = staff_id;
-      if (!['tenant_admin', 'academic_head', 'super_admin'].includes(user.role)) {
-        effectiveStaffId = user.sub || (user as any).user_id;
+      const myId = user.sub || (user as any).user_id;
+      if (!can(user, 'staff_attendance', 'view')) {
+        effectiveStaffId = myId;
       }
       const leaves = await store.getStaffLeaves(user.tenant_id, effectiveStaffId);
       return reply.send({ success: true, data: leaves, timestamp: new Date().toISOString() });
@@ -336,6 +381,13 @@ export function attendanceRoutes(store: IDataStore) {
 
     const submitStaffLeaveHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (user.role === 'student' || user.role === 'parent') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Students and parents cannot submit staff leaves.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
       const schema = z.object({
         staff_id: z.string().min(1),
         staff_name: z.string().optional(),
@@ -354,15 +406,13 @@ export function attendanceRoutes(store: IDataStore) {
         });
       }
 
-      if (!['tenant_admin', 'academic_head', 'super_admin'].includes(user.role)) {
-        const myId = user.sub || (user as any).user_id;
-        if (parse.data.staff_id !== myId) {
-          return reply.status(403).send({
-            success: false,
-            error: { code: 'FORBIDDEN', message: 'You may only submit leave applications for yourself.' },
-            timestamp: new Date().toISOString(),
-          });
-        }
+      const myId = user.sub || (user as any).user_id;
+      if (parse.data.staff_id !== myId && !can(user, 'staff_attendance', 'edit')) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'You may only submit leave applications for yourself without staff_attendance edit permission.' },
+          timestamp: new Date().toISOString(),
+        });
       }
 
       const leave = await store.submitStaffLeave({
@@ -376,7 +426,7 @@ export function attendanceRoutes(store: IDataStore) {
 
     const reviewStaffLeaveHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'staff_attendance', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         status: z.enum(['approved', 'rejected']),

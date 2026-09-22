@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload } from '@apex/shared-types';
+import { can } from '../lib/access.js';
 
 export function complaintsRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -14,6 +15,14 @@ export function complaintsRoutes(store: IDataStore) {
       if (user.role === 'student' || user.role === 'parent') {
         const userId = user.sub || (user as any).user_id;
         tickets = tickets.filter(t => t.user_id === userId);
+      } else {
+        if (!can(user, 'complaints', 'view')) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires complaints view permission.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
       return reply.send({ success: true, data: tickets, timestamp: new Date().toISOString() });
     };
@@ -54,10 +63,10 @@ export function complaintsRoutes(store: IDataStore) {
     // Update status or reply to complaint
     const updateStatusHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (user.role === 'student' || user.role === 'parent') {
+      if (!can(user, 'complaints', 'edit')) {
         return reply.status(403).send({
           success: false,
-          error: { code: 'FORBIDDEN_ROLE', message: 'Only administrative staff may update or resolve complaints.' },
+          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires complaints edit permission.' },
           timestamp: new Date().toISOString(),
         });
       }

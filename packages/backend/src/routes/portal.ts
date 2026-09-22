@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload } from '@apex/shared-types';
+import { can } from '../lib/access.js';
 
 export function portalRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -19,7 +20,37 @@ export function portalRoutes(store: IDataStore) {
           });
         }
 
-        const teacherId = req.query.teacher_id || user.user_id || user.sub;
+        if (user.role === 'parent' || user.role === 'student') {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN', message: 'Not authorized to access teacher portal.' }
+          });
+        }
+
+        const canViewOtherTeachers =
+          user.role === 'tenant_admin' ||
+          user.role === 'super_admin' ||
+          user.role === 'academic_head' ||
+          (can(user, 'enrollment', 'view') && can(user, 'all_classes', 'view'));
+
+        const requestedTeacherId = req.query.teacher_id;
+        if (requestedTeacherId && requestedTeacherId !== user.user_id && requestedTeacherId !== user.sub) {
+          if (!canViewOtherTeachers) {
+            return reply.status(403).send({
+              success: false,
+              error: { code: 'FORBIDDEN', message: 'Not authorized to view other teachers.' }
+            });
+          }
+        }
+
+        if (!canViewOtherTeachers && user.role !== 'teacher') {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN', message: 'Not authorized to access teacher portal.' }
+          });
+        }
+
+        const teacherId = requestedTeacherId || user.user_id || user.sub;
         const date = req.query.date;
 
         const overview = await store.getTeacherPortalOverview(tenantId, teacherId, date);
@@ -75,18 +106,14 @@ export function portalRoutes(store: IDataStore) {
             const metaRoll = (me?.metadata as any)?.roll_number;
             const metaAdm = (me?.metadata as any)?.admission_number;
             const cleanUserEmail = (user.email || '').toLowerCase().trim();
+            const emailPrefix = cleanUserEmail.split('@')[0];
+
             myStudent = allStudents.find(s => {
               if (metaRoll && s.roll_number && s.roll_number.toLowerCase() === metaRoll.toLowerCase()) return true;
               if (metaAdm && s.admission_number && s.admission_number.toLowerCase() === metaAdm.toLowerCase()) return true;
               if (cleanCnic && s.guardian_id_card && s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() === cleanCnic) return true;
-              if (cleanUserEmail && s.admission_number) {
-                const admClean = s.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (cleanUserEmail.includes(admClean)) return true;
-              }
-              if (cleanUserEmail && s.roll_number) {
-                const rollClean = s.roll_number.toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (cleanUserEmail.includes(rollClean)) return true;
-              }
+              if (s.admission_number && (emailPrefix === s.admission_number.toLowerCase() || emailPrefix === `std.${s.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '')}`)) return true;
+              if (s.roll_number && emailPrefix === s.roll_number.toLowerCase()) return true;
               return false;
             });
             if (myStudent) {
@@ -237,5 +264,8 @@ export function portalRoutes(store: IDataStore) {
     };
 
     fastify.get('/student-parent', getStudentParentPortalHandler);
+    fastify.get('/portal/student-parent', getStudentParentPortalHandler);
+    fastify.get('/student', getStudentParentPortalHandler);
+    fastify.get('/portal/student', getStudentParentPortalHandler);
   };
 }

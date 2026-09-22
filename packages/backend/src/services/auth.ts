@@ -75,42 +75,41 @@ export class AuthService {
    */
   async loginWithPassword(email: string, password: string, tenantSlug?: string, tenantId?: string): Promise<{ user: User; tenant: Tenant }> {
     const cleanEmail = email.toLowerCase().trim();
-    let candidateTenants: Tenant[] = [];
-
-    if (tenantId && tenantId.trim()) {
-      const t = await this.store.getTenantById(tenantId.trim());
-      if (!t) throw new Error('Academy not found.');
-      candidateTenants = [t];
-    } else if (tenantSlug && tenantSlug.trim()) {
-      const t = await this.store.getTenantBySlug(tenantSlug.trim());
-      if (!t) throw new Error(`Academy with identifier '${tenantSlug}' not found.`);
-      candidateTenants = [t];
-    } else {
-      candidateTenants = await this.store.listTenants();
+    if ((!tenantId || !tenantId.trim()) && (!tenantSlug || !tenantSlug.trim())) {
+      if (cleanEmail === 'kampuserp@gmail.com') {
+        tenantId = 'p0000000-0000-0000-0000-000000000001';
+      } else {
+        throw new Error('Academy identifier (tenant_slug or tenant_id) is required.');
+      }
     }
 
-    // Collect candidate accounts across matching tenant scopes
+    let tenant: Tenant | null = null;
+    if (tenantId && tenantId.trim()) {
+      tenant = await this.store.getTenantById(tenantId.trim());
+    } else if (tenantSlug && tenantSlug.trim()) {
+      tenant = await this.store.getTenantBySlug(tenantSlug.trim());
+    }
+
+    if (!tenant) {
+      throw new Error('Academy not found.');
+    }
+
+    // Collect candidate accounts across matching tenant scope ONLY
     const candidateAccounts: { user: User; tenant: Tenant }[] = [];
 
     // Staff email only. Student and parent portal accounts are CNIC-only.
     if (cleanEmail.includes('@')) {
-      const directUsers = await this.store.getUserByEmailGlobal(cleanEmail);
-      for (const u of directUsers) {
-        if (this.isPortalRole(u.role)) continue;
-        const t = candidateTenants.find(ct => ct.id === u.tenant_id);
-        if (t && !candidateAccounts.some(ca => ca.user.id === u.id)) {
-          candidateAccounts.push({ user: u, tenant: t });
-        }
+      const directUser = await this.store.getUserByEmail(tenant.id, cleanEmail);
+      if (directUser && !this.isPortalRole(directUser.role)) {
+        candidateAccounts.push({ user: directUser, tenant });
       }
     }
 
     // CNIC and tenant-specific lookup
-    for (const t of candidateTenants) {
-      const usersInTenant = await this.findUsersByIdentifierInTenant(t.id, cleanEmail);
-      for (const u of usersInTenant) {
-        if (!candidateAccounts.some(ca => ca.user.id === u.id)) {
-          candidateAccounts.push({ user: u, tenant: t });
-        }
+    const usersInTenant = await this.findUsersByIdentifierInTenant(tenant.id, cleanEmail);
+    for (const u of usersInTenant) {
+      if (!candidateAccounts.some(ca => ca.user.id === u.id)) {
+        candidateAccounts.push({ user: u, tenant });
       }
     }
 
@@ -134,7 +133,7 @@ export class AuthService {
     // Select active, non-suspended account first
     const activeMatch = matchingAccounts.find(m => m.tenant.status !== 'suspended' && m.user.status === 'active') || matchingAccounts[0];
     const user = activeMatch.user;
-    const tenant = activeMatch.tenant;
+    tenant = activeMatch.tenant;
 
     if (tenant.status === 'suspended') {
       throw new Error('This academy account is currently suspended. Please contact platform support.');
@@ -269,22 +268,26 @@ export class AuthService {
   /**
    * Request Password Reset OTP via Brevo
    */
-  async requestPasswordReset(email: string, tenantSlug?: string): Promise<RequestOTPResponse> {
+  async requestPasswordReset(email: string, tenantSlug?: string, tenantId?: string): Promise<RequestOTPResponse> {
     const cleanEmail = email.toLowerCase().trim();
-    let tenant: Tenant | null = null;
-    let user: User | null = null;
+    if ((!tenantId || !tenantId.trim()) && (!tenantSlug || !tenantSlug.trim())) {
+      if (cleanEmail === 'kampuserp@gmail.com') {
+        tenantId = 'p0000000-0000-0000-0000-000000000001';
+      } else {
+        throw new Error('Academy identifier (tenant_slug or tenant_id) is required.');
+      }
+    }
 
-    if (tenantSlug && tenantSlug.trim()) {
+    let tenant: Tenant | null = null;
+    if (tenantId && tenantId.trim()) {
+      tenant = await this.store.getTenantById(tenantId.trim());
+    } else if (tenantSlug && tenantSlug.trim()) {
       tenant = await this.store.getTenantBySlug(tenantSlug.trim());
-      if (tenant) {
-        user = await this.store.getUserByEmail(tenant.id, cleanEmail);
-      }
-    } else {
-      const users = await this.store.getUserByEmailGlobal(cleanEmail);
-      if (users.length > 0) {
-        user = users[0];
-        tenant = await this.store.getTenantById(user.tenant_id);
-      }
+    }
+
+    let user: User | null = null;
+    if (tenant) {
+      user = await this.store.getUserByEmail(tenant.id, cleanEmail);
     }
 
     if (!user || !tenant) {
@@ -332,22 +335,26 @@ export class AuthService {
   /**
    * Reset Password with OTP Verification
    */
-  async resetPassword(email: string, otp: string, newPassword: string, tenantSlug?: string): Promise<boolean> {
+  async resetPassword(email: string, otp: string, newPassword: string, tenantSlug?: string, tenantId?: string): Promise<boolean> {
     const cleanEmail = email.toLowerCase().trim();
-    let tenant: Tenant | null = null;
-    let user: User | null = null;
+    if ((!tenantId || !tenantId.trim()) && (!tenantSlug || !tenantSlug.trim())) {
+      if (cleanEmail === 'kampuserp@gmail.com') {
+        tenantId = 'p0000000-0000-0000-0000-000000000001';
+      } else {
+        throw new Error('Academy identifier (tenant_slug or tenant_id) is required.');
+      }
+    }
 
-    if (tenantSlug && tenantSlug.trim()) {
+    let tenant: Tenant | null = null;
+    if (tenantId && tenantId.trim()) {
+      tenant = await this.store.getTenantById(tenantId.trim());
+    } else if (tenantSlug && tenantSlug.trim()) {
       tenant = await this.store.getTenantBySlug(tenantSlug.trim());
-      if (tenant) {
-        user = await this.store.getUserByEmail(tenant.id, cleanEmail);
-      }
-    } else {
-      const users = await this.store.getUserByEmailGlobal(cleanEmail);
-      if (users.length > 0) {
-        user = users[0];
-        tenant = await this.store.getTenantById(user.tenant_id);
-      }
+    }
+
+    let user: User | null = null;
+    if (tenant) {
+      user = await this.store.getUserByEmail(tenant.id, cleanEmail);
     }
 
     if (!user || !tenant) {

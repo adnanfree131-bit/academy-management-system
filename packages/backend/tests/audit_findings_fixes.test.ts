@@ -522,18 +522,20 @@ describe('Senior ERP Systems Audit Fixes: Security, Substitution, Leaves & Waitl
         payload: {
           email: 'multitenant-teacher@test.pk',
           password: 'BeaconPass2026!',
+          tenant_slug: tenant2.slug,
         },
       });
       expect(resBeacon.statusCode).toBe(200);
       expect(resBeacon.json().data.tenant.id).toBe(tenant2.id);
 
-      // Global login with Apex password should automatically resolve Apex tenant!
+      // Login with Apex password and slug resolves Apex tenant
       const resApex = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/login',
         payload: {
           email: 'multitenant-teacher@test.pk',
           password: 'ApexPass2026!',
+          tenant_slug: 'apex',
         },
       });
       expect(resApex.statusCode).toBe(200);

@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, PaymentMethod } from '@apex/shared-types';
+import { can } from '../lib/access.js';
 
 export function payrollRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -9,10 +10,12 @@ export function payrollRoutes(store: IDataStore) {
       await (fastify as any).authenticate(request, reply);
       if (reply.sent) return;
       const user = request.user as JWTPayload;
-      if (user.role !== 'tenant_admin' && user.role !== 'super_admin' && user.role !== 'finance_manager') {
+      const method = (request.method || '').toUpperCase();
+      const requiredLevel = method === 'GET' ? 'view' : 'edit';
+      if (!can(user, 'payroll', requiredLevel)) {
         return reply.status(403).send({
           success: false,
-          error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Administrator privileges required for payroll operations.' },
+          error: { code: 'FORBIDDEN_ROLE', message: `Access denied. Requires payroll ${requiredLevel} permission.` },
           timestamp: new Date().toISOString(),
         });
       }

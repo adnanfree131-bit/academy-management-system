@@ -2,12 +2,25 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, DayOfWeek } from '@apex/shared-types';
+import { can, FeatureId, AccessLevel } from '../lib/access.js';
 
 const dayOfWeekEnum = z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
 
 export function timetableRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
     fastify.addHook('onRequest', (fastify as any).authenticate);
+
+    const assertFeature = (user: any, feature: FeatureId, level: AccessLevel, reply: any): boolean => {
+      if (!can(user, feature, level)) {
+        reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: `Access denied. Requires '${feature}' (${level}) permission.` },
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+      return true;
+    };
 
     const assertRole = (user: JWTPayload, allowedRoles: string[], reply: any): boolean => {
       if (!allowedRoles.includes(user.role) && user.role !== 'super_admin') {
@@ -24,6 +37,7 @@ export function timetableRoutes(store: IDataStore) {
     // --- Rooms ---
     const getRoomsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'timetable', 'view', reply)) return;
       const rooms = await store.getRooms(user.tenant_id);
       return reply.send({ success: true, data: rooms, timestamp: new Date().toISOString() });
     };
@@ -31,7 +45,7 @@ export function timetableRoutes(store: IDataStore) {
 
     fastify.post('/rooms', async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'timetable', 'edit', reply)) return;
       const schema = z.object({
         name: z.string().min(1),
         capacity: z.number().int().min(1).default(40),
@@ -58,6 +72,7 @@ export function timetableRoutes(store: IDataStore) {
     // --- Timetable Slots ---
     const getSlotsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'timetable', 'view', reply)) return;
       const { batch_id, day, date } = request.query as { batch_id?: string; day?: DayOfWeek; date?: string };
       const slots = await store.getTimetable(user.tenant_id, batch_id, day, date);
       return reply.send({ success: true, data: slots, timestamp: new Date().toISOString() });
@@ -68,6 +83,7 @@ export function timetableRoutes(store: IDataStore) {
     // Pre-flight collision checker endpoint
     const checkCollisionHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'timetable', 'edit', reply)) return;
       const schema = z.object({
         batchId: z.string().min(1),
         teacherId: z.string().min(1),
@@ -97,7 +113,7 @@ export function timetableRoutes(store: IDataStore) {
     // Create Timetable Slot
     const createSlotHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'timetable', 'edit', reply)) return;
       const schema = z.object({
         batch_id: z.string().min(1),
         subject_id: z.string().min(1),
@@ -137,7 +153,7 @@ export function timetableRoutes(store: IDataStore) {
     // Assign Substitute Teacher (Dated Overrides)
     const substituteHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'timetable', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         substitute_teacher_id: z.string().min(1),
@@ -177,7 +193,7 @@ export function timetableRoutes(store: IDataStore) {
     // Delete Timetable Slot
     const deleteSlotHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (!assertRole(user, ['tenant_admin', 'academic_head'], reply)) return;
+      if (!assertFeature(user, 'timetable', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const ok = await store.deleteTimetableSlot(user.tenant_id, id);
       if (!ok) {
@@ -195,6 +211,7 @@ export function timetableRoutes(store: IDataStore) {
     // Available Teachers Lookup
     const availableTeachersHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'timetable', 'view', reply)) return;
       const { day, start_time, end_time, date } = request.query as { day: DayOfWeek; start_time: string; end_time: string; date?: string };
 
       if (!day || !start_time || !end_time) {

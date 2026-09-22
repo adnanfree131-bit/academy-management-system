@@ -152,6 +152,31 @@ export type UserRole =
   | 'parent'          // Guardian
   | 'student';        // Enrolled pupil
 
+export type AccessLevel = 'view' | 'edit';
+
+export type FeatureId =
+  | 'enrollment'
+  | 'id_cards'
+  | 'classes'
+  | 'timetable'
+  | 'attendance'
+  | 'absentee'
+  | 'homework'
+  | 'geofence'
+  | 'staff_attendance'
+  | 'complaints'
+  | 'exams_bank'
+  | 'exams_marks'
+  | 'exams_reports'
+  | 'voucher'
+  | 'challans'
+  | 'fee_reversals'
+  | 'expenses'
+  | 'payroll'
+  | 'all_classes';
+
+export type UserAccessMap = Partial<Record<FeatureId, AccessLevel>>;
+
 export type UserStatus = 'active' | 'inactive' | 'suspended' | 'pending_verification' | 'on_leave' | 'archived';
 
 export interface User {
@@ -228,6 +253,7 @@ export interface StaffMemberRecord {
   
   teaching_assignments: StaffTeachingAssignment[];
   permissions: string[];
+  access?: Record<string, 'view' | 'edit'>;
   status: StaffStatus;
   role?: string;
   avatar_url?: string | null;
@@ -291,6 +317,8 @@ export interface AuthSessionResponse {
     role: UserRole;
     avatar_url?: string | null;
     permissions?: string[];
+    access?: UserAccessMap;
+    teaching_assignments?: StaffTeachingAssignment[];
     designation?: string;
     must_change_password?: boolean;
   };
