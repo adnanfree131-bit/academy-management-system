@@ -23,6 +23,7 @@ import {
   TimetableCollisionResult 
 } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
+import { useMobileOverlay } from '../lib/mobileOverlay';
 
 const DAYS: { id: DayOfWeek; label: string }[] = [
   { id: 'monday', label: 'Monday' },
@@ -68,6 +69,11 @@ export const TimetableDesk: React.FC = () => {
 
   // Substitute Modal
   const [substituteSlot, setSubstituteSlot] = useState<TimetableSlot | null>(null);
+
+  useMobileOverlay('sheet', Boolean(showScheduleModal || substituteSlot), () => {
+    setShowScheduleModal(false);
+    setSubstituteSlot(null);
+  });
   const [substituteTeacherId, setSubstituteTeacherId] = useState('');
   const [substituteCandidates, setSubstituteCandidates] = useState<User[]>([]);
   const [isAssigningSub, setIsAssigningSub] = useState(false);
@@ -489,7 +495,7 @@ export const TimetableDesk: React.FC = () => {
       <button
         type="button"
         onClick={() => setShowScheduleModal(true)}
-        className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-all cursor-pointer"
+        className="sm:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-30 w-14 h-14 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-all cursor-pointer"
         title="Schedule Class"
       >
         <Plus className="w-6 h-6" />
@@ -497,8 +503,8 @@ export const TimetableDesk: React.FC = () => {
 
       {/* Schedule Class Modal with Live Collision Prevention */}
       {showScheduleModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[92dvh] flex flex-col mobile-sheet-card">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="p-1.5 bg-slate-900 text-white rounded-lg">
@@ -507,8 +513,9 @@ export const TimetableDesk: React.FC = () => {
                 <h2 className="text-sm font-bold text-slate-900">Schedule Academic Period</h2>
               </div>
               <button
+                type="button"
                 onClick={() => setShowScheduleModal(false)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-md"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -662,14 +669,14 @@ export const TimetableDesk: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowScheduleModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingSlot || collisionState?.has_conflict}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition-all ${
+                  className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition-all min-h-[44px] ${
                     collisionState?.has_conflict
                       ? 'bg-slate-300 cursor-not-allowed'
                       : 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800 shadow-xs cursor-pointer'
@@ -685,8 +692,8 @@ export const TimetableDesk: React.FC = () => {
 
       {/* Assign Substitute Modal */}
       {substituteSlot && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-amber-50/40">
               <div className="flex items-center gap-2">
                 <span className="p-1.5 bg-amber-600 text-white rounded-lg">
@@ -700,8 +707,9 @@ export const TimetableDesk: React.FC = () => {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setSubstituteSlot(null)}
-                className="text-slate-400 hover:text-slate-700 p-1"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -741,14 +749,14 @@ export const TimetableDesk: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSubstituteSlot(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isAssigningSub || substituteCandidates.length === 0}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs"
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs cursor-pointer min-h-[44px]"
                 >
                   {isAssigningSub ? 'Routing...' : 'Assign Substitute'}
                 </button>

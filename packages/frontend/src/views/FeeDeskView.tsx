@@ -2178,7 +2178,7 @@ export const FeeDeskView: React.FC = () => {
       {/* Toast Notification */}
       {feedbackNotice && (
         <div
-          className={`fixed top-4 right-4 z-50 p-3 rounded-xl shadow-xl flex items-center gap-3 border text-xs font-semibold max-w-md animate-in slide-in-from-top-2 ${
+          className={`fixed left-3 right-3 sm:left-auto sm:right-4 top-[calc(3.5rem+env(safe-area-inset-top)+0.5rem)] z-50 p-3 rounded-xl shadow-xl flex items-center gap-3 border text-xs font-semibold max-w-md animate-in fade-in slide-in-from-top-2 ${
             feedbackNotice.type === 'success'
               ? 'bg-slate-900 text-white border-slate-700'
               : feedbackNotice.type === 'error'
@@ -2205,54 +2205,56 @@ export const FeeDeskView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
           <button
             type="button"
             onClick={() => setShowFeeHeadsModal(true)}
-            className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs rounded-lg border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="flex-1 sm:flex-initial min-h-[40px] px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs rounded-xl border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
             title="Manage Fee Heads and Allocation Order"
           >
-            <DollarSign className="w-3.5 h-3.5 text-slate-500" />
-            <span>Fee Heads & Priority</span>
+            <DollarSign className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <span className="truncate">Fee Heads & Priority</span>
           </button>
           <button
             type="button"
             onClick={() => setShowBulkRevisionModal(true)}
-            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all flex items-center gap-1.5 cursor-pointer"
+            className="flex-1 sm:flex-initial min-h-[40px] px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             title="Adjust tuition fees globally or by class/section"
           >
-            <TrendingUp className="w-3.5 h-3.5 text-white/90" />
-            <span>Bulk Fee Revision</span>
+            <TrendingUp className="w-3.5 h-3.5 text-white/90 shrink-0" />
+            <span className="truncate">Bulk Fee Revision</span>
           </button>
         </div>
       </div>
 
       {/* Main Tab Navigation - Segmented Control matching Image 1 */}
-      <div className="flex items-center overflow-x-auto no-scrollbar max-w-full whitespace-nowrap bg-white p-0.5 rounded-xl border border-slate-200 text-xs font-semibold shadow-2xs">
+      <div className="flex items-center overflow-x-auto no-scrollbar max-w-full bg-white p-1 rounded-xl border border-slate-200 text-xs font-semibold shadow-2xs">
         <button
           onClick={() => setActiveTab('cashier')}
-          className={`flex-1 min-w-[120px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
+          className={`flex-1 min-w-0 min-h-[40px] py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
             activeTab === 'cashier'
               ? 'bg-amber-600 text-white shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <Receipt className={`w-3.5 h-3.5 ${activeTab === 'cashier' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Fees Receiving</span>
+          <Receipt className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'cashier' ? 'text-white' : 'text-slate-500'}`} />
+          <span className="truncate hidden sm:inline">Fees Receiving</span>
+          <span className="truncate sm:hidden">Receiving</span>
         </button>
 
         <button
           onClick={() => setActiveTab('defaulters')}
-          className={`flex-1 min-w-[120px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
+          className={`flex-1 min-w-0 min-h-[40px] py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
             activeTab === 'defaulters'
               ? 'bg-amber-600 text-white shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <AlertCircle className={`w-3.5 h-3.5 ${activeTab === 'defaulters' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Fee Defaulters</span>
+          <AlertCircle className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'defaulters' ? 'text-white' : 'text-slate-500'}`} />
+          <span className="truncate hidden sm:inline">Fee Defaulters</span>
+          <span className="truncate sm:hidden">Defaulters</span>
           {duesSummary.allCount > 0 && (
-            <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[9.5px] font-bold font-mono ${
+            <span className={`ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.2 rounded-full text-[9px] sm:text-[9.5px] font-bold font-mono ${
               activeTab === 'defaulters' ? 'bg-white text-amber-700' : 'bg-rose-50 text-rose-700 border border-rose-200'
             }`}>
               {duesSummary.allCount}
@@ -2262,14 +2264,15 @@ export const FeeDeskView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('reports')}
-          className={`flex-1 min-w-[120px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
+          className={`flex-1 min-w-0 min-h-[40px] py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
             activeTab === 'reports'
               ? 'bg-amber-600 text-white shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <BarChart2 className={`w-3.5 h-3.5 ${activeTab === 'reports' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Finance Reports</span>
+          <BarChart2 className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'reports' ? 'text-white' : 'text-slate-500'}`} />
+          <span className="truncate hidden sm:inline">Finance Reports</span>
+          <span className="truncate sm:hidden">Reports</span>
         </button>
       </div>
 
@@ -3974,8 +3977,8 @@ export const FeeDeskView: React.FC = () => {
       {/* RECEIVE FEE PAYMENT MODAL (CENTERED INSTITUTIONAL DIALOG) */}
       {/* ========================================================================= */}
       {showCashierDrawer && activeInvoice && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-white rounded-2xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden my-auto max-h-[92vh]">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="w-full max-w-lg bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden max-h-[92dvh] mobile-sheet-card">
             {/* Modal Header */}
             <div className="px-5 py-3.5 bg-slate-50/90 border-b border-slate-200 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
@@ -3994,8 +3997,9 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowCashierDrawer(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
                 title="Close"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -4301,7 +4305,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowCashierDrawer(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer"
+                className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -4309,7 +4313,7 @@ export const FeeDeskView: React.FC = () => {
                 type="submit"
                 form="cashierDrawerForm"
                 disabled={isCommittingPayment || (Number(collectionAmount) || 0) <= 0}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+                className="min-h-[48px] px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
               >
                 {isCommittingPayment ? (
                   <>
@@ -4332,7 +4336,7 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL: OFFICIAL PAYMENT RECEIPT (A6 VERTICAL) WITH 1-CLICK WHATSAPP */}
       {/* ========================================================================= */}
       {showReceiptModal && activePaymentReceipt && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-white/75 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-white/75 backdrop-blur-md flex items-center justify-center p-4 no-sheet-overlay">
           <div className="bg-white rounded-lg max-w-lg w-full p-5 shadow-2xl space-y-4 my-4">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden">
               <div className="flex items-center gap-2">
@@ -4345,15 +4349,16 @@ export const FeeDeskView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors"
-                  title="Print A6 portrait slip"
+                  className="min-h-[44px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Print A6 portrait receipt"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print A6</span>
                 </button>
                 <button
                   onClick={() => setShowReceiptModal(false)}
-                  className="p-1 text-slate-400 hover:text-slate-600"
+                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                  aria-label="Close dialog"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -4410,7 +4415,7 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL: FEE SLIP PICTURE PREVIEW & 1-CLICK WHATSAPP DISPATCH */}
       {/* ========================================================================= */}
       {showPictureSlipModal && previewSlipImage && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-white/75 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-white/75 backdrop-blur-md flex items-center justify-center p-4 no-sheet-overlay">
           <div className="bg-white rounded-lg max-w-lg w-full p-5 shadow-2xl space-y-4 my-4">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden">
               <div className="flex items-center gap-2">
@@ -4423,7 +4428,7 @@ export const FeeDeskView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors"
+                  className="min-h-[44px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                   title="Print A6 portrait slip"
                 >
                   <Printer className="w-3.5 h-3.5" />
@@ -4431,7 +4436,8 @@ export const FeeDeskView: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setShowPictureSlipModal(false)}
-                  className="p-1 text-slate-400 hover:text-slate-600"
+                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                  aria-label="Close dialog"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -4601,7 +4607,7 @@ export const FeeDeskView: React.FC = () => {
               }
             }
           `}</style>
-          <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto no-sheet-overlay">
             <div id="printable-challan-modal" className="bg-white rounded-lg max-w-5xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
               <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden challan-no-print">
                 <div className="flex items-center gap-2">
@@ -4784,15 +4790,20 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL: CANCEL / VOID INVOICE */}
       {/* ========================================================================= */}
       {cancelInvoiceTarget && (
-        <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Void / Cancel Invoice</h3>
                 <p className="text-xs text-slate-500">Invoice #{cancelInvoiceTarget.invoice_number} ({cancelInvoiceTarget.billing_month})</p>
               </div>
-              <button onClick={() => setCancelInvoiceTarget(null)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
+              <button
+                type="button"
+                onClick={() => setCancelInvoiceTarget(null)}
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                aria-label="Close dialog"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -4830,7 +4841,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setCancelInvoiceTarget(null)}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Back
               </button>
@@ -4838,7 +4849,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 disabled={cancelSubmitting || cancelInvoiceReason.trim().length < 3}
                 onClick={handleCancelInvoice}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs"
+                className="min-h-[44px] px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
               >
                 {cancelSubmitting ? 'Cancelling...' : 'Confirm Void Invoice'}
               </button>
@@ -4850,8 +4861,8 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL: FEE HEAD MANAGEMENT */}
       {/* ========================================================================= */}
       {showHeadModal && (
-        <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo
                 title={editingHead ? "Edit Fee Head" : "New Fee Head"}
@@ -4860,7 +4871,8 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowHeadModal(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -4932,14 +4944,14 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowHeadModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingHead}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition-colors"
+                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
                   {isSavingHead ? 'Saving...' : 'Save Fee Head'}
                 </button>
@@ -4953,12 +4965,17 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL: GRANT AD-HOC CONCESSION */}
       {/* ========================================================================= */}
       {showDiscountModal && (
-        <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <h3 className="text-sm font-bold text-slate-900">Grant Student Fee Concession</h3>
-              <button onClick={() => setShowDiscountModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
+              <button
+                type="button"
+                onClick={() => setShowDiscountModal(false)}
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                aria-label="Close dialog"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -5044,13 +5061,13 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowDiscountModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs"
+                  className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
                 >
                   Grant Concession
                 </button>
@@ -5064,15 +5081,20 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL: VOID RECEIPT */}
       {/* ========================================================================= */}
       {voidPaymentModal && (
-        <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-md w-full p-6 shadow-2xl border border-slate-200/90 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <h3 className="text-sm font-bold text-rose-700 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" />
                 Void Payment Receipt
               </h3>
-              <button onClick={() => setVoidPaymentModal(null)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-4 h-4" />
+              <button
+                type="button"
+                onClick={() => setVoidPaymentModal(null)}
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                aria-label="Close dialog"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -5098,7 +5120,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setVoidPaymentModal(null)}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Cancel
               </button>
@@ -5106,7 +5128,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={handleConfirmVoid}
                 disabled={voidSubmitting}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-xs"
+                className="min-h-[44px] px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
               >
                 {voidSubmitting ? 'Voiding...' : 'Confirm Void'}
               </button>
@@ -5119,9 +5141,9 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL: BULK TUITION FEE REVISION */}
       {/* ========================================================================= */}
       {showBulkRevisionModal && (
-        <div className="fixed inset-0 bg-white/75 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-xl w-full p-6 shadow-2xl border border-slate-200/90 space-y-4 max-h-[92vh] flex flex-col justify-between">
-            <div>
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-xl w-full p-6 shadow-2xl border border-slate-200/90 space-y-4 max-h-[90dvh] flex flex-col justify-between mobile-sheet-card">
+            <div className="overflow-y-auto">
               <div className="flex justify-between items-center border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-2.5">
                   <span className="p-2 rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200">
@@ -5132,8 +5154,13 @@ export const FeeDeskView: React.FC = () => {
                     <p className="text-[11px] text-slate-500">Change tuition for all students, a class, or a section.</p>
                   </div>
                 </div>
-                <button onClick={() => setShowBulkRevisionModal(false)} className="text-slate-400 hover:text-slate-600">
-                  <X className="w-4 h-4" />
+                <button
+                  type="button"
+                  onClick={() => setShowBulkRevisionModal(false)}
+                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                  aria-label="Close dialog"
+                >
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
@@ -5147,8 +5174,8 @@ export const FeeDeskView: React.FC = () => {
                       { id: 'batch', label: 'Specific Section' },
                     ].map(tab => (
                       <button
-                        type="button"
                         key={tab.id}
+                        type="button"
                         onClick={() => {
                           setBulkRevScope(tab.id as any);
                           if (tab.id === 'program' && programs.length > 0 && !bulkRevProgramId) {
@@ -5158,10 +5185,10 @@ export const FeeDeskView: React.FC = () => {
                             setBulkRevBatchId(batches[0].id);
                           }
                         }}
-                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all border ${
+                        className={`min-h-[44px] py-2 px-3 text-xs font-semibold rounded-lg border transition-all ${
                           bulkRevScope === tab.id
-                            ? 'bg-indigo-50 border-indigo-300 text-indigo-800'
-                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
                         {tab.label}
@@ -5258,11 +5285,11 @@ export const FeeDeskView: React.FC = () => {
               </form>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowBulkRevisionModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Cancel
               </button>
@@ -5270,7 +5297,7 @@ export const FeeDeskView: React.FC = () => {
                 type="submit"
                 form="bulkRevForm"
                 disabled={isSubmittingBulkRev || affectedStudents.length === 0}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition-colors"
+                className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition-colors cursor-pointer"
               >
                 {isSubmittingBulkRev ? 'Applying...' : `Apply Revision to ${affectedStudents.length} Students`}
               </button>
@@ -5283,8 +5310,8 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL: FAMILY FEE PAYMENT DESK (All Enrolled Siblings) */}
       {/* ========================================================================= */}
       {selectedFamily && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-white/75 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-6 shadow-2xl border border-slate-200/90 space-y-5 my-6 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-2xl w-full p-6 shadow-2xl border border-slate-200/90 space-y-5 my-0 sm:my-6 animate-in fade-in zoom-in-95 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             {/* Header */}
             <div className="flex justify-between items-start border-b border-slate-200 pb-3.5">
               <div>
@@ -5303,8 +5330,10 @@ export const FeeDeskView: React.FC = () => {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedFamily(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -5498,14 +5527,14 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedFamily(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingFamily || Object.values(familyAllocations).reduce((sum, v) => sum + (Number(v) || 0), 0) <= 0}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 cursor-pointer"
+                  className="min-h-[48px] px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>
@@ -5524,7 +5553,7 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL: OFFICIAL FAMILY PAYMENT RECEIPT */}
       {/* ========================================================================= */}
       {familyReceiptData && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-white/75 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-white/75 backdrop-blur-md flex items-center justify-center p-4 no-sheet-overlay">
           <div className="bg-white rounded-lg max-w-lg w-full p-6 shadow-2xl border border-slate-200/90 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2">
@@ -5535,8 +5564,10 @@ export const FeeDeskView: React.FC = () => {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setFamilyReceiptData(null)}
-                className="p-1 text-slate-400 hover:text-slate-600"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -5603,7 +5634,7 @@ export const FeeDeskView: React.FC = () => {
                   const url = phone ? `https://wa.me/${phone.startsWith('0') ? '92' + phone.slice(1) : phone}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
                   window.open(url, '_blank');
                 }}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs"
+                className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>WhatsApp Share</span>
@@ -5611,7 +5642,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors"
+                className="min-h-[44px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>Print</span>
@@ -5619,7 +5650,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setFamilyReceiptData(null)}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
+                className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
               >
                 Done
               </button>
@@ -5632,8 +5663,8 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL: STUDENT SEARCH RESULTS POPUP */}
       {/* ========================================================================= */}
       {showSearchPopup && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-2xl w-full p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[90dvh] flex flex-col mobile-sheet-card">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -5646,8 +5677,10 @@ export const FeeDeskView: React.FC = () => {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowSearchPopup(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                aria-label="Close dialog"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5666,8 +5699,9 @@ export const FeeDeskView: React.FC = () => {
               />
               {cashierSearch && (
                 <button
+                  type="button"
                   onClick={() => setCashierSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -5754,7 +5788,7 @@ export const FeeDeskView: React.FC = () => {
 
                         <button
                           type="button"
-                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-lg transition-colors shadow-xs flex items-center gap-1"
+                          className="min-h-[40px] px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-lg transition-colors shadow-xs flex items-center gap-1 cursor-pointer"
                         >
                           <span>Select</span>
                           <ArrowRight className="w-3 h-3" />
@@ -5770,7 +5804,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowSearchPopup(false)}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Close
               </button>
@@ -5783,8 +5817,8 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL: FEE HEADS & PAYMENT ALLOCATION PRIORITY DRAWER / MODAL */}
       {/* ========================================================================= */}
       {showFeeHeadsModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-3xl w-full p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-3xl w-full p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[90dvh] flex flex-col mobile-sheet-card">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -5799,14 +5833,16 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleOpenNewHead}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
+                  className="min-h-[40px] px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>New Fee Head</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowFeeHeadsModal(false)}
-                  className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                  aria-label="Close dialog"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -5849,7 +5885,7 @@ export const FeeDeskView: React.FC = () => {
                             type="button"
                             disabled={idx === 0}
                             onClick={() => handleMovePriority(idx, 'up')}
-                            className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded disabled:opacity-25 transition-colors"
+                            className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded disabled:opacity-25 transition-colors cursor-pointer"
                             title="Move Up in priority"
                           >
                             <ArrowUp className="w-3.5 h-3.5" />
@@ -5858,7 +5894,7 @@ export const FeeDeskView: React.FC = () => {
                             type="button"
                             disabled={idx === feeHeads.length - 1}
                             onClick={() => handleMovePriority(idx, 'down')}
-                            className="p-1 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded disabled:opacity-25 transition-colors"
+                            className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded disabled:opacity-25 transition-colors cursor-pointer"
                             title="Move Down in priority"
                           >
                             <ArrowDown className="w-3.5 h-3.5" />
@@ -5866,7 +5902,7 @@ export const FeeDeskView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenEditHead(head)}
-                            className="p-1 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+                            className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors cursor-pointer"
                             title="Edit Head"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -5875,7 +5911,7 @@ export const FeeDeskView: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => handleDeleteFeeHead(head.id)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                              className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
                               title="Delete Head"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -5893,7 +5929,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowFeeHeadsModal(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl"
+                className="min-h-[44px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
               >
                 Close
               </button>
@@ -5906,8 +5942,8 @@ export const FeeDeskView: React.FC = () => {
       {/* MODAL: UNIFIED CONCESSIONS & SCHOLARSHIPS REPORT FILTER */}
       {/* ========================================================================= */}
       {showConcessionReportModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-lg w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-lg w-full p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
@@ -5919,8 +5955,10 @@ export const FeeDeskView: React.FC = () => {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setShowConcessionReportModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                aria-label="Close dialog"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5936,7 +5974,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setConcessionReportType('all')}
-                    className={`py-2 px-2.5 rounded-lg border text-center transition-all ${
+                    className={`min-h-[44px] py-2 px-2.5 rounded-lg border text-center transition-all ${
                       concessionReportType === 'all'
                         ? 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -5947,7 +5985,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setConcessionReportType('scholarship')}
-                    className={`py-2 px-2.5 rounded-lg border text-center transition-all ${
+                    className={`min-h-[44px] py-2 px-2.5 rounded-lg border text-center transition-all ${
                       concessionReportType === 'scholarship'
                         ? 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -5958,7 +5996,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setConcessionReportType('counter')}
-                    className={`py-2 px-2.5 rounded-lg border text-center transition-all ${
+                    className={`min-h-[44px] py-2 px-2.5 rounded-lg border text-center transition-all ${
                       concessionReportType === 'counter'
                         ? 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -5978,7 +6016,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setConcessionPeriodType('monthly')}
-                    className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+                    className={`min-h-[40px] py-1.5 px-2 rounded-lg border text-center transition-all ${
                       concessionPeriodType === 'monthly'
                         ? 'bg-amber-600 text-white font-bold border-amber-600 shadow-xs'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -5989,7 +6027,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setConcessionPeriodType('yearly')}
-                    className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+                    className={`min-h-[40px] py-1.5 px-2 rounded-lg border text-center transition-all ${
                       concessionPeriodType === 'yearly'
                         ? 'bg-amber-600 text-white font-bold border-amber-600 shadow-xs'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -6000,7 +6038,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setConcessionPeriodType('date_range')}
-                    className={`py-1.5 px-2 rounded-lg border text-center transition-all ${
+                    className={`min-h-[40px] py-1.5 px-2 rounded-lg border text-center transition-all ${
                       concessionPeriodType === 'date_range'
                         ? 'bg-amber-600 text-white font-bold border-amber-600 shadow-xs'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -6018,7 +6056,7 @@ export const FeeDeskView: React.FC = () => {
                       value={concessionMonth}
                       onChange={e => setConcessionMonth(e.target.value)}
                       placeholder="e.g. October 2026"
-                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium"
                     />
                   </div>
                 )}
@@ -6031,7 +6069,7 @@ export const FeeDeskView: React.FC = () => {
                       value={concessionYear}
                       onChange={e => setConcessionYear(e.target.value)}
                       placeholder="e.g. 2026"
-                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium"
                     />
                   </div>
                 )}
@@ -6044,7 +6082,7 @@ export const FeeDeskView: React.FC = () => {
                         type="date"
                         value={concessionStartDate}
                         onChange={e => setConcessionStartDate(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                        className="w-full px-2.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono"
                       />
                     </div>
                     <div>
@@ -6053,7 +6091,7 @@ export const FeeDeskView: React.FC = () => {
                         type="date"
                         value={concessionEndDate}
                         onChange={e => setConcessionEndDate(e.target.value)}
-                        className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                        className="w-full px-2.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono"
                       />
                     </div>
                   </div>
@@ -6082,7 +6120,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowConcessionReportModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg"
+                className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Cancel
               </button>
@@ -6090,7 +6128,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={handleGenerateConcessionReport}
                 disabled={isGeneratingPdf}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors"
+                className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>{isGeneratingPdf ? 'Rendering PDF...' : 'Generate & Open PDF'}</span>
@@ -6101,8 +6139,8 @@ export const FeeDeskView: React.FC = () => {
       )}
 
       {siblingReportOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60">
-          <div className="bg-white rounded-lg max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/60 backdrop-blur-xs mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4 max-h-[90dvh] mobile-sheet-card">
             <h3 className="text-sm font-bold text-slate-900">Sibling fee report</h3>
             <p className="text-xs text-slate-500">Choose the scope, then open the PDF in the viewer.</p>
             <div className="space-y-2">
@@ -6111,7 +6149,7 @@ export const FeeDeskView: React.FC = () => {
                 { id: 'one_class', label: 'One class' },
                 { id: 'all_classes', label: 'All classes' },
               ] as const).map(opt => (
-                <label key={opt.id} className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                <label key={opt.id} className="min-h-[36px] flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
                   <input
                     type="radio"
                     name="sibling-scope"
@@ -6147,14 +6185,20 @@ export const FeeDeskView: React.FC = () => {
               </select>
             )}
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setSiblingReportOpen(false)} className="px-3 py-1.5 text-xs border border-slate-200 rounded-md">Cancel</button>
+              <button
+                type="button"
+                onClick={() => setSiblingReportOpen(false)}
+                className="min-h-[44px] px-3.5 py-1.5 text-xs border border-slate-200 rounded-md cursor-pointer"
+              >
+                Cancel
+              </button>
               <button
                 type="button"
                 onClick={() => {
                   setSiblingReportOpen(false);
                   void handleOpenReportPdf('family');
                 }}
-                className="px-3 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md font-semibold transition-colors shadow-xs"
+                className="min-h-[44px] px-3.5 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md font-semibold transition-colors shadow-xs cursor-pointer"
               >
                 Open PDF
               </button>
@@ -6242,8 +6286,8 @@ export const FeeDeskView: React.FC = () => {
         });
 
         return (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-            <div className="bg-white rounded-lg max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-6 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+            <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-0 sm:my-6 animate-in fade-in zoom-in-95 max-h-[90dvh] flex flex-col mobile-sheet-card">
               {/* Modal Header */}
               <div className="flex justify-between items-start border-b border-slate-200 pb-3 shrink-0">
                 <div className="flex items-start gap-3">
@@ -6268,8 +6312,9 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedDefaulterModal(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-md hover:bg-slate-100 cursor-pointer transition-colors"
+                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
                   title="Close"
+                  aria-label="Close dialog"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -6468,7 +6513,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedDefaulterModal(null)}
-                    className="px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition-colors cursor-pointer w-full sm:w-auto"
+                    className="min-h-[44px] px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition-colors cursor-pointer w-full sm:w-auto"
                   >
                     Close
                   </button>
@@ -6479,7 +6524,7 @@ export const FeeDeskView: React.FC = () => {
                       setSelectedDefaulterModal(null);
                       handleViewStudentInDesk(studId);
                     }}
-                    className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-md transition-colors cursor-pointer w-full sm:w-auto flex items-center justify-center gap-1.5"
+                    className="min-h-[44px] px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-md transition-colors cursor-pointer w-full sm:w-auto flex items-center justify-center gap-1.5"
                     title="Open full student profile & ledger"
                   >
                     <FileText className="w-3.5 h-3.5 text-indigo-600" />
@@ -6499,7 +6544,7 @@ export const FeeDeskView: React.FC = () => {
                       setSelectedDefaulterModal(null);
                       handleOpenCashierDrawer(latestInv);
                     }}
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-md shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 w-full sm:w-auto"
+                    className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-md shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 w-full sm:w-auto"
                   >
                     <CreditCard className="w-4 h-4" />
                     <span>Receive Fee (Cashier)</span>

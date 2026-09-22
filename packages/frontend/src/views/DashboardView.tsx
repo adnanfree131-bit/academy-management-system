@@ -534,53 +534,54 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             type="button"
             onClick={loadData}
             disabled={refreshing || loading}
-            className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-[#E6ECF2] rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+            className="flex items-center justify-center gap-1.5 min-w-[44px] min-h-[44px] px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-[#E6ECF2] rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
             title="Refresh Telemetry"
+            aria-label="Refresh Telemetry"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-[#0E2A47] ${(refreshing || loading) ? 'animate-spin' : ''}`} />
             <span className="hidden md:inline">Sync</span>
           </button>
 
-          <div className="flex items-center gap-2 px-3.5 py-2 bg-white border border-[#E6ECF2] rounded-xl text-xs font-semibold text-slate-700 shadow-2xs">
+          <div className="flex items-center gap-2 min-h-[44px] px-3.5 py-2 bg-white border border-[#E6ECF2] rounded-xl text-xs font-semibold text-slate-700 shadow-2xs">
             <Calendar className="w-3.5 h-3.5 text-[#0E2A47]" />
             <span className="font-mono">{formattedDate}</span>
           </div>
         </div>
       </div>
 
-      {/* ─── Mobile Quick Action Chips ─── */}
-      <div className="sm:hidden flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 -mt-2">
+      {/* ─── Mobile Quick Action Chips (2x2 Grid, 40px min height, No Overflow) ─── */}
+      <div className="sm:hidden grid grid-cols-2 gap-2 -mt-2">
         <button
           type="button"
           onClick={() => onNavigate('attendance')}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs shrink-0 active:scale-95 transition-all"
+          className="flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs active:scale-95 transition-all"
         >
-          <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
-          <span>Attendance</span>
+          <CheckSquare className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+          <span className="truncate">Attendance</span>
         </button>
         <button
           type="button"
           onClick={() => onNavigate('voucher')}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs shrink-0 active:scale-95 transition-all"
+          className="flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs active:scale-95 transition-all"
         >
-          <CreditCard className="w-3.5 h-3.5 text-amber-600" />
-          <span>Receive Fee</span>
+          <CreditCard className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+          <span className="truncate">Receive Fee</span>
         </button>
         <button
           type="button"
           onClick={() => onNavigate('new_admission')}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs shrink-0 active:scale-95 transition-all"
+          className="flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs active:scale-95 transition-all"
         >
-          <Plus className="w-3.5 h-3.5 text-emerald-600" />
-          <span>New Admission</span>
+          <Plus className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <span className="truncate">New Admission</span>
         </button>
         <button
           type="button"
           onClick={() => onNavigate('challans')}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs shrink-0 active:scale-95 transition-all"
+          className="flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-2xs active:scale-95 transition-all"
         >
-          <Receipt className="w-3.5 h-3.5 text-purple-600" />
-          <span>Challans</span>
+          <Receipt className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+          <span className="truncate">Challans</span>
         </button>
       </div>
 

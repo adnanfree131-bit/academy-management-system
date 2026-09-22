@@ -31,6 +31,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { PageHeading } from '../components/PageHeading';
+import { useMobileOverlay } from '../lib/mobileOverlay';
 import {
   CampusGeofenceConfig,
   AttendanceHead,
@@ -374,6 +375,12 @@ export const StaffClockInView: React.FC = () => {
   const [isSubmittingReg, setIsSubmittingReg] = useState<boolean>(false);
   const [regFeedback, setRegFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isReviewingRegId, setIsReviewingRegId] = useState<string | null>(null);
+
+  useMobileOverlay('sheet', Boolean(isRegModalOpen || isHeadModalOpen || editingEntry), () => {
+    setIsRegModalOpen(false);
+    setIsHeadModalOpen(false);
+    setEditingEntry(null);
+  });
 
   // Faculty Personal Monthly Attendance Record Desk
   const [facultySelectedMonth, setFacultySelectedMonth] = useState<string>(todayStr.slice(0, 7));
@@ -2351,8 +2358,8 @@ export const StaffClockInView: React.FC = () => {
 
         {/* Regularization Request Modal */}
         {isRegModalOpen && createPortal(
-          <div className="fixed inset-0 w-screen h-screen z-[9999] bg-slate-900/60 backdrop-blur-md flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-            <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 m-auto animate-in fade-in zoom-in-95 duration-150">
+          <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto mobile-sheet">
+            <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-5 my-0 sm:my-auto animate-in fade-in zoom-in-95 duration-150 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Administrative Request</span>
@@ -2363,7 +2370,7 @@ export const StaffClockInView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsRegModalOpen(false)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2471,14 +2478,14 @@ export const StaffClockInView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsRegModalOpen(false)}
-                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                    className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmittingReg}
-                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+                    className="min-h-[44px] px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
                   >
                     {isSubmittingReg ? 'Submitting...' : 'Submit Request'}
                   </button>
@@ -4662,8 +4669,8 @@ export const StaffClockInView: React.FC = () => {
       {/* ADD / EDIT ATTENDANCE HEAD MODAL (SENTENCE-STYLE BUILDER)           */}
       {/* =================================================================== */}
       {isHeadModalOpen && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999] bg-slate-900/60 backdrop-blur-md flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 m-auto animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-5 my-0 sm:my-auto animate-in fade-in zoom-in-95 duration-150 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
@@ -4680,7 +4687,7 @@ export const StaffClockInView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsHeadModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -4972,13 +4979,13 @@ export const StaffClockInView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsHeadModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 min-h-[44px]"
                 >
                   <Check className="w-3.5 h-3.5" />
                   {editingHeadIndex !== null ? 'Save Changes' : 'Add Rule'}
@@ -4994,11 +5001,11 @@ export const StaffClockInView: React.FC = () => {
       {/* EDIT ATTENDANCE MODAL (PORTAL WITH DEEP BLUR)                       */}
       {/* =================================================================== */}
       {editingEntry && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999] bg-slate-900/60 backdrop-blur-md flex items-start sm:items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 m-auto animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-5 my-0 sm:my-auto animate-in fade-in zoom-in-95 duration-150 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Daily Attendance</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Daily Attendance</span>
                 <h3 className="text-base font-bold text-slate-900 mt-0.5">
                   Edit Attendance Record
                 </h3>
@@ -5006,7 +5013,7 @@ export const StaffClockInView: React.FC = () => {
               <button
                 type="button"
                 onClick={closeEditModal}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5129,14 +5136,14 @@ export const StaffClockInView: React.FC = () => {
                 <button
                   type="button"
                   onClick={closeEditModal}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingEdit}
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 min-h-[44px]"
                 >
                   {isSubmittingEdit ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   Save Changes

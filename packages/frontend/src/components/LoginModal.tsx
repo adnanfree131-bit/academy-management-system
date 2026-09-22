@@ -462,8 +462,8 @@ export const LoginModal: React.FC = () => {
         : (branding?.domain || (tenantSlug ? `${tenantSlug}.${baseDomain}` : `app.${baseDomain}`)));
 
   return (
-    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-0 sm:p-6 lg:p-10 font-sans">
-      <div className="w-full max-w-6xl bg-white sm:rounded-2xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-screen sm:min-h-[680px]">
+    <div className="min-h-[100dvh] bg-slate-100 flex items-center justify-center p-0 sm:p-6 lg:p-10 font-sans">
+      <div className="w-full max-w-6xl bg-white sm:rounded-2xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[100dvh] sm:min-h-[680px]">
         
         <div className="hidden lg:flex lg:col-span-5 bg-slate-950 text-white p-8 lg:p-10 flex-col justify-between relative overflow-hidden border-r border-slate-900">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
@@ -572,11 +572,11 @@ export const LoginModal: React.FC = () => {
 
             {/* Mode Switcher (Visible ONLY on platform root and in form step; NEVER on academy subdomains) */}
             {!isSubdomain && step === 'form' && (
-              <div className="grid grid-cols-2 sm:flex p-1 bg-slate-100 rounded-lg text-xs font-semibold w-full sm:w-auto">
+              <div className="grid grid-cols-2 sm:flex p-1 bg-slate-100 rounded-lg text-xs font-semibold w-full sm:w-auto gap-1">
                 <button
                   type="button"
                   onClick={() => { setMode('login'); setError(null); setMessage(null); }}
-                  className={`px-3 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`px-3.5 py-2.5 min-h-[44px] rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     mode === 'login' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
                   }`}
                 >
@@ -586,7 +586,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => { setMode('register'); setError(null); setMessage(null); }}
-                  className={`px-3 py-1.5 rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`px-3.5 py-2.5 min-h-[44px] rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     mode === 'register' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
                   }`}
                 >
@@ -695,7 +695,8 @@ export const LoginModal: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      className="absolute right-0 top-0 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
@@ -706,7 +707,7 @@ export const LoginModal: React.FC = () => {
                   id="login-submit-btn"
                   type="submit"
                   disabled={loading}
-                  className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  className="w-full h-12 min-h-[48px] py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -1028,7 +1029,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || !regName.trim() || !regSlug.trim() || !regEmail.trim() || !regPassword || slugAvailability.status !== 'available'}
-                  className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  className="w-full h-12 min-h-[48px] py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -1080,7 +1081,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== 6}
-                  className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                  className="w-full h-12 min-h-[48px] py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -1288,7 +1289,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || !email.trim()}
-                  className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                  className="w-full h-12 min-h-[48px] py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -1352,7 +1353,8 @@ export const LoginModal: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowResetPassword(!showResetPassword)}
-                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      className="absolute right-0 top-0 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                      aria-label={showResetPassword ? 'Hide password' : 'Show password'}
                     >
                       {showResetPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
@@ -1378,7 +1380,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== 6 || !resetNewPassword}
-                  className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  className="w-full h-12 min-h-[48px] py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>

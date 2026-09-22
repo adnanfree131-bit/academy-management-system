@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Menu, Search, ChevronDown, LogOut, Shield, Settings, Users, Bell, UserPlus } from 'lucide-react';
 import { hapticLight } from '../lib/haptics';
@@ -20,8 +20,38 @@ export const Header: React.FC<HeaderProps> = ({
   onNewAdmission,
   onSwitchScreen,
 }) => {
-  const { user, tenant, logout } = useAuth();
+  const { user, tenant, token, logout } = useAuth();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [absenteePending, setAbsenteePending] = useState(0);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  // Fetch pending absentee count for notification bell dot
+  useEffect(() => {
+    if (!token || user?.role === 'super_admin') return;
+    fetch('/api/v1/absentee/kpi', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(body => {
+        const kpi = body.data || {};
+        setAbsenteePending(Number(kpi.pending_count || kpi.pending || 0));
+      })
+      .catch(() => setAbsenteePending(0));
+  }, [token, user?.role]);
+
+  // Outside click dismiss for profile dropdown
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [profileMenuOpen]);
 
   const handleOpenNav = () => {
     hapticLight();
@@ -39,10 +69,10 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button 
           onClick={handleOpenNav}
-          className="md:hidden text-slate-700 hover:text-slate-950 p-2 min-w-[38px] min-h-[38px] flex items-center justify-center rounded-xl border border-[#E6ECF2] hover:bg-slate-100 touch-press transition-colors shrink-0"
+          className="md:hidden text-slate-700 hover:text-slate-950 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl border border-[#E6ECF2] hover:bg-slate-100 touch-press transition-colors shrink-0"
           aria-label="Open Navigation"
         >
-          <Menu className="w-4 h-4" />
+          <Menu className="w-5 h-5" />
         </button>
 
         {/* Mobile Screen Title Header */}
@@ -69,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           type="button"
           onClick={handleOpenSearchModal}
-          className="md:hidden w-9 h-9 flex items-center justify-center rounded-xl border border-[#E6ECF2] text-slate-600 hover:text-slate-900 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+          className="md:hidden w-9 h-9 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl border border-[#E6ECF2] text-slate-600 hover:text-slate-900 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
           title="Search"
           aria-label="Search"
         >
@@ -86,12 +116,14 @@ export const Header: React.FC<HeaderProps> = ({
               onSwitchScreen?.('absentee');
             }
           }}
-          className="relative w-9 h-9 flex items-center justify-center rounded-xl border border-[#E6ECF2] text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+          className="relative w-9 h-9 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl border border-[#E6ECF2] text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
           title="Notifications"
           aria-label="Notifications"
         >
           <Bell className="w-4 h-4" />
-          <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-rose-500" />
+          {absenteePending > 0 && (
+            <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-rose-500" />
+          )}
         </button>
 
         {/* Desktop New Admission Button */}
@@ -120,7 +152,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* User Profile & Sign Out Menu (Behance Slide 11) */}
-        <div className="relative">
+        <div className="relative" ref={profileMenuRef}>
           <button
             onClick={() => setProfileMenuOpen(!profileMenuOpen)}
             className="flex items-center gap-2.5 px-2 py-1 h-9 rounded-xl text-xs font-medium hover:bg-slate-50 text-slate-800 transition-colors"
@@ -136,7 +168,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {profileMenuOpen && (
-            <div className="absolute right-0 mt-1.5 w-60 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1">
+            <div className="absolute right-0 mt-1.5 w-60 max-w-[calc(100vw-1.5rem)] bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in slide-in-from-top-1">
               <div className="px-3.5 py-2 border-b border-slate-100">
                 <p className="text-xs font-bold text-slate-900 leading-tight">{user?.full_name || 'Administrator'}</p>
                 <p className="text-[11px] font-mono text-slate-500 truncate mt-0.5">{user?.email}</p>

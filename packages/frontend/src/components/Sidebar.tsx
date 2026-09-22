@@ -48,19 +48,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const allow = (screen: string) => canOpenScreen(role, user?.permissions, screen, user?.access);
   const [absenteePending, setAbsenteePending] = useState(0);
 
-  // Hardware/gesture Back button trap on mobile
-  useEffect(() => {
-    if (!isOpen) return;
-    const handlePopState = () => {
-      onClose();
-    };
-    window.history.pushState({ drawer: 'sidebar' }, '');
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [isOpen, onClose]);
-
   useEffect(() => {
     if (!token || role === 'super_admin') return;
     fetch('/api/v1/absentee/kpi', { headers: { Authorization: `Bearer ${token}` } })
@@ -87,17 +74,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {isOpen && (
         <div 
           onClick={onClose} 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 md:hidden animate-in fade-in duration-200"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 md:hidden no-sheet-overlay animate-in fade-in duration-200"
         />
       )}
 
       {/* Desktop Full-Height Sticky Sidebar & Mobile Drawer */}
       <div 
-        className={`fixed md:sticky top-0 h-screen flex flex-col justify-start z-50 md:z-40 transition-transform duration-300 ease-out shrink-0 md:[background:linear-gradient(to_bottom,#ffffff_56px,#F4F8FC_56px)] ${
+        className={`fixed md:sticky top-0 left-0 h-[100dvh] md:h-screen flex flex-col justify-start z-50 md:z-40 transition-transform duration-[220ms] ease-out shrink-0 md:[background:linear-gradient(to_bottom,#ffffff_56px,#F4F8FC_56px)] ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        <aside className="w-[78vw] max-w-[260px] md:w-[232px] bg-[#081A2F] rounded-tr-2xl rounded-br-2xl border border-[#152F4F]/70 border-l-0 flex flex-col justify-between h-screen text-slate-300 p-3 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[4px_0_20px_rgba(8,26,47,0.12)] overflow-hidden">
+        <aside className="w-[78vw] max-w-[260px] md:w-[232px] bg-[#081A2F] rounded-tr-2xl rounded-br-2xl border border-[#152F4F]/70 border-l-0 flex flex-col justify-between h-[100dvh] md:h-screen text-slate-300 p-3 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[4px_0_20px_rgba(8,26,47,0.12)] overflow-hidden">
           
           {/* Institutional Brand Header (Pinned Static Top) */}
           <div className="border-b border-[#152F4F]/60 pb-2.5 shrink-0">
@@ -124,10 +111,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
               <button 
                 onClick={onClose} 
-                className="md:hidden text-slate-400 hover:text-slate-200 p-1.5 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                className="md:hidden text-slate-400 hover:text-slate-200 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
                 aria-label="Close navigation"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -685,7 +672,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button 
               onClick={logout}
               title="Sign Out" 
-              className="text-rose-400 hover:text-rose-300 p-1.5 rounded-md hover:bg-rose-950/40 transition-colors shrink-0 cursor-pointer"
+              aria-label="Sign Out"
+              className="text-rose-400 hover:text-rose-300 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl hover:bg-rose-950/40 transition-colors shrink-0 cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
             </button>

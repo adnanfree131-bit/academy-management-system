@@ -11,6 +11,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ShieldAlert } from 'lucide-react';
+import { useMobileOverlay, popOverlay, hasActiveOverlay } from './lib/mobileOverlay';
 
 // Lazy-loaded Views for high-speed bundle performance and code-splitting
 const DashboardView = lazy(() => import('./views/DashboardView').then(m => ({ default: m.DashboardView })));
@@ -164,7 +165,20 @@ const MainLayout: React.FC = () => {
 
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [searchOpen, setSearchOpen] = useState<boolean>(false);
-  const [screenNavKey, setScreenNavKey] = useState<number>(0);
+
+  // Register mobile overlays for hardware/browser Back button stack
+  useMobileOverlay('drawer', sidebarOpen, () => setSidebarOpen(false));
+  useMobileOverlay('search', searchOpen, () => setSearchOpen(false));
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (hasActiveOverlay()) {
+        popOverlay();
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Centralized screen switch handler that synchronizes state, URL hash, and persistent storage
   const handleSwitchScreen = useCallback((screenId: string, studentId?: string | null) => {
@@ -190,7 +204,6 @@ const MainLayout: React.FC = () => {
       return;
     }
     setCurrentScreen(targetScreen);
-    setScreenNavKey(k => k + 1);
     try {
       localStorage.setItem('apex_active_screen', targetScreen);
       const newHash = targetStudentId && targetScreen === 'student_portal'
@@ -224,7 +237,6 @@ const MainLayout: React.FC = () => {
         if (parsed.screen !== currentScreen) {
           if (!user || canOpenScreen(user.role, user.permissions, parsed.screen, user.access)) {
             setCurrentScreen(parsed.screen);
-            setScreenNavKey(k => k + 1);
             try {
               localStorage.setItem('apex_active_screen', parsed.screen);
             } catch {}
@@ -313,7 +325,7 @@ const MainLayout: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-[#F4F8FC] relative font-sans text-slate-800">
+    <div className="h-[100dvh] max-h-[100dvh] overflow-hidden flex bg-[#F4F8FC] font-sans text-slate-800">
       {/* 30-Day Trial Expired Lockout & Billing Settlement Desk */}
       {(isTenantLocked || (isTenantSuspended && user.role === 'tenant_admin')) && (
         <TrialExpiredLockoutModal onUnlocked={refreshSession} />
@@ -340,7 +352,7 @@ const MainLayout: React.FC = () => {
         onClose={() => setSidebarOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-screen bg-[#F4F8FC]">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <Header
           section={getScreenMeta(currentScreen, user?.role).section}
           currentScreenTitle={getScreenMeta(currentScreen, user?.role).title}
@@ -350,9 +362,9 @@ const MainLayout: React.FC = () => {
           onNewAdmission={() => handleSwitchScreen('new_admission')}
         />
 
-        <main className="flex-1 px-3 sm:px-5 lg:px-6 py-3 sm:py-3.5 pb-20 md:pb-6 w-full space-y-3 overflow-y-auto min-w-0">
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-none px-3 sm:px-5 lg:px-6 py-3 md:pb-6 pb-[calc(4.25rem+env(safe-area-inset-bottom))]">
           <Suspense fallback={<ViewLoadingSkeleton />}>
-            <ErrorBoundary key={`${currentScreen}-${screenNavKey}`} onReset={() => handleSwitchScreen('dashboard')}>
+            <ErrorBoundary key={currentScreen} onReset={() => handleSwitchScreen('dashboard')}>
             {/* ROLE: STUDENT / PARENT VIEW ROUTING */}
             {user.role === 'student' || user.role === 'parent' ? (
               currentScreen === 'complaints' ? (

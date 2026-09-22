@@ -1744,7 +1744,7 @@ export const AcademySettingsView: React.FC = () => {
       )}
 
       {otpModal && (
-        <div className="fixed inset-0 z-[90] bg-slate-900/50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[90] bg-slate-900/50 flex items-center justify-center p-4 no-sheet-overlay">
           <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-5 shadow-xl">
             <h3 className="text-base font-semibold text-slate-900">Enter email code</h3>
             <p className="text-xs text-slate-500 mt-1">
@@ -1756,13 +1756,13 @@ export const AcademySettingsView: React.FC = () => {
                   type="password"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
-                  className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2"
+                  className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 min-h-[40px]"
                 />
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
-                  className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2"
+                  className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 min-h-[40px]"
                 />
               </div>
             )}
@@ -1770,18 +1770,18 @@ export const AcademySettingsView: React.FC = () => {
               autoFocus
               value={otpCode}
               onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-              className="mt-4 w-full text-center text-lg font-mono tracking-[0.4em] border border-slate-200 rounded-xl py-2.5"
+              className="mt-4 w-full text-center text-lg font-mono tracking-[0.4em] border border-slate-200 rounded-xl py-2.5 min-h-[44px]"
             />
             {securityError && <p className="text-xs text-rose-600 mt-2">{securityError}</p>}
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setOtpModal(null)} className="px-3 py-2 text-xs rounded-lg border border-slate-200">
+              <button type="button" onClick={() => setOtpModal(null)} className="min-h-[44px] px-3 py-2 text-xs rounded-lg border border-slate-200">
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmOtp}
                 disabled={isChangingPassword || otpCode.length !== 6}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white disabled:opacity-50 shadow-xs transition-colors"
+                className="min-h-[44px] px-4 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white disabled:opacity-50 shadow-xs transition-colors"
               >
                 {isChangingPassword ? 'Checking…' : 'Confirm'}
               </button>

@@ -39,6 +39,7 @@ import {
   HelpCircle,
   GraduationCap
 } from 'lucide-react';
+import { useMobileOverlay } from '../lib/mobileOverlay';
 
 export interface StudentPortalProps {
   onNavigate?: (screen: string) => void;
@@ -109,6 +110,17 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   const [isChangingPassword, setIsChangingPassword] = useState<boolean>(false);
   const [passwordChangeSuccess, setPasswordChangeSuccess] = useState<string | null>(null);
   const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
+
+  useMobileOverlay(
+    'sheet',
+    Boolean(showLeaveModal || selectedChallanInvoice || printingReportCard || showChangePasswordModal),
+    () => {
+      setShowLeaveModal(false);
+      setSelectedChallanInvoice(null);
+      setPrintingReportCard(null);
+      setShowChangePasswordModal(false);
+    }
+  );
 
   // Resolve current active screen view
   const currentView = activeScreen || (
@@ -527,12 +539,12 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           </div>
 
           {/* Quick Actions & Password Security */}
-          <div className="flex items-center gap-2.5 self-start lg:self-center">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full lg:w-auto">
             {/* Sibling Child Switcher for Parents with Multiple Children */}
             {overview?.linked_children && overview.linked_children.length > 1 && (
-              <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-                <Users className="w-3.5 h-3.5 text-slate-500 ml-1" />
-                <span className="text-[10px] uppercase font-bold text-slate-500 px-1">Select Child:</span>
+              <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                <Users className="w-3.5 h-3.5 text-slate-500 ml-1 shrink-0" />
+                <span className="text-[10px] uppercase font-bold text-slate-500 px-1 shrink-0">Select Child:</span>
                 {overview.linked_children.map(child => {
                   const isSelected = child.id === profile?.id;
                   return (
@@ -543,7 +555,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                         setSelectedStudentId(child.id);
                         fetchOverview(child.id);
                       }}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-amber-600 text-white shadow-xs'
                           : 'bg-white text-slate-700 hover:bg-slate-200'
@@ -558,9 +570,9 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
 
             {/* Class Switcher for Multi-Class Enrolled Students */}
             {overview?.enrollments && overview.enrollments.length > 1 && (
-              <div className="flex items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-                <GraduationCap className="w-3.5 h-3.5 text-slate-500 ml-1" />
-                <span className="text-[10px] uppercase font-bold text-slate-500 px-1">Class:</span>
+              <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                <GraduationCap className="w-3.5 h-3.5 text-slate-500 ml-1 shrink-0" />
+                <span className="text-[10px] uppercase font-bold text-slate-500 px-1 shrink-0">Class:</span>
                 {overview.enrollments.map(enr => {
                   const isSelected = enr.id === overview.selected_enrollment_id;
                   return (
@@ -571,7 +583,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                         setSelectedEnrollmentId(enr.id);
                         fetchOverview(selectedStudentId, enr.id);
                       }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      className={`min-h-[44px] px-2.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                         isSelected
                           ? 'bg-amber-600 text-white shadow-xs'
                           : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
@@ -598,15 +610,16 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             <button
               type="button"
               onClick={() => {
-                setShowChangePasswordModal(true);
                 setPasswordChangeError(null);
                 setPasswordChangeSuccess(null);
+                setCurrentPasswordInput('');
+                setConfirmPasswordInput('');
+                setShowChangePasswordModal(true);
               }}
-              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl border border-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
-              title="Change Account Password"
+              className="min-h-[44px] px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
             >
-              <Key className="w-3.5 h-3.5 text-slate-500" />
-              <span>Password</span>
+              <Key className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span>Change Password</span>
             </button>
           </div>
         </div>
@@ -618,8 +631,8 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
       {currentView === 'student_portal' && (
         <div className="space-y-6">
 
-          {/* 4 Big, Friendly Visual Status Boxes */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* 4 Big, Friendly Visual Status Boxes (2x2 on phone) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
 
             {/* 1. Fee Status (Top priority for parents) */}
             <div className={`rounded-2xl p-5 border transition-all space-y-2 shadow-xs ${
@@ -739,22 +752,22 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               <HelpCircle className="w-4 h-4 text-slate-500" />
               <span>Parent Quick Actions:</span>
             </span>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <a
                 href={waUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                className="flex-1 sm:flex-initial min-h-[44px] px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
               >
-                <MessageSquare className="w-3.5 h-3.5" />
+                <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                 <span>Send Fee Screenshot on WhatsApp</span>
               </a>
               <button
                 type="button"
                 onClick={() => setShowLeaveModal(true)}
-                className="px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="flex-1 sm:flex-initial min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
               >
-                <FileText className="w-3.5 h-3.5 text-slate-500" />
+                <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 <span>+ Request Sick Leave / Absence</span>
               </button>
             </div>
@@ -1829,14 +1842,18 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           MODAL: SICK LEAVE / ABSENCE NOTICE FOR PARENTS
           ===================================================================== */}
       {showLeaveModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="mobile-sheet-card bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <h3 className="text-base font-semibold text-slate-900 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-slate-700" />
                 <span>Send Absence / Sick Leave Notice</span>
               </h3>
-              <button onClick={() => setShowLeaveModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+              <button 
+                onClick={() => setShowLeaveModal(false)} 
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                aria-label="Close"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1856,7 +1873,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                     required
                     value={leaveStartDate}
                     onChange={e => setLeaveStartDate(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+                    className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs"
                   />
                 </div>
                 <div>
@@ -1866,7 +1883,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                     required
                     value={leaveEndDate}
                     onChange={e => setLeaveEndDate(e.target.value)}
-                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+                    className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs"
                   />
                 </div>
               </div>
@@ -1876,7 +1893,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <select
                   value={leaveCategory}
                   onChange={e => setLeaveCategory(e.target.value as any)}
-                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white"
+                  className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs bg-white"
                 >
                   <option value="medical">Medical / Sick Leave</option>
                   <option value="personal">Personal / Family Matter</option>
@@ -1892,7 +1909,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   value={leaveReason}
                   onChange={e => setLeaveReason(e.target.value)}
                   placeholder="Explain why your child is absent (e.g. high fever, doctor advised rest)..."
-                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs"
+                  className="w-full px-2.5 py-2 border border-slate-300 rounded-lg text-xs"
                 />
               </div>
 
@@ -1903,18 +1920,18 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowLeaveModal(false)}
-                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium cursor-pointer"
+                  className="w-full sm:w-auto min-h-[48px] px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingLeave}
-                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                  className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{isSubmittingLeave ? 'Sending...' : 'Send Notice'}</span>
@@ -1929,7 +1946,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           MODAL: OFFICIAL FEE CHALLAN (Bank Copy, Academy Copy, Student Copy)
           ===================================================================== */}
       {selectedChallanInvoice && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-60 overflow-y-auto">
+        <div className="no-sheet-overlay fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-60 overflow-y-auto">
           <div className="bg-white rounded-2xl max-w-5xl w-full shadow-2xl border border-slate-300 flex flex-col max-h-[90vh]">
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between rounded-t-2xl no-print">
               <div className="flex items-center gap-2">
@@ -1943,7 +1960,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="min-h-[44px] px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Challan</span>
@@ -1951,7 +1968,8 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedChallanInvoice(null)}
-                  className="text-slate-400 hover:text-white p-1 rounded cursor-pointer"
+                  className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-white rounded cursor-pointer"
+                  aria-label="Close"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -2086,7 +2104,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           MODAL: OFFICIAL REPORT CARD PRINT VIEW
           ===================================================================== */}
       {printingReportCard && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-60 overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-60 overflow-y-auto no-sheet-overlay">
           <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl border border-slate-300 flex flex-col max-h-[92vh]">
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between rounded-t-2xl no-print">
               <div className="flex items-center gap-2">
@@ -2100,7 +2118,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer min-h-[40px]"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Report Card</span>
@@ -2108,7 +2126,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setPrintingReportCard(null)}
-                  className="text-slate-400 hover:text-white p-1 rounded cursor-pointer"
+                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-white rounded-lg touch-press -mr-2 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -2233,8 +2251,8 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           MODAL: CHANGE PASSWORD (PARENT / STUDENT)
           ===================================================================== */}
       {showChangePasswordModal && (
-        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 m-0">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-300 border-t-4 border-t-amber-500 overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full shadow-2xl border border-slate-300 border-t-4 border-t-amber-500 overflow-hidden flex flex-col mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
@@ -2248,7 +2266,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowChangePasswordModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded cursor-pointer"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-white rounded-lg touch-press -mr-2 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2340,14 +2358,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowChangePasswordModal(false)}
-                    className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium text-xs transition-colors cursor-pointer"
+                    className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-medium text-xs transition-colors cursor-pointer min-h-[44px]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isChangingPassword || !currentPasswordInput || !newPasswordInput}
-                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs min-h-[44px]"
                   >
                     <Lock className="w-3.5 h-3.5" />
                     <span>{isChangingPassword ? 'Updating...' : 'Update Password'}</span>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
+import { useMobileOverlay } from '../lib/mobileOverlay';
 import { 
   X, 
   GraduationCap, 
@@ -71,6 +72,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const isAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin';
   const canManageAcademicStatus = isAdmin || user?.role === 'academic_head';
   const [currentStudent, setCurrentStudent] = useState<Student>(student);
+  useMobileOverlay('sheet', true, onClose);
   useEffect(() => {
     setCurrentStudent(student);
     setStatusTarget(student.status || 'active');
@@ -1279,7 +1281,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   }, [token, currentStudent.id]);
 
   return createPortal(
-    <div className="fixed inset-0 w-screen h-screen z-[9990] overflow-y-auto bg-white/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-[9990] overflow-y-auto bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 animate-in fade-in duration-150 mobile-sheet">
       {/* Print Stylesheet (rendered only when viewing a challan to avoid overriding global page prints) */}
       {challanInvoice && (
         <style>{`
@@ -1311,15 +1313,12 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       )}
 
       {/* Main Container / Bottom Sheet on Mobile */}
-      <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-5xl w-full shadow-2xl border-t sm:border border-slate-300/90 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[94vh] animate-in slide-in-from-bottom-5 sm:zoom-in-95 duration-200 has-drag-handle">
-        {/* Mobile Swipe / Grab Handle Pill */}
-        <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
-        
+      <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-5xl w-full shadow-2xl border-t sm:border border-slate-300/90 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[94vh] sm:zoom-in-95 duration-200 mobile-sheet-card">
         {/* Institutional Student Profile Header */}
-        <div className="bg-white border-b border-slate-200 px-5 sm:px-6 py-4 shrink-0">
-          <div className="space-y-3.5">
+        <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 shrink-0">
+          <div className="space-y-3">
             {/* Top Tier: Identity & Primary Actions */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3.5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="flex items-center gap-3.5 min-w-0">
                 {/* 3:4 Passport Portrait Frame */}
                 <div className="w-13 h-16 sm:w-14 sm:h-18 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
@@ -1383,13 +1382,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               </div>
 
               {/* Primary Action Buttons Right */}
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 overflow-x-auto no-scrollbar py-1">
                 <button
                   onClick={() => {
                     setActiveTab('finance');
                     setIsCashierOpen(true);
                   }}
-                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                  className="px-3 py-2 min-h-[40px] bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0"
                 >
                   <CreditCard className="w-3.5 h-3.5" />
                   <span>Receive Fee</span>
@@ -1397,7 +1396,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                 <button
                   onClick={() => setShowEditParticularsModal(true)}
-                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                  className="px-3 py-2 min-h-[40px] bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0"
                   title="Edit Student Particulars & Photo"
                 >
                   <Edit3 className="w-3.5 h-3.5 text-slate-500" />
@@ -1409,7 +1408,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     setSelectedIdCardEnrollmentId(undefined);
                     setShowIdCardModal(true);
                   }}
-                  className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                  className="px-3 py-2 min-h-[40px] bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0"
                   title="Print Student ID Card"
                 >
                   <CreditCard className="w-3.5 h-3.5 text-slate-500" />
@@ -1419,8 +1418,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                  className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer shrink-0"
                   title="Close"
+                  aria-label="Close"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -1638,17 +1638,18 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         </div>
 
         {/* Clean Institutional Navigation Tabs */}
-        <div className="flex items-center overflow-x-auto no-scrollbar border-b border-slate-200 px-6 bg-slate-50/70 text-xs font-medium gap-1 whitespace-nowrap shrink-0">
+        <div className="flex items-center overflow-x-auto no-scrollbar border-b border-slate-200 px-3 sm:px-6 bg-slate-50/70 text-xs font-medium gap-1 whitespace-nowrap shrink-0">
           <button
             onClick={() => setActiveTab('academic')}
-            className={`py-2.5 px-3.5 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            aria-label="Academic Placement"
+            className={`py-2.5 px-3 sm:px-3.5 min-h-[44px] border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'academic'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
             <GraduationCap className={`w-4 h-4 ${activeTab === 'academic' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span>Academic Placement</span>
+            <span><span className="hidden sm:inline">Academic Placement</span><span className="sm:hidden">Academic</span></span>
             {enrollments.length > 1 && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-medium bg-slate-200 text-slate-700">
                 {enrollments.length}
@@ -1658,14 +1659,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
           <button
             onClick={() => setActiveTab('finance')}
-            className={`py-2.5 px-3.5 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            aria-label="Fee Ledger & Invoices"
+            className={`py-2.5 px-3 sm:px-3.5 min-h-[44px] border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'finance'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
             <DollarSign className={`w-4 h-4 ${activeTab === 'finance' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span>Fee Ledger & Invoices</span>
+            <span><span className="hidden sm:inline">Fee Ledger & Invoices</span><span className="sm:hidden">Fees</span></span>
             {totalOutstanding > 0 && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-50 text-rose-700 border border-rose-200">
                 PKR {totalOutstanding.toLocaleString()}
@@ -1675,38 +1677,41 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
           <button
             onClick={() => setActiveTab('attendance')}
-            className={`py-2.5 px-3.5 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            aria-label="Attendance History"
+            className={`py-2.5 px-3 sm:px-3.5 min-h-[44px] border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'attendance'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
             <Clock className={`w-4 h-4 ${activeTab === 'attendance' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span>Attendance History</span>
+            <span><span className="hidden sm:inline">Attendance History</span><span className="sm:hidden">Attendance</span></span>
           </button>
 
           <button
             onClick={() => setActiveTab('exams')}
-            className={`py-2.5 px-3.5 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            aria-label="Examination Results"
+            className={`py-2.5 px-3 sm:px-3.5 min-h-[44px] border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'exams'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
             <TrendingUp className={`w-4 h-4 ${activeTab === 'exams' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span>Examination Results</span>
+            <span><span className="hidden sm:inline">Examination Results</span><span className="sm:hidden">Exams</span></span>
           </button>
 
           <button
             onClick={() => setActiveTab('notebook')}
-            className={`py-2.5 px-3.5 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            aria-label="Notebook Checking"
+            className={`py-2.5 px-3 sm:px-3.5 min-h-[44px] border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'notebook'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
             <BookOpen className={`w-4 h-4 ${activeTab === 'notebook' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span>Notebook Checking</span>
+            <span><span className="hidden sm:inline">Notebook Checking</span><span className="sm:hidden">Notebook</span></span>
           </button>
 
           <button
@@ -1714,14 +1719,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               setActiveTab('status');
               setStatusTarget(currentStudent.status || 'active');
             }}
-            className={`py-2.5 px-3.5 border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
+            aria-label="Status & Standing"
+            className={`py-2.5 px-3 sm:px-3.5 min-h-[44px] border-b-2 flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === 'status'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
             <ShieldAlert className={`w-4 h-4 ${activeTab === 'status' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span>Status & Standing</span>
+            <span><span className="hidden sm:inline">Status & Standing</span><span className="sm:hidden">Status</span></span>
             {currentStudent.status !== 'active' && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-200 text-slate-700 capitalize">
                 {currentStudent.status}
@@ -3242,7 +3248,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
       {/* FEE CHALLAN PRINT MODAL */}
       {challanInvoice && (
-        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto m-0">
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto m-0 no-sheet-overlay">
           <div className="bg-white rounded-lg max-w-5xl w-full p-6 shadow-2xl border border-slate-300 space-y-4 my-auto print:border-none print:shadow-none print:p-0">
             {/* Modal Toolbar */}
             <div className="flex items-center justify-between border-b border-slate-200 pb-3 no-print">
@@ -3388,8 +3394,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
       {/* EDIT PARTICULARS MODAL */}
       {showEditParticularsModal && (
-        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 m-0">
-          <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-2xl w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col max-h-[90dvh] mobile-sheet-card">
             <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold flex items-center gap-2">
@@ -3403,7 +3409,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowEditParticularsModal(false)}
-                className="text-slate-400 hover:text-white p-1"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-white rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -4096,8 +4103,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
       {/* ADMINISTRATIVE STUDENT PASSWORD RESET MODAL */}
       {showResetPasswordModal && (
-        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 m-0">
-          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-lg w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col mobile-sheet-card max-h-[90dvh]">
             {/* Header */}
             <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
@@ -4118,7 +4125,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   setResetSuccessData(null);
                   setResetErrorMsg(null);
                 }}
-                className="text-slate-400 hover:text-white p-1 rounded cursor-pointer"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-white rounded-xl cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -4307,8 +4315,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
       {/* STUDENT PROFILE AUDIT LOGS MODAL */}
       {showAuditLogsModal && (
-        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 m-0">
-          <div className="bg-white rounded-xl max-w-3xl w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col max-h-[85vh]">
+        <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-3xl w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col max-h-[90dvh] mobile-sheet-card">
             <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-bold flex items-center gap-2">
@@ -4322,7 +4330,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowAuditLogsModal(false)}
-                className="text-slate-400 hover:text-white p-1"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-white rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -4402,8 +4411,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
       {/* ARCHIVE STUDENT CONFIRMATION MODAL */}
       {showArchiveDialog && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[10000] bg-white/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 m-0 animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 animate-in fade-in duration-150 mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-lg w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col mobile-sheet-card max-h-[90dvh]">
             <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <Archive className="w-4 h-4 text-slate-300" />
@@ -4412,13 +4421,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowArchiveDialog(false)}
-                className="text-slate-400 hover:text-white p-1"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-white rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs text-slate-700">
+            <div className="p-5 space-y-4 text-xs text-slate-700 overflow-y-auto">
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 space-y-1">
                 <div className="font-bold flex items-center gap-1.5 text-slate-900">
                   <AlertTriangle className="w-4 h-4 text-slate-600 shrink-0" />
@@ -4440,8 +4450,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   type="text"
                   value={archiveModalReason}
                   onChange={e => setArchiveModalReason(e.target.value)}
-                  placeholder="Reason for archival"
-                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 font-sans"
+                  placeholder="e.g., Transfer to another academy, Completed session"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-slate-900 focus:outline-none"
                 />
               </div>
 
@@ -4463,11 +4473,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 p-3.5 border-t border-slate-200 bg-slate-50">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-2 p-3.5 border-t border-slate-200 bg-slate-50">
               <button
                 type="button"
                 onClick={() => setShowArchiveDialog(false)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
+                className="w-full sm:w-auto min-h-[44px] px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -4475,7 +4485,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 type="button"
                 onClick={handleArchiveFromModal}
                 disabled={isArchivingStudent || !archiveModalReason.trim()}
-                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                className="w-full sm:w-auto min-h-[48px] px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-semibold text-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
               >
                 <Archive className="w-3.5 h-3.5 text-slate-300" />
                 <span>{isArchivingStudent ? 'Archiving...' : 'Confirm Archival'}</span>
@@ -4488,8 +4498,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
       {/* DELETE STUDENT CONFIRMATION MODAL */}
       {showDeleteDialog && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[10000] bg-white/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 m-0 animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-rose-300 ring-1 ring-rose-900/10 overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 animate-in fade-in duration-150 mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-lg w-full shadow-2xl border border-rose-300 ring-1 ring-rose-900/10 overflow-hidden flex flex-col mobile-sheet-card max-h-[90dvh]">
             <div className="bg-rose-700 text-white px-5 py-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Trash2 className="w-4 h-4 text-white" />
@@ -4498,13 +4508,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowDeleteDialog(false)}
-                className="text-white/80 hover:text-white p-1"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-white/80 hover:text-white rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs text-slate-700">
+            <div className="p-5 space-y-4 text-xs text-slate-700 overflow-y-auto">
               <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-900 space-y-1">
                 <div className="font-bold flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -4560,11 +4571,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 p-3.5 border-t border-slate-200 bg-slate-50">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-2 p-3.5 border-t border-slate-200 bg-slate-50">
               <button
                 type="button"
                 onClick={() => setShowDeleteDialog(false)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
+                className="w-full sm:w-auto min-h-[44px] px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -4572,7 +4583,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 type="button"
                 onClick={handleDeleteFromModal}
                 disabled={isDeletingStudent || !deleteModalReason.trim() || (deleteModalRequiresForce && !deleteModalForce)}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="w-full sm:w-auto min-h-[48px] px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isDeletingStudent ? 'Deleting...' : 'Confirm Permanent Deletion'}</span>
@@ -4585,9 +4596,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
       {/* ADD CLASS MODAL */}
       {showAddClassModal && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[10000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white border border-slate-300 rounded-xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+        <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-xl border border-slate-300 max-w-lg w-full shadow-2xl overflow-hidden flex flex-col mobile-sheet-card max-h-[90dvh]">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">
                   <GraduationCap className="w-4 h-4" />
@@ -4602,13 +4613,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowAddClassModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmAddClass} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleConfirmAddClass} className="p-5 space-y-4 text-xs overflow-y-auto">
               {addClassError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -4726,18 +4738,18 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 )}
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-2 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setShowAddClassModal(false)}
-                  className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium transition-colors cursor-pointer"
+                  className="w-full sm:w-auto min-h-[44px] px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-100 font-medium transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isAddingClass || !addClassBatchId}
-                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  className="w-full sm:w-auto min-h-[48px] px-5 py-2.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{isAddingClass ? 'Enrolling...' : 'Complete Class Enrollment'}</span>
@@ -4751,9 +4763,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
       {/* LEAVE CLASS MODAL */}
       {leaveClassEnrollment && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[10000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white border border-slate-300 rounded-xl max-w-md w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+        <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-xl border border-slate-300 max-w-md w-full shadow-2xl overflow-hidden flex flex-col mobile-sheet-card max-h-[90dvh]">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700">
                   <ShieldAlert className="w-4 h-4" />
@@ -4768,13 +4780,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => setLeaveClassEnrollment(null)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmLeaveClass} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleConfirmLeaveClass} className="p-5 space-y-4 text-xs overflow-y-auto">
               {leaveClassError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -4831,18 +4844,18 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </label>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-2 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setLeaveClassEnrollment(null)}
-                  className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium transition-colors cursor-pointer"
+                  className="w-full sm:w-auto min-h-[44px] px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-100 font-medium transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isLeavingClass}
-                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                  className="w-full sm:w-auto min-h-[48px] px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <ShieldAlert className="w-3.5 h-3.5" />
                   <span>{isLeavingClass ? 'Processing Exit...' : 'Confirm Class Exit'}</span>
@@ -4856,9 +4869,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
       {/* TRANSFER CLASS MODAL (MULTI-CLASS SUPPORT) */}
       {transferEnrollment && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[10000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white border border-slate-300 rounded-xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+        <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-xl border border-slate-300 max-w-lg w-full shadow-2xl overflow-hidden flex flex-col mobile-sheet-card max-h-[90dvh]">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-700">
                   <ArrowRightLeft className="w-4 h-4 text-slate-600" />
@@ -4873,13 +4886,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => setTransferEnrollment(null)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmTransferClass} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleConfirmTransferClass} className="p-5 space-y-4 text-xs overflow-y-auto">
               {transferError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
@@ -5072,18 +5086,18 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-2 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setTransferEnrollment(null)}
-                  className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium transition-colors cursor-pointer"
+                  className="w-full sm:w-auto min-h-[44px] px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-100 font-medium transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingTransfer}
-                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  className="w-full sm:w-auto min-h-[48px] px-5 py-2.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
                 >
                   <ArrowRightLeft className="w-3.5 h-3.5" />
                   <span>{isSubmittingTransfer ? 'Changing Class/Batch...' : 'Confirm Class/Batch Change'}</span>

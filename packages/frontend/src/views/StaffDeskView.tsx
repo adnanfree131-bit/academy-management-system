@@ -47,6 +47,7 @@ import {
 } from 'lucide-react';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
+import { useMobileOverlay } from '../lib/mobileOverlay';
 
 const DEPARTMENTS: StaffDepartment[] = [
   'Science',
@@ -135,6 +136,30 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
 
   const [deleteTarget, setDeleteTarget] = useState<StaffMemberRecord | null>(null);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
+
+  useMobileOverlay(
+    'sheet',
+    Boolean(
+      dossierModalOpen ||
+      accessDrawerStaff ||
+      teachingModalStaff ||
+      resetPwdStaff ||
+      idCardStaff ||
+      appointmentStaff ||
+      archiveTarget ||
+      deleteTarget
+    ),
+    () => {
+      setDossierModalOpen(false);
+      setAccessDrawerStaff(null);
+      setTeachingModalStaff(null);
+      setResetPwdStaff(null);
+      setIdCardStaff(null);
+      setAppointmentStaff(null);
+      setArchiveTarget(null);
+      setDeleteTarget(null);
+    }
+  );
 
   // Dossier Form State
   const initialFormState = {
@@ -634,7 +659,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
           <button
             type="button"
             onClick={openCreateModal}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all min-h-[40px] cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Add Staff
@@ -1226,10 +1251,10 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 1: ADD / EDIT STAFF DOSSIER                                         */}
       {/* ========================================================================= */}
       {dossierModalOpen && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
           <form
             onSubmit={saveDossier}
-            className="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col max-h-[90vh] overflow-hidden"
+            className="w-full max-w-3xl bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl flex flex-col max-h-[92dvh] overflow-hidden mobile-sheet-card"
           >
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
@@ -1242,7 +1267,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setDossierModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 touch-press -mr-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1855,13 +1880,13 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => setDossierModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100"
+                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer"
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer min-h-[44px]"
                 >
                   {editingStaff ? 'Update Staff Dossier' : 'Save Staff Member'}
                 </button>
@@ -1875,8 +1900,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* DRAWER: QUICK PORTAL ACCESS TOGGLES                                       */}
       {/* ========================================================================= */}
       {accessDrawerStaff && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/40 backdrop-blur-sm flex justify-end">
-          <div className="w-full max-w-lg h-full bg-white border-l border-slate-200 flex flex-col shadow-2xl">
+        <div className="fixed inset-0 z-[80] bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-stretch sm:justify-end mobile-sheet">
+          <div className="w-full max-w-lg max-h-[92dvh] sm:max-h-full h-full bg-white rounded-t-2xl sm:rounded-none sm:border-l border-slate-200 flex flex-col shadow-2xl mobile-sheet-card">
             {/* Drawer Header */}
             <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between bg-slate-50">
               <div>
@@ -1891,7 +1916,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setAccessDrawerStaff(null)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 touch-press -mr-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2028,7 +2053,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => setAccessDrawerStaff(null)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100"
+                  className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 min-h-[44px]"
                 >
                   Cancel
                 </button>
@@ -2036,7 +2061,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                   type="button"
                   disabled={savingAccessId === accessDrawerStaff.id}
                   onClick={() => saveDrawerAccess(accessDrawerStaff, drawerAccess)}
-                  className="px-4 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs disabled:opacity-50 cursor-pointer"
+                  className="px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs disabled:opacity-50 cursor-pointer min-h-[44px]"
                 >
                   {savingAccessId === accessDrawerStaff.id ? 'Saving...' : 'Save Access'}
                 </button>
@@ -2050,8 +2075,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 2: ASSIGN CLASSES & SUBJECTS                                        */}
       {/* ========================================================================= */}
       {teachingModalStaff && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col max-h-[85vh] overflow-hidden">
+        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="w-full max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl flex flex-col max-h-[92dvh] overflow-hidden mobile-sheet-card">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900">
@@ -2062,7 +2087,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setTeachingModalStaff(null)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2213,14 +2238,14 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setTeachingModalStaff(null)}
-                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100"
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 min-h-[44px]"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={saveTeachingAssignments}
-                className="px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer"
+                className="px-5 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer min-h-[44px]"
               >
                 Save Teaching Allocations
               </button>
@@ -2233,8 +2258,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 3: RESET PASSWORD                                                   */}
       {/* ========================================================================= */}
       {resetPwdStaff && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-xl p-6 space-y-4">
+        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl p-6 space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Key className="w-5 h-5 text-amber-600" />
@@ -2244,7 +2269,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setResetPwdStaff(null)}
-                className="p-1 text-slate-400 hover:text-slate-700"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2265,7 +2290,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                     setCopiedPwd(true);
                     setTimeout(() => setCopiedPwd(false), 2500);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold min-h-[40px]"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   {copiedPwd ? 'Copied to Clipboard!' : 'Copy Password'}
@@ -2279,7 +2304,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={executePasswordReset}
-                  className="w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs cursor-pointer"
+                  className="w-full py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs cursor-pointer min-h-[44px]"
                 >
                   Generate Secure Temporary Password
                 </button>
@@ -2290,7 +2315,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setResetPwdStaff(null)}
-                className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700"
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 min-h-[44px]"
               >
                 Done
               </button>
@@ -2303,7 +2328,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 4: PRINTABLE STAFF ID CARD (CR-80 DUPLEX)                           */}
       {/* ========================================================================= */}
       {idCardStaff && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto">
+        <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto no-sheet-overlay">
           <style>{`
             @media print {
               body * {
@@ -2342,7 +2367,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs cursor-pointer min-h-[40px]"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   Print ID Card
@@ -2350,7 +2375,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => setIdCardStaff(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700"
+                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2472,7 +2497,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 5: PRINTABLE APPOINTMENT LETTER                                     */}
       {/* ========================================================================= */}
       {appointmentStaff && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto">
+        <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto no-sheet-overlay">
           <style>{`
             @media print {
               body * {
@@ -2511,7 +2536,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs cursor-pointer min-h-[40px]"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   Print Letter
@@ -2519,7 +2544,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => setAppointmentStaff(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700"
+                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -2677,8 +2702,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 6: SOFT ARCHIVE CONFIRMATION                                        */}
       {/* ========================================================================= */}
       {archiveTarget && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-xl p-6 space-y-4">
+        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl p-6 space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2 text-amber-600">
                 <Archive className="w-5 h-5" />
@@ -2688,7 +2713,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setArchiveTarget(null)}
-                className="p-1 text-slate-400 hover:text-slate-700"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2722,14 +2747,14 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setArchiveTarget(null)}
-                className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700"
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 min-h-[44px]"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={executeArchive}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white"
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white min-h-[44px]"
               >
                 Archive Staff
               </button>
@@ -2742,8 +2767,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 7: HARD DELETE CONFIRMATION                                         */}
       {/* ========================================================================= */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-xl p-6 space-y-4">
+        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl p-6 space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2 text-rose-600">
                 <Trash2 className="w-5 h-5" />
@@ -2753,7 +2778,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="p-1 text-slate-400 hover:text-slate-700"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2775,14 +2800,14 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700"
+                className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 min-h-[44px]"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={executeDelete}
-                className="px-4 py-2 text-xs font-semibold rounded-lg bg-rose-700 hover:bg-rose-800 text-white"
+                className="px-4 py-2 text-xs font-semibold rounded-xl bg-rose-700 hover:bg-rose-800 text-white min-h-[44px]"
               >
                 Delete Staff
               </button>

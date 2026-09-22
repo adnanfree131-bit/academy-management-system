@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { X, Download, Printer, Loader2, FileText } from 'lucide-react';
+import { useMobileOverlay } from '../lib/mobileOverlay';
 
 interface InPortalPdfViewerModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const InPortalPdfViewerModal: React.FC<InPortalPdfViewerModalProps> = ({
   title,
   filename = 'document.pdf',
 }) => {
+  useMobileOverlay('sheet', isOpen, onClose);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -95,8 +97,8 @@ export const InPortalPdfViewerModal: React.FC<InPortalPdfViewerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-5xl h-[92vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-150 no-sheet-overlay">
+      <div className="relative w-full max-w-5xl h-[100dvh] sm:h-[92vh] flex flex-col bg-white sm:rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
         
         {/* Top Header & Action Toolbar */}
         <div className="px-4 py-3 bg-white border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
@@ -115,7 +117,7 @@ export const InPortalPdfViewerModal: React.FC<InPortalPdfViewerModalProps> = ({
               type="button"
               onClick={handlePrint}
               disabled={loading || !blobUrl}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50"
               title="Print document"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -126,7 +128,7 @@ export const InPortalPdfViewerModal: React.FC<InPortalPdfViewerModalProps> = ({
               type="button"
               onClick={handleDownload}
               disabled={loading || !blobUrl}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg transition-colors shadow-xs disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg transition-colors shadow-xs disabled:opacity-50"
               title="Download PDF"
             >
               <Download className="w-3.5 h-3.5" />
@@ -138,8 +140,9 @@ export const InPortalPdfViewerModal: React.FC<InPortalPdfViewerModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
               title="Close viewer (Esc)"
+              aria-label="Close viewer"
             >
               <X className="w-5 h-5" />
             </button>

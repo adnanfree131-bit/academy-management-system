@@ -21,6 +21,7 @@ import {
 } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
+import { useMobileOverlay } from '../lib/mobileOverlay';
 
 export const HomeworkDesk: React.FC = () => {
   const { token } = useAuth();
@@ -51,6 +52,8 @@ export const HomeworkDesk: React.FC = () => {
     due_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
   });
   const [isSubmittingHw, setIsSubmittingHw] = useState(false);
+
+  useMobileOverlay('sheet', showNewHwModal, () => setShowNewHwModal(false));
 
   // Fetch initial batches & subjects
   const fetchMetadata = async () => {
@@ -265,7 +268,7 @@ export const HomeworkDesk: React.FC = () => {
       >
         <button
           onClick={() => setShowNewHwModal(true)}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer min-h-[40px]"
         >
           <Plus className="w-4 h-4" />
           <span>Assign Homework</span>
@@ -355,7 +358,7 @@ export const HomeworkDesk: React.FC = () => {
                   type="button"
                   onClick={handleSaveChecks}
                   disabled={isSavingChecks || students.length === 0}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs transition-all disabled:bg-slate-300 cursor-pointer"
+                  className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs transition-all disabled:bg-slate-300 cursor-pointer min-h-[40px]"
                 >
                   {isSavingChecks ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                   <span>{isSavingChecks ? 'Saving...' : 'Save Inspection'}</span>
@@ -392,7 +395,7 @@ export const HomeworkDesk: React.FC = () => {
                     <p className="text-xs font-bold text-slate-700">No students found in this batch</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto max-h-[calc(100vh-26rem)] overflow-y-auto">
+                  <div className="overflow-x-auto max-h-[calc(100vh-26rem)] overflow-y-auto mobile-table-scroll">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead className="sticky top-0 bg-slate-50 border-b border-slate-200/80 z-10">
                         <tr className="text-slate-500 font-mono text-[11px] uppercase tracking-wider">
@@ -497,11 +500,15 @@ export const HomeworkDesk: React.FC = () => {
 
       {/* New Homework Modal */}
       {showNewHwModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
               <SectionInfo title="Assign Homework" description="Create a new homework topic for class section" />
-              <button onClick={() => setShowNewHwModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button
+                type="button"
+                onClick={() => setShowNewHwModal(false)}
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -591,14 +598,14 @@ export const HomeworkDesk: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowNewHwModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingHw}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer min-h-[44px]"
                 >
                   {isSubmittingHw ? 'Assigning...' : 'Confirm Assignment'}
                 </button>

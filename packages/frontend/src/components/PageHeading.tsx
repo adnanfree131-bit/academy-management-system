@@ -57,7 +57,7 @@ export const PageHeading: React.FC<PageHeadingProps> = ({
 
       {/* Mobile Action Strip (< sm): Makes modal trigger buttons visible, wrapped, and thumb-accessible */}
       {children && (
-        <div className="sm:hidden flex flex-wrap items-center gap-2 py-1.5 w-full shrink-0">
+        <div className="sm:hidden flex flex-wrap items-center gap-2 py-1.5 w-full shrink-0 [&>*]:min-h-[40px] [&>*]:flex-1 sm:[&>*]:flex-initial">
           {children}
         </div>
       )}

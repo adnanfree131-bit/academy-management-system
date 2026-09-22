@@ -1414,7 +1414,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
         </div>
 
         {/* Mobile Sticky Bottom Save Bar */}
-        <div className="sm:hidden fixed bottom-14 left-0 right-0 p-3 bg-white/95 backdrop-blur-sm border-t border-slate-200 z-20 flex items-center justify-between gap-3 shadow-lg">
+        <div className="sm:hidden fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] left-0 right-0 p-3 bg-white/95 backdrop-blur-sm border-t border-slate-200 z-30 flex items-center justify-between gap-3 shadow-lg">
           <div className="text-xs">
             <span className="font-bold text-slate-900">{students.length} Students</span>
             <span className="text-slate-400 mx-1">•</span>
@@ -1427,7 +1427,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               handleSaveAttendance();
             }}
             disabled={isSaving}
-            className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center gap-1.5 active:scale-95 transition-all"
+            className="h-12 min-h-[48px] px-5 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
           >
             {isSaving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
             <span>{isSaving ? 'Saving...' : 'Save Roster'}</span>
@@ -1761,14 +1761,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
       {/* MODAL: SUBMIT NEW LEAVE */}
       {showNewLeaveModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-xl space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo title="New Leave Application" description="Submit formal absence excuse for approval" />
               <button
                 type="button"
                 onClick={() => setShowNewLeaveModal(false)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1842,14 +1842,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 <button
                   type="button"
                   onClick={() => setShowNewLeaveModal(false)}
-                  className="px-3.5 py-1.5 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium transition-colors"
+                  className="min-h-[44px] px-3.5 py-1.5 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingLeave}
-                  className="px-4 py-1.5 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg font-semibold disabled:opacity-50 transition-colors shadow-xs"
+                  className="min-h-[44px] px-4 py-1.5 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg font-semibold disabled:opacity-50 transition-colors shadow-xs"
                 >
                   {isSubmittingLeave ? 'Submitting...' : 'Submit Leave'}
                 </button>
@@ -1861,14 +1861,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
       {/* MODAL: REVIEW LEAVE */}
       {reviewingLeave && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-xl space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo title="Review Leave Application" description="Approve or reject student leave request" />
               <button
                 type="button"
                 onClick={() => setReviewingLeave(null)}
-                className="text-slate-400 hover:text-slate-600 transition-colors"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1905,7 +1905,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 type="button"
                 onClick={() => handleReviewLeave('rejected')}
                 disabled={isReviewing}
-                className="px-3.5 py-1.5 text-xs text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg font-bold transition-colors"
+                className="min-h-[44px] px-3.5 py-1.5 text-xs text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg font-bold transition-colors"
               >
                 Reject Leave
               </button>
@@ -1913,7 +1913,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 type="button"
                 onClick={() => handleReviewLeave('approved')}
                 disabled={isReviewing}
-                className="px-4 py-1.5 text-xs text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg font-bold transition-colors"
+                className="min-h-[44px] px-4 py-1.5 text-xs text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg font-bold transition-colors"
               >
                 Approve & Excuse
               </button>

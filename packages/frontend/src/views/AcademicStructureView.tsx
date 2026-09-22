@@ -17,7 +17,8 @@ import {
   Receipt,
   Pencil,
   ArrowRightLeft,
-  GripVertical
+  GripVertical,
+  DollarSign
 } from 'lucide-react';
 import { AcademicProgram, Batch, Subject, SubjectGroup, Student, FeeHead } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
@@ -2128,8 +2129,8 @@ export const AcademicStructureView: React.FC = () => {
 
       {/* MODAL 1: CREATE NEW CLASS */}
       {showProgramModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="mobile-sheet-card bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 rounded-xl bg-slate-900 text-white">
@@ -2139,7 +2140,11 @@ export const AcademicStructureView: React.FC = () => {
                   <h3 className="text-sm font-bold text-slate-900">Add Class</h3>
                 </div>
               </div>
-              <button onClick={() => setShowProgramModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button 
+                onClick={() => setShowProgramModal(false)} 
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700"
+                aria-label="Close"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -2159,68 +2164,76 @@ export const AcademicStructureView: React.FC = () => {
                 />
               </div>
 
-              {/* Class Fees (Optional) */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
-                    <Receipt className="w-3.5 h-3.5 text-slate-700" />
-                    Class Fees <span className="text-slate-400 font-normal">(Optional)</span>
-                  </label>
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Description / Stream Scope</label>
+                <textarea
+                  rows={2}
+                  placeholder="Academic scope, target board (FBISE / BISE), or stream details..."
+                  value={programForm.description}
+                  onChange={e => setProgramForm({ ...programForm, description: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                />
+              </div>
+
+              {/* Fee Schedule Definition */}
+              <div className="pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5 text-amber-600" />
+                    Standard Fee Schedule
+                  </span>
+                  <span className="text-[10px] text-slate-500">Auto-applies to new admissions</span>
                 </div>
 
-                {Object.keys(programFeeSchedule).length > 0 && (
+                {feeHeads.length === 0 ? (
+                  <p className="text-slate-500 italic text-[11px]">
+                    No fee heads configured. Configure heads in Fee Desk first.
+                  </p>
+                ) : (
                   <div className="space-y-2">
                     {Object.entries(programFeeSchedule).map(([headId, amount]) => {
                       const head = feeHeads.find(h => h.id === headId);
                       if (!head) return null;
                       return (
-                        <div key={headId} className="flex items-center justify-between gap-2 p-2 bg-white border border-slate-200 rounded-lg">
-                          <div className="min-w-0 flex items-center gap-2">
-                            <span className="text-xs font-bold text-slate-800 truncate" title={head.name}>
-                              {head.name}
-                            </span>
-                            <span className="text-[9px] font-mono uppercase px-1 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">
-                              {head.code === 'TUITION' ? 'Monthly' : 'One-Time'}
-                            </span>
+                        <div key={headId} className="flex items-center gap-2">
+                          <span className="text-xs text-slate-700 font-medium flex-1 truncate">
+                            {head.name}
+                            <span className="text-[10px] text-slate-500 ml-1">({head.code})</span>
+                          </span>
+                          <div className="flex items-center gap-1 w-32">
+                            <span className="text-[10px] text-slate-500 font-mono">PKR</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="50"
+                              placeholder="0"
+                              value={amount}
+                              onChange={e => setProgramFeeSchedule(prev => ({
+                                ...prev,
+                                [headId]: e.target.value === '' ? '' : Number(e.target.value),
+                              }))}
+                              className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-slate-400"
+                            />
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="relative w-28">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-mono">PKR</span>
-                              <input
-                                type="number"
-                                min={0}
-                                placeholder="0"
-                                value={amount}
-                                onChange={e => setProgramFeeSchedule(prev => ({
-                                  ...prev,
-                                  [headId]: e.target.value === '' ? '' : Number(e.target.value)
-                                }))}
-                                className="w-full pl-9 pr-2 py-1 bg-slate-50 border border-slate-200 rounded text-slate-800 font-mono text-xs font-bold text-right focus:bg-white focus:ring-1 focus:ring-slate-400 focus:outline-none"
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setProgramFeeSchedule(prev => {
-                                  const next = { ...prev };
-                                  delete next[headId];
-                                  return next;
-                                });
-                              }}
-                              className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                              title="Remove fee head"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProgramFeeSchedule(prev => {
+                                const next = { ...prev };
+                                delete next[headId];
+                                return next;
+                              });
+                            }}
+                            className="text-slate-400 hover:text-rose-500 p-1"
+                            title="Remove Head"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       );
                     })}
-                  </div>
-                )}
 
-                {feeHeads.filter(h => !(h.id in programFeeSchedule)).length > 0 && (
-                  <div>
+                    {/* Add Fee Head Selector */}
                     <select
                       value=""
                       onChange={e => {
@@ -2246,18 +2259,18 @@ export const AcademicStructureView: React.FC = () => {
                 )}
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowProgramModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                  className="w-full sm:w-auto min-h-[48px] px-4 py-3 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
+                  className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs cursor-pointer flex items-center justify-center"
                 >
                   {isSubmitting ? 'Saving...' : 'Create Class'}
                 </button>
@@ -2269,8 +2282,8 @@ export const AcademicStructureView: React.FC = () => {
 
       {/* MODAL 1B: EDIT EXISTING CLASS */}
       {showEditProgramModal && activeProgram && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="mobile-sheet-card bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 rounded-xl bg-slate-900 text-white">
@@ -2281,7 +2294,11 @@ export const AcademicStructureView: React.FC = () => {
                   <p className="text-[11px] text-slate-500">{activeProgram.name}</p>
                 </div>
               </div>
-              <button onClick={() => setShowEditProgramModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button 
+                onClick={() => setShowEditProgramModal(false)} 
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700"
+                aria-label="Close"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -2387,18 +2404,18 @@ export const AcademicStructureView: React.FC = () => {
                 )}
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowEditProgramModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                  className="w-full sm:w-auto min-h-[48px] px-4 py-3 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
+                  className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs cursor-pointer flex items-center justify-center"
                 >
                   {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -2410,8 +2427,8 @@ export const AcademicStructureView: React.FC = () => {
 
       {/* MODAL 2: MANAGE CLASS SUBJECTS */}
       {showCompulsoryModal && activeProgram && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 rounded-xl bg-slate-900 text-white">
@@ -2426,7 +2443,7 @@ export const AcademicStructureView: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <button onClick={() => setShowCompulsoryModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button onClick={() => setShowCompulsoryModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -2480,7 +2497,7 @@ export const AcademicStructureView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setCompulsorySelectedSubjectIds([])}
-                  className="text-rose-600 hover:underline"
+                  className="text-rose-600 hover:underline min-h-[36px] flex items-center"
                 >
                   Clear all
                 </button>
@@ -2490,14 +2507,14 @@ export const AcademicStructureView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowCompulsoryModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                  className="min-h-[44px] px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
+                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
                 >
                   {isSubmitting ? 'Saving...' : 'Save Subjects'}
                 </button>
@@ -2509,8 +2526,8 @@ export const AcademicStructureView: React.FC = () => {
 
       {/* MODAL 3: CREATE ELECTIVE GROUP */}
       {showElectiveTrackModal && activeProgram && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 rounded-xl bg-slate-900 text-white">
@@ -2521,7 +2538,7 @@ export const AcademicStructureView: React.FC = () => {
                   <p className="text-[11px] text-slate-500">Create an elective group (e.g. Pre-Medical, Computer Science).</p>
                 </div>
               </div>
-              <button onClick={() => setShowElectiveTrackModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button onClick={() => setShowElectiveTrackModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -2608,14 +2625,14 @@ export const AcademicStructureView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowElectiveTrackModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                  className="min-h-[44px] px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
+                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
                 >
                   {isSubmitting ? 'Saving...' : 'Save Elective Group'}
                 </button>
@@ -2627,8 +2644,8 @@ export const AcademicStructureView: React.FC = () => {
 
       {/* MODAL 3B: ADD CLASS SECTION */}
       {showSectionModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 rounded-xl bg-slate-900 text-white">
@@ -2644,7 +2661,7 @@ export const AcademicStructureView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowSectionModal(false)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2735,14 +2752,14 @@ export const AcademicStructureView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowSectionModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                  className="min-h-[44px] px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
+                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
                 >
                   {isSubmitting ? 'Saving...' : 'Add Section'}
                 </button>
@@ -2754,8 +2771,8 @@ export const AcademicStructureView: React.FC = () => {
 
       {/* MODAL 3C: EDIT CLASS SECTION */}
       {showEditSectionModal && editingSection && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 rounded-xl bg-slate-900 text-white">
@@ -2769,7 +2786,7 @@ export const AcademicStructureView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowEditSectionModal(false)}
-                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2860,14 +2877,14 @@ export const AcademicStructureView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowEditSectionModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                  className="min-h-[44px] px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
+                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
                 >
                   {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -2879,8 +2896,8 @@ export const AcademicStructureView: React.FC = () => {
 
       {/* MODAL 4: CREATE BATCH */}
       {showBatchModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="mobile-sheet-card bg-white rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 rounded-xl bg-slate-900 text-white">
@@ -2891,7 +2908,11 @@ export const AcademicStructureView: React.FC = () => {
                   <p className="text-[11px] text-slate-500">Define batch name, shift hours, calendar lifespan, and fee billing mode.</p>
                 </div>
               </div>
-              <button onClick={() => setShowBatchModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button 
+                onClick={() => setShowBatchModal(false)} 
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700"
+                aria-label="Close"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -3075,18 +3096,18 @@ export const AcademicStructureView: React.FC = () => {
                 </select>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowBatchModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                  className="w-full sm:w-auto min-h-[48px] px-4 py-3 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
+                  className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs cursor-pointer flex items-center justify-center"
                 >
                   {isSubmitting ? 'Saving...' : 'Create Batch'}
                 </button>
@@ -3098,8 +3119,8 @@ export const AcademicStructureView: React.FC = () => {
 
       {/* MODAL 4B: EDIT EXISTING BATCH */}
       {showEditBatchModal && editingBatch && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="mobile-sheet-card bg-white rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 rounded-xl bg-slate-900 text-white">
@@ -3110,7 +3131,11 @@ export const AcademicStructureView: React.FC = () => {
                   <p className="text-[11px] text-slate-500">Update capacity, shift, timings, lifespan, room, or billing mode</p>
                 </div>
               </div>
-              <button onClick={() => setShowEditBatchModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button 
+                onClick={() => setShowEditBatchModal(false)} 
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700"
+                aria-label="Close"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -3291,18 +3316,18 @@ export const AcademicStructureView: React.FC = () => {
                 </select>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setShowEditBatchModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                  className="w-full sm:w-auto min-h-[48px] px-4 py-3 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
+                  className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs cursor-pointer flex items-center justify-center"
                 >
                   {isSubmitting ? 'Saving...' : 'Update Batch'}
                 </button>
@@ -3326,8 +3351,8 @@ export const AcademicStructureView: React.FC = () => {
         const activeStudentCount = students.filter(s => s.batch_id === batchToDelete.id).length;
 
         return (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+            <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
                   <span className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
@@ -3338,7 +3363,7 @@ export const AcademicStructureView: React.FC = () => {
                     <p className="text-[11px] text-slate-500">{deleteLabel}: {batchToDelete.name}</p>
                   </div>
                 </div>
-                <button onClick={() => setShowDeleteBatchModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+                <button onClick={() => setShowDeleteBatchModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -3379,7 +3404,7 @@ export const AcademicStructureView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowDeleteBatchModal(false)}
-                    className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                    className="min-h-[44px] px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
                   >
                     Cancel
                   </button>
@@ -3388,7 +3413,7 @@ export const AcademicStructureView: React.FC = () => {
                       type="button"
                       disabled={isSubmitting || !transferTargetBatchId}
                       onClick={() => executeDeleteBatch(batchToDelete.id, batchToDelete.name, transferTargetBatchId)}
-                      className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                      className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
                     >
                       <ArrowRightLeft className="w-3.5 h-3.5" />
                       <span>{isSubmitting ? 'Transferring...' : `Transfer ${activeStudentCount} Students & Delete`}</span>
@@ -3403,8 +3428,8 @@ export const AcademicStructureView: React.FC = () => {
 
       {/* MODAL 4E: STUDENT CLASS PROMOTION & SECTION TRANSFER */}
       {showPromoteModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92vh] flex flex-col justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92dvh] flex flex-col justify-between mobile-sheet-card overflow-y-auto">
             <div>
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
@@ -3418,7 +3443,7 @@ export const AcademicStructureView: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <button onClick={() => setShowPromoteModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+                <button onClick={() => setShowPromoteModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -3501,7 +3526,7 @@ export const AcademicStructureView: React.FC = () => {
                           setPromoteSelectedStudentIds(activeBatchStudents.map(s => s.id));
                         }
                       }}
-                      className="text-[11px] text-indigo-700 hover:text-indigo-900 font-bold"
+                      className="text-[11px] text-indigo-700 hover:text-indigo-900 font-bold min-h-[36px] flex items-center"
                     >
                       {promoteSelectedStudentIds.length === students.filter(s => s.batch_id === promoteSourceBatchId && s.status === 'active').length
                         ? 'Deselect All'
@@ -3523,19 +3548,17 @@ export const AcademicStructureView: React.FC = () => {
                                 checked={isChecked}
                                 onChange={e => {
                                   if (e.target.checked) {
-                                    setPromoteSelectedStudentIds(prev => [...prev, s.id]);
+                                    setPromoteSelectedStudentIds([...promoteSelectedStudentIds, s.id]);
                                   } else {
-                                    setPromoteSelectedStudentIds(prev => prev.filter(id => id !== s.id));
+                                    setPromoteSelectedStudentIds(promoteSelectedStudentIds.filter(id => id !== s.id));
                                   }
                                 }}
-                                className="rounded text-indigo-600 focus:ring-indigo-500"
+                                className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
                               />
-                              <span className="font-mono text-slate-500 text-[11px]">{s.admission_number || '—'}</span>
                               <span className="font-medium text-slate-800">{s.full_name}</span>
+                              <span className="font-mono text-[10px] text-slate-400">({s.roll_number || s.id.slice(0, 6)})</span>
                             </div>
-                            <span className="font-mono text-slate-500 text-[11px]">
-                              PKR {Number(fee).toLocaleString()}/mo
-                            </span>
+                            <span className="text-[10px] font-mono text-slate-500">PKR {fee.toLocaleString()}</span>
                           </label>
                         );
                       })}
@@ -3654,7 +3677,7 @@ export const AcademicStructureView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowPromoteModal(false)}
-                className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium text-xs"
+                className="min-h-[44px] px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium text-xs"
               >
                 Cancel
               </button>
@@ -3662,7 +3685,7 @@ export const AcademicStructureView: React.FC = () => {
                 type="submit"
                 form="promoteForm"
                 disabled={isPromoting || promoteSelectedStudentIds.length === 0 || !promoteTargetBatchId}
-                className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
+                className="min-h-[44px] px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
               >
                 <Split className="w-3.5 h-3.5" />
                 <span>
@@ -3676,8 +3699,8 @@ export const AcademicStructureView: React.FC = () => {
 
       {/* MODAL 4D: SMART DELETE CLASS WITH BULK TRANSFER */}
       {showDeleteProgramModal && programToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
@@ -3688,7 +3711,7 @@ export const AcademicStructureView: React.FC = () => {
                   <p className="text-[11px] text-slate-500">Class: {programToDelete.name}</p>
                 </div>
               </div>
-              <button onClick={() => setShowDeleteProgramModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button onClick={() => setShowDeleteProgramModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -3728,7 +3751,7 @@ export const AcademicStructureView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowDeleteProgramModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                  className="min-h-[44px] px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
                 >
                   Cancel
                 </button>
@@ -3737,7 +3760,7 @@ export const AcademicStructureView: React.FC = () => {
                     type="button"
                     disabled={isSubmitting || !transferTargetProgramId}
                     onClick={() => executeDeleteProgram(programToDelete.id, programToDelete.name, transferTargetProgramId)}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    className="min-h-[44px] px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-xs"
                   >
                     <ArrowRightLeft className="w-3.5 h-3.5" />
                     <span>{isSubmitting ? 'Transferring...' : `Transfer ${students.filter(s => s.program_id === programToDelete.id).length} Students & Delete`}</span>
@@ -3751,8 +3774,8 @@ export const AcademicStructureView: React.FC = () => {
 
       {/* MODAL 5: ADD SUBJECT TO CATALOG */}
       {showSubjectModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <span className="p-2 rounded-xl bg-slate-900 text-white">
@@ -3762,7 +3785,7 @@ export const AcademicStructureView: React.FC = () => {
                   <SectionInfo title="Add Subject" description="Define course code and title in master repository" />
                 </div>
               </div>
-              <button onClick={() => setShowSubjectModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button onClick={() => setShowSubjectModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -3797,14 +3820,14 @@ export const AcademicStructureView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowSubjectModal(false)}
-                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
+                  className="min-h-[44px] px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
+                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold transition-colors disabled:opacity-50 shadow-xs"
                 >
                   {isSubmitting ? 'Saving...' : 'Add to Catalog'}
                 </button>

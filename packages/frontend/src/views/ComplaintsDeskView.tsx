@@ -291,14 +291,14 @@ export const ComplaintsDeskView: React.FC = () => {
 
       {/* New Ticket Modal */}
       {showNewModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
               <SectionInfo
                 title="Submit Ticket"
                 description="Report facility, academic, or administrative feedback"
               />
-              <button onClick={() => setShowNewModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button onClick={() => setShowNewModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -360,14 +360,14 @@ export const ComplaintsDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowNewModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors"
+                  className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors"
                 >
                   {isSubmitting ? 'Filing...' : 'Submit Ticket'}
                 </button>
@@ -379,14 +379,14 @@ export const ComplaintsDeskView: React.FC = () => {
 
       {/* Update / Resolve Modal */}
       {selectedTicket && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
               <SectionInfo
                 title={isStaff ? 'Manage Resolution' : 'Ticket Details & Resolution'}
                 description={isStaff ? 'Update ticket status and provide official resolution notes' : 'View ticket status and official administration reply'}
               />
-              <button onClick={() => setSelectedTicket(null)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
+              <button onClick={() => setSelectedTicket(null)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -436,14 +436,14 @@ export const ComplaintsDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedTicket(null)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                    className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isUpdating}
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer transition-colors"
+                    className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer transition-colors"
                   >
                     {isUpdating ? 'Saving...' : 'Save Resolution'}
                   </button>
@@ -495,7 +495,7 @@ export const ComplaintsDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedTicket(null)}
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 cursor-pointer shadow-xs transition-colors"
+                    className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 cursor-pointer shadow-xs transition-colors"
                   >
                     Close
                   </button>

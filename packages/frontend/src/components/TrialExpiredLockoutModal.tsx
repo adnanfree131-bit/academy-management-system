@@ -106,7 +106,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
   const pendingReceipt = trialStatus.pending_receipt;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto no-sheet-overlay">
       <div className="bg-white rounded-3xl max-w-3xl w-full shadow-2xl border border-rose-200 overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header Warning Banner */}
@@ -350,7 +350,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
                 <button
                   type="submit"
                   disabled={submitting || !referenceNumber}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all"
+                  className="w-full h-12 min-h-[48px] py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
                   {submitting ? (
                     <>

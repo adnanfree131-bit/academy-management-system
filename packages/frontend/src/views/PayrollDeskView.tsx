@@ -768,14 +768,19 @@ export const PayrollDeskView: React.FC = () => {
 
       {/* DISBURSE / MARK PAID MODAL */}
       {showDisburseModal && activePayslip && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl space-y-4">
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-md w-full p-6 shadow-xl space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo
                 title="Salary Disbursement"
                 description="Confirm staff payout details and record reference number"
               />
-              <button onClick={() => setShowDisburseModal(false)} className="text-slate-400 hover:text-slate-600">
+              <button
+                type="button"
+                onClick={() => setShowDisburseModal(false)}
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                aria-label="Close dialog"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -816,13 +821,13 @@ export const PayrollDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowDisburseModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg"
+                  className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs"
+                  className="min-h-[48px] px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer"
                 >
                   Confirm Payout
                 </button>
@@ -834,7 +839,7 @@ export const PayrollDeskView: React.FC = () => {
 
       {/* PRINT OFFICIAL PAYSLIP MODAL */}
       {showPrintModal && printPayslip && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto no-sheet-overlay">
           <div className="bg-white rounded-lg max-w-2xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
@@ -872,12 +877,17 @@ export const PayrollDeskView: React.FC = () => {
                     });
                     await downloadPdfBytes(bytes, `payslip-${slip.slip_number}.pdf`);
                   }}
-                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5 transition-colors"
+                  className="min-h-[40px] px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   Download official payslip
                 </button>
-                <button onClick={() => setShowPrintModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <button
+                  type="button"
+                  onClick={() => setShowPrintModal(false)}
+                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                  aria-label="Close dialog"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>

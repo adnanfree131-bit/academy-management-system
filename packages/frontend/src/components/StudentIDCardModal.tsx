@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Student, Batch, AcademicProgram, StudentEnrollment } from '@apex/shared-types';
 import { StudentIDCardItem } from './StudentIDCardItem';
+import { useMobileOverlay } from '../lib/mobileOverlay';
 
 export interface StudentIDCardModalProps {
   student: Student;
@@ -36,6 +37,7 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
   campusAddress = 'Main Campus',
   onClose,
 }) => {
+  useMobileOverlay('sheet', true, onClose);
   const [viewMode, setViewMode] = useState<'both' | 'front' | 'back'>('both');
 
   // Filter to active / on-leave enrollments, or all if none active
@@ -95,7 +97,7 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 print:p-0 print:bg-white print:static print:inset-auto">
+    <div className="fixed inset-0 z-[10000] overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 print:p-0 print:bg-white print:static print:inset-auto mobile-sheet">
       <style>{`
         @media print {
           body * {
@@ -123,7 +125,7 @@ export const StudentIDCardModal: React.FC<StudentIDCardModalProps> = ({
         }
       `}</style>
 
-      <div className="bg-white border-t sm:border border-slate-300 rounded-t-3xl sm:rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-none print:border-none print:shadow-none print:bg-white print:max-w-none animate-in slide-in-from-bottom-5 sm:zoom-in-95 duration-200">
+      <div className="bg-white border-t sm:border border-slate-300 rounded-t-3xl sm:rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-none print:border-none print:shadow-none print:bg-white print:max-w-none sm:zoom-in-95 duration-200 mobile-sheet-card">
         {/* Mobile Swipe Grab Handle Pill */}
         <div className="w-12 h-1.5 bg-slate-300 rounded-full mx-auto my-2.5 sm:hidden shrink-0 no-print" />
 

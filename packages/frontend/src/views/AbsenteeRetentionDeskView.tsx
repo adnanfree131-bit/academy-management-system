@@ -867,14 +867,14 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleOpenWhatsAppModal(item)}
-                        className="py-2 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all touch-press"
+                        className="min-h-[40px] py-2 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all touch-press"
                       >
                         <MessageCircle className="w-3.5 h-3.5" />
                         <span>WhatsApp</span>
                       </button>
                       <a
                         href={`tel:${activePhone}`}
-                        className="py-2 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all touch-press"
+                        className="min-h-[40px] py-2 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all touch-press"
                       >
                         <Phone className="w-3.5 h-3.5" />
                         <span>Call</span>
@@ -882,7 +882,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleOpenLogModal(item)}
-                        className="py-2 px-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all touch-press shadow-xs"
+                        className="min-h-[40px] py-2 px-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all touch-press shadow-xs"
                       >
                         <FileCheck className="w-3.5 h-3.5" />
                         <span>Log</span>
@@ -1083,14 +1083,14 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           MODAL: WHATSAPP 1-CLICK DISPATCH & LIVE PREVIEW
           ===================================================================== */}
       {activeWhatsAppFollowup && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-emerald-600" />
                 Dispatch WhatsApp Alert
               </h3>
-              <button onClick={() => setActiveWhatsAppFollowup(null)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button onClick={() => setActiveWhatsAppFollowup(null)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1176,14 +1176,14 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActiveWhatsAppFollowup(null)}
-                className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 text-xs"
+                className="min-h-[44px] px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 text-xs"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => handleDispatchWhatsApp(activeWhatsAppFollowup, customMessageText)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-xs flex items-center gap-1.5 text-xs"
+                className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-xs flex items-center gap-1.5 text-xs"
               >
                 <Send className="w-3.5 h-3.5" />
                 Open WhatsApp Web / App
@@ -1197,14 +1197,14 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           MODAL: LOG PARENT RESPONSE & 1-CLICK MEDICAL LEAVE
           ===================================================================== */}
       {activeLogFollowup && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo
                 title="Log Call Outcome"
                 description="Record parent communication and optional medical leave conversion"
               />
-              <button onClick={() => setActiveLogFollowup(null)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button onClick={() => setActiveLogFollowup(null)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1292,13 +1292,13 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActiveLogFollowup(null)}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
+                  className="min-h-[44px] px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg shadow-xs transition-colors"
+                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg shadow-xs transition-colors"
                 >
                   Save Call Record
                 </button>
@@ -1312,8 +1312,8 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           MODAL: WHATSAPP RAPID QUEUE MODE
           ===================================================================== */}
       {rapidQueueOpen && rapidCurrentItem && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-xl w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-emerald-600" />
@@ -1325,7 +1325,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <span className="px-2.5 py-0.5 bg-slate-100 text-slate-800 font-mono font-bold rounded text-xs">
                   {rapidQueueIndex + 1} of {followups.length}
                 </span>
-                <button onClick={() => setRapidQueueOpen(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <button onClick={() => setRapidQueueOpen(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -1376,7 +1376,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 type="button"
                 disabled={rapidQueueIndex === 0}
                 onClick={() => setRapidQueueIndex(prev => prev - 1)}
-                className="px-3 py-2 border border-slate-300 text-slate-700 disabled:opacity-30 rounded-lg text-xs font-bold flex items-center gap-1"
+                className="min-h-[44px] px-3 py-2 border border-slate-300 text-slate-700 disabled:opacity-30 rounded-lg text-xs font-bold flex items-center gap-1"
               >
                 <ChevronLeft className="w-4 h-4" /> Previous
               </button>
@@ -1388,7 +1388,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                     const msg = buildDynamicMessage(templates.find(t => t.id === selectedTemplateId)?.body || templates[0]?.body || '', rapidCurrentItem);
                     handleDispatchWhatsApp(rapidCurrentItem, msg);
                   }}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-xs text-xs flex items-center gap-1.5"
+                  className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-xs text-xs flex items-center gap-1.5"
                 >
                   <Send className="w-4 h-4" /> Open WhatsApp
                 </button>
@@ -1397,7 +1397,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   type="button"
                   disabled={rapidQueueIndex >= followups.length - 1}
                   onClick={() => setRapidQueueIndex(prev => prev + 1)}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-30 text-white font-bold rounded-lg shadow-xs text-xs flex items-center gap-1 transition-colors"
+                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-30 text-white font-bold rounded-lg shadow-xs text-xs flex items-center gap-1 transition-colors"
                 >
                   Next Student <ChevronRight className="w-4 h-4" />
                 </button>
@@ -1411,14 +1411,14 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           MODAL: SCHEDULE PARENT COUNSELING MEETING
           ===================================================================== */}
       {activeRetentionCase && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo
                 title="Parent Counseling"
                 description="Schedule director/counselor meeting with parent"
               />
-              <button onClick={() => setActiveRetentionCase(null)} className="text-slate-400 hover:text-slate-600 p-1">
+              <button onClick={() => setActiveRetentionCase(null)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -1458,13 +1458,13 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActiveRetentionCase(null)}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
+                  className="min-h-[44px] px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg shadow-xs transition-colors"
+                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg shadow-xs transition-colors"
                 >
                   Confirm & Schedule
                 </button>
@@ -1478,15 +1478,15 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           MODAL: CREATE NEW WHATSAPP TEMPLATE
           ===================================================================== */}
       {showCreateTemplateModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-0 sm:my-8">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo
                 title="WhatsApp Template"
                 description="Create a message template with dynamic placeholders"
               />
-              <button onClick={() => setShowCreateTemplateModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
-                <X className="w-4 h-4" />
+              <button onClick={() => setShowCreateTemplateModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -1534,13 +1534,13 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowCreateTemplateModal(false)}
-                  className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
+                  className="min-h-[44px] px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-xs"
+                  className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-xs"
                 >
                   Save Template
                 </button>

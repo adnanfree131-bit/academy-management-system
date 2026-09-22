@@ -21,6 +21,7 @@ import { AccountHead, FinancialTransaction } from '@apex/shared-types';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
+import { useMobileOverlay } from '../lib/mobileOverlay';
 
 export const IncomeExpenseDeskView: React.FC = () => {
   const { token, tenant } = useAuth();
@@ -44,6 +45,11 @@ export const IncomeExpenseDeskView: React.FC = () => {
   // Modals
   const [showVoucherModal, setShowVoucherModal] = useState<boolean>(false);
   const [showHeadModal, setShowHeadModal] = useState<boolean>(false);
+
+  useMobileOverlay('sheet', Boolean(showVoucherModal || showHeadModal), () => {
+    setShowVoucherModal(false);
+    setShowHeadModal(false);
+  });
 
   // Voucher Form State
   const [voucherType, setVoucherType] = useState<'income' | 'expense'>('expense');
@@ -622,7 +628,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 setVoucherType('expense');
                 setShowVoucherModal(true);
               }}
-              className="sm:hidden fixed bottom-20 right-4 z-30 w-14 h-14 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
+              className="sm:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-30 w-14 h-14 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-transform cursor-pointer"
               title="Add Voucher"
             >
               <Plus className="w-6 h-6" />
@@ -807,14 +813,18 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {/* MODAL 1: RECORD TRANSACTION VOUCHER */}
       {/* ========================================================================= */}
       {showVoucherModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-lg w-full max-w-lg shadow-xl overflow-hidden max-h-[92vh] flex flex-col">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-xl overflow-hidden max-h-[92dvh] flex flex-col mobile-sheet-card">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
               <SectionInfo
                 title={`Record ${voucherType === 'income' ? 'Income' : 'Expense'}`}
                 description={`Create a new ${voucherType} voucher in the cashbook`}
               />
-              <button onClick={() => setShowVoucherModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button
+                type="button"
+                onClick={() => setShowVoucherModal(false)}
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2 cursor-pointer"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -967,14 +977,14 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowVoucherModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingVoucher}
-                  className={`px-3.5 py-2 rounded-md text-xs font-medium text-white shadow-sm transition-colors ${
+                  className={`px-5 py-2 rounded-xl text-xs font-bold text-white shadow-xs transition-colors min-h-[44px] cursor-pointer ${
                     voucherType === 'income' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
                   }`}
                 >
@@ -990,14 +1000,18 @@ export const IncomeExpenseDeskView: React.FC = () => {
       {/* MODAL 2: DYNAMIC ACCOUNT HEAD CREATOR */}
       {/* ========================================================================= */}
       {showHeadModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-lg w-full max-w-md shadow-xl overflow-hidden">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
               <SectionInfo
                 title="Create Account Head"
                 description="Define a new category for income or expense transactions"
               />
-              <button onClick={() => setShowHeadModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+              <button
+                type="button"
+                onClick={() => setShowHeadModal(false)}
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2 cursor-pointer"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -1056,14 +1070,14 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowHeadModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 min-h-[44px]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingHead}
-                  className="px-3.5 py-2 rounded-md text-xs font-medium bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors cursor-pointer"
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors cursor-pointer min-h-[44px]"
                 >
                   {isSubmittingHead ? 'Saving...' : 'Save Account Head'}
                 </button>

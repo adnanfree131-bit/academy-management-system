@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
+import { useMobileOverlay } from '../lib/mobileOverlay';
 
 export const SuperAdminControlPlaneView: React.FC = () => {
   const { token } = useAuth();
@@ -93,6 +94,19 @@ export const SuperAdminControlPlaneView: React.FC = () => {
   const [editNoticeActionLabel, setEditNoticeActionLabel] = useState<string>('');
   const [editNoticeActionUrl, setEditNoticeActionUrl] = useState<string>('');
   const [savingNoticeEdit, setSavingNoticeEdit] = useState<boolean>(false);
+
+  useMobileOverlay(
+    'sheet',
+    Boolean(dossierModalOpen || advanceModalOpen || hardDeleteModalOpen || editNoticeModalOpen || renameModalOpen || suspendModalOpen),
+    () => {
+      setDossierModalOpen(false);
+      setAdvanceModalOpen(false);
+      setHardDeleteModalOpen(false);
+      setEditNoticeModalOpen(false);
+      setRenameModalOpen(false);
+      setSuspendModalOpen(false);
+    }
+  );
 
   // Platform Config Edit State
   const [defaultTrialDays, setDefaultTrialDays] = useState<number>(30);
@@ -1694,9 +1708,9 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           MODAL 1: ACADEMY DOSSIER & INDIVIDUAL BILLING CONTROLS
           ===================================================================== */}
       {dossierModalOpen && selectedTenantForDossier && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs overflow-y-auto">
-          <div className="w-full max-w-3xl bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden my-8">
-            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto mobile-sheet">
+          <div className="w-full max-w-3xl bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-slate-200 overflow-hidden my-0 sm:my-8 max-h-[92dvh] flex flex-col mobile-sheet-card">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Building2 className="w-5 h-5 text-slate-700" />
                 <div>
@@ -1705,14 +1719,15 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setDossierModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-6 text-xs max-h-[80vh] overflow-y-auto">
+            <div className="p-5 space-y-6 text-xs overflow-y-auto flex-1">
               
               {/* Financial Summary Cards Strip */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1762,7 +1777,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleOneClickExtendOneMonth(selectedTenantForDossier)}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded shadow-xs flex items-center gap-1.5 transition-colors"
+                    className="min-h-[40px] px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded shadow-xs flex items-center gap-1.5 transition-colors touch-press cursor-pointer"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>Receive Payment & Extend +1 Mo</span>
@@ -1771,7 +1786,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => { setDossierModalOpen(false); openAdvanceModal(selectedTenantForDossier); }}
-                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="min-h-[40px] px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded shadow-xs flex items-center gap-1.5 transition-colors touch-press cursor-pointer"
                   >
                     <Calendar className="w-3.5 h-3.5" />
                     <span>Record Advance Payment</span>
@@ -1780,7 +1795,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => handleToggleArchive(selectedTenantForDossier)}
-                    className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold text-xs rounded shadow-xs flex items-center gap-1.5 transition-colors"
+                    className="min-h-[40px] px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 font-semibold text-xs rounded shadow-xs flex items-center gap-1.5 transition-colors touch-press cursor-pointer"
                   >
                     <Archive className="w-3.5 h-3.5 text-slate-500" />
                     <span>{selectedTenantForDossier.status === 'archived' ? 'Unarchive' : 'Soft Archive'}</span>
@@ -1802,7 +1817,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                   <button
                     type="submit"
                     disabled={savingBillingParams}
-                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-400 text-white font-semibold text-xs rounded shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="min-h-[40px] px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-400 text-white font-semibold text-xs rounded shadow-xs flex items-center gap-1.5 transition-colors touch-press cursor-pointer"
                   >
                     <Save className="w-3.5 h-3.5" />
                     <span>{savingBillingParams ? 'Saving...' : 'Save Parameters'}</span>
@@ -1877,7 +1892,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="overflow-x-auto max-h-56">
+                <div className="overflow-x-auto max-h-56 mobile-table-scroll">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[10px]">
@@ -1947,7 +1962,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => openHardDeleteModal(selectedTenantForDossier)}
-                  className="px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white font-semibold text-xs rounded shadow-xs flex items-center gap-1.5 transition-colors"
+                  className="min-h-[40px] px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white font-semibold text-xs rounded shadow-xs flex items-center gap-1.5 transition-colors touch-press cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Hard Delete</span>
@@ -1963,22 +1978,23 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           MODAL 2: ADVANCE / CUSTOM MULTI-MONTH PAYMENT MODAL
           ===================================================================== */}
       {advanceModalOpen && selectedTenantForAdvance && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="w-full max-w-md bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
-            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto mobile-sheet">
+          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-slate-200 overflow-hidden my-0 sm:my-8 max-h-[92dvh] flex flex-col mobile-sheet-card">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-slate-700" />
                 <h3 className="font-bold text-slate-900 text-sm">Record Advance Payment</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setAdvanceModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitAdvancePayment} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleSubmitAdvancePayment} className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
               <div>
                 <span className="text-slate-500 text-[11px]">Target Academy:</span>
                 <div className="font-bold text-slate-900 text-sm">{selectedTenantForAdvance.name}</div>
@@ -1996,7 +2012,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                       type="button"
                       key={m}
                       onClick={() => handleAdvanceDurationChange(m)}
-                      className={`py-1.5 px-2 rounded border font-semibold text-xs transition-colors ${
+                      className={`min-h-[40px] py-1.5 px-2 rounded border font-semibold text-xs transition-colors touch-press cursor-pointer ${
                         advanceDurationMonths === m
                           ? 'bg-amber-600 text-white border-amber-600'
                           : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
@@ -2014,7 +2030,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                     max="36"
                     value={advanceDurationMonths}
                     onChange={e => handleAdvanceDurationChange(Math.max(1, Number(e.target.value)))}
-                    className="w-20 px-2 py-1 bg-white border border-slate-300 rounded font-mono font-semibold text-xs"
+                    className="w-20 px-2 py-1.5 bg-white border border-slate-300 rounded font-mono font-semibold text-xs"
                   />
                 </div>
               </div>
@@ -2079,18 +2095,18 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                 Will auto-extend subscription renewal date by <strong className="text-slate-800">{advanceDurationMonths} month(s)</strong> preserving anchor day <strong className="text-slate-800">{selectedTenantForAdvance.billing_cycle_anchor_day || 1}th</strong>, and log an approved receipt.
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setAdvanceModalOpen(false)}
-                  className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold text-xs rounded transition-colors"
+                  className="min-h-[44px] px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold text-xs rounded transition-colors touch-press cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={processingAdvance}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-400 text-white font-semibold text-xs rounded shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-400 text-white font-semibold text-xs rounded shadow-xs transition-colors flex items-center gap-1.5 touch-press cursor-pointer"
                 >
                   <Check className="w-3.5 h-3.5" />
                   <span>{processingAdvance ? 'Recording...' : 'Record Payment & Extend'}</span>
@@ -2105,22 +2121,23 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           MODAL 3: HARD DELETE & DATA WIPE CONFIRMATION MODAL
           ===================================================================== */}
       {hardDeleteModalOpen && selectedTenantForHardDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="w-full max-w-md bg-white rounded-lg shadow-2xl border border-rose-300 overflow-hidden">
-            <div className="p-4 bg-rose-50 border-b border-rose-200 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto mobile-sheet">
+          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl border border-rose-300 overflow-hidden my-0 sm:my-8 max-h-[92dvh] flex flex-col mobile-sheet-card">
+            <div className="p-4 bg-rose-50 border-b border-rose-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-rose-700" />
                 <h3 className="font-bold text-rose-950 text-sm">Hard Delete & Wipe Academy Data</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setHardDeleteModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleConfirmHardDelete} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleConfirmHardDelete} className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
               <div className="p-3 bg-rose-50 border border-rose-200 rounded text-rose-900 text-[11px] leading-relaxed">
                 <strong className="font-bold block mb-1">CRITICAL PERMANENT ACTION:</strong>
                 This will purge all records associated with <strong className="font-bold">{selectedTenantForHardDelete.name}</strong>, including students, faculty, batches, fee invoices, examination marksheets, and financial transactions.
@@ -2140,18 +2157,18 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setHardDeleteModalOpen(false)}
-                  className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold text-xs rounded transition-colors"
+                  className="min-h-[44px] px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold text-xs rounded transition-colors touch-press cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={purgingTenant || hardDeleteConfirmSlug.trim() !== selectedTenantForHardDelete.slug}
-                  className="px-4 py-2 bg-rose-700 hover:bg-rose-800 disabled:bg-rose-300 text-white font-semibold text-xs rounded shadow-xs transition-colors flex items-center gap-1.5"
+                  className="min-h-[44px] px-4 py-2 bg-rose-700 hover:bg-rose-800 disabled:bg-rose-300 text-white font-semibold text-xs rounded shadow-xs transition-colors flex items-center gap-1.5 touch-press cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>{purgingTenant ? 'Purging Academy...' : 'Permanently Wipe & Release Domain'}</span>
@@ -2166,22 +2183,23 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           MODAL 4: EDIT BROADCAST NOTICE MODAL
           ===================================================================== */}
       {editNoticeModalOpen && selectedNoticeForEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="w-full max-w-lg bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
-            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto mobile-sheet">
+          <div className="w-full max-w-lg bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-slate-200 overflow-hidden my-0 sm:my-8 max-h-[92dvh] flex flex-col mobile-sheet-card">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Edit3 className="w-4 h-4 text-slate-700" />
                 <h3 className="font-bold text-slate-900 text-sm">Edit Broadcast Notice</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setEditNoticeModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveNoticeEdit} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleSaveNoticeEdit} className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">Notice Subject *</label>
                 <input
@@ -2268,18 +2286,18 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditNoticeModalOpen(false)}
-                  className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold text-xs rounded transition-colors"
+                  className="min-h-[44px] px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold text-xs rounded transition-colors touch-press cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingNoticeEdit}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-400 text-white font-semibold text-xs rounded shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-400 text-white font-semibold text-xs rounded shadow-xs transition-colors flex items-center gap-1.5 touch-press cursor-pointer"
                 >
                   <Save className="w-3.5 h-3.5" />
                   <span>{savingNoticeEdit ? 'Saving...' : 'Save Changes'}</span>
@@ -2294,22 +2312,23 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           MODAL 5: SUBDOMAIN RENAME MODAL
           ===================================================================== */}
       {renameModalOpen && selectedTenantForRename && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="w-full max-w-md bg-white rounded-lg shadow-xl border border-slate-200 overflow-hidden">
-            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto mobile-sheet">
+          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-slate-200 overflow-hidden my-0 sm:my-8 max-h-[92dvh] flex flex-col mobile-sheet-card">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Globe className="w-4 h-4 text-slate-700" />
                 <h3 className="font-bold text-slate-900 text-sm">Update Academy Subdomain</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setRenameModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubdomainRename} className="p-5 space-y-4 text-xs">
+            <form onSubmit={handleSubdomainRename} className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
               <div>
                 <span className="text-slate-500 text-[11px]">Academy:</span>
                 <div className="font-bold text-slate-900 text-sm">{selectedTenantForRename.name}</div>
@@ -2338,18 +2357,18 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                 The previous subdomain (<span className="font-mono font-semibold">{selectedTenantForRename.slug}</span>) is retained as a permanent alias. Existing bookmarks, printed challans, and links will continue to resolve automatically.
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setRenameModalOpen(false)}
-                  className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold text-xs rounded transition-colors"
+                  className="min-h-[44px] px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold text-xs rounded transition-colors touch-press cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={renameLoading}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-400 text-white font-semibold text-xs rounded shadow-xs transition-colors cursor-pointer"
+                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-400 text-white font-semibold text-xs rounded shadow-xs transition-colors touch-press cursor-pointer"
                 >
                   {renameLoading ? 'Updating Subdomain...' : 'Save Subdomain'}
                 </button>
@@ -2363,22 +2382,23 @@ export const SuperAdminControlPlaneView: React.FC = () => {
           MODAL 6: ACADEMY SUSPENSION MODAL
           ===================================================================== */}
       {suspendModalOpen && selectedTenantForSuspend && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="w-full max-w-md bg-white rounded-lg shadow-xl border border-rose-300 overflow-hidden">
-            <div className="p-4 bg-rose-50 border-b border-rose-200 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto mobile-sheet">
+          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-rose-300 overflow-hidden my-0 sm:my-8 max-h-[92dvh] flex flex-col mobile-sheet-card">
+            <div className="p-4 bg-rose-50 border-b border-rose-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-rose-700" />
                 <h3 className="font-bold text-rose-950 text-sm">Suspend Academy Account</h3>
               </div>
               <button
+                type="button"
                 onClick={() => setSuspendModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs">
+            <div className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
               <div>
                 <span className="text-slate-500 text-[11px]">Target Academy:</span>
                 <div className="font-bold text-slate-900 text-sm">{selectedTenantForSuspend.name}</div>
@@ -2409,11 +2429,11 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                 Faculty and student access will be blocked immediately (403 ACADEMY_SUSPENDED). The Academy Director retains restricted access to the billing desk to upload payment proof.
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 shrink-0">
                 <button
                   type="button"
                   onClick={() => setSuspendModalOpen(false)}
-                  className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold text-xs rounded transition-colors"
+                  className="min-h-[44px] px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold text-xs rounded transition-colors touch-press cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -2421,7 +2441,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
                   type="button"
                   onClick={handleConfirmSuspend}
                   disabled={suspendLoading}
-                  className="px-4 py-2 bg-rose-700 hover:bg-rose-800 disabled:bg-rose-400 text-white font-semibold text-xs rounded shadow-xs transition-colors"
+                  className="min-h-[44px] px-4 py-2 bg-rose-700 hover:bg-rose-800 disabled:bg-rose-400 text-white font-semibold text-xs rounded shadow-xs transition-colors touch-press cursor-pointer"
                 >
                   {suspendLoading ? 'Suspending...' : 'Confirm Suspension'}
                 </button>

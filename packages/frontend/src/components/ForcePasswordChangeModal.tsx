@@ -66,8 +66,8 @@ export const ForcePasswordChangeModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-6 space-y-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 no-sheet-overlay animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md p-4 sm:p-6 space-y-4">
         <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
           <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 shrink-0">
             <ShieldAlert className="w-5 h-5" />
@@ -148,18 +148,18 @@ export const ForcePasswordChangeModal: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-2 flex items-center justify-between gap-3">
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
             <button
               type="button"
               onClick={logout}
-              className="px-3.5 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
+              className="w-full sm:w-auto h-12 min-h-[48px] px-4 py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors order-2 sm:order-1"
             >
               Sign Out
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-xl shadow-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full sm:flex-1 h-12 min-h-[48px] px-4 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-xl shadow-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer order-1 sm:order-2"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{isSubmitting ? 'Updating...' : 'Set New Password & Continue'}</span>

@@ -2137,18 +2137,18 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
           {/* Selected Action Bar */}
           {selectedDirectoryStudentIds.size > 0 && (
-            <div className="bg-amber-50 text-amber-950 p-2.5 px-4 flex items-center justify-between border-b border-amber-200">
+            <div className="sticky top-0 sm:static z-20 bg-amber-50 text-amber-950 p-2.5 px-3 sm:px-4 flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 shadow-xs">
               <div className="flex items-center gap-2 text-xs font-semibold text-amber-900">
-                <CheckSquare className="w-4 h-4 text-amber-700" />
+                <CheckSquare className="w-4 h-4 text-amber-700 shrink-0" />
                 <span>{selectedDirectoryStudentIds.size} student{selectedDirectoryStudentIds.size > 1 ? 's' : ''} selected</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setShowBulkIdCardsModal(true)}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  className="flex-1 sm:flex-initial min-h-[44px] px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
-                  <CreditCard className="w-3.5 h-3.5" />
+                  <CreditCard className="w-3.5 h-3.5 shrink-0" />
                   <span>Print ID Cards ({selectedDirectoryStudentIds.size})</span>
                 </button>
                 {canArchiveStudents && (
@@ -2159,10 +2159,10 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       setBulkArchiveCancelUnpaid(false);
                       setShowBulkArchiveModal(true);
                     }}
-                    className="px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="flex-1 sm:flex-initial min-h-[44px] px-3 py-2 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     title="Archive Selected Students"
                   >
-                    <Archive className="w-3.5 h-3.5 text-amber-700" />
+                    <Archive className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                     <span>Archive ({selectedDirectoryStudentIds.size})</span>
                   </button>
                 )}
@@ -2174,17 +2174,17 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       setBulkDeleteReason('Bulk administrative student deletion');
                       setShowBulkDeleteModal(true);
                     }}
-                    className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="flex-1 sm:flex-initial min-h-[44px] px-3 py-2 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     title="Permanently Delete Selected Students"
                   >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                     <span>Delete ({selectedDirectoryStudentIds.size})</span>
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => setSelectedDirectoryStudentIds(new Set())}
-                  className="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-md text-xs font-semibold transition-colors cursor-pointer"
+                  className="min-h-[44px] px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                 >
                   Clear
                 </button>
@@ -2517,14 +2517,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                   {/* Bottom Row: Actions Bar */}
                   <div className="flex items-center justify-between pt-1 border-t border-slate-100/70 text-xs">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5">
                       {student.guardian_phone && (
                         <a
                           href={`tel:${student.guardian_phone}`}
                           onClick={e => e.stopPropagation()}
-                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[11px] font-semibold flex items-center gap-1"
+                          className="min-h-[40px] px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1"
                         >
-                          <Phone className="w-3 h-3 text-slate-500" />
+                          <Phone className="w-3.5 h-3.5 text-slate-500" />
                           <span>Call</span>
                         </a>
                       )}
@@ -2534,9 +2534,9 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           e.stopPropagation();
                           setContactStudentModal(student);
                         }}
-                        className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md text-[11px] font-semibold flex items-center gap-1 border border-emerald-200/50"
+                        className="min-h-[40px] px-2.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 border border-emerald-200/50"
                       >
-                        <MessageSquare className="w-3 h-3" />
+                        <MessageSquare className="w-3.5 h-3.5" />
                         <span>WhatsApp</span>
                       </button>
                     </div>
@@ -2550,14 +2550,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                               e.stopPropagation();
                               setDeleteMenuStudentId(deleteMenuStudentId === student.id ? null : student.id);
                             }}
-                            className={`p-1.5 rounded-md border transition-colors cursor-pointer ${
+                            className={`w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-lg border transition-colors cursor-pointer ${
                               deleteMenuStudentId === student.id
                                 ? 'bg-rose-50 text-rose-700 border-rose-300 ring-2 ring-rose-200'
                                 : 'bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border-slate-200'
                             }`}
                             title="Delete or Archive options"
                           >
-                            <Trash2 className="w-3 h-3 text-rose-600" />
+                            <Trash2 className="w-4 h-4 text-rose-600" />
                           </button>
 
                           {deleteMenuStudentId === student.id && (
@@ -4956,16 +4956,18 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       {/* 1-CLICK ADMISSION MODAL                                                  */}
       {/* ========================================================================= */}
       {admitInquiryModal && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 bg-white/80 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <UserCheck className="w-4 h-4 text-emerald-600" />
                 <span>Admit Inquiring Student</span>
               </div>
               <button
+                type="button"
                 onClick={() => setAdmitInquiryModal(null)}
-                className="p-1 text-slate-400 hover:text-slate-700"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5175,16 +5177,18 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       {/* NEW INQUIRY MODAL                                                        */}
       {/* ========================================================================= */}
       {showNewInquiryModal && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 bg-white/80 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[92vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <HelpCircle className="w-4 h-4 text-amber-600" />
                 <span>Log Prospective Candidate Inquiry</span>
               </div>
               <button
+                type="button"
                 onClick={() => setShowNewInquiryModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-700"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5369,16 +5373,18 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
       {/* Bulk ID Card Printing Modal */}
       {showBulkIdCardsModal && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 bg-white/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl w-full max-w-5xl p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 my-8">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-150 no-sheet-overlay">
+          <div className="bg-white rounded-2xl w-full max-w-5xl p-4 sm:p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 my-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <CreditCard className="w-4 h-4 text-slate-700" />
                 <span>Student ID Cards</span>
               </div>
               <button
+                type="button"
                 onClick={() => setShowBulkIdCardsModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -5396,8 +5402,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       )}
       {/* Contact Options Modal for Student & Guardian */}
       {contactStudentModal && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 bg-white/80 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4">
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-sm w-full p-4 sm:p-5 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 mobile-sheet-card max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">Contact Options</h3>
@@ -5406,7 +5412,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setContactStudentModal(null)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5496,8 +5503,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
       {/* Branded WhatsApp Fee Receipt & Admission Slip Modal */}
       {receiptModalData && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 bg-white/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 my-6">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-150 no-sheet-overlay">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 my-auto">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -5506,7 +5513,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setReceiptModalData(null)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5715,8 +5723,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       {/* BULK CSV IMPORT MODAL                                                     */}
       {/* ========================================================================= */}
       {showBulkImportModal && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 bg-white/80 backdrop-blur-md animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
@@ -5725,7 +5733,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowBulkImportModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-700"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5843,9 +5852,9 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
       {/* SINGLE STUDENT ARCHIVE CONFIRMATION MODAL */}
       {studentToArchive && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999] bg-white/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 m-0 animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-amber-300 ring-1 ring-amber-900/10 overflow-hidden flex flex-col">
-            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between border-b border-slate-800">
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 animate-in fade-in duration-150 mobile-sheet">
+          <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-lg w-full shadow-2xl border border-amber-300 ring-1 ring-amber-900/10 overflow-hidden flex flex-col mobile-sheet-card max-h-[90dvh]">
+            <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-2">
                 <Archive className="w-4 h-4 text-amber-400" />
                 <h2 className="text-sm font-bold">Archive Student Record</h2>
@@ -5853,13 +5862,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setStudentToArchive(null)}
-                className="text-slate-400 hover:text-white p-1"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-white rounded-xl transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs text-slate-700">
+            <div className="p-5 space-y-4 text-xs text-slate-700 overflow-y-auto">
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 space-y-1">
                 <div className="font-bold flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
@@ -5904,11 +5914,11 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 p-3.5 border-t border-slate-200 bg-slate-50">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-2 p-3.5 border-t border-slate-200 bg-slate-50">
               <button
                 type="button"
                 onClick={() => setStudentToArchive(null)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
+                className="w-full sm:w-auto min-h-[44px] px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -5916,7 +5926,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 type="button"
                 onClick={handleArchiveStudent}
                 disabled={isArchiving || !archiveReason.trim()}
-                className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="w-full sm:w-auto min-h-[48px] px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Archive className="w-3.5 h-3.5" />
                 <span>{isArchiving ? 'Archiving...' : 'Confirm Archival'}</span>
@@ -5929,8 +5939,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
       {/* SINGLE STUDENT PERMANENT DELETE MODAL */}
       {studentToDelete && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999] bg-white/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 m-0 animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-rose-300 ring-1 ring-rose-900/10 overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-xl max-w-lg w-full shadow-2xl border border-rose-300 ring-1 ring-rose-900/10 overflow-hidden flex flex-col max-h-[90dvh] mobile-sheet-card">
             <div className="bg-rose-700 text-white px-5 py-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Trash2 className="w-4 h-4 text-white" />
@@ -5939,13 +5949,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setStudentToDelete(null)}
-                className="text-white/80 hover:text-white p-1"
+                className="text-white/80 hover:text-white w-11 h-11 flex items-center justify-center rounded-lg cursor-pointer"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs text-slate-700">
+            <div className="p-5 space-y-4 text-xs text-slate-700 overflow-y-auto">
               <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-900 space-y-1">
                 <div className="font-bold flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -6005,7 +6016,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setStudentToDelete(null)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
+                className="min-h-[44px] px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -6013,7 +6024,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 type="button"
                 onClick={handleDeleteStudent}
                 disabled={isDeleting || !deleteReason.trim() || (deleteRequiresForce && !deleteForce)}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="min-h-[44px] px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isDeleting ? 'Deleting...' : 'Confirm Permanent Deletion'}</span>
@@ -6026,8 +6037,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
       {/* BULK ARCHIVE CONFIRMATION MODAL */}
       {showBulkArchiveModal && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999] bg-white/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 m-0 animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-amber-300 ring-1 ring-amber-900/10 overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-xl max-w-lg w-full shadow-2xl border border-amber-300 ring-1 ring-amber-900/10 overflow-hidden flex flex-col max-h-[90dvh] mobile-sheet-card">
             <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <Archive className="w-4 h-4 text-amber-400" />
@@ -6036,13 +6047,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowBulkArchiveModal(false)}
-                className="text-slate-400 hover:text-white p-1"
+                className="text-slate-400 hover:text-white w-11 h-11 flex items-center justify-center rounded-lg cursor-pointer"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs text-slate-700">
+            <div className="p-5 space-y-4 text-xs text-slate-700 overflow-y-auto">
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 space-y-1">
                 <div className="font-bold flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
@@ -6088,7 +6100,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowBulkArchiveModal(false)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
+                className="min-h-[44px] px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -6096,7 +6108,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 type="button"
                 onClick={handleBulkArchive}
                 disabled={isBulkOperating || !bulkArchiveReason.trim()}
-                className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="min-h-[44px] px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Archive className="w-3.5 h-3.5" />
                 <span>{isBulkOperating ? 'Archiving...' : `Archive (${selectedDirectoryStudentIds.size}) Students`}</span>
@@ -6109,8 +6121,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
       {/* BULK DELETE CONFIRMATION MODAL */}
       {showBulkDeleteModal && createPortal(
-        <div className="fixed inset-0 w-screen h-screen z-[9999] bg-white/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-5 m-0 animate-in fade-in duration-150">
-          <div className="bg-white rounded-xl max-w-lg w-full shadow-2xl border border-rose-300 ring-1 ring-rose-900/10 overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-[9999] bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-xl max-w-lg w-full shadow-2xl border border-rose-300 ring-1 ring-rose-900/10 overflow-hidden flex flex-col max-h-[90dvh] mobile-sheet-card">
             <div className="bg-rose-700 text-white px-5 py-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Trash2 className="w-4 h-4 text-white" />
@@ -6119,13 +6131,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowBulkDeleteModal(false)}
-                className="text-white/80 hover:text-white p-1"
+                className="text-white/80 hover:text-white w-11 h-11 flex items-center justify-center rounded-lg cursor-pointer"
+                aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 text-xs text-slate-700">
+            <div className="p-5 space-y-4 text-xs text-slate-700 overflow-y-auto">
               <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-900 space-y-1">
                 <div className="font-bold flex items-center gap-1.5">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
@@ -6168,7 +6181,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowBulkDeleteModal(false)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
+                className="min-h-[44px] px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -6176,7 +6189,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 type="button"
                 onClick={handleBulkDelete}
                 disabled={isBulkOperating || !bulkDeleteReason.trim()}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="min-h-[44px] px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isBulkOperating ? 'Deleting...' : `Delete (${selectedDirectoryStudentIds.size}) Students`}</span>
@@ -6189,8 +6202,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
       {/* GLOBAL MODAL: DOCUMENT CHECKLIST (ACCESSIBLE FROM ALL TABS) */}
       {isAddingDocHead && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-950/60 backdrop-blur-xs p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl border border-slate-200 w-full max-w-md p-5 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-slate-700" />
@@ -6203,7 +6216,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   setNewDocHeadTitle('');
                   setNewDocHeadMandatory(false);
                 }}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                aria-label="Close dialog"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -6230,7 +6244,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   type="button"
                   disabled={!newDocHeadTitle.trim() || isSavingDocHead}
                   onClick={handleAddDocHeadFromEnrollment}
-                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg transition-colors disabled:opacity-40 cursor-pointer shadow-xs"
+                  className="min-h-[44px] px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg transition-colors disabled:opacity-40 cursor-pointer shadow-xs"
                 >
                   {isSavingDocHead ? 'Saving...' : 'Add'}
                 </button>
@@ -6297,7 +6311,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       <button
                         type="button"
                         onClick={() => handleDeleteDocHeadFromEnrollment(h.code)}
-                        className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                        className="text-slate-400 hover:text-rose-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
                         title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -6316,7 +6330,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   setNewDocHeadTitle('');
                   setNewDocHeadMandatory(false);
                 }}
-                className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+                className="min-h-[44px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
               >
                 Done
               </button>
