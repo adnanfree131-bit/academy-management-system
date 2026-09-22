@@ -48,6 +48,7 @@ export const ALL_FEATURE_IDS: FeatureId[] = [
 
 export const ROLE_DEFAULT_TEMPLATES: Record<string, Partial<Record<FeatureId, AccessLevel>>> = {
   teacher: {
+    classes: 'view',
     attendance: 'edit',
     homework: 'edit',
     exams_marks: 'edit',

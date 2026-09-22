@@ -82,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={() => {
             if (user?.role === 'student' || user?.role === 'parent') {
               onSwitchScreen?.('student_portal');
-            } else if (canOpenScreen(user?.role, user?.permissions, 'absentee')) {
+            } else if (canOpenScreen(user?.role, user?.permissions, 'absentee', user?.access)) {
               onSwitchScreen?.('absentee');
             }
           }}
@@ -95,7 +95,7 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         {/* Desktop New Admission Button */}
-        {(user?.role === 'tenant_admin' || user?.role === 'academic_head') && (
+        {canOpenScreen(user?.role, user?.permissions, 'new_admission', user?.access) && (
           <button
             type="button"
             onClick={() => {

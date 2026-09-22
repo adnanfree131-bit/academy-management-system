@@ -84,7 +84,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
 
   const modules = user?.role === 'super_admin'
     ? [{ id: 'superadmin', label: 'Academy Directory' }]
-    : ADMIN_MODULES.filter(m => canOpenScreen(user?.role, user?.permissions, m.id));
+    : ADMIN_MODULES.filter(m => canOpenScreen(user?.role, user?.permissions, m.id, user?.access));
 
   const q = query.trim().toLowerCase();
   const moduleHits = useMemo(

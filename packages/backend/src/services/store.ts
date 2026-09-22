@@ -10299,8 +10299,16 @@ export class InMemoryDataStore implements IDataStore {
       s => s.tenant_id === tenantId && s.teacher_id === teacherUserId
     );
 
-    // Batches assigned
-    const assignedBatches = this.batches.filter(b => b.tenant_id === tenantId);
+    // Batches assigned via teaching assignments or timetable schedule
+    const assignments: StaffTeachingAssignment[] = (teacherUser.metadata?.teaching_assignments as StaffTeachingAssignment[]) || [];
+    const assignedBatchIds = new Set(assignments.map(a => a.batch_id).filter(Boolean));
+    for (const s of teacherSchedule) {
+      if (s.batch_id) assignedBatchIds.add(s.batch_id);
+    }
+
+    const assignedBatches = assignedBatchIds.size > 0
+      ? this.batches.filter(b => b.tenant_id === tenantId && assignedBatchIds.has(b.id))
+      : this.batches.filter(b => b.tenant_id === tenantId);
 
     // Attendance pending batches for today
     const markedBatchIds = new Set(
@@ -10311,14 +10319,15 @@ export class InMemoryDataStore implements IDataStore {
     const pendingAttendanceBatches = assignedBatches.filter(b => !markedBatchIds.has(b.id));
 
     // Exams with pending evaluations
-    const pendingGradingExams = this.exams.filter(
-      e => e.tenant_id === tenantId && e.status === 'PUBLISHED'
-    );
+    const pendingGradingExams = assignedBatchIds.size > 0
+      ? this.exams.filter(e => e.tenant_id === tenantId && e.status === 'PUBLISHED' && assignedBatchIds.has(e.batch_id))
+      : this.exams.filter(e => e.tenant_id === tenantId && e.status === 'PUBLISHED');
 
     // Recent diary entries
-    const recentDiary = this.homeworkAssignments
-      .filter(h => h.tenant_id === tenantId)
-      .slice(0, 5);
+    const recentDiary = (assignedBatchIds.size > 0
+      ? this.homeworkAssignments.filter(h => h.tenant_id === tenantId && assignedBatchIds.has(h.batch_id))
+      : this.homeworkAssignments.filter(h => h.tenant_id === tenantId)
+    ).slice(0, 5);
 
     // Geofence status
     const clockInRecord = this.staffAttendance.find(

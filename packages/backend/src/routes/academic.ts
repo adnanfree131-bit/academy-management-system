@@ -33,10 +33,34 @@ export function academicRoutes(store: IDataStore) {
       return true;
     };
 
+    const assertAcademicHierarchyRead = (user: JWTPayload, reply: any): boolean => {
+      if (user.role === 'super_admin' || user.role === 'tenant_admin') return true;
+      if (
+        can(user, 'classes', 'view') ||
+        can(user, 'attendance', 'view') ||
+        can(user, 'homework', 'view') ||
+        can(user, 'exams_bank', 'view') ||
+        can(user, 'exams_marks', 'view') ||
+        can(user, 'exams_reports', 'view') ||
+        can(user, 'timetable', 'view') ||
+        can(user, 'enrollment', 'view') ||
+        can(user, 'voucher', 'view') ||
+        can(user, 'challans', 'view')
+      ) {
+        return true;
+      }
+      reply.status(403).send({
+        success: false,
+        error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires classes view or academic operations access.' },
+        timestamp: new Date().toISOString(),
+      });
+      return false;
+    };
+
     // --- Programs ---
     fastify.get('/programs', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertFeature(user, 'classes', 'view', reply)) return;
+      if (!assertAcademicHierarchyRead(user, reply)) return;
       const programs = await store.getPrograms(user.tenant_id);
       return reply.send({ success: true, data: programs, timestamp: new Date().toISOString() });
     });
@@ -162,7 +186,7 @@ export function academicRoutes(store: IDataStore) {
     // --- Subjects ---
     fastify.get('/subjects', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertFeature(user, 'classes', 'view', reply)) return;
+      if (!assertAcademicHierarchyRead(user, reply)) return;
       const subjects = await store.getSubjects(user.tenant_id);
       return reply.send({ success: true, data: subjects, timestamp: new Date().toISOString() });
     });
@@ -211,7 +235,7 @@ export function academicRoutes(store: IDataStore) {
     // --- Subject Groups ---
     fastify.get('/groups', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertFeature(user, 'classes', 'view', reply)) return;
+      if (!assertAcademicHierarchyRead(user, reply)) return;
       const { program_id } = request.query as { program_id?: string };
       const groups = await store.getSubjectGroups(user.tenant_id, program_id);
       return reply.send({ success: true, data: groups, timestamp: new Date().toISOString() });
@@ -262,7 +286,7 @@ export function academicRoutes(store: IDataStore) {
     // --- Batches ---
     fastify.get('/batches', async (request: any, reply) => {
       const user = request.user as JWTPayload;
-      if (!assertFeature(user, 'classes', 'view', reply)) return;
+      if (!assertAcademicHierarchyRead(user, reply)) return;
       const { program_id, cohort_type } = request.query as { program_id?: string; cohort_type?: 'section' | 'batch' };
       const batches = await store.getBatches(user.tenant_id, program_id, cohort_type);
       return reply.send({ success: true, data: batches, timestamp: new Date().toISOString() });

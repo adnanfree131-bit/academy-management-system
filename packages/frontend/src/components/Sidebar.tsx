@@ -45,7 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { user, tenant, token, logout } = useAuth();
   const role = user?.role || 'tenant_admin';
   const managedStaff = isManagedStaff(role, user?.permissions);
-  const allow = (screen: string) => canOpenScreen(role, user?.permissions, screen);
+  const allow = (screen: string) => canOpenScreen(role, user?.permissions, screen, user?.access);
   const [absenteePending, setAbsenteePending] = useState(0);
 
   // Hardware/gesture Back button trap on mobile

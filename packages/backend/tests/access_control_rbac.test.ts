@@ -26,6 +26,8 @@ describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement',
   let financeUserId: string;
   let student1Id: string;
   let student2Id: string;
+  let batchXId: string;
+  let batchYId: string;
 
   const mockMailer: IMailerService = {
     async sendOTP() {
@@ -160,7 +162,8 @@ describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement',
     const programs = await store.getPrograms(TENANT_A_ID);
     const progId = programs[0]?.id || 'prog-1';
 
-    const batchX = await store.createBatch(TENANT_A_ID, {
+    const batchX = await store.createBatch({
+      tenant_id: TENANT_A_ID,
       program_id: progId,
       name: 'Batch-X-RBAC',
       shift: 'Morning',
@@ -168,13 +171,16 @@ describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement',
       academic_session: '2026-2027',
     });
 
-    const batchY = await store.createBatch(TENANT_A_ID, {
+    const batchY = await store.createBatch({
+      tenant_id: TENANT_A_ID,
       program_id: progId,
       name: 'Batch-Y-RBAC',
       shift: 'Morning',
       capacity: 30,
       academic_session: '2026-2027',
     });
+    batchXId = batchX.id;
+    batchYId = batchY.id;
 
     const subjects = await store.getSubjects(TENANT_A_ID);
     const subjId = subjects[0]?.id || 'subj-1';
@@ -596,4 +602,157 @@ describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement',
       }
     }
   });
+
+  // ---------------------------------------------------------------------------
+  // Test 13: Default teacher role template includes classes: 'view' and allows
+  // loading programs, batches, subjects, and groups.
+  // ---------------------------------------------------------------------------
+  it('Test 13: Default teacher can load academic programs, batches, subjects, and groups', async () => {
+    const defaultTeacher = await store.createStaff({
+      tenant_id: TENANT_A_ID,
+      email: 'default.teacher@apexacademy.edu.pk',
+      full_name: 'Default Template Teacher',
+      role: 'teacher',
+    });
+    expect((defaultTeacher.metadata?.access as any)?.classes).toBe('view');
+
+    const defaultTeacherToken = app.jwt.sign({
+      sub: defaultTeacher.id,
+      user_id: defaultTeacher.id,
+      email: defaultTeacher.email,
+      role: 'teacher',
+      tenant_id: TENANT_A_ID,
+    });
+
+    const resPrograms = await app.inject({
+      method: 'GET',
+      url: '/api/v1/academic/programs',
+      headers: { authorization: `Bearer ${defaultTeacherToken}` },
+    });
+    expect(resPrograms.statusCode).toBe(200);
+
+    const resBatches = await app.inject({
+      method: 'GET',
+      url: '/api/v1/academic/batches',
+      headers: { authorization: `Bearer ${defaultTeacherToken}` },
+    });
+    expect(resBatches.statusCode).toBe(200);
+
+    const resSubjects = await app.inject({
+      method: 'GET',
+      url: '/api/v1/academic/subjects',
+      headers: { authorization: `Bearer ${defaultTeacherToken}` },
+    });
+    expect(resSubjects.statusCode).toBe(200);
+
+    const resGroups = await app.inject({
+      method: 'GET',
+      url: '/api/v1/academic/groups',
+      headers: { authorization: `Bearer ${defaultTeacherToken}` },
+    });
+    expect(resGroups.statusCode).toBe(200);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 14: SaaS routes verify live user from store and reject demoted tokens.
+  // ---------------------------------------------------------------------------
+  it('Test 14: Demoted super admin or director token is rejected on SaaS routes', async () => {
+    const adminUser = await store.createStaff({
+      tenant_id: TENANT_A_ID,
+      email: 'temp.director@apexacademy.edu.pk',
+      full_name: 'Temporary Director',
+      role: 'tenant_admin',
+    });
+
+    const adminToken = app.jwt.sign({
+      sub: adminUser.id,
+      user_id: adminUser.id,
+      email: adminUser.email,
+      role: 'tenant_admin',
+      tenant_id: TENANT_A_ID,
+    });
+
+    // Valid check first
+    const okRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/saas/trial-status',
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(okRes.statusCode).toBe(200);
+
+    // Now demote user in store to teacher
+    const liveAdmin = await store.getUserByEmail(TENANT_A_ID, adminUser.email);
+    if (liveAdmin) liveAdmin.role = 'teacher';
+
+    // Use old admin token -> receipt list requires director or super_admin
+    const demotedRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/saas/receipts',
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    expect(demotedRes.statusCode).toBe(403);
+    const body = JSON.parse(demotedRes.body);
+    expect(body.error.code).toBe('FORBIDDEN');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 15: Teacher portal overview scopes batches, exams, and diary to assigned batches.
+  // ---------------------------------------------------------------------------
+  it('Test 15: Teacher portal overview scopes batches, exams, and diary to assigned batches', async () => {
+    const teacherScoped = await store.createStaff({
+      tenant_id: TENANT_A_ID,
+      email: 'scoped.teacher@apexacademy.edu.pk',
+      full_name: 'Sir Scoped Portal',
+      role: 'teacher',
+      teaching_assignments: [
+        {
+          batch_id: batchXId,
+          batch_name: 'Batch-X-RBAC',
+          subject_id: 'sub-phy',
+          subject_name: 'Physics',
+        },
+      ],
+    });
+
+    const overview = await store.getTeacherPortalOverview(TENANT_A_ID, teacherScoped.id);
+    expect(overview.assigned_batches.some(b => b.id === batchXId)).toBe(true);
+    expect(overview.assigned_batches.some(b => b.id === batchYId)).toBe(false);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test 16: Student portal rejects local-part prefix match without exact link.
+  // ---------------------------------------------------------------------------
+  it('Test 16: Student portal rejects account without exact student link', async () => {
+    const unlinkedUser = {
+      id: crypto.randomUUID(),
+      tenant_id: TENANT_A_ID,
+      email: 'roll1.imposter@gmail.com',
+      full_name: 'Roll 1 Imposter',
+      role: 'student' as const,
+      status: 'active' as const,
+      password_hash: await hashPassword('Student@123'),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    store.users.set(unlinkedUser.id, unlinkedUser);
+    store.users.set(`${TENANT_A_ID}:${unlinkedUser.email.toLowerCase()}`, unlinkedUser);
+
+    const unlinkedToken = app.jwt.sign({
+      sub: unlinkedUser.id,
+      user_id: unlinkedUser.id,
+      email: unlinkedUser.email,
+      role: 'student',
+      tenant_id: TENANT_A_ID,
+    });
+
+    const portalRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/portal/student',
+      headers: { authorization: `Bearer ${unlinkedToken}` },
+    });
+    expect(portalRes.statusCode).toBe(403);
+    const body = JSON.parse(portalRes.body);
+    expect(body.error.code).toBe('STUDENT_UNLINKED');
+  });
 });
+

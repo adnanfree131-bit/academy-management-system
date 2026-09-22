@@ -112,6 +112,7 @@ export function deskCount() {
 
 export const ROLE_DEFAULT_TEMPLATES: Record<string, UserAccessMap> = {
   teacher: {
+    classes: 'view',
     attendance: 'edit',
     homework: 'edit',
     exams_marks: 'edit',

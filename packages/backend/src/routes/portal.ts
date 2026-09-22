@@ -105,15 +105,11 @@ export function portalRoutes(store: IDataStore) {
             const cleanCnic = guardianCnic ? String(guardianCnic).replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
             const metaRoll = (me?.metadata as any)?.roll_number;
             const metaAdm = (me?.metadata as any)?.admission_number;
-            const cleanUserEmail = (user.email || '').toLowerCase().trim();
-            const emailPrefix = cleanUserEmail.split('@')[0];
 
             myStudent = allStudents.find(s => {
               if (metaRoll && s.roll_number && s.roll_number.toLowerCase() === metaRoll.toLowerCase()) return true;
               if (metaAdm && s.admission_number && s.admission_number.toLowerCase() === metaAdm.toLowerCase()) return true;
               if (cleanCnic && s.guardian_id_card && s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() === cleanCnic) return true;
-              if (s.admission_number && (emailPrefix === s.admission_number.toLowerCase() || emailPrefix === `std.${s.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '')}`)) return true;
-              if (s.roll_number && emailPrefix === s.roll_number.toLowerCase()) return true;
               return false;
             });
             if (myStudent) {

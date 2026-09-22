@@ -1,11 +1,12 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { IDataStore } from '../services/store.js';
-import { JWTPayload } from '@apex/shared-types';
+import { JWTPayload, User } from '@apex/shared-types';
 import { CloudflareService } from '../services/cloudflare.js';
+import { resolveUserAccess, derivePermissions } from '../lib/access.js';
 
 export function saasRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
-    const requireSuperAdmin = async (req: any, reply: any): Promise<boolean> => {
+    const verifyLiveUser = async (req: any, reply: any): Promise<User | null> => {
       try {
         await req.jwtVerify();
       } catch (err: any) {
@@ -14,11 +15,86 @@ export function saasRoutes(store: IDataStore) {
           error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required.' },
           timestamp: new Date().toISOString(),
         });
-        return false;
+        return null;
       }
 
-      const user = req.user as JWTPayload;
-      if (user?.role !== 'super_admin') {
+      const payload = req.user as any;
+      const userId = payload?.sub || payload?.user_id;
+      const tenantId = payload?.tenant_id;
+
+      let dbUser: User | null = null;
+      if (payload?.email && tenantId) {
+        dbUser = await store.getUserByEmail(tenantId, payload.email);
+      }
+      if (!dbUser && userId) {
+        dbUser = await store.getUserById(tenantId, userId);
+      }
+      if (!dbUser && payload?.email) {
+        const globalUsers = await store.getUserByEmailGlobal(payload.email);
+        dbUser = globalUsers.find(u => u.role === 'super_admin') || null;
+      }
+      if (!dbUser) {
+        reply.status(401).send({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'User account no longer exists.' },
+          timestamp: new Date().toISOString(),
+        });
+        return null;
+      }
+
+      if (dbUser.status !== 'active') {
+        const errorCode = dbUser.status === 'archived' ? 'ACCOUNT_ARCHIVED' : 'ACCOUNT_NOT_ACTIVE';
+        reply.status(403).send({
+          success: false,
+          error: {
+            code: errorCode,
+            message: `Your account access has been revoked (status: ${dbUser.status}). Please contact academy administration.`,
+          },
+          timestamp: new Date().toISOString(),
+        });
+        return null;
+      }
+
+      const portalBlocked = Boolean((dbUser.metadata as any)?.portal_blocked);
+      if (portalBlocked) {
+        reply.status(403).send({
+          success: false,
+          error: {
+            code: 'PORTAL_BLOCKED',
+            message: 'Student portal access has been blocked by the academy.',
+          },
+          timestamp: new Date().toISOString(),
+        });
+        return null;
+      }
+
+      const liveRole = dbUser.role;
+      const liveAccess = resolveUserAccess(dbUser);
+      const teachingAssignments = Array.isArray(dbUser.metadata?.teaching_assignments)
+        ? dbUser.metadata.teaching_assignments
+        : [];
+
+      req.user = {
+        ...payload,
+        id: dbUser.id,
+        sub: dbUser.id,
+        user_id: dbUser.id,
+        email: dbUser.email,
+        role: liveRole,
+        tenant_id: dbUser.tenant_id || tenantId,
+        access: liveAccess,
+        permissions: derivePermissions(liveAccess),
+        teaching_assignments: teachingAssignments,
+      };
+
+      return dbUser;
+    };
+
+    const requireSuperAdmin = async (req: any, reply: any): Promise<boolean> => {
+      const dbUser = await verifyLiveUser(req, reply);
+      if (!dbUser) return false;
+
+      if (dbUser.role !== 'super_admin') {
         reply.status(403).send({
           success: false,
           error: { code: 'FORBIDDEN', message: 'Super Admin access required.' },
@@ -32,15 +108,8 @@ export function saasRoutes(store: IDataStore) {
     // 1. Get Tenant Trial & Lockout Status (Requires JWT Authentication)
     const getTrialStatusHandler = async (req: any, reply: any) => {
       try {
-        try {
-          await req.jwtVerify();
-        } catch (err: any) {
-          return reply.status(401).send({
-            success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required.' },
-            timestamp: new Date().toISOString()
-          });
-        }
+        const dbUser = await verifyLiveUser(req, reply);
+        if (!dbUser) return;
 
         const user = req.user as JWTPayload;
         let tenantId = user?.tenant_id;
@@ -76,15 +145,8 @@ export function saasRoutes(store: IDataStore) {
     // 2. Submit Subscription Payment Proof Receipt (tenant_admin or super_admin only)
     const submitReceiptHandler = async (req: any, reply: any) => {
       try {
-        try {
-          await req.jwtVerify();
-        } catch (err: any) {
-          return reply.status(401).send({
-            success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required.' },
-            timestamp: new Date().toISOString()
-          });
-        }
+        const dbUser = await verifyLiveUser(req, reply);
+        if (!dbUser) return;
 
         const user = req.user as JWTPayload;
         if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
@@ -146,15 +208,8 @@ export function saasRoutes(store: IDataStore) {
 
     // 3. List Subscription Receipts (tenant_admin or super_admin only)
     const listReceiptsHandler = async (req: any, reply: any) => {
-      try {
-        await req.jwtVerify();
-      } catch (err: any) {
-        return reply.status(401).send({
-          success: false,
-          error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required to view subscription receipts.' },
-          timestamp: new Date().toISOString()
-        });
-      }
+      const dbUser = await verifyLiveUser(req, reply);
+      if (!dbUser) return;
 
       try {
         const user = req.user as JWTPayload;
@@ -631,15 +686,8 @@ export function saasRoutes(store: IDataStore) {
     // 13. Tenant Active Popup Resolution (on Director Login)
     const getActivePopupHandler = async (req: any, reply: any) => {
       try {
-        try {
-          await req.jwtVerify();
-        } catch (err: any) {
-          return reply.status(401).send({
-            success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required.' },
-            timestamp: new Date().toISOString()
-          });
-        }
+        const dbUser = await verifyLiveUser(req, reply);
+        if (!dbUser) return;
 
         const user = req.user as JWTPayload;
         let tenantId = user?.tenant_id;
@@ -670,15 +718,8 @@ export function saasRoutes(store: IDataStore) {
       try {
         const { id } = req.params;
 
-        try {
-          await req.jwtVerify();
-        } catch (err: any) {
-          return reply.status(401).send({
-            success: false,
-            error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required.' },
-            timestamp: new Date().toISOString()
-          });
-        }
+        const dbUser = await verifyLiveUser(req, reply);
+        if (!dbUser) return;
 
         const user = req.user as JWTPayload;
         let tenantId = user?.tenant_id;
