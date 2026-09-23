@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Receipt,
@@ -191,6 +192,20 @@ export const FeeDeskView: React.FC = () => {
   const [showCashierDrawer, setShowCashierDrawer] = useState<boolean>(false);
   const [showReceiptModal, setShowReceiptModal] = useState<boolean>(false);
   const [showPictureSlipModal, setShowPictureSlipModal] = useState<boolean>(false);
+
+  // Register mobile back button handler for cashier drawer modal
+  useMobileOverlay('sheet', showCashierDrawer, () => setShowCashierDrawer(false));
+
+  // Lock body scroll when cashier modal is open to eliminate jitter and background scrolling
+  useEffect(() => {
+    if (showCashierDrawer) {
+      const origOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = origOverflow;
+      };
+    }
+  }, [showCashierDrawer]);
 
   // Active Entity Selection
   const [activeInvoice, setActiveInvoice] = useState<StudentInvoice | null>(null);
@@ -1475,8 +1490,8 @@ export const FeeDeskView: React.FC = () => {
     return summary;
   }, [dayCloseEntries]);
 
-  // Open Embedded Cashier Drawer for Invoice
-  const handleOpenCashierDrawer = async (inv: StudentInvoice) => {
+  // Open Embedded Cashier Drawer for Invoice (instant 0ms opening, zero jerking)
+  const handleOpenCashierDrawer = (inv: StudentInvoice) => {
     setActiveInvoice(inv);
     const amountToPay = inv.balance_amount;
     setCollectionAmount(amountToPay);
@@ -1494,20 +1509,40 @@ export const FeeDeskView: React.FC = () => {
     setShowDiscountSection(false);
     setShowAllocationBreakdown(false);
 
-    try {
-      const res = await fetch('/api/v1/finance/distribute-preview', {
+    // Immediate default distribution items from invoice items so modal is prefilled instantly
+    if (inv.items && inv.items.length > 0) {
+      setDistributionItems(
+        inv.items.map(it => ({
+          fee_head_id: it.fee_head_id,
+          head_name: it.head_name,
+          allocated_amount: it.balance_due ?? it.net_amount ?? 0,
+          due_amount: it.balance_due ?? it.net_amount ?? 0
+        }))
+      );
+    } else {
+      setDistributionItems([]);
+    }
+
+    // Open drawer synchronously immediately (0ms touch response, NO screen jerk)
+    setShowCashierDrawer(true);
+
+    // Fetch backend distribution preview asynchronously in the background
+    if (token) {
+      fetch('/api/v1/finance/distribute-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({ invoice_id: inv.id, amount: amountToPay })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setDistributionItems(data.data || []);
-      }
-    } catch (err) {
-      console.error('Failed to preview distribution:', err);
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+            setDistributionItems(data.data);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to preview distribution:', err);
+        });
     }
-    setShowCashierDrawer(true);
   };
 
   // Recalculate auto-distribution when cashier changes collection amount
@@ -2226,7 +2261,7 @@ export const FeeDeskView: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
+        <div className="hidden sm:flex items-center gap-2 flex-wrap w-full md:w-auto">
           <button
             type="button"
             onClick={() => setShowFeeHeadsModal(true)}
@@ -2248,8 +2283,8 @@ export const FeeDeskView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Tab Navigation - Segmented Control matching Image 1 */}
-      <div className="flex items-center overflow-x-auto no-scrollbar max-w-full bg-white p-1 rounded-xl border border-slate-200 text-xs font-semibold shadow-2xs">
+      {/* Main Tab Navigation - Segmented Control */}
+      <div className="flex items-center max-w-full bg-white p-1 rounded-xl border border-slate-200 text-xs font-semibold shadow-2xs">
         <button
           onClick={() => setActiveTab('cashier')}
           className={`flex-1 min-w-0 min-h-[40px] py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
@@ -2259,8 +2294,8 @@ export const FeeDeskView: React.FC = () => {
           }`}
         >
           <Receipt className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'cashier' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="truncate hidden sm:inline">Fees Receiving</span>
-          <span className="truncate sm:hidden">Receiving</span>
+          <span className="sm:hidden">Receiving</span>
+          <span className="hidden sm:inline">Fees Receiving</span>
         </button>
 
         <button
@@ -2272,10 +2307,10 @@ export const FeeDeskView: React.FC = () => {
           }`}
         >
           <AlertCircle className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'defaulters' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="truncate hidden sm:inline">Fee Defaulters</span>
-          <span className="truncate sm:hidden">Defaulters</span>
+          <span className="sm:hidden">Dues</span>
+          <span className="hidden sm:inline">Fee Defaulters</span>
           {duesSummary.allCount > 0 && (
-            <span className={`ml-0.5 sm:ml-1 px-1 sm:px-1.5 py-0.2 rounded-full text-[9px] sm:text-[9.5px] font-bold font-mono ${
+            <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono ${
               activeTab === 'defaulters' ? 'bg-white text-amber-700' : 'bg-rose-50 text-rose-700 border border-rose-200'
             }`}>
               {duesSummary.allCount}
@@ -2292,8 +2327,8 @@ export const FeeDeskView: React.FC = () => {
           }`}
         >
           <BarChart2 className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'reports' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="truncate hidden sm:inline">Finance Reports</span>
-          <span className="truncate sm:hidden">Reports</span>
+          <span className="sm:hidden">Reports</span>
+          <span className="hidden sm:inline">Finance Reports</span>
         </button>
       </div>
 
@@ -2309,30 +2344,39 @@ export const FeeDeskView: React.FC = () => {
               }}
               className="flex flex-col sm:flex-row gap-2"
             >
-              <div className="relative flex-1">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder=""
-                  aria-label="Search by student name, admission number, phone, or CNIC"
-                  value={cashierSearch}
-                  onChange={e => {
-                    const next = e.target.value;
-                    setCashierSearch(next);
-                    if (next.trim()) setShowSearchPopup(true);
-                    else setShowSearchPopup(false);
-                  }}
-                  className="w-full pl-9 pr-8 py-1.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg focus:outline-none focus:border-[#0E2A47] focus:bg-white text-slate-900 transition-colors"
-                />
-                {cashierSearch && (
-                  <button
-                    type="button"
-                    onClick={() => setCashierSearch('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
+              <div className="flex items-center gap-2 flex-1">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search student, Roll #, Phone, CNIC..."
+                    aria-label="Search by student name, admission number, phone, or CNIC"
+                    value={cashierSearch}
+                    onChange={e => {
+                      const next = e.target.value;
+                      setCashierSearch(next);
+                      if (next.trim()) setShowSearchPopup(true);
+                      else setShowSearchPopup(false);
+                    }}
+                    className="w-full pl-9 pr-8 py-2 text-base sm:text-xs bg-slate-50/70 border border-slate-200 rounded-xl focus:outline-none focus:border-amber-600 focus:bg-white text-slate-900 transition-colors"
+                  />
+                  {cashierSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setCashierSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  className="sm:hidden min-h-[40px] px-3.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <Search className="w-4 h-4" />
+                </button>
               </div>
 
               {/* Class Filter */}
@@ -2340,7 +2384,7 @@ export const FeeDeskView: React.FC = () => {
                 <ModernSelect
                   value={cashierClassFilter}
                   onChange={val => setCashierClassFilter(val)}
-                  buttonClassName="bg-slate-50/70 border-slate-200"
+                  buttonClassName="bg-slate-50/70 border-slate-200 text-base sm:text-xs py-2"
                 >
                   <option value="all">All Classes ({programs.length})</option>
                   {programs.map(p => (
@@ -2351,7 +2395,7 @@ export const FeeDeskView: React.FC = () => {
 
               <button
                 type="submit"
-                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                className="hidden sm:flex px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all items-center justify-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Search className="w-3.5 h-3.5" />
                 <span>Search</span>
@@ -2754,33 +2798,29 @@ export const FeeDeskView: React.FC = () => {
             return (
               <div className="space-y-4">
                 {/* 1. Student Particulars & Account Balance Header */}
-                <div className="bg-white border border-slate-200 rounded-lg p-3.5 sm:p-4 shadow-2xs">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-700 text-sm shrink-0 uppercase font-mono">
+                <div className="bg-white border border-slate-200 rounded-xl p-3.5 sm:p-4 shadow-2xs space-y-3">
+                  {/* Top Bar: Avatar + Full Name + Adm # + Class + Clear Button */}
+                  <div className="flex items-start justify-between gap-2.5">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <div className="w-11 h-11 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center font-bold text-indigo-700 text-base shrink-0 uppercase font-mono shadow-2xs">
                         {selectedStudent.full_name?.charAt(0) || 'S'}
                       </div>
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-sm font-bold text-slate-900">{selectedStudent.full_name}</h3>
-                          <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-800 text-[10px] font-mono font-bold">
+                          <h3 className="text-base font-bold text-slate-900 leading-snug">
+                            {selectedStudent.full_name}
+                          </h3>
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-xs font-mono font-bold border border-slate-200">
                             Adm #{selectedStudent.admission_number || '—'}
                           </span>
-                          <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-semibold">
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs text-slate-600 mt-1 flex-wrap">
+                          <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold text-[11px]">
                             {getProgramName(selectedStudent.program_id) || 'Academic Class'}
                             {batches.find(b => b.id === selectedStudent.batch_id)?.name ? ` • ${batches.find(b => b.id === selectedStudent.batch_id)?.name}` : ''}
                           </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-slate-500 mt-1">
-                          <span>Father / Guardian: <strong className="text-slate-700">{selectedStudent.father_name || selectedStudent.guardian_name || '—'}</strong></span>
-                          {(selectedStudent.guardian_phone || selectedStudent.phone) && (
-                            <span>• Phone: <strong className="text-slate-700 font-mono">{selectedStudent.guardian_phone || selectedStudent.phone}</strong></span>
-                          )}
-                          {selectedStudent.guardian_id_card && (
-                            <span>• CNIC: <strong className="text-slate-700 font-mono">{selectedStudent.guardian_id_card}</strong></span>
-                          )}
                           {((selectedStudent as any).fee_structure?.concession_category || (selectedStudent as any).concession_category) && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                            <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
                               {((selectedStudent as any).fee_structure?.concession_category || (selectedStudent as any).concession_category).toUpperCase()} CONCESSION
                             </span>
                           )}
@@ -2788,49 +2828,77 @@ export const FeeDeskView: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3.5 self-start sm:self-auto shrink-0">
-                      <div className="text-right font-mono pr-1">
-                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block">
-                          {totalDue > 0 ? 'Outstanding Due' : 'Balance'}
-                        </span>
-                        <span className={`text-base font-bold block ${totalDue > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {totalDue > 0 ? `PKR ${totalDue.toLocaleString()}` : 'Cleared'}
-                        </span>
-                        <span className="text-[10px] text-slate-500 block">
-                          Total Paid: <strong className="text-slate-700">PKR {totalPaid.toLocaleString()}</strong>
-                        </span>
-                      </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedCashierStudentId(null);
+                        setCashierSearch('');
+                        setStudentDeskTab('challans');
+                      }}
+                      className="min-h-[36px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                      title="Clear student selection"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Clear</span>
+                    </button>
+                  </div>
 
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedCashierStudentId(null);
-                          setCashierSearch('');
-                          setStudentDeskTab('challans');
-                        }}
-                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-md transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Clear student selection"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                        <span>Clear</span>
-                      </button>
+                  {/* Middle: Guardian & Contact Details */}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-2 border-t border-slate-100">
+                    <span>Father / Guardian: <strong className="text-slate-800 font-medium">{selectedStudent.father_name || selectedStudent.guardian_name || '—'}</strong></span>
+                    {(selectedStudent.guardian_phone || selectedStudent.phone) && (
+                      <span>• Phone: <strong className="text-slate-800 font-mono font-medium">{selectedStudent.guardian_phone || selectedStudent.phone}</strong></span>
+                    )}
+                    {selectedStudent.guardian_id_card && (
+                      <span>• CNIC: <strong className="text-slate-800 font-mono font-medium">{selectedStudent.guardian_id_card}</strong></span>
+                    )}
+                  </div>
+
+                  {/* Bottom: 2-Card Financial Summary Strip */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+                    <div className={`p-2.5 rounded-xl border ${totalDue > 0 ? 'bg-rose-50/70 border-rose-200' : 'bg-emerald-50/70 border-emerald-200'}`}>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block leading-tight">
+                        Outstanding Due
+                      </span>
+                      <div className={`text-base sm:text-lg font-bold font-mono mt-0.5 ${totalDue > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                        {totalDue > 0 ? `PKR ${totalDue.toLocaleString()}` : 'Cleared'}
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl border bg-slate-50 border-slate-200">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block leading-tight">
+                        Total Realized
+                      </span>
+                      <div className="text-base sm:text-lg font-bold font-mono mt-0.5 text-emerald-700">
+                        PKR {totalPaid.toLocaleString()}
+                      </div>
+                    </div>
+
+                    <div className="hidden sm:block p-2.5 rounded-xl border bg-slate-50 border-slate-200">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block leading-tight">
+                        Challan Status
+                      </span>
+                      <div className="text-xs font-semibold text-slate-700 mt-1">
+                        {unpaidInvoices.length > 0 ? `${unpaidInvoices.length} Overdue / Pending` : 'All Fees Cleared'}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* 2. Sub-Navigation Tabs */}
-                <div className="flex items-center justify-between border-b border-slate-200 gap-2">
-                  <div className="flex items-center gap-1">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 gap-2 pb-1 sm:pb-0">
+                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
                     <button
                       type="button"
                       onClick={() => setStudentDeskTab('challans')}
-                      className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+                      className={`px-3 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                         studentDeskTab === 'challans'
                           ? 'border-indigo-600 text-indigo-600'
                           : 'border-transparent text-slate-500 hover:text-slate-800'
                       }`}
                     >
-                      <span>Fee Challans</span>
+                      <span className="sm:hidden">Challans</span>
+                      <span className="hidden sm:inline">Fee Challans</span>
                       <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
                         unpaidInvoices.length > 0
                           ? 'bg-rose-100 text-rose-800 font-bold'
@@ -2843,13 +2911,14 @@ export const FeeDeskView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setStudentDeskTab('history')}
-                      className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+                      className={`px-3 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                         studentDeskTab === 'history'
                           ? 'border-indigo-600 text-indigo-600'
                           : 'border-transparent text-slate-500 hover:text-slate-800'
                       }`}
                     >
-                      <span>Payment History & Ledger</span>
+                      <span className="sm:hidden">Ledger</span>
+                      <span className="hidden sm:inline">Payment History & Ledger</span>
                       <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-100 text-slate-600">
                         {studentPayments.length}
                       </span>
@@ -2859,14 +2928,15 @@ export const FeeDeskView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setStudentDeskTab('siblings')}
-                        className={`px-3.5 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+                        className={`px-3 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                           studentDeskTab === 'siblings'
                             ? 'border-indigo-600 text-indigo-600'
                             : 'border-transparent text-slate-500 hover:text-slate-800'
                         }`}
                       >
                         <Users className="w-3.5 h-3.5 text-purple-600" />
-                        <span>Family Siblings</span>
+                        <span className="sm:hidden">Siblings</span>
+                        <span className="hidden sm:inline">Family Siblings</span>
                         <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-purple-100 text-purple-800 font-bold">
                           {siblings.length + 1}
                         </span>
@@ -2878,7 +2948,7 @@ export const FeeDeskView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleOpenFamilyModal(selectedStudent)}
-                      className="px-2.5 py-1.5 text-xs font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer"
+                      className="hidden sm:flex px-2.5 py-1.5 text-xs font-semibold bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-md transition-colors items-center gap-1.5 cursor-pointer shrink-0"
                     >
                       <Users className="w-3.5 h-3.5" />
                       <span>1-Click Sibling Fee Collection</span>
@@ -2886,7 +2956,7 @@ export const FeeDeskView: React.FC = () => {
                   )}
                 </div>
 
-                {/* TAB 1: FEE CHALLANS (All details in a single horizontal row) */}
+                {/* TAB 1: FEE CHALLANS */}
                 {studentDeskTab === 'challans' && (
                   <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
                     {studInvoices.length === 0 ? (
@@ -2906,143 +2976,289 @@ export const FeeDeskView: React.FC = () => {
                         </p>
                       </div>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase font-mono tracking-wider">
-                            <tr>
-                              <th className="py-2.5 px-3">Challan #</th>
-                              <th className="py-2.5 px-3">Month</th>
-                              <th className="py-2.5 px-3">Fee Heads Breakdown</th>
-                              <th className="py-2.5 px-3">Due Date</th>
-                              <th className="py-2.5 px-3 text-right">Net Payable</th>
-                              <th className="py-2.5 px-3 text-right">Paid</th>
-                              <th className="py-2.5 px-3 text-right">Balance Due</th>
-                              <th className="py-2.5 px-3 text-center">Status</th>
-                              <th className="py-2.5 px-3 text-right">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                            {studInvoices.map(inv => {
-                              const isPaid = inv.status === 'paid' || inv.balance_amount <= 0;
-                              return (
-                                <tr key={inv.id} className={isPaid ? 'bg-slate-50/40 hover:bg-slate-50' : 'hover:bg-slate-50'}>
-                                  <td className="py-2.5 px-3 font-bold text-slate-900 whitespace-nowrap">
-                                    {inv.invoice_number}
-                                  </td>
-                                  <td className="py-2.5 px-3 font-sans font-medium text-slate-800 whitespace-nowrap">
-                                    <div className="flex items-center gap-1.5">
+                      <>
+                        {/* Mobile: Challan Box Cards (< 640px) */}
+                        <div className="sm:hidden p-3 space-y-3">
+                          {studInvoices.map(inv => {
+                            const isPaid = inv.status === 'paid' || inv.balance_amount <= 0;
+                            const guardianPhone = selectedStudent?.guardian_phone || selectedStudent?.phone;
+                            return (
+                              <div
+                                key={inv.id}
+                                className={`rounded-xl border shadow-2xs p-3.5 space-y-3 transition-all ${
+                                  isPaid ? 'bg-slate-50/60 border-slate-200' : 'bg-white border-slate-200'
+                                }`}
+                              >
+                                {/* Header: Challan # + Billing Month + Status Pill */}
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <div className="font-mono font-bold text-sm text-slate-900">
+                                      {inv.invoice_number}
+                                    </div>
+                                    <div className="text-xs text-slate-600 font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
                                       <span>{inv.billing_month}</span>
                                       {inv.installment_number && (
-                                        <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px]">
-                                          Installment {inv.installment_number}{inv.total_installments ? ` of ${inv.total_installments}` : ''}
+                                        <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px]">
+                                          Inst. {inv.installment_number}{inv.total_installments ? `/${inv.total_installments}` : ''}
                                         </span>
                                       )}
+                                      <span className="text-slate-400">•</span>
+                                      <span className="text-slate-500 font-mono text-[11px]">Due: {inv.due_date}</span>
                                     </div>
-                                  </td>
-                                  <td className="py-2.5 px-3 font-sans text-slate-600 text-[11px]">
-                                    <div className="flex flex-wrap items-center gap-1.5 max-w-sm">
-                                      {inv.items.map((item, i) => (
-                                        <span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200 text-[10px] font-mono whitespace-nowrap">
-                                          <span className="text-slate-500">{item.head_name}:</span>
-                                          <strong className="text-slate-800">PKR {Number(item.net_amount ?? item.original_amount ?? 0).toLocaleString()}</strong>
-                                        </span>
-                                      ))}
-                                      {(inv.arrears_amount || 0) > 0 && (
-                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded border border-amber-200 text-[10px] font-mono text-amber-800 whitespace-nowrap">
-                                          <span>Arrears:</span>
-                                          <strong>{Number(inv.arrears_amount || 0).toLocaleString()}</strong>
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
-                                    {inv.due_date}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
-                                    PKR {inv.net_amount.toLocaleString()}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right text-emerald-700 font-semibold whitespace-nowrap">
-                                    PKR {(inv.paid_amount || 0).toLocaleString()}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right font-bold whitespace-nowrap">
-                                    <span className={inv.balance_amount > 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                                  </div>
+
+                                  <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-mono font-bold uppercase shrink-0 ${
+                                    inv.status === 'paid'
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                      : inv.status === 'partially_paid'
+                                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                      : 'bg-rose-100 text-rose-800 border border-rose-200'
+                                  }`}>
+                                    {inv.status?.replace('_', ' ')}
+                                  </span>
+                                </div>
+
+                                {/* Fee Heads Breakdown Chips */}
+                                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                  {inv.items.map((item, i) => (
+                                    <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 rounded-md border border-slate-200 text-[10.5px] font-mono">
+                                      <span className="text-slate-500">{item.head_name}:</span>
+                                      <strong className="text-slate-800 font-semibold">PKR {Number(item.net_amount ?? item.original_amount ?? 0).toLocaleString()}</strong>
+                                    </span>
+                                  ))}
+                                  {(inv.arrears_amount || 0) > 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-50 rounded-md border border-amber-200 text-[10.5px] font-mono text-amber-800">
+                                      <span>Arrears:</span>
+                                      <strong>PKR {Number(inv.arrears_amount || 0).toLocaleString()}</strong>
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Financial Summary Strip */}
+                                <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-2.5 grid grid-cols-3 gap-2 text-center font-mono">
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 font-semibold uppercase block">Net Due</span>
+                                    <span className="text-xs font-bold text-slate-700">
+                                      PKR {inv.net_amount.toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 font-semibold uppercase block">Paid</span>
+                                    <span className="text-xs font-bold text-emerald-700">
+                                      PKR {(inv.paid_amount || 0).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="text-[10px] text-slate-400 font-semibold uppercase block">Balance</span>
+                                    <span className={`text-xs font-bold ${inv.balance_amount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                                       PKR {inv.balance_amount.toLocaleString()}
                                     </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
-                                      inv.status === 'paid'
-                                        ? 'bg-emerald-100 text-emerald-800'
-                                        : inv.status === 'partially_paid'
-                                        ? 'bg-amber-100 text-amber-800'
-                                        : 'bg-rose-100 text-rose-800'
-                                    }`}>
-                                      {inv.status?.replace('_', ' ')}
-                                    </span>
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right font-sans whitespace-nowrap">
-                                    <div className="flex items-center justify-end gap-1.5">
-                                      {inv.balance_amount > 0 && (
+                                  </div>
+                                </div>
+
+                                {/* Action Buttons Row */}
+                                <div className="flex items-center gap-2 pt-1 border-t border-slate-100 flex-wrap">
+                                  {inv.balance_amount > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenCashierDrawer(inv)}
+                                      className="flex-1 min-h-[40px] px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer touch-press"
+                                    >
+                                      <CreditCard className="w-4 h-4" />
+                                      <span>Receive Fee</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveInvoice(inv);
+                                      setShowPrintModal(true);
+                                    }}
+                                    className="min-h-[40px] px-3 py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                                    title="Print fee challan"
+                                  >
+                                    <Printer className="w-4 h-4 text-slate-600" />
+                                    <span>Print</span>
+                                  </button>
+
+                                  {inv.balance_amount > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDispatchWhatsAppSlip(inv, guardianPhone)}
+                                      className="min-h-[40px] px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                                      title="WhatsApp fee slip"
+                                    >
+                                      <MessageSquare className="w-4 h-4 text-emerald-600" />
+                                      <span>WA</span>
+                                    </button>
+                                  )}
+
+                                  {inv.paid_amount > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleViewReceiptFromInvoice(inv)}
+                                      className="min-h-[40px] px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                                      title="View receipt"
+                                    >
+                                      <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                                      <span>Receipt</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePreviewSlipPicture(inv)}
+                                    className="min-h-[40px] w-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors cursor-pointer"
+                                    title="Preview slip picture"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Desktop Table (>= 640px) */}
+                        <div className="hidden sm:block overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase font-mono tracking-wider">
+                              <tr>
+                                <th className="py-2.5 px-3">Challan #</th>
+                                <th className="py-2.5 px-3">Month</th>
+                                <th className="py-2.5 px-3">Fee Heads Breakdown</th>
+                                <th className="py-2.5 px-3">Due Date</th>
+                                <th className="py-2.5 px-3 text-right">Net Payable</th>
+                                <th className="py-2.5 px-3 text-right">Paid</th>
+                                <th className="py-2.5 px-3 text-right">Balance Due</th>
+                                <th className="py-2.5 px-3 text-center">Status</th>
+                                <th className="py-2.5 px-3 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                              {studInvoices.map(inv => {
+                                const isPaid = inv.status === 'paid' || inv.balance_amount <= 0;
+                                return (
+                                  <tr key={inv.id} className={isPaid ? 'bg-slate-50/40 hover:bg-slate-50' : 'hover:bg-slate-50'}>
+                                    <td className="py-2.5 px-3 font-bold text-slate-900 whitespace-nowrap">
+                                      {inv.invoice_number}
+                                    </td>
+                                    <td className="py-2.5 px-3 font-sans font-medium text-slate-800 whitespace-nowrap">
+                                      <div className="flex items-center gap-1.5">
+                                        <span>{inv.billing_month}</span>
+                                        {inv.installment_number && (
+                                          <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold text-[10px]">
+                                            Installment {inv.installment_number}{inv.total_installments ? ` of ${inv.total_installments}` : ''}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="py-2.5 px-3 font-sans text-slate-600 text-[11px]">
+                                      <div className="flex flex-wrap items-center gap-1.5 max-w-sm">
+                                        {inv.items.map((item, i) => (
+                                          <span key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 rounded border border-slate-200 text-[10px] font-mono whitespace-nowrap">
+                                            <span className="text-slate-500">{item.head_name}:</span>
+                                            <strong className="text-slate-800">PKR {Number(item.net_amount ?? item.original_amount ?? 0).toLocaleString()}</strong>
+                                          </span>
+                                        ))}
+                                        {(inv.arrears_amount || 0) > 0 && (
+                                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded border border-amber-200 text-[10px] font-mono text-amber-800 whitespace-nowrap">
+                                            <span>Arrears:</span>
+                                            <strong>{Number(inv.arrears_amount || 0).toLocaleString()}</strong>
+                                          </span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-slate-600 whitespace-nowrap">
+                                      {inv.due_date}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                                      PKR {inv.net_amount.toLocaleString()}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right text-emerald-700 font-semibold whitespace-nowrap">
+                                      PKR {(inv.paid_amount || 0).toLocaleString()}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-bold whitespace-nowrap">
+                                      <span className={inv.balance_amount > 0 ? 'text-rose-600' : 'text-emerald-600'}>
+                                        PKR {inv.balance_amount.toLocaleString()}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                                        inv.status === 'paid'
+                                          ? 'bg-emerald-100 text-emerald-800'
+                                          : inv.status === 'partially_paid'
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-rose-100 text-rose-800'
+                                      }`}>
+                                        {inv.status?.replace('_', ' ')}
+                                      </span>
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-sans whitespace-nowrap">
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        {inv.balance_amount > 0 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleOpenCashierDrawer(inv)}
+                                            className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md shadow-2xs flex items-center gap-1 transition-colors cursor-pointer"
+                                            title="Receive fee payment"
+                                          >
+                                            <CreditCard className="w-3.5 h-3.5" />
+                                            <span>Receive Fee</span>
+                                          </button>
+                                        )}
                                         <button
                                           type="button"
-                                          onClick={() => handleOpenCashierDrawer(inv)}
-                                          className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-md shadow-2xs flex items-center gap-1 transition-colors cursor-pointer"
-                                          title="Receive fee payment"
+                                          onClick={() => {
+                                            setActiveInvoice(inv);
+                                            setShowPrintModal(true);
+                                          }}
+                                          className="px-2 py-1.5 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 text-xs font-medium rounded-md transition-colors flex items-center gap-1 cursor-pointer"
+                                          title="Print fee challan"
                                         >
-                                          <CreditCard className="w-3.5 h-3.5" />
-                                          <span>Receive Fee</span>
+                                          <Printer className="w-3.5 h-3.5" />
+                                          <span>Print</span>
                                         </button>
-                                      )}
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setActiveInvoice(inv);
-                                          setShowPrintModal(true);
-                                        }}
-                                        className="px-2 py-1.5 text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 text-xs font-medium rounded-md transition-colors flex items-center gap-1 cursor-pointer"
-                                        title="Print fee challan"
-                                      >
-                                        <Printer className="w-3.5 h-3.5" />
-                                        <span>Print</span>
-                                      </button>
-                                      {inv.balance_amount > 0 && (
+                                        {inv.balance_amount > 0 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleDispatchWhatsAppSlip(inv)}
+                                            className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs rounded-md transition-colors border border-emerald-200 flex items-center gap-1 cursor-pointer"
+                                            title="Send WhatsApp fee slip"
+                                          >
+                                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                                            <span>WA</span>
+                                          </button>
+                                        )}
+                                        {inv.paid_amount > 0 && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleViewReceiptFromInvoice(inv)}
+                                            className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs rounded-md transition-colors border border-emerald-200 flex items-center gap-1 cursor-pointer"
+                                            title="View payment receipt"
+                                          >
+                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                            <span>Receipt</span>
+                                          </button>
+                                        )}
                                         <button
                                           type="button"
-                                          onClick={() => handleDispatchWhatsAppSlip(inv)}
-                                          className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs rounded-md transition-colors border border-emerald-200 flex items-center gap-1 cursor-pointer"
-                                          title="Send WhatsApp fee slip"
+                                          onClick={() => handlePreviewSlipPicture(inv)}
+                                          className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md transition-colors cursor-pointer"
+                                          title="Preview fee slip picture"
                                         >
-                                          <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                                          <span>WA</span>
+                                          <Eye className="w-3.5 h-3.5" />
                                         </button>
-                                      )}
-                                      {inv.paid_amount > 0 && (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleViewReceiptFromInvoice(inv)}
-                                          className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs rounded-md transition-colors border border-emerald-200 flex items-center gap-1 cursor-pointer"
-                                          title="View payment receipt"
-                                        >
-                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                          <span>Receipt</span>
-                                        </button>
-                                      )}
-                                      <button
-                                        type="button"
-                                        onClick={() => handlePreviewSlipPicture(inv)}
-                                        className="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md transition-colors cursor-pointer"
-                                        title="Preview fee slip picture"
-                                      >
-                                        <Eye className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
                     )}
                   </div>
                 )}
@@ -3094,93 +3310,158 @@ export const FeeDeskView: React.FC = () => {
                           No cleared payment receipts recorded for this student yet.
                         </div>
                       ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs text-slate-700">
-                            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase font-mono">
-                              <tr>
-                                <th className="py-2.5 px-3">Receipt #</th>
-                                <th className="py-2.5 px-3">Date</th>
-                                <th className="py-2.5 px-3">Month</th>
-                                <th className="py-2.5 px-3">Method</th>
-                                <th className="py-2.5 px-3">Reference / Bank</th>
-                                <th className="py-2.5 px-3 text-right">Amount Submitted</th>
-                                <th className="py-2.5 px-3">Head Allocation Breakdown</th>
-                                <th className="py-2.5 px-3 text-right">Balance Left</th>
-                                <th className="py-2.5 px-3 text-center">Status</th>
-                                <th className="py-2.5 px-3 text-right">Receipt</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                              {studentPayments.map(pay => {
-                                const linkedInv = invoices.find(i => i.id === pay.invoice_id);
-                                const allocSummary = (pay.allocations || [])
-                                  .map(a => `${a.head_name}: ${a.allocated_amount.toLocaleString()}`)
-                                  .join(', ') || 'General Allocation';
+                        <>
+                          {/* Mobile Receipt Cards (< 640px) */}
+                          <div className="sm:hidden space-y-2.5">
+                            {studentPayments.map(pay => {
+                              const linkedInv = invoices.find(i => i.id === pay.invoice_id);
+                              const allocSummary = (pay.allocations || [])
+                                .map(a => `${a.head_name}: PKR ${a.allocated_amount.toLocaleString()}`)
+                                .join(', ') || 'General Allocation';
 
-                                return (
-                                  <tr key={pay.id} className="hover:bg-slate-50">
-                                    <td className="py-2.5 px-3 font-bold text-slate-900">
-                                      {pay.receipt_number}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-slate-600 font-sans">
-                                      {pay.payment_date}
-                                    </td>
-                                    <td className="py-2.5 px-3 font-sans font-medium text-slate-800">
-                                      {linkedInv?.billing_month || '—'}
-                                    </td>
-                                    <td className="py-2.5 px-3 capitalize font-sans">
-                                      {pay.payment_method?.replace('_', ' ')}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-slate-500 font-sans text-[11px] truncate max-w-[120px]">
-                                      {pay.reference_number || pay.bank_name || '—'}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-right font-bold text-emerald-700">
-                                      PKR {pay.amount_paid.toLocaleString()}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-slate-600 font-sans text-[10px] max-w-[200px] truncate" title={allocSummary}>
-                                      {allocSummary}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-right text-slate-700">
-                                      {linkedInv ? `PKR ${linkedInv.balance_amount.toLocaleString()}` : '—'}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center font-sans">
-                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800">
-                                        Cleared
-                                      </span>
-                                    </td>
-                                    <td className="py-2.5 px-3 text-right font-sans">
-                                      <div className="flex items-center justify-end gap-1">
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setActivePaymentReceipt(pay);
-                                            if (linkedInv) setActiveInvoice(linkedInv);
-                                            setShowReceiptModal(true);
-                                          }}
-                                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded transition-colors flex items-center gap-1 cursor-pointer"
-                                          title="View official payment receipt"
-                                        >
-                                          <Printer className="w-3 h-3" />
-                                          <span>Receipt</span>
-                                        </button>
-                                        {pay.receipt_number && (
+                              return (
+                                <div key={pay.id} className="bg-white rounded-xl border border-slate-200 p-3 space-y-2 shadow-2xs">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                      <div className="font-mono font-bold text-xs text-slate-900">{pay.receipt_number}</div>
+                                      <div className="text-[11px] text-slate-500 mt-0.5">{pay.payment_date} • {linkedInv?.billing_month || 'Current'}</div>
+                                    </div>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800">
+                                      Cleared
+                                    </span>
+                                  </div>
+                                  <div className="text-xs text-slate-600">
+                                    <span>Method: <strong className="capitalize text-slate-800">{pay.payment_method?.replace('_', ' ')}</strong></span>
+                                    {(pay.reference_number || pay.bank_name) && (
+                                      <span className="ml-2 font-mono text-[11px] text-slate-500">({pay.reference_number || pay.bank_name})</span>
+                                    )}
+                                  </div>
+                                  <div className="bg-slate-50 rounded-lg p-2 flex items-center justify-between text-xs">
+                                    <span className="text-[11px] text-slate-500 font-medium">Amount Paid</span>
+                                    <span className="font-mono font-bold text-emerald-700 text-sm">PKR {pay.amount_paid.toLocaleString()}</span>
+                                  </div>
+                                  <div className="text-[10px] text-slate-500 font-mono truncate" title={allocSummary}>
+                                    Alloc: {allocSummary}
+                                  </div>
+                                  <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActivePaymentReceipt(pay);
+                                        if (linkedInv) setActiveInvoice(linkedInv);
+                                        setShowReceiptModal(true);
+                                      }}
+                                      className="flex-1 min-h-[38px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                                    >
+                                      <Printer className="w-3.5 h-3.5" />
+                                      <span>Print Receipt</span>
+                                    </button>
+                                    {pay.receipt_number && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDownloadReceiptPicture(pay, linkedInv)}
+                                        className="min-h-[38px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                                        title="Download receipt image"
+                                      >
+                                        <Download className="w-3.5 h-3.5" />
+                                        <span>Image</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Desktop Table (>= 640px) */}
+                          <div className="hidden sm:block overflow-x-auto">
+                            <table className="w-full text-left text-xs text-slate-700">
+                              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase font-mono">
+                                <tr>
+                                  <th className="py-2.5 px-3">Receipt #</th>
+                                  <th className="py-2.5 px-3">Date</th>
+                                  <th className="py-2.5 px-3">Month</th>
+                                  <th className="py-2.5 px-3">Method</th>
+                                  <th className="py-2.5 px-3">Reference / Bank</th>
+                                  <th className="py-2.5 px-3 text-right">Amount Submitted</th>
+                                  <th className="py-2.5 px-3">Head Allocation Breakdown</th>
+                                  <th className="py-2.5 px-3 text-right">Balance Left</th>
+                                  <th className="py-2.5 px-3 text-center">Status</th>
+                                  <th className="py-2.5 px-3 text-right">Receipt</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                                {studentPayments.map(pay => {
+                                  const linkedInv = invoices.find(i => i.id === pay.invoice_id);
+                                  const allocSummary = (pay.allocations || [])
+                                    .map(a => `${a.head_name}: ${a.allocated_amount.toLocaleString()}`)
+                                    .join(', ') || 'General Allocation';
+
+                                  return (
+                                    <tr key={pay.id} className="hover:bg-slate-50">
+                                      <td className="py-2.5 px-3 font-bold text-slate-900">
+                                        {pay.receipt_number}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-slate-600 font-sans">
+                                        {pay.payment_date}
+                                      </td>
+                                      <td className="py-2.5 px-3 font-sans font-medium text-slate-800">
+                                        {linkedInv?.billing_month || '—'}
+                                      </td>
+                                      <td className="py-2.5 px-3 capitalize font-sans">
+                                        {pay.payment_method?.replace('_', ' ')}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-slate-500 font-sans text-[11px] truncate max-w-[120px]">
+                                        {pay.reference_number || pay.bank_name || '—'}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right font-bold text-emerald-700">
+                                        PKR {pay.amount_paid.toLocaleString()}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-slate-600 font-sans text-[10px] max-w-[200px] truncate" title={allocSummary}>
+                                        {allocSummary}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right text-slate-700">
+                                        {linkedInv ? `PKR ${linkedInv.balance_amount.toLocaleString()}` : '—'}
+                                      </td>
+                                      <td className="py-2.5 px-3 text-center font-sans">
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800">
+                                          Cleared
+                                        </span>
+                                      </td>
+                                      <td className="py-2.5 px-3 text-right font-sans">
+                                        <div className="flex items-center justify-end gap-1">
                                           <button
                                             type="button"
-                                            onClick={() => handleDownloadReceiptPicture(pay, linkedInv)}
-                                            className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors cursor-pointer"
-                                            title="Download receipt image"
+                                            onClick={() => {
+                                              setActivePaymentReceipt(pay);
+                                              if (linkedInv) setActiveInvoice(linkedInv);
+                                              setShowReceiptModal(true);
+                                            }}
+                                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded transition-colors flex items-center gap-1 cursor-pointer"
+                                            title="View official payment receipt"
                                           >
-                                            <Download className="w-3 h-3" />
+                                            <Printer className="w-3 h-3" />
+                                            <span>Receipt</span>
                                           </button>
-                                        )}
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                                          {pay.receipt_number && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleDownloadReceiptPicture(pay, linkedInv)}
+                                              className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors cursor-pointer"
+                                              title="Download receipt image"
+                                            >
+                                              <Download className="w-3 h-3" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
                       )
                     )}
 
@@ -3191,36 +3472,60 @@ export const FeeDeskView: React.FC = () => {
                           No active ledger entries recorded for this student yet.
                         </div>
                       ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs text-slate-700">
-                            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase font-mono">
-                              <tr>
-                                <th className="py-2.5 px-3">Date</th>
-                                <th className="py-2.5 px-3">Description / Transaction</th>
-                                <th className="py-2.5 px-3 text-right">Debit (PKR)</th>
-                                <th className="py-2.5 px-3 text-right">Credit (PKR)</th>
-                                <th className="py-2.5 px-3 text-right">Running Balance (PKR)</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                              {activeLedgerEntries.map((entry, idx) => (
-                                <tr key={entry.id || idx} className="hover:bg-slate-50">
-                                  <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">{entry.date}</td>
-                                  <td className="py-2.5 px-3 font-sans text-slate-800">{entry.description}</td>
-                                  <td className="py-2.5 px-3 text-right font-bold text-rose-700 whitespace-nowrap">
-                                    {entry.debit > 0 ? entry.debit.toLocaleString() : '—'}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right font-bold text-emerald-700 whitespace-nowrap">
-                                    {entry.credit > 0 ? entry.credit.toLocaleString() : '—'}
-                                  </td>
-                                  <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
-                                    {entry.running_balance.toLocaleString()}
-                                  </td>
+                        <>
+                          {/* Mobile Ledger Cards (< 640px) */}
+                          <div className="sm:hidden space-y-2">
+                            {activeLedgerEntries.map((entry, idx) => (
+                              <div key={entry.id || idx} className="bg-white rounded-xl border border-slate-200 p-2.5 space-y-1.5 shadow-2xs text-xs">
+                                <div className="flex items-center justify-between text-slate-500 text-[11px]">
+                                  <span className="font-mono">{entry.date}</span>
+                                  <span className="font-mono font-bold text-slate-800">Bal: PKR {entry.running_balance.toLocaleString()}</span>
+                                </div>
+                                <p className="font-medium text-slate-800">{entry.description}</p>
+                                <div className="flex items-center justify-between pt-1 border-t border-slate-100 font-mono text-[11px]">
+                                  {entry.debit > 0 ? (
+                                    <span className="font-bold text-rose-700">Debit: +PKR {entry.debit.toLocaleString()}</span>
+                                  ) : <span />}
+                                  {entry.credit > 0 ? (
+                                    <span className="font-bold text-emerald-700">Credit: -PKR {entry.credit.toLocaleString()}</span>
+                                  ) : <span />}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Desktop Table (>= 640px) */}
+                          <div className="hidden sm:block overflow-x-auto">
+                            <table className="w-full text-left text-xs text-slate-700">
+                              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase font-mono">
+                                <tr>
+                                  <th className="py-2.5 px-3">Date</th>
+                                  <th className="py-2.5 px-3">Description / Transaction</th>
+                                  <th className="py-2.5 px-3 text-right">Debit (PKR)</th>
+                                  <th className="py-2.5 px-3 text-right">Credit (PKR)</th>
+                                  <th className="py-2.5 px-3 text-right">Running Balance (PKR)</th>
                                 </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                                {activeLedgerEntries.map((entry, idx) => (
+                                  <tr key={entry.id || idx} className="hover:bg-slate-50">
+                                    <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">{entry.date}</td>
+                                    <td className="py-2.5 px-3 font-sans text-slate-800">{entry.description}</td>
+                                    <td className="py-2.5 px-3 text-right font-bold text-rose-700 whitespace-nowrap">
+                                      {entry.debit > 0 ? entry.debit.toLocaleString() : '—'}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-bold text-emerald-700 whitespace-nowrap">
+                                      {entry.credit > 0 ? entry.credit.toLocaleString() : '—'}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
+                                      {entry.running_balance.toLocaleString()}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
                       )
                     )}
                   </div>
@@ -4294,9 +4599,9 @@ export const FeeDeskView: React.FC = () => {
       {/* ========================================================================= */}
       {/* RECEIVE FEE PAYMENT MODAL (CENTERED INSTITUTIONAL DIALOG) */}
       {/* ========================================================================= */}
-      {showCashierDrawer && activeInvoice && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
-          <div className="w-full max-w-lg bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden max-h-[92dvh] mobile-sheet-card">
+      {showCashierDrawer && activeInvoice && createPortal(
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet animate-in fade-in duration-150">
+          <div className="w-full max-w-lg bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden max-h-[92dvh] mobile-sheet-card animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="px-5 py-3.5 bg-slate-50/90 border-b border-slate-200 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
@@ -4370,7 +4675,7 @@ export const FeeDeskView: React.FC = () => {
                     <ModernSelect
                       value={paymentMethod}
                       onChange={val => setPaymentMethod(val as PaymentMethod)}
-                      buttonClassName="w-full text-xs bg-white border-slate-300 py-2"
+                      buttonClassName="w-full text-base sm:text-xs bg-white border-slate-300 py-2.5 sm:py-2"
                     >
                       <option value="cash">Cash (Counter)</option>
                       <option value="bank_transfer">Bank Transfer / Meezan IBFT</option>
@@ -4386,7 +4691,7 @@ export const FeeDeskView: React.FC = () => {
                       type="date"
                       value={paymentDate}
                       onChange={e => setPaymentDate(e.target.value)}
-                      className="w-full px-3 py-2 text-xs font-mono font-medium bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 cursor-pointer"
+                      className="w-full px-3 py-2.5 sm:py-2 text-base sm:text-xs font-mono font-medium bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 cursor-pointer"
                       required
                     />
                   </div>
@@ -4403,7 +4708,7 @@ export const FeeDeskView: React.FC = () => {
                           type="text"
                           value={paymentBankName}
                           onChange={e => setPaymentBankName(e.target.value)}
-                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800"
+                          className="w-full px-2.5 py-2 sm:py-1.5 text-base sm:text-xs bg-white border border-slate-200 rounded-md text-slate-800"
                         />
                       </div>
                       <div>
@@ -4414,7 +4719,7 @@ export const FeeDeskView: React.FC = () => {
                           type="text"
                           value={paymentChequeNumber}
                           onChange={e => setPaymentChequeNumber(e.target.value)}
-                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800"
+                          className="w-full px-2.5 py-2 sm:py-1.5 text-base sm:text-xs bg-white border border-slate-200 rounded-md text-slate-800"
                           required={paymentMethod === 'cheque'}
                         />
                       </div>
@@ -4424,7 +4729,7 @@ export const FeeDeskView: React.FC = () => {
                           type="date"
                           value={paymentClearingDate}
                           onChange={e => setPaymentClearingDate(e.target.value)}
-                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800"
+                          className="w-full px-2.5 py-2 sm:py-1.5 text-base sm:text-xs bg-white border border-slate-200 rounded-md text-slate-800"
                         />
                       </div>
                     </div>
@@ -4470,7 +4775,7 @@ export const FeeDeskView: React.FC = () => {
                               setCollectionAmount(payable);
                               void handleAmountChange(payable);
                             }}
-                            className="w-full px-3 py-1.5 text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg text-indigo-700 focus:outline-none focus:border-indigo-600"
+                            className="w-full px-3 py-2 sm:py-1.5 text-base sm:text-sm font-mono font-bold bg-white border border-slate-300 rounded-lg text-indigo-700 focus:outline-none focus:border-indigo-600"
                           />
                         </div>
                         <div>
@@ -4480,7 +4785,7 @@ export const FeeDeskView: React.FC = () => {
                             placeholder="e.g. Director approved, sibling discount"
                             value={counterDiscountReason}
                             onChange={e => setCounterDiscountReason(e.target.value)}
-                            className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-indigo-600"
+                            className="w-full px-3 py-2 sm:py-1.5 text-base sm:text-xs bg-white border border-slate-300 rounded-lg text-slate-800 focus:outline-none focus:border-indigo-600"
                             required={quickDiscountAmount > 0}
                           />
                         </div>
@@ -4497,7 +4802,7 @@ export const FeeDeskView: React.FC = () => {
                     placeholder="e.g. Paid at counter by father"
                     value={paymentReference}
                     onChange={e => setPaymentReference(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 text-slate-800"
+                    className="w-full px-3 py-2.5 sm:py-2 text-base sm:text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 text-slate-800"
                   />
                 </div>
 
@@ -4580,7 +4885,7 @@ export const FeeDeskView: React.FC = () => {
                                       min="0"
                                       value={item.allocated_amount}
                                       onChange={e => handleEditAllocation(item.fee_head_id, Number(e.target.value) || 0)}
-                                      className="w-20 px-2 py-0.5 text-right font-mono font-bold text-xs bg-amber-50 border border-amber-300 rounded"
+                                      className="w-24 px-2 py-1 text-right font-mono font-bold text-base sm:text-xs bg-amber-50 border border-amber-300 rounded"
                                     />
                                   ) : (
                                     <span className="font-mono font-bold text-emerald-600">
@@ -4604,7 +4909,7 @@ export const FeeDeskView: React.FC = () => {
                             placeholder="e.g. Parent requested paying tuition first"
                             value={overrideReason}
                             onChange={e => setOverrideReason(e.target.value)}
-                            className="w-full px-2.5 py-1 text-xs bg-white border border-amber-300 rounded text-slate-800"
+                            className="w-full px-2.5 py-2 sm:py-1 text-base sm:text-xs bg-white border border-amber-300 rounded text-slate-800"
                             required
                           />
                         </div>
@@ -4620,7 +4925,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowCashierDrawer(false)}
-                className="h-10 min-h-[40px] px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer"
+                className="h-11 min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-xl transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -4628,7 +4933,7 @@ export const FeeDeskView: React.FC = () => {
                 type="submit"
                 form="cashierDrawerForm"
                 disabled={isCommittingPayment || (Number(collectionAmount) || 0) <= 0}
-                className="h-10 min-h-[40px] px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+                className="flex-1 sm:flex-initial h-11 min-h-[44px] px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer touch-press"
               >
                 {isCommittingPayment ? (
                   <>
@@ -4644,7 +4949,8 @@ export const FeeDeskView: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ========================================================================= */}
@@ -6605,7 +6911,7 @@ export const FeeDeskView: React.FC = () => {
           return new Date(a.due_date || a.issue_date || 0).getTime() - new Date(b.due_date || b.issue_date || 0).getTime();
         });
 
-        return (
+        return createPortal(
           <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
             <div className="bg-white rounded-t-2xl sm:rounded-lg max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 space-y-4 my-0 sm:my-6 animate-in fade-in zoom-in-95 max-h-[90dvh] flex flex-col mobile-sheet-card">
               {/* Modal Header */}
@@ -6872,7 +7178,8 @@ export const FeeDeskView: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         );
       })()}
 
