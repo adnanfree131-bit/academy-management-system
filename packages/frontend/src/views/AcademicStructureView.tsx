@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   Layers, 
@@ -20,6 +20,8 @@ import {
   GripVertical,
   DollarSign,
   SlidersHorizontal,
+  MoreVertical,
+  ArrowLeft,
 } from 'lucide-react';
 import { AcademicProgram, Batch, Subject, SubjectGroup, Student, FeeHead } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
@@ -55,6 +57,22 @@ export const AcademicStructureView: React.FC = () => {
   const [filterBatchStatus, setFilterBatchStatus] = useState<'all' | 'active' | 'archived'>('all');
   const [showBatchFilters, setShowBatchFilters] = useState(false);
   const [showOverviewCards, setShowOverviewCards] = useState(false);
+  const [showModuleMenu, setShowModuleMenu] = useState(false);
+  const moduleContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (moduleContainerRef.current && !moduleContainerRef.current.contains(e.target as Node)) {
+        setShowModuleMenu(false);
+      }
+    };
+    if (showModuleMenu) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [showModuleMenu]);
 
   // Modals
   const [showProgramModal, setShowProgramModal] = useState(false);
@@ -1024,55 +1042,7 @@ export const AcademicStructureView: React.FC = () => {
         description="Manage academic classes, batch lifespans, and master course catalog."
         icon={<Layers className="w-4 h-4 text-slate-700" />}
         badge={`Session ${tenant?.academic_session || '2026-2027'}`}
-      >
-        <div className="flex items-center gap-2">
-          {/* Toggle Overview Information Cards Button */}
-          <button
-            type="button"
-            onClick={() => setShowOverviewCards(prev => !prev)}
-            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
-              showOverviewCards
-                ? 'bg-amber-50 text-amber-900 border-amber-300'
-                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-            }`}
-            title="Toggle Overview Cards"
-            aria-label="Toggle Overview Cards"
-          >
-            <SlidersHorizontal className="w-4 h-4 text-slate-600" />
-          </button>
-
-          {viewMode === 'classes' && (
-            <button
-              onClick={openCreateProgramModal}
-              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all"
-            >
-              <Plus className="w-4 h-4 text-white" />
-              <span>New Class</span>
-            </button>
-          )}
-          {viewMode === 'batches' && (
-            <button
-              onClick={() => openAddBatchModal()}
-              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all"
-            >
-              <Plus className="w-4 h-4 text-white" />
-              <span>New Batch</span>
-            </button>
-          )}
-          {viewMode === 'catalog' && (
-            <button
-              onClick={() => {
-                setSubjectForm({ name: '', code: '', is_core: true });
-                setShowSubjectModal(true);
-              }}
-              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all"
-            >
-              <Plus className="w-4 h-4 text-white" />
-              <span>New Subject</span>
-            </button>
-          )}
-        </div>
-      </PageHeading>
+      />
 
       {/* Success / Error Alerts */}
       {successMessage && (
@@ -1174,41 +1144,305 @@ export const AcademicStructureView: React.FC = () => {
         </div>
       )}
 
-      {/* 2. NAVIGATION TABS BAR (Below Cards - Solid Amber Active Tab matching Image 1) */}
-      <div className="flex items-center overflow-x-auto no-scrollbar max-w-full whitespace-nowrap bg-white p-0.5 rounded-xl border border-slate-200 text-xs font-semibold shadow-2xs">
-        <button
-          onClick={() => setViewMode('classes')}
-          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
-            viewMode === 'classes'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <GraduationCap className={`w-3.5 h-3.5 ${viewMode === 'classes' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Classes ({programs.length})</span>
-        </button>
-        <button
-          onClick={() => setViewMode('batches')}
-          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
-            viewMode === 'batches'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <FolderTree className={`w-3.5 h-3.5 ${viewMode === 'batches' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Batches ({actualBatchesCount})</span>
-        </button>
-        <button
-          onClick={() => setViewMode('catalog')}
-          className={`flex-1 min-w-[110px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
-            viewMode === 'catalog'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <BookOpen className={`w-3.5 h-3.5 ${viewMode === 'catalog' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Subject Catalog ({subjects.length})</span>
-        </button>
+      {/* Controls Toolbar: Search + Filter + Parallel Options Button */}
+      <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-2xs">
+        <div className="flex items-center gap-2">
+          {/* Back button if in batches or catalog */}
+          {viewMode !== 'classes' && (
+            <button
+              type="button"
+              onClick={() => setViewMode('classes')}
+              className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+              title="Back to Classes"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Classes</span>
+            </button>
+          )}
+
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder={
+                viewMode === 'classes'
+                  ? 'Search classes and streams...'
+                  : viewMode === 'batches'
+                  ? 'Search batches by name, shift, room...'
+                  : 'Search subjects in catalog...'
+              }
+              value={
+                viewMode === 'classes'
+                  ? searchClassQuery
+                  : viewMode === 'batches'
+                  ? searchBatchQuery
+                  : searchCatalogQuery
+              }
+              onChange={e => {
+                if (viewMode === 'classes') setSearchClassQuery(e.target.value);
+                else if (viewMode === 'batches') setSearchBatchQuery(e.target.value);
+                else setSearchCatalogQuery(e.target.value);
+              }}
+              className="w-full pl-8 pr-7 py-2 sm:py-1.5 text-xs bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors font-sans text-slate-900"
+            />
+            {((viewMode === 'classes' && searchClassQuery) ||
+              (viewMode === 'batches' && searchBatchQuery) ||
+              (viewMode === 'catalog' && searchCatalogQuery)) && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (viewMode === 'classes') setSearchClassQuery('');
+                  else if (viewMode === 'batches') setSearchBatchQuery('');
+                  else setSearchCatalogQuery('');
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Filter Button */}
+          <button
+            type="button"
+            onClick={() => setShowBatchFilters(prev => !prev)}
+            className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+              showBatchFilters || filterBatchShift !== 'all' || filterBatchBillingMode !== 'all' || filterBatchStatus !== 'all'
+                ? 'bg-amber-50 text-amber-900 border-amber-300'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+            title="Toggle Filters"
+            aria-label="Toggle Filters"
+          >
+            <SlidersHorizontal className="w-4 h-4 text-slate-600" />
+            {(filterBatchShift !== 'all' || filterBatchBillingMode !== 'all' || filterBatchStatus !== 'all') && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
+                !
+              </span>
+            )}
+          </button>
+
+          {/* Simple Button Parallel to Filter */}
+          <div ref={moduleContainerRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setShowModuleMenu(prev => !prev)}
+              className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+                showModuleMenu
+                  ? 'bg-slate-100 text-slate-900 border-slate-300 shadow-2xs'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+              title="Actions & Options"
+              aria-label="Actions & Options"
+            >
+              <MoreVertical className="w-4 h-4 text-slate-600" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {showModuleMenu && (
+              <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100">
+                {/* Primary Creation Actions */}
+                <div className="p-1.5 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      openCreateProgramModal();
+                    }}
+                    className="w-full px-3 py-1.5 text-xs text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-amber-700" />
+                    <span>+ New Class</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      openAddBatchModal();
+                    }}
+                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-slate-600" />
+                    <span>+ New Batch</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      setSubjectForm({ name: '', code: '', is_core: true });
+                      setShowSubjectModal(true);
+                    }}
+                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-slate-600" />
+                    <span>+ New Subject</span>
+                  </button>
+                </div>
+
+                {/* Sub-Views Navigation */}
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                    Views
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      setViewMode('classes');
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      viewMode === 'classes' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Classes ({programs.length})</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      setViewMode('batches');
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      viewMode === 'batches' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <FolderTree className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Batches ({actualBatchesCount})</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      setViewMode('catalog');
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      viewMode === 'catalog' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Subject Catalog ({subjects.length})</span>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Display (Slider Item) */}
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                    Display
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowOverviewCards(prev => !prev)}
+                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center justify-between transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Overview Cards</span>
+                    </div>
+                    <div className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                      showOverviewCards ? 'bg-amber-600' : 'bg-slate-200'
+                    }`}>
+                      <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                        showOverviewCards ? 'translate-x-4' : 'translate-x-0'
+                      }`} />
+                    </div>
+                  </button>
+                </div>
+
+                {/* Tools */}
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                    Tools
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      openPromoteModal();
+                    }}
+                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Split className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Batch Student Transfer</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Filter Dropdown when toggled */}
+        {showBatchFilters && (
+          <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2 animate-in fade-in duration-150">
+            <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 min-w-[130px]">
+              <span className="text-[11px] font-medium text-slate-500">Shift:</span>
+              <select
+                value={filterBatchShift}
+                onChange={e => setFilterBatchShift(e.target.value)}
+                className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+              >
+                <option value="all">All Shifts</option>
+                <option value="morning">Morning</option>
+                <option value="afternoon">Afternoon</option>
+                <option value="evening">Evening</option>
+                <option value="weekend">Weekend</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 min-w-[130px]">
+              <span className="text-[11px] font-medium text-slate-500">Billing:</span>
+              <select
+                value={filterBatchBillingMode}
+                onChange={e => setFilterBatchBillingMode(e.target.value)}
+                className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+              >
+                <option value="all">All Billing Modes</option>
+                <option value="monthly">Monthly Tuition</option>
+                <option value="one_time">Package / One-Time</option>
+                <option value="installment">Installments</option>
+                <option value="quarterly">Quarterly</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 min-w-[130px]">
+              <span className="text-[11px] font-medium text-slate-500">Status:</span>
+              <select
+                value={filterBatchStatus}
+                onChange={e => setFilterBatchStatus(e.target.value as any)}
+                className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+              >
+                <option value="all">All Statuses</option>
+                <option value="active">Active Only</option>
+                <option value="archived">Archived Only</option>
+              </select>
+            </div>
+
+            {(filterBatchShift !== 'all' || filterBatchBillingMode !== 'all' || filterBatchStatus !== 'all') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterBatchShift('all');
+                  setFilterBatchBillingMode('all');
+                  setFilterBatchStatus('all');
+                }}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium transition-colors cursor-pointer shrink-0"
+              >
+                Reset
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* =====================================================================

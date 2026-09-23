@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import { 
@@ -21,7 +21,10 @@ import {
   CalendarDays,
   Check,
   Printer,
-  SlidersHorizontal
+  SlidersHorizontal,
+  MoreVertical,
+  ArrowLeft,
+  RotateCcw
 } from 'lucide-react';
 import { 
   Batch, 
@@ -78,7 +81,28 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
   // Roster Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'present' | 'absent' | 'late' | 'excused' | 'unmarked'>('ALL');
-  const [showOverviewFilters, setShowOverviewFilters] = useState(false);
+  const [showAttendanceFilters, setShowAttendanceFilters] = useState(false);
+  const [showAttendanceModuleMenu, setShowAttendanceModuleMenu] = useState(false);
+  const attendanceModuleContainerRef = useRef<HTMLDivElement>(null);
+  const [showOverviewCards, setShowOverviewCards] = useState(true);
+
+  // Click outside listener to dismiss module menu
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (
+        attendanceModuleContainerRef.current &&
+        !attendanceModuleContainerRef.current.contains(e.target as Node)
+      ) {
+        setShowAttendanceModuleMenu(false);
+      }
+    };
+    if (showAttendanceModuleMenu) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [showAttendanceModuleMenu]);
 
   // UI Status
   const [isLoading, setIsLoading] = useState(true);
@@ -574,125 +598,6 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
         icon={<CheckSquare className="w-4 h-4 text-slate-700" />}
       />
 
-      {/* Institutional Segmented Control Tabs */}
-      {/* Mobile Tab Selector (Eliminates horizontal scrolling hurdle) */}
-      {/* Mobile Tab Chips - Native Segmented Control */}
-      <div className="sm:hidden flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-        <button
-          type="button"
-          onClick={() => setActiveTab('roster')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
-            activeTab === 'roster'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'bg-white text-slate-700 border border-slate-200'
-          }`}
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          <span>Daily Roster</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('monthly')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
-            activeTab === 'monthly'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'bg-white text-slate-700 border border-slate-200'
-          }`}
-        >
-          <CalendarDays className="w-3.5 h-3.5" />
-          <span>Monthly Register</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('defaulters')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
-            activeTab === 'defaulters'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'bg-white text-slate-700 border border-slate-200'
-          }`}
-        >
-          <BarChart2 className="w-3.5 h-3.5" />
-          <span>Defaulters</span>
-          {defaultersList.filter(d => d.isDefaulter).length > 0 && (
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
-              activeTab === 'defaulters' ? 'bg-white text-amber-700' : 'bg-rose-100 text-rose-700'
-            }`}>
-              {defaultersList.filter(d => d.isDefaulter).length}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('leaves')}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all active:scale-95 ${
-            activeTab === 'leaves'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'bg-white text-slate-700 border border-slate-200'
-          }`}
-        >
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span>Leaves</span>
-        </button>
-      </div>
-
-      {/* Desktop/Tablet Tab Bar - Segmented Control matching Image 1 */}
-      <div className="hidden sm:flex items-center overflow-x-auto no-scrollbar max-w-full whitespace-nowrap bg-white p-0.5 rounded-xl border border-slate-200 text-xs font-semibold shadow-2xs">
-        <button
-          onClick={() => setActiveTab('roster')}
-          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press cursor-pointer ${
-            activeTab === 'roster'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <Calendar className={`w-3.5 h-3.5 ${activeTab === 'roster' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Daily Roster</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('monthly')}
-          className={`flex-1 min-w-[100px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press cursor-pointer ${
-            activeTab === 'monthly'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <CalendarDays className={`w-3.5 h-3.5 ${activeTab === 'monthly' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Monthly Register</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('defaulters')}
-          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press cursor-pointer ${
-            activeTab === 'defaulters'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <BarChart2 className={`w-3.5 h-3.5 ${activeTab === 'defaulters' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Defaulters</span>
-          {defaultersList.filter(d => d.isDefaulter).length > 0 && (
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
-              activeTab === 'defaulters' ? 'bg-white text-amber-700' : 'bg-rose-100 text-rose-700'
-            }`}>
-              {defaultersList.filter(d => d.isDefaulter).length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('leaves')}
-          className={`flex-1 min-w-[80px] py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 touch-press cursor-pointer ${
-            activeTab === 'leaves'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <ShieldCheck className={`w-3.5 h-3.5 ${activeTab === 'leaves' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Leaves</span>
-          {leaves.filter(l => l.status === 'pending').length > 0 && (
-            <span className={`w-2 h-2 rounded-full animate-pulse ${activeTab === 'leaves' ? 'bg-white' : 'bg-rose-500'}`}></span>
-          )}
-        </button>
-      </div>
-
       {/* TAB 1: DAILY ROSTER */}
       {activeTab === 'roster' && (
         <>
@@ -850,98 +755,21 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                   type="button"
                   onClick={handleToday}
                   disabled={selectedDate === todayStr}
-                  className="px-2 py-0.5 text-[10.5px] font-bold rounded transition-colors disabled:opacity-40 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                  className="px-2 py-0.5 text-[10.5px] font-bold rounded transition-colors disabled:opacity-40 bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
                 >
                   Today
                 </button>
               </div>
-            </div>
 
-            {/* Action Bar & Quick Marking Controls */}
-            <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={markAllPresent}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 text-xs font-bold transition-all"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>1-Tap: Mark All Present</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={markAllAbsent}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all"
-                >
-                  <span>Mark All Absent</span>
-                </button>
-
-                {isPastDate && (
-                  <button
-                    type="button"
-                    onClick={resetToUnmarked}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-medium transition-all"
-                  >
-                    <span>Reset to Unmarked</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const academy = await academyLetterheadFromAuth(tenant);
-                    const batch = batches.find(b => b.id === selectedBatchId);
-                    const bytes = await buildSimpleStatementPdf({
-                      title: 'Daily Attendance Register',
-                      academy,
-                      identity: [
-                        { label: 'Batch', value: batch?.name || '—' },
-                        { label: 'Date', value: selectedDate },
-                        { label: 'Enrolled', value: String(stats.total) },
-                        { label: 'Present', value: String(stats.present) },
-                        { label: 'Absent', value: String(stats.absent) },
-                        { label: 'Late', value: String(stats.late) },
-                        { label: 'Excused', value: String(stats.excused) },
-                      ],
-                      columns: [
-                        { key: 'adm', label: 'Adm #', width: 75 },
-                        { key: 'name', label: 'Student Name', width: 180 },
-                        { key: 'guardian', label: 'Guardian & Mobile', width: 140 },
-                        { key: 'status', label: 'Status', width: 75 },
-                        { key: 'remarks', label: 'Remarks / Reason', width: 125 },
-                      ],
-                      rows: students.map(s => ({
-                        adm: s.admission_number,
-                        name: s.full_name,
-                        guardian: `${s.guardian_name || '—'} (${s.guardian_phone || '—'})`,
-                        status: (attendanceRecords[s.id]?.status || 'present').toUpperCase(),
-                        remarks: attendanceRecords[s.id]?.reasonCategory 
-                          ? `[${attendanceRecords[s.id]?.reasonCategory}] ${attendanceRecords[s.id]?.remarks || ''}`
-                          : attendanceRecords[s.id]?.remarks || '—',
-                      })),
-                    });
-                    await downloadPdfBytes(bytes, `attendance-${batch?.name || 'batch'}-${selectedDate}.pdf`);
-                  }}
-                  disabled={students.length === 0}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition-all disabled:opacity-50"
-                >
-                  <FileText className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Download Register</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleSaveAttendance}
-                  disabled={isSaving || students.length === 0}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] active:scale-95 transition-all disabled:opacity-40"
-                >
-                  {isSaving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                  <span>{isSaving ? 'Recording...' : 'Save Roster'}</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleSaveAttendance}
+                disabled={isSaving || students.length === 0}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs active:scale-95 transition-all disabled:opacity-40 cursor-pointer"
+              >
+                {isSaving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                <span>{isSaving ? 'Saving...' : 'Save Roster'}</span>
+              </button>
             </div>
           </div>
 
@@ -984,62 +812,64 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
             </div>
           )}
 
-          {/* HIGH-DENSITY SUMMARY STRIP (Desktop only, mobile has session strip) */}
-          <div className="hidden sm:flex bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-2xs flex-wrap items-center justify-between gap-2.5 text-xs">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5 font-bold text-slate-800">
-                <Users className="w-3.5 h-3.5 text-slate-500" />
-                <span>Roster Strength:</span>
-                <span className="font-mono text-indigo-600">{stats.total}</span>
+          {/* INSTITUTIONAL HIGH-DENSITY SUMMARY STRIP (Unified Sidebar Dark Navy Design) */}
+          {showOverviewCards && (
+            <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2 shadow-sm flex flex-wrap items-center justify-between gap-2.5 text-xs">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5 font-bold text-white">
+                  <Users className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-slate-300">Roster Strength:</span>
+                  <span className="font-mono text-amber-400 font-bold">{stats.total}</span>
+                </div>
+
+                <div className="h-3.5 w-px bg-[#173252] hidden sm:block"></div>
+
+                <div className="flex flex-wrap items-center gap-2.5 font-mono text-[11px]">
+                  <span className="flex items-center gap-1.5 text-emerald-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    Present: <strong className="text-white font-bold">{stats.present}</strong>
+                  </span>
+                  <span className="flex items-center gap-1.5 text-amber-400">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Late: <strong className="text-white font-bold">{stats.late}</strong>
+                  </span>
+                  <span className="flex items-center gap-1.5 text-rose-400">
+                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                    Absent: <strong className="text-white font-bold">{stats.absent}</strong>
+                  </span>
+                  <span className="flex items-center gap-1.5 text-indigo-300">
+                    <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
+                    Excused: <strong className="text-white font-bold">{stats.excused}</strong>
+                  </span>
+                  {stats.unmarked > 0 && (
+                    <span className="flex items-center gap-1 text-amber-300 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/60">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                      Unmarked: <strong className="text-white font-bold">{stats.unmarked}</strong>
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <div className="h-3.5 w-px bg-slate-200 hidden sm:block"></div>
-
-              <div className="flex flex-wrap items-center gap-2.5 font-mono text-[11px]">
-                <span className="flex items-center gap-1.5 text-emerald-700">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  Present: <strong className="text-slate-900 font-bold">{stats.present}</strong>
-                </span>
-                <span className="flex items-center gap-1.5 text-amber-700">
-                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                  Late: <strong className="text-slate-900 font-bold">{stats.late}</strong>
-                </span>
-                <span className="flex items-center gap-1.5 text-rose-700">
-                  <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                  Absent: <strong className="text-slate-900 font-bold">{stats.absent}</strong>
-                </span>
-                <span className="flex items-center gap-1.5 text-indigo-700">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                  Excused: <strong className="text-slate-900 font-bold">{stats.excused}</strong>
-                </span>
-                {stats.unmarked > 0 && (
-                  <span className="flex items-center gap-1 text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                    Unmarked: <strong>{stats.unmarked}</strong>
+              <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-1 bg-[#0d223c] border border-[#1e416a] px-2 py-0.5 rounded">
+                  <span className="text-[10.5px] text-slate-400 font-medium">Rate:</span>
+                  <span className="font-mono font-bold text-amber-400 text-xs">
+                    {stats.attendancePct === null ? '—' : `${stats.attendancePct}%`}
                   </span>
+                </div>
+                {stats.absent > 0 && onNavigate && (
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('absentee')}
+                    className="text-[10.5px] font-bold text-rose-400 hover:text-rose-300 flex items-center gap-0.5 transition-colors cursor-pointer"
+                  >
+                    <span>{stats.absent} Absent (Follow-Up)</span>
+                    <ArrowUpRight className="w-3 h-3" />
+                  </button>
                 )}
               </div>
             </div>
-
-            <div className="flex items-center gap-2.5">
-              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">
-                <span className="text-[10.5px] text-slate-500 font-medium">Rate:</span>
-                <span className="font-mono font-bold text-slate-900 text-xs">
-                  {stats.attendancePct === null ? '—' : `${stats.attendancePct}%`}
-                </span>
-              </div>
-              {stats.absent > 0 && onNavigate && (
-                <button
-                  type="button"
-                  onClick={() => onNavigate('absentee')}
-                  className="text-[10.5px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-0.5 transition-colors"
-                >
-                  <span>{stats.absent} Absent (Follow-Up)</span>
-                  <ArrowUpRight className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-          </div>
+          )}
 
           {/* Search & Status Filter Toolbar */}
           <div className="space-y-2">
@@ -1064,12 +894,12 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 )}
               </div>
 
-              {/* Single Icon-Only Button on Mobile for Status & Overview */}
+              {/* Filter Toggle Button */}
               <button
                 type="button"
-                onClick={() => setShowOverviewFilters(prev => !prev)}
-                className={`sm:hidden w-9 h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer shrink-0 relative ${
-                  showOverviewFilters || statusFilter !== 'ALL'
+                onClick={() => setShowAttendanceFilters(prev => !prev)}
+                className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-xl sm:rounded-lg border transition-all cursor-pointer shrink-0 relative ${
+                  showAttendanceFilters || statusFilter !== 'ALL'
                     ? 'bg-amber-50 border-amber-300 text-amber-900'
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
@@ -1081,23 +911,251 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-600" />
                 )}
               </button>
+
+              {/* Module Menu Options Button (MoreVertical icon, parallel to filter) */}
+              <div ref={attendanceModuleContainerRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowAttendanceModuleMenu(prev => !prev)}
+                  className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-xl sm:rounded-lg border transition-all cursor-pointer shrink-0 ${
+                    showAttendanceModuleMenu
+                      ? 'bg-amber-50 border-amber-300 text-amber-900 shadow-2xs'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                  }`}
+                  title="Attendance Options"
+                  aria-label="Attendance Options"
+                >
+                  <MoreVertical className="w-4 h-4 text-slate-600" />
+                </button>
+
+                {showAttendanceModuleMenu && (
+                  <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left">
+                    {/* Primary Actions */}
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAttendanceModuleMenu(false);
+                          handleSaveAttendance();
+                        }}
+                        disabled={isSaving || students.length === 0}
+                        className="w-full px-3 py-2 text-left text-xs font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>{isSaving ? 'Saving Roster...' : 'Save Attendance Roster'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setShowAttendanceModuleMenu(false);
+                          const academy = await academyLetterheadFromAuth(tenant);
+                          const batch = batches.find(b => b.id === selectedBatchId);
+                          const bytes = await buildSimpleStatementPdf({
+                            title: 'Daily Attendance Register',
+                            academy,
+                            identity: [
+                              { label: 'Batch', value: batch?.name || '—' },
+                              { label: 'Date', value: selectedDate },
+                              { label: 'Enrolled', value: String(stats.total) },
+                              { label: 'Present', value: String(stats.present) },
+                              { label: 'Absent', value: String(stats.absent) },
+                              { label: 'Late', value: String(stats.late) },
+                              { label: 'Excused', value: String(stats.excused) },
+                            ],
+                            columns: [
+                              { key: 'adm', label: 'Adm #', width: 75 },
+                              { key: 'name', label: 'Student Name', width: 180 },
+                              { key: 'guardian', label: 'Guardian & Mobile', width: 140 },
+                              { key: 'status', label: 'Status', width: 75 },
+                              { key: 'remarks', label: 'Remarks / Reason', width: 125 },
+                            ],
+                            rows: students.map(s => ({
+                              adm: s.admission_number,
+                              name: s.full_name,
+                              guardian: `${s.guardian_name || '—'} (${s.guardian_phone || '—'})`,
+                              status: (attendanceRecords[s.id]?.status || 'present').toUpperCase(),
+                              remarks: attendanceRecords[s.id]?.reasonCategory 
+                                ? `[${attendanceRecords[s.id]?.reasonCategory}] ${attendanceRecords[s.id]?.remarks || ''}`
+                                : attendanceRecords[s.id]?.remarks || '—',
+                            })),
+                          });
+                          await downloadPdfBytes(bytes, `attendance-${batch?.name || 'batch'}-${selectedDate}.pdf`);
+                        }}
+                        disabled={students.length === 0}
+                        className="w-full px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+                        <span>Download Register PDF</span>
+                      </button>
+                    </div>
+
+                    {/* Quick Marking */}
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAttendanceModuleMenu(false);
+                          markAllPresent();
+                        }}
+                        className="w-full px-3 py-2 text-left text-xs font-medium text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>1-Tap: Mark All Present</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAttendanceModuleMenu(false);
+                          markAllAbsent();
+                        }}
+                        className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <X className="w-4 h-4 text-slate-500 shrink-0" />
+                        <span>Mark All Absent</span>
+                      </button>
+                      {isPastDate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAttendanceModuleMenu(false);
+                            resetToUnmarked();
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                        >
+                          <RotateCcw className="w-4 h-4 text-slate-500 shrink-0" />
+                          <span>Reset to Unmarked</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Views */}
+                    <div className="py-1">
+                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Views</div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('roster');
+                          setShowAttendanceModuleMenu(false);
+                        }}
+                        className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center justify-between cursor-pointer ${
+                          activeTab === 'roster' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
+                          <span>Daily Roster</span>
+                        </div>
+                        {activeTab === 'roster' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('monthly');
+                          setShowAttendanceModuleMenu(false);
+                        }}
+                        className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center justify-between cursor-pointer ${
+                          (activeTab as string) === 'monthly' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <CalendarDays className="w-4 h-4 text-slate-500 shrink-0" />
+                          <span>Monthly Register</span>
+                        </div>
+                        {(activeTab as string) === 'monthly' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('defaulters');
+                          setShowAttendanceModuleMenu(false);
+                        }}
+                        className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center justify-between cursor-pointer ${
+                          (activeTab as string) === 'defaulters' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <BarChart2 className="w-4 h-4 text-slate-500 shrink-0" />
+                          <span>Attendance Defaulters</span>
+                        </div>
+                        {(activeTab as string) === 'defaulters' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('leaves');
+                          setShowAttendanceModuleMenu(false);
+                        }}
+                        className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center justify-between cursor-pointer ${
+                          (activeTab as string) === 'leaves' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-slate-500 shrink-0" />
+                          <span>Leave Requests</span>
+                        </div>
+                        {leaves.filter(l => l.status === 'pending').length > 0 && (
+                          <span className="w-2 h-2 rounded-full bg-rose-500" />
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Display: Animated Slider */}
+                    <div className="py-1">
+                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Display</div>
+                      <button
+                        type="button"
+                        onClick={() => setShowOverviewCards(prev => !prev)}
+                        className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-slate-500 shrink-0" />
+                          <span>Overview Summary</span>
+                        </span>
+                        <div className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          showOverviewCards ? 'bg-amber-600' : 'bg-slate-200'
+                        }`}>
+                          <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                            showOverviewCards ? 'translate-x-4' : 'translate-x-0'
+                          }`} />
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Tools */}
+                    <div className="py-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAttendanceModuleMenu(false);
+                          setShowNewLeaveModal(true);
+                        }}
+                        className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4 text-slate-500 shrink-0" />
+                        <span>Submit Leave Application</span>
+                      </button>
+                      {stats.absent > 0 && onNavigate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowAttendanceModuleMenu(false);
+                            onNavigate('absentee');
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs font-medium text-rose-700 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+                        >
+                          <ArrowUpRight className="w-4 h-4 text-rose-600 shrink-0" />
+                          <span>Open Absentee Follow-Up ({stats.absent})</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Collapsible Panel on Mobile (Desktop always shown) */}
-            <div className={`${showOverviewFilters ? 'block' : 'hidden'} sm:block space-y-2`}>
-              {/* High-density summary strip on mobile when expanded (Sidebar Dark Navy Design) */}
-              <div className="sm:hidden bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 text-xs space-y-2 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
-                <div className="flex items-center justify-between text-[11px] font-mono">
-                  <span className="text-slate-400 font-medium">Total: <strong className="text-white">{stats.total}</strong></span>
-                  <span className="text-emerald-400">Present: <strong>{stats.present}</strong></span>
-                  <span className="text-amber-400">Late: <strong>{stats.late}</strong></span>
-                  <span className="text-rose-400">Absent: <strong>{stats.absent}</strong></span>
-                  <span className="text-indigo-300">Excused: <strong>{stats.excused}</strong></span>
-                </div>
-              </div>
-
-              {/* Status Filter Pills */}
-              <div className="flex items-center gap-1 text-xs overflow-x-auto no-scrollbar max-w-full pb-0.5">
+            {/* Status Filter Pills (Toggled by Filter button) */}
+            {showAttendanceFilters && (
+              <div className="flex items-center gap-1 text-xs overflow-x-auto no-scrollbar max-w-full pb-0.5 pt-1">
                 {(['ALL', 'present', 'absent', 'late', 'excused', 'unmarked'] as const).map(s => {
                   if (s === 'unmarked' && stats.unmarked === 0) return null;
                   const isSel = statusFilter === s;
@@ -1125,7 +1183,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                   );
                 })}
               </div>
-            </div>
+            )}
           </div>
 
           {/* Student Roster Table */}
@@ -1502,6 +1560,17 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
       {/* TAB 2: MONTHLY ATTENDANCE REGISTER MATRIX */}
       {activeTab === 'monthly' && (
         <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('roster')}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+              title="Back to Daily Roster"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Back to Daily Roster</span>
+            </button>
+          </div>
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1.5 min-w-[240px]">
@@ -1651,6 +1720,17 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
       {/* TAB 3: DEFAULTERS & RETENTION ANALYTICS */}
       {activeTab === 'defaulters' && (
         <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('roster')}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+              title="Back to Daily Roster"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Back to Daily Roster</span>
+            </button>
+          </div>
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-xs font-bold text-slate-800">Attendance Threshold Analytics (&lt; 75%)</h3>
@@ -1738,7 +1818,18 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
       {activeTab === 'leaves' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-900">Student Formal Leave Applications</h2>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setActiveTab('roster')}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                title="Back to Daily Roster"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Back to Daily Roster</span>
+              </button>
+              <h2 className="text-sm font-bold text-slate-900">Student Formal Leave Applications</h2>
+            </div>
             <button
               onClick={() => setShowNewLeaveModal(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold transition-all shadow-xs"

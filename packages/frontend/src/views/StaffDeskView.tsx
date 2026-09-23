@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   PORTAL_GROUPS,
@@ -136,7 +136,24 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
 
   const [deleteTarget, setDeleteTarget] = useState<StaffMemberRecord | null>(null);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
-  const [showOverviewFilters, setShowOverviewFilters] = useState<boolean>(false);
+  const [showOverviewCards, setShowOverviewCards] = useState<boolean>(false);
+  const [showStaffFilters, setShowStaffFilters] = useState<boolean>(false);
+  const [showStaffModuleMenu, setShowStaffModuleMenu] = useState<boolean>(false);
+  const staffModuleContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (staffModuleContainerRef.current && !staffModuleContainerRef.current.contains(e.target as Node)) {
+        setShowStaffModuleMenu(false);
+      }
+    };
+    if (showStaffModuleMenu) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [showStaffModuleMenu]);
 
   useMobileOverlay(
     'sheet',
@@ -655,18 +672,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
         description="Employee dossiers, academic teaching workload, payroll allocations, and portal credentials."
         icon={<Users className="w-4 h-4 text-slate-700" />}
         badge={`${totalStaffCount} Personnel`}
-      >
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center gap-1.5 h-8.5 px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            Add Staff
-          </button>
-        </div>
-      </PageHeading>
+      />
 
       {/* Notifications */}
       {error && (
@@ -688,129 +694,9 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* Standalone Search Bar & Desktop Filter Tabs / Mobile Toggle */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Search staff by name, code, designation, phone..."
-            className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-slate-900 shadow-2xs font-normal"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-
-        {/* Button for Filters & Overview */}
-        <button
-          type="button"
-          onClick={() => setShowOverviewFilters(!showOverviewFilters)}
-          className={`h-9 px-2.5 sm:px-3 flex items-center justify-center gap-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer shrink-0 relative ${
-            showOverviewFilters || selectedFilterTab !== 'all'
-              ? 'bg-[#081A2F] text-amber-400 border-[#173252] shadow-2xs'
-              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-          }`}
-          title="Toggle Overview & Filters"
-          aria-label="Toggle Overview & Filters"
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-          <span className="hidden sm:inline">Overview</span>
-          {selectedFilterTab !== 'all' && (
-            <span className="w-2 h-2 rounded-full bg-amber-500" />
-          )}
-        </button>
-
-        {/* Desktop Filter Tabs */}
-        <div className="hidden md:flex items-center gap-1 bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs">
-          <button
-            type="button"
-            onClick={() => setSelectedFilterTab('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-              selectedFilterTab === 'all'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            All Staff
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedFilterTab('faculty')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-              selectedFilterTab === 'faculty'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            Faculty
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedFilterTab('admin_accounts')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-              selectedFilterTab === 'admin_accounts'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            Admin & Accounts
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedFilterTab('support')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-              selectedFilterTab === 'support'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            Support
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedFilterTab('archived')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-              selectedFilterTab === 'archived'
-                ? 'bg-rose-700 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            Archived
-          </button>
-        </div>
-      </div>
-
-      {/* Overview & Mobile Filters Panel (Toggled via Overview button) */}
-      <div className={`${showOverviewFilters ? 'block' : 'hidden'} space-y-2.5 animate-in fade-in duration-150`}>
-        {/* Mobile Filter Pill Selector */}
-        <div className="md:hidden flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
-          {(['all', 'faculty', 'admin_accounts', 'support', 'archived'] as const).map(tab => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setSelectedFilterTab(tab)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
-                selectedFilterTab === tab
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-white text-slate-600 border border-slate-200'
-              }`}
-            >
-              {tab === 'all' ? 'All Staff' : tab === 'admin_accounts' ? 'Admin & Accounts' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        {/* 4 Metric Summary Cards (Sidebar Dark Navy Design) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      {/* 1. CARDS ROW (Collapsible overview styled in sidebar dark navy) */}
+      {showOverviewCards && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 animate-in fade-in duration-150">
           {/* Card 1: Total Staff */}
           <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
@@ -891,6 +777,215 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
             </span>
           </div>
         </div>
+      )}
+
+      {/* Controls Toolbar: Search + Filter + Parallel Options Button */}
+      <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-2xs">
+        <div className="flex items-center gap-2">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search staff by name, code, designation, phone..."
+              className="w-full pl-8 pr-7 py-2 sm:py-1.5 text-xs bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors font-sans text-slate-900"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Filter Button */}
+          <button
+            type="button"
+            onClick={() => setShowStaffFilters(prev => !prev)}
+            className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+              showStaffFilters || selectedFilterTab !== 'all'
+                ? 'bg-amber-50 text-amber-900 border-amber-300'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+            title="Toggle Filters"
+            aria-label="Toggle Filters"
+          >
+            <SlidersHorizontal className="w-4 h-4 text-slate-600" />
+            {selectedFilterTab !== 'all' && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
+                1
+              </span>
+            )}
+          </button>
+
+          {/* Simple Options Button Parallel to Filter */}
+          <div ref={staffModuleContainerRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setShowStaffModuleMenu(prev => !prev)}
+              className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+                showStaffModuleMenu
+                  ? 'bg-slate-100 text-slate-900 border-slate-300 shadow-2xs'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+              title="Actions & Options"
+              aria-label="Actions & Options"
+            >
+              <MoreVertical className="w-4 h-4 text-slate-600" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {showStaffModuleMenu && (
+              <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100">
+                {/* Primary Action */}
+                <div className="p-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowStaffModuleMenu(false);
+                      openCreateModal();
+                    }}
+                    className="w-full px-3 py-2 text-xs text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-amber-700" />
+                    <span>+ Add Staff</span>
+                  </button>
+                </div>
+
+                {/* Views Section */}
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                    Staff Categories
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowStaffModuleMenu(false);
+                      setSelectedFilterTab('all');
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      selectedFilterTab === 'all' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Users className="w-3.5 h-3.5 text-slate-500" />
+                      <span>All Staff ({totalStaffCount})</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowStaffModuleMenu(false);
+                      setSelectedFilterTab('faculty');
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      selectedFilterTab === 'faculty' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Teaching Faculty</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowStaffModuleMenu(false);
+                      setSelectedFilterTab('admin_accounts');
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      selectedFilterTab === 'admin_accounts' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Admin & Accounts</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowStaffModuleMenu(false);
+                      setSelectedFilterTab('support');
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      selectedFilterTab === 'support' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Support Personnel</span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowStaffModuleMenu(false);
+                      setSelectedFilterTab('archived');
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      selectedFilterTab === 'archived' ? 'text-rose-800 font-bold bg-rose-50/50' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Archive className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Archived Staff</span>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Display (Slider Item) */}
+                <div className="py-1">
+                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                    Display
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowOverviewCards(prev => !prev)}
+                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center justify-between transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Overview Cards</span>
+                    </div>
+                    <div className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                      showOverviewCards ? 'bg-amber-600' : 'bg-slate-200'
+                    }`}>
+                      <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                        showOverviewCards ? 'translate-x-4' : 'translate-x-0'
+                      }`} />
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Filter Chips Row (Shown when Filter button is toggled) */}
+        {showStaffFilters && (
+          <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-1.5 animate-in fade-in duration-150">
+            {(['all', 'faculty', 'admin_accounts', 'support', 'archived'] as const).map(tab => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setSelectedFilterTab(tab)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                  selectedFilterTab === tab
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                }`}
+              >
+                {tab === 'all' ? 'All Staff' : tab === 'admin_accounts' ? 'Admin & Accounts' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* High-Density Tabular Register */}

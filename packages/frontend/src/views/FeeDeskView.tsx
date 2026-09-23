@@ -31,7 +31,7 @@ import {
   SlidersHorizontal,
   User,
   RotateCcw,
-  MoreHorizontal,
+  MoreVertical,
   ArrowLeft
 } from 'lucide-react';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
@@ -82,8 +82,10 @@ export const FeeDeskView: React.FC = () => {
   const [unpaidMonthsFilter, setUnpaidMonthsFilter] = useState<'any' | '1' | '2' | '3+'>('any');
   const [selectedDefaulterHead, setSelectedDefaulterHead] = useState<string>('all');
   const [selectedDefaulterModal, setSelectedDefaulterModal] = useState<any | null>(null);
-  const [showCashierSummaryAndFilter, setShowCashierSummaryAndFilter] = useState<boolean>(false);
-  const [showDefaulterSummaryAndFilter, setShowDefaulterSummaryAndFilter] = useState<boolean>(false);
+  const [showCashierOverviewCards, setShowCashierOverviewCards] = useState<boolean>(false);
+  const [showCashierClassFilter, setShowCashierClassFilter] = useState<boolean>(false);
+  const [showDefaulterOverviewCards, setShowDefaulterOverviewCards] = useState<boolean>(false);
+  const [showDefaulterFilters, setShowDefaulterFilters] = useState<boolean>(false);
 
   const activeDefaulterFilterCount = useMemo(() => {
     let count = 0;
@@ -2293,120 +2295,62 @@ export const FeeDeskView: React.FC = () => {
               : 'Financial statements, revenue summaries, fee head audits, and running ledgers.'}
           </p>
         </div>
-
-        {/* ONE Icon Place to open all financial desks & configuration tools */}
-        <div ref={feeModuleContainerRef} className="relative self-start sm:self-auto shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowFeeModuleMenu(prev => !prev)}
-            className={`w-8.5 h-8.5 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shadow-2xs ${
-              showFeeModuleMenu
-                ? 'bg-slate-100 border-slate-300 text-slate-900'
-                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-            }`}
-            title="Fee Desks & Options"
-            aria-label="Fee Desks & Options"
-          >
-            <MoreHorizontal className="w-4 h-4 text-slate-600" />
-          </button>
-
-          {showFeeModuleMenu && (
-            <div
-              className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100"
-            >
-              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                Financial Desks
-              </div>
-              <div className="py-0.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('cashier');
-                    setShowFeeModuleMenu(false);
-                  }}
-                  className={`w-full px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                    activeTab === 'cashier' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Receipt className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Fees Receiving Desk</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('defaulters');
-                    setShowFeeModuleMenu(false);
-                  }}
-                  className={`w-full px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                    activeTab === 'defaulters' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Fee Defaulters</span>
-                  </div>
-                  {duesSummary.allCount > 0 && (
-                    <span className="font-mono text-[10px] text-rose-600 font-bold">{duesSummary.allCount}</span>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('reports');
-                    setShowFeeModuleMenu(false);
-                  }}
-                  className={`w-full px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                    activeTab === 'reports' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <BarChart2 className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Finance Reports</span>
-                  </div>
-                </button>
-              </div>
-
-              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                Configuration & Tools
-              </div>
-              <div className="py-0.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowFeeModuleMenu(false);
-                    setShowFeeHeadsModal(true);
-                  }}
-                  className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
-                >
-                  <DollarSign className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Fee Heads & Priority</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowFeeModuleMenu(false);
-                    setShowBulkRevisionModal(true);
-                  }}
-                  className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
-                >
-                  <TrendingUp className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Bulk Fee Revision</span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* TAB: FEES RECEIVING (Hero Search, Popup Selector & 3-Section Dossier) */}
       {activeTab === 'cashier' && (
         <div className="space-y-2.5 sm:space-y-3">
-          {/* Controls Toolbar: Standalone Search Bar + Single Expand Button for Summary & Filter */}
+          {/* 4 Financial Overview Cards (Sidebar Dark Navy Design) */}
+          {showCashierOverviewCards && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 animate-in fade-in duration-150">
+              <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                <div>
+                  <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Total Invoiced</span>
+                  <span className="font-mono font-bold text-white text-xs sm:text-sm">
+                    PKR {duesSummary.totalInvoiced.toLocaleString()}
+                  </span>
+                </div>
+                <span className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center shrink-0">
+                  <CreditCard className="w-3.5 h-3.5" />
+                </span>
+              </div>
+              <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                <div>
+                  <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Collections</span>
+                  <span className="font-mono font-bold text-emerald-400 text-xs sm:text-sm">
+                    PKR {duesSummary.totalCollected.toLocaleString()}
+                  </span>
+                </div>
+                <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </span>
+              </div>
+              <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                <div>
+                  <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Overdue Receivables</span>
+                  <span className="font-mono font-bold text-rose-400 text-xs sm:text-sm">
+                    PKR {duesSummary.allAmount.toLocaleString()}
+                  </span>
+                </div>
+                <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                </span>
+              </div>
+              <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                <div>
+                  <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Defaulters</span>
+                  <span className="font-mono font-bold text-amber-400 text-xs sm:text-sm">
+                    {duesSummary.allCount} Students
+                  </span>
+                </div>
+                <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0">
+                  <Users className="w-3.5 h-3.5" />
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Controls Toolbar: Standalone Search Bar + Filter + Parallel Options Button */}
           <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
             <div className="flex items-center gap-2">
               <form
@@ -2441,17 +2385,17 @@ export const FeeDeskView: React.FC = () => {
                 )}
               </form>
 
-              {/* Single Icon-Only Button to Expand Summary & Class Filter */}
+              {/* Filter Button */}
               <button
                 type="button"
-                onClick={() => setShowCashierSummaryAndFilter(prev => !prev)}
+                onClick={() => setShowCashierClassFilter(prev => !prev)}
                 className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
-                  showCashierSummaryAndFilter || cashierClassFilter !== 'all'
+                  showCashierClassFilter || cashierClassFilter !== 'all'
                     ? 'bg-amber-50 text-amber-900 border-amber-300'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
-                title="Toggle Summary & Filter"
-                aria-label="Toggle Summary & Filter"
+                title="Toggle Class Filter"
+                aria-label="Toggle Class Filter"
               >
                 <SlidersHorizontal className="w-4 h-4 text-slate-600" />
                 {cashierClassFilter !== 'all' && (
@@ -2460,84 +2404,178 @@ export const FeeDeskView: React.FC = () => {
                   </span>
                 )}
               </button>
+
+              {/* Simple Options Button Parallel to Filter */}
+              <div ref={feeModuleContainerRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowFeeModuleMenu(prev => !prev)}
+                  className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+                    showFeeModuleMenu
+                      ? 'bg-slate-100 text-slate-900 border-slate-300 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                  title="Actions & Options"
+                  aria-label="Actions & Options"
+                >
+                  <MoreVertical className="w-4 h-4 text-slate-600" />
+                </button>
+
+                {/* Dropdown Menu containing all actions, views, slider, and tools */}
+                {showFeeModuleMenu && (
+                  <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100">
+                    {/* Views Section */}
+                    <div className="py-1">
+                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                        Views
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          setActiveTab('cashier');
+                        }}
+                        className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          (activeTab as string) === 'cashier' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Receipt className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Fees Receiving Desk</span>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          setActiveTab('defaulters');
+                        }}
+                        className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          (activeTab as string) === 'defaulters' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Fee Defaulters</span>
+                        </div>
+                        {duesSummary.allCount > 0 && (
+                          <span className="font-mono text-[10px] text-rose-600 font-bold">{duesSummary.allCount}</span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          setActiveTab('reports');
+                        }}
+                        className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          (activeTab as string) === 'reports' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <BarChart2 className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Finance Reports</span>
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Display (Slider Item) */}
+                    <div className="py-1">
+                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                        Display
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowCashierOverviewCards(prev => !prev)}
+                        className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center justify-between transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Overview Cards</span>
+                        </div>
+                        <div className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          showCashierOverviewCards ? 'bg-amber-600' : 'bg-slate-200'
+                        }`}>
+                          <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                            showCashierOverviewCards ? 'translate-x-4' : 'translate-x-0'
+                          }`} />
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Configuration & Tools */}
+                    <div className="py-1">
+                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                        Configuration & Tools
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          setShowFeeHeadsModal(true);
+                        }}
+                        className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Fee Heads & Priority</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          setShowBulkRevisionModal(true);
+                        }}
+                        className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <TrendingUp className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Bulk Fee Revision</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          setShowConcessionReportModal(true);
+                        }}
+                        className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <Percent className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Approved Concessions</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Expandable Section: 4 Summary Cards + Class Filter (Collapsed by default on mobile) */}
-            {showCashierSummaryAndFilter && (
-              <div className="mt-3 pt-3 border-t border-slate-100 space-y-3 animate-in fade-in duration-150">
-                {/* 4 Financial Summary Cards (Sidebar Dark Navy Design) */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
-                    <div>
-                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Total Invoiced</span>
-                      <span className="font-mono font-bold text-white text-xs sm:text-sm">
-                        PKR {duesSummary.totalInvoiced.toLocaleString()}
-                      </span>
-                    </div>
-                    <span className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center shrink-0">
-                      <CreditCard className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
-                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
-                    <div>
-                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Collections</span>
-                      <span className="font-mono font-bold text-emerald-400 text-xs sm:text-sm">
-                        PKR {duesSummary.totalCollected.toLocaleString()}
-                      </span>
-                    </div>
-                    <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
-                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
-                    <div>
-                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Overdue Receivables</span>
-                      <span className="font-mono font-bold text-rose-400 text-xs sm:text-sm">
-                        PKR {duesSummary.allAmount.toLocaleString()}
-                      </span>
-                    </div>
-                    <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
-                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
-                    <div>
-                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Defaulters</span>
-                      <span className="font-mono font-bold text-amber-400 text-xs sm:text-sm">
-                        {duesSummary.allCount} Students
-                      </span>
-                    </div>
-                    <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0">
-                      <Users className="w-3.5 h-3.5" />
-                    </span>
-                  </div>
+            {/* Class Filter Row */}
+            {showCashierClassFilter && (
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2 animate-in fade-in duration-150">
+                <div className="w-full sm:w-60">
+                  <ModernSelect
+                    value={cashierClassFilter}
+                    onChange={val => setCashierClassFilter(val)}
+                    buttonClassName="bg-white border-slate-200 text-xs py-1.5"
+                  >
+                    <option value="all">All Classes ({programs.length})</option>
+                    {programs.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </ModernSelect>
                 </div>
-
-                {/* Class Filter Row */}
-                <div className="flex items-center gap-2 pt-1">
-                  <div className="w-full sm:w-60">
-                    <ModernSelect
-                      value={cashierClassFilter}
-                      onChange={val => setCashierClassFilter(val)}
-                      buttonClassName="bg-white border-slate-200 text-xs py-1.5"
-                    >
-                      <option value="all">All Classes ({programs.length})</option>
-                      {programs.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </ModernSelect>
-                  </div>
-                  {cashierClassFilter !== 'all' && (
-                    <button
-                      type="button"
-                      onClick={() => setCashierClassFilter('all')}
-                      className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer shrink-0"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Reset</span>
-                    </button>
-                  )}
-                </div>
+                {cashierClassFilter !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => setCashierClassFilter('all')}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -3629,7 +3667,21 @@ export const FeeDeskView: React.FC = () => {
       {/* TAB 2: DEFAULTERS LIST (Overdue Accounts & Follow-ups) */}
       {activeTab === 'defaulters' && (
         <div className="space-y-3">
-          {/* Controls Toolbar: Standalone Search Bar + Single Expand Button for Overview & Filters */}
+          {/* Summary Overview Cards (Sidebar Dark Navy Design) */}
+          {showDefaulterOverviewCards && (
+            <div className="flex items-center gap-2 flex-wrap animate-in fade-in duration-150">
+              <div className="bg-[#081A2F] border border-[#173252] rounded-lg px-2.5 py-1.5 flex items-center gap-2 shadow-2xs">
+                <span className="text-[10px] uppercase font-mono font-bold text-slate-400">Filtered:</span>
+                <span className="font-mono font-bold text-white text-xs">{totalDefaultersCount} Students</span>
+              </div>
+              <div className="bg-[#081A2F] border border-[#173252] rounded-lg px-2.5 py-1.5 flex items-center gap-2 shadow-2xs">
+                <span className="text-[10px] uppercase font-mono font-bold text-rose-400">Total Dues:</span>
+                <span className="font-mono font-bold text-rose-400 text-xs">PKR {totalDefaultersAmount.toLocaleString()}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Controls Toolbar: Standalone Search Bar + Filter + Parallel Options Button */}
           <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
@@ -3653,17 +3705,17 @@ export const FeeDeskView: React.FC = () => {
                 )}
               </div>
 
-              {/* Single Icon-Only Button to Expand All Overview & Filters */}
+              {/* Filter Button */}
               <button
                 type="button"
-                onClick={() => setShowDefaulterSummaryAndFilter(prev => !prev)}
+                onClick={() => setShowDefaulterFilters(prev => !prev)}
                 className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
-                  showDefaulterSummaryAndFilter || activeDefaulterFilterCount > 0 || duesView !== 'all'
+                  showDefaulterFilters || activeDefaulterFilterCount > 0 || duesView !== 'all'
                     ? 'bg-amber-50 text-amber-900 border-amber-300'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
-                title="Toggle Overview & Filters"
-                aria-label="Toggle Overview & Filters"
+                title="Toggle Filters"
+                aria-label="Toggle Filters"
               >
                 <SlidersHorizontal className="w-4 h-4 text-slate-600" />
                 {(activeDefaulterFilterCount > 0 || duesView !== 'all') && (
@@ -3672,10 +3724,168 @@ export const FeeDeskView: React.FC = () => {
                   </span>
                 )}
               </button>
+
+              {/* Simple Options Button Parallel to Filter */}
+              <div ref={feeModuleContainerRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowFeeModuleMenu(prev => !prev)}
+                  className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+                    showFeeModuleMenu
+                      ? 'bg-slate-100 text-slate-900 border-slate-300 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                  title="Actions & Options"
+                  aria-label="Actions & Options"
+                >
+                  <MoreVertical className="w-4 h-4 text-slate-600" />
+                </button>
+
+                {/* Dropdown Menu containing all actions, views, slider, and tools */}
+                {showFeeModuleMenu && (
+                  <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100">
+                    {/* Views Section */}
+                    <div className="py-1">
+                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                        Views
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          setActiveTab('cashier');
+                        }}
+                        className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          (activeTab as string) === 'cashier' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Receipt className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Fees Receiving Desk</span>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          setActiveTab('defaulters');
+                        }}
+                        className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          (activeTab as string) === 'defaulters' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Fee Defaulters</span>
+                        </div>
+                        {duesSummary.allCount > 0 && (
+                          <span className="font-mono text-[10px] text-rose-600 font-bold">{duesSummary.allCount}</span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          setActiveTab('reports');
+                        }}
+                        className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          (activeTab as string) === 'reports' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <BarChart2 className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Finance Reports</span>
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Display (Slider Item) */}
+                    <div className="py-1">
+                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                        Display
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowDefaulterOverviewCards(prev => !prev)}
+                        className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center justify-between transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Overview Cards</span>
+                        </div>
+                        <div className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          showDefaulterOverviewCards ? 'bg-amber-600' : 'bg-slate-200'
+                        }`}>
+                          <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                            showDefaulterOverviewCards ? 'translate-x-4' : 'translate-x-0'
+                          }`} />
+                        </div>
+                      </button>
+                    </div>
+
+                    {/* Configuration & Tools */}
+                    <div className="py-1">
+                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                        Configuration & Tools
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          handleOpenReportPdf('defaulters');
+                        }}
+                        disabled={isGeneratingPdf || defaultersList.length === 0}
+                        className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Export Defaulters PDF</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          setShowFeeHeadsModal(true);
+                        }}
+                        className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Fee Heads & Priority</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          setShowBulkRevisionModal(true);
+                        }}
+                        className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <TrendingUp className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Bulk Fee Revision</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFeeModuleMenu(false);
+                          setShowConcessionReportModal(true);
+                        }}
+                        className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <Percent className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Approved Concessions</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Expandable Section: Overview Metrics, Dues View Tabs & Dropdown Filters (Collapsed by default on mobile) */}
-            {showDefaulterSummaryAndFilter && (
+            {showDefaulterFilters && (
               <div className="mt-3 pt-3 border-t border-slate-100 space-y-3 animate-in fade-in duration-150">
                 {/* Summary Metrics & PDF Export */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">

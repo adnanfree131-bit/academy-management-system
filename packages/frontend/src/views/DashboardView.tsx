@@ -161,6 +161,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [homeworkList, setHomeworkList] = useState<HomeworkItem[]>([]);
   const [inquiriesList, setInquiriesList] = useState<InquiryItem[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [logoError, setLogoError] = useState(false);
 
   const loadData = async () => {
@@ -234,6 +235,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       console.error('Dashboard load failed', err);
     } finally {
       setIsRefreshing(false);
+      setIsInitialLoading(false);
     }
   };
 
@@ -307,6 +309,53 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         };
       })
     : [{ label: 'General Enrollment', pct: 100, count: activeStudents, color: '#081A2F' }];
+
+  if (isInitialLoading) {
+    return (
+      <div className="space-y-5 font-sans max-w-7xl mx-auto animate-pulse">
+        <div className="bg-white border border-[#E6ECF2] rounded-2xl p-4 sm:p-5 shadow-2xs flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-slate-200"></div>
+            <div className="space-y-2">
+              <div className="h-5 w-48 bg-slate-200 rounded-md"></div>
+              <div className="h-3.5 w-32 bg-slate-100 rounded-md"></div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-24 bg-slate-100 rounded-xl"></div>
+            <div className="h-8 w-24 bg-slate-200 rounded-xl"></div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="bg-[#081A2F] border border-[#173252] rounded-2xl p-4 h-36 flex flex-col justify-between shadow-[0_4px_16px_rgba(8,26,47,0.22)]">
+              <div className="flex items-center justify-between">
+                <div className="h-3 w-16 bg-white/20 rounded"></div>
+                <div className="w-7 h-7 rounded-lg bg-white/10"></div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-6 w-20 bg-white/30 rounded"></div>
+                <div className="h-3 w-28 bg-white/10 rounded"></div>
+              </div>
+              <div className="h-3 w-full bg-white/10 rounded"></div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="lg:col-span-8 bg-white border border-[#E6ECF2] rounded-2xl p-5 h-64">
+            <div className="h-4 w-40 bg-slate-200 rounded mb-4"></div>
+            <div className="h-44 bg-slate-100 rounded-xl"></div>
+          </div>
+          <div className="lg:col-span-4 bg-white border border-[#E6ECF2] rounded-2xl p-5 h-64">
+            <div className="h-4 w-32 bg-slate-200 rounded mb-4"></div>
+            <div className="h-44 bg-slate-100 rounded-xl"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5 font-sans max-w-7xl mx-auto">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   GraduationCap,
@@ -18,8 +18,8 @@ import {
   MessageSquare,
   AlertCircle,
   SlidersHorizontal,
-  ChevronDown,
-  ChevronUp
+  MoreVertical,
+  ArrowLeft
 } from 'lucide-react';
 import {
   Exam,
@@ -51,7 +51,7 @@ export const ExamDeskView: React.FC = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [programs, setPrograms] = useState<AcademicProgram[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
 
   // Selected filters for Question Bank
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
@@ -60,6 +60,24 @@ export const ExamDeskView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [examSearchQuery, setExamSearchQuery] = useState('');
   const [showOverviewMetrics, setShowOverviewMetrics] = useState(false);
+  const [showExamModuleMenu, setShowExamModuleMenu] = useState(false);
+  const [showExamFilters, setShowExamFilters] = useState(false);
+  const [examStatusFilter, setExamStatusFilter] = useState<'ALL' | 'DRAFT' | 'PUBLISHED' | 'GRADED'>('ALL');
+  const examModuleContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (examModuleContainerRef.current && !examModuleContainerRef.current.contains(e.target as Node)) {
+        setShowExamModuleMenu(false);
+      }
+    };
+    if (showExamModuleMenu) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [showExamModuleMenu]);
 
   // Modals
   const [showCreateExamModal, setShowCreateExamModal] = useState(false);
@@ -475,212 +493,304 @@ export const ExamDeskView: React.FC = () => {
     return true;
   });
 
-  // Filtered exams based on examSearchQuery
+  // Filtered exams based on examSearchQuery & examStatusFilter
   const filteredExams = useMemo(() => {
     const q = examSearchQuery.toLowerCase().trim();
-    if (!q) return exams;
-    return exams.filter(e =>
-      e.title.toLowerCase().includes(q) ||
-      (e.subject_name && e.subject_name.toLowerCase().includes(q)) ||
-      (e.batch_name && e.batch_name.toLowerCase().includes(q))
-    );
-  }, [exams, examSearchQuery]);
+    return exams.filter(e => {
+      const matchesQuery = !q || (
+        e.title.toLowerCase().includes(q) ||
+        (e.subject_name && e.subject_name.toLowerCase().includes(q)) ||
+        (e.batch_name && e.batch_name.toLowerCase().includes(q))
+      );
+      const matchesStatus = examStatusFilter === 'ALL' || e.status === examStatusFilter;
+      return matchesQuery && matchesStatus;
+    });
+  }, [exams, examSearchQuery, examStatusFilter]);
 
   return (
     <div className="space-y-3 sm:space-y-3.5">
-      {/* Top Header & Fast Navigation */}
+      {/* Top Header */}
       <PageHeading
         title="Examinations"
         description="Create exam papers, manage chapter question banks, grade student submissions, and publish report cards."
         icon={<GraduationCap className="w-4 h-4 text-slate-700" />}
-      >
-        {loading && (
-          <span className="text-[11px] font-semibold text-slate-400 animate-pulse mr-2">
-            Syncing...
-          </span>
-        )}
-        <button
-          onClick={() => setShowCreateExamModal(true)}
-          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold rounded-xl shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" /> New Exam
-        </button>
-        <button
-          onClick={() => setShowExcelImportModal(true)}
-          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
-        >
-          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Excel Upload
-        </button>
-      </PageHeading>
+      />
 
-      {/* Main Tabs Navigation */}
-      <div className="grid grid-cols-3 bg-white p-0.5 rounded-xl border border-slate-200 gap-1 text-xs font-semibold shadow-2xs">
-        <button
-          onClick={() => setActiveTab('exams')}
-          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
-            activeTab === 'exams'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <FileCheck2 className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'exams' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="truncate">Exams</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('bank')}
-          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
-            activeTab === 'bank'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <BookOpen className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'bank' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="truncate">Bank</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('evaluate')}
-          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
-            activeTab === 'evaluate'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <PenTool className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'evaluate' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="truncate">Grading</span>
-        </button>
-      </div>
-
-      {/* Mobile Toggle Button for Metrics */}
-      <div className="sm:hidden flex justify-end">
-        <button
-          type="button"
-          onClick={() => setShowOverviewMetrics(prev => !prev)}
-          className={`h-8 px-2.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-            showOverviewMetrics
-              ? 'bg-amber-50 border-amber-300 text-amber-900'
-              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-          }`}
-          title="Toggle Summary Metrics"
-          aria-label="Toggle Summary Metrics"
-        >
-          <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-          <span className="text-[11px]">Metrics</span>
-          {showOverviewMetrics ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}
-        </button>
-      </div>
-
-      {/* 4-Card Metric Summary Strip (Collapsible on mobile, always visible on tablet/desktop) */}
-      <div className={`${showOverviewMetrics ? 'grid' : 'hidden'} sm:grid grid-cols-2 lg:grid-cols-4 gap-2.5`}>
-        {/* Card 1: Scheduled Exams */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Scheduled Exams
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                {exams.length}
+      {/* 4-Card Metric Summary Strip (Sidebar Dark Navy Design) */}
+      {showOverviewMetrics && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5 animate-in fade-in duration-150">
+          {/* Card 1: Scheduled Exams */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Scheduled Exams
               </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Planned
-              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
+                  {exams.length}
+                </span>
+                <span className="text-xs font-medium text-slate-400 leading-none">
+                  Planned
+                </span>
+              </div>
             </div>
-          </div>
-          <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
-            <FileCheck2 className="w-3.5 h-3.5 text-indigo-700" />
-          </span>
-        </div>
-
-        {/* Card 2: Question Bank */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Question Bank
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-indigo-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <FileCheck2 className="w-3.5 h-3.5" />
             </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
-                {bankQuestions.length}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Items
-              </span>
-            </div>
           </div>
-          <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-            <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
-          </span>
-        </div>
 
-        {/* Card 3: Chapter Folders */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Chapter Folders
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-amber-700 text-sm leading-none">
-                {chapters.length}
+          {/* Card 2: Question Bank */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Question Bank
               </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Topics
-              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base leading-none">
+                  {bankQuestions.length}
+                </span>
+                <span className="text-xs font-medium text-slate-400 leading-none">
+                  Items
+                </span>
+              </div>
             </div>
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <BookOpen className="w-3.5 h-3.5" />
+            </span>
           </div>
-          <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-            <FolderTree className="w-3.5 h-3.5 text-amber-700" />
-          </span>
-        </div>
 
-        {/* Card 4: Evaluations */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-purple-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Evaluations
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-purple-700 text-sm leading-none">
-                {examEvaluations.length}
+          {/* Card 3: Chapter Folders */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Chapter Folders
               </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Graded
-              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-amber-400 text-sm sm:text-base leading-none">
+                  {chapters.length}
+                </span>
+                <span className="text-xs font-medium text-slate-400 leading-none">
+                  Topics
+                </span>
+              </div>
             </div>
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <FolderTree className="w-3.5 h-3.5" />
+            </span>
           </div>
-          <span className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-200/70 shrink-0 shadow-2xs">
-            <Award className="w-3.5 h-3.5 text-purple-700" />
-          </span>
+
+          {/* Card 4: Evaluations */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Evaluations
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-purple-400 text-sm sm:text-base leading-none">
+                  {examEvaluations.length}
+                </span>
+                <span className="text-xs font-medium text-slate-400 leading-none">
+                  Graded
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-purple-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <Award className="w-3.5 h-3.5" />
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* TAB 1: SCHEDULED EXAMS & PRINTABLE PAPERS */}
       {activeTab === 'exams' && (
-        <div className="bg-white p-3 sm:p-4 rounded-b-xl border-x border-b border-slate-200/80 shadow-2xs space-y-3">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-            <SectionInfo title="Scheduled Exams" description="View upcoming exams, syllabus breakdown, and printable test papers." />
-          </div>
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200/80 shadow-2xs space-y-3">
+          {/* Standalone Search Bar & Parallel Filter + Options */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={examSearchQuery}
+                onChange={e => setExamSearchQuery(e.target.value)}
+                placeholder="Search exams by title, subject, or batch..."
+                className="w-full pl-8 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-slate-900 shadow-2xs font-normal"
+              />
+              {examSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setExamSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
 
-          {/* Standalone Search Bar */}
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              value={examSearchQuery}
-              onChange={e => setExamSearchQuery(e.target.value)}
-              placeholder="Search exams by title, subject, or batch..."
-              className="w-full pl-8 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-amber-600 font-medium"
-            />
-            {examSearchQuery && (
+            {/* Filter Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setShowExamFilters(prev => !prev)}
+              className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+                showExamFilters || examStatusFilter !== 'ALL'
+                  ? 'bg-amber-50 text-amber-900 border-amber-300'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+              title="Toggle Filters"
+              aria-label="Toggle Filters"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-slate-600" />
+              {examStatusFilter !== 'ALL' && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-600" />
+              )}
+            </button>
+
+            {/* Simple Options Button Parallel to Filter */}
+            <div ref={examModuleContainerRef} className="relative">
               <button
                 type="button"
-                onClick={() => setExamSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                onClick={() => setShowExamModuleMenu(prev => !prev)}
+                className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+                  showExamModuleMenu
+                    ? 'bg-slate-100 text-slate-900 border-slate-300 shadow-2xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+                title="Actions & Options"
+                aria-label="Actions & Options"
               >
-                <X className="w-3.5 h-3.5" />
+                <MoreVertical className="w-4 h-4 text-slate-600" />
               </button>
-            )}
+
+              {/* Dropdown Menu */}
+              {showExamModuleMenu && (
+                <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100">
+                  {/* Primary Actions */}
+                  <div className="p-1.5 space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowExamModuleMenu(false);
+                        setShowCreateExamModal(true);
+                      }}
+                      className="w-full px-3 py-1.5 text-xs text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-amber-700" />
+                      <span>+ New Exam</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowExamModuleMenu(false);
+                        setShowExcelImportModal(true);
+                      }}
+                      className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Excel Question Upload</span>
+                    </button>
+                  </div>
+
+                  {/* Views */}
+                  <div className="py-1">
+                    <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                      Exam Views
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowExamModuleMenu(false);
+                        setActiveTab('exams');
+                      }}
+                      className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                        activeTab === 'exams' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileCheck2 className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Scheduled Exams ({exams.length})</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowExamModuleMenu(false);
+                        setActiveTab('bank');
+                      }}
+                      className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                        (activeTab as string) === 'bank' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Question Bank ({bankQuestions.length})</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowExamModuleMenu(false);
+                        setActiveTab('evaluate');
+                      }}
+                      className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                        (activeTab as string) === 'evaluate' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <PenTool className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Grading & Reports</span>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Display (Slider Item) */}
+                  <div className="py-1">
+                    <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                      Display
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowOverviewMetrics(prev => !prev)}
+                      className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center justify-between transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Overview Cards</span>
+                      </div>
+                      <div className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                        showOverviewMetrics ? 'bg-amber-600' : 'bg-slate-200'
+                      }`}>
+                        <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                          showOverviewMetrics ? 'translate-x-4' : 'translate-x-0'
+                        }`} />
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Collapsible Filter Panel */}
+          {showExamFilters && (
+            <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs animate-in fade-in duration-100">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-semibold">Status:</span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(['ALL', 'DRAFT', 'PUBLISHED', 'GRADED'] as const).map(st => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setExamStatusFilter(st)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                      examStatusFilter === st
+                        ? 'bg-amber-600 text-white shadow-2xs'
+                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Desktop Table (>= 768px) */}
           <div className="hidden md:block overflow-x-auto border border-slate-200/80 rounded-xl">
@@ -840,7 +950,27 @@ export const ExamDeskView: React.FC = () => {
 
       {/* TAB 2: DUAL QUESTION BANK & EXCEL UPLOAD */}
       {activeTab === 'bank' && (
-        <div className="bg-white p-3 sm:p-4 rounded-b-xl border-x border-b border-slate-200/80 shadow-2xs">
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200/80 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setActiveTab('exams')}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                title="Back to Exams"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Back to Exams</span>
+              </button>
+              <SectionInfo title="Question Bank" description="Manage chapter questions, difficulty tiers, and syllabus coverage." />
+            </div>
+            <button
+              onClick={() => setShowExcelImportModal(true)}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Excel Upload
+            </button>
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Left Column: Chapter Hierarchy Tree */}
             <div className="lg:col-span-1 border border-slate-200 rounded-xl p-3 bg-slate-50 space-y-3">
@@ -1014,11 +1144,22 @@ export const ExamDeskView: React.FC = () => {
 
       {/* TAB 3: HYBRID EVALUATION DESK & QUESTION REMARKS */}
       {activeTab === 'evaluate' && (
-        <div className="bg-white p-3 sm:p-4 rounded-b-xl border-x border-b border-slate-200/80 shadow-2xs space-y-3">
+        <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200/80 shadow-2xs space-y-3">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">Hybrid Examination Grading & Teacher Feedback</h2>
-              <p className="text-[11px] text-slate-500">Auto-scored objective questions with question-level manual grading and remarks for descriptive responses.</p>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setActiveTab('exams')}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                title="Back to Exams"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Back to Exams</span>
+              </button>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">Hybrid Examination Grading & Teacher Feedback</h2>
+                <p className="text-[11px] text-slate-500">Auto-scored objective questions with question-level manual grading and remarks for descriptive responses.</p>
+              </div>
             </div>
 
             {/* Exam & Student Selector */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   PhoneForwarded,
   MessageCircle,
@@ -21,7 +21,9 @@ import {
   Clock,
   ShieldCheck,
   Search,
-  SlidersHorizontal
+  SlidersHorizontal,
+  MoreVertical,
+  ArrowLeft
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -65,7 +67,24 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [showOverviewFilters, setShowOverviewFilters] = useState(false);
+  const [showAbsenteeModuleMenu, setShowAbsenteeModuleMenu] = useState(false);
+  const [showAbsenteeFilters, setShowAbsenteeFilters] = useState(false);
+  const absenteeModuleContainerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (absenteeModuleContainerRef.current && !absenteeModuleContainerRef.current.contains(e.target as Node)) {
+        setShowAbsenteeModuleMenu(false);
+      }
+    };
+    if (showAbsenteeModuleMenu) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [showAbsenteeModuleMenu]);
 
   // Filtered followups based on search query
   const filteredFollowups = useMemo(() => {
@@ -382,58 +401,112 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         title="Absentee Follow-Up"
         description="Daily morning follow-up roster, parent communications, leave conversion, and student attendance tracking."
         icon={<PhoneForwarded className="w-4 h-4 text-slate-700" />}
-      >
-        <button
-          onClick={() => {
-            setRapidQueueIndex(0);
-            setRapidQueueOpen(true);
-          }}
-          disabled={followups.length === 0}
-          className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5 transition-all"
-        >
-          <Zap className="w-3.5 h-3.5" />
-          <span>Start Follow-Up</span>
-        </button>
-      </PageHeading>
+      />
 
-      {/* Tabs Navigation */}
-      <div className="grid grid-cols-3 bg-white p-0.5 rounded-xl border border-slate-200 gap-1 text-xs font-semibold shadow-2xs">
-        <button
-          onClick={() => setActiveTab('roster')}
-          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
-            activeTab === 'roster'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <PhoneForwarded className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'roster' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="truncate">Absentee</span>
-        </button>
+      {/* 5-Card Metric Summary Strip (Sidebar Dark Navy Design) */}
+      {showOverviewFilters && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-2.5 animate-in fade-in duration-150">
+          {/* Card 1: Total Absentees */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Total Absentees
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
+                  {kpi.total_absentees}
+                </span>
+                <span className="text-xs font-medium text-slate-400 leading-none">
+                  Recorded
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <UserX className="w-3.5 h-3.5" />
+            </span>
+          </div>
 
-        <button
-          onClick={() => setActiveTab('retention')}
-          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
-            activeTab === 'retention'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <Users className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'retention' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="truncate">Retention</span>
-        </button>
+          {/* Card 2: Contacted Rate */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Contacted Rate
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base leading-none">
+                  {kpi.contacted_percentage}%
+                </span>
+                <span className="text-xs font-medium text-slate-400 leading-none">
+                  ({kpi.contacted_count}/{kpi.total_absentees})
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <PhoneCall className="w-3.5 h-3.5" />
+            </span>
+          </div>
 
-        <button
-          onClick={() => setActiveTab('templates')}
-          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
-            activeTab === 'templates'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <MessageCircle className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'templates' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="truncate">Templates</span>
-        </button>
-      </div>
+          {/* Card 3: Unreachable / Rings */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Unreachable
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-amber-400 text-sm sm:text-base leading-none">
+                  {kpi.unreachable_count}
+                </span>
+                <span className="text-xs font-medium text-slate-400 leading-none">
+                  Retry
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <PhoneMissed className="w-3.5 h-3.5" />
+            </span>
+          </div>
+
+          {/* Card 4: Pending Calls */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Pending Calls
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-sky-400 text-sm sm:text-base leading-none">
+                  {kpi.pending_count}
+                </span>
+                <span className="text-xs font-medium text-slate-400 leading-none">
+                  Awaiting
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <Clock className="w-3.5 h-3.5" />
+            </span>
+          </div>
+
+          {/* Card 5: Excused Leaves */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] col-span-2 sm:col-span-1">
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Excused Leaves
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-purple-400 text-sm sm:text-base leading-none">
+                  {kpi.excused_count}
+                </span>
+                <span className="text-xs font-medium text-slate-400 leading-none">
+                  Sanctioned
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-purple-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <ShieldCheck className="w-3.5 h-3.5" />
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Global Action Success Banner */}
       {actionSuccessMsg && (
@@ -448,204 +521,206 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           ===================================================================== */}
       {activeTab === 'roster' && (
         <div className="space-y-3.5 sm:space-y-4">
-          {/* Standalone Search Bar & Single Overview/Filter Toggle */}
-          <div className="space-y-2.5">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search absent student by name, admission #, guardian..."
-                  className="w-full pl-8 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-amber-600 font-medium"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
+          {/* Standalone Search Bar & Parallel Filter + Options */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search absent student by name, admission #, guardian..."
+                className="w-full pl-8 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-slate-900 shadow-2xs font-normal"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
 
-              {/* Button for Filters & Overview */}
+            {/* Filter Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setShowAbsenteeFilters(prev => !prev)}
+              className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+                showAbsenteeFilters || selectedBatchId !== 'ALL' || selectedStatusFilter !== 'ALL'
+                  ? 'bg-amber-50 text-amber-900 border-amber-300'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+              title="Toggle Filters"
+              aria-label="Toggle Filters"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-slate-600" />
+              {(selectedBatchId !== 'ALL' || selectedStatusFilter !== 'ALL') && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-600" />
+              )}
+            </button>
+
+            {/* Simple Options Button Parallel to Filter */}
+            <div ref={absenteeModuleContainerRef} className="relative">
               <button
                 type="button"
-                onClick={() => setShowOverviewFilters(prev => !prev)}
-                className={`h-9 px-2.5 sm:px-3 flex items-center justify-center gap-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shrink-0 relative ${
-                  showOverviewFilters || selectedBatchId !== 'ALL' || selectedStatusFilter !== 'ALL'
-                    ? 'bg-[#081A2F] border-[#173252] text-amber-400 shadow-2xs'
-                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                onClick={() => setShowAbsenteeModuleMenu(prev => !prev)}
+                className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+                  showAbsenteeModuleMenu
+                    ? 'bg-slate-100 text-slate-900 border-slate-300 shadow-2xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
-                title="Toggle Overview & Filters"
-                aria-label="Toggle Overview & Filters"
+                title="Actions & Options"
+                aria-label="Actions & Options"
               >
-                <SlidersHorizontal className="w-4 h-4" />
-                <span className="hidden sm:inline">Overview</span>
-                {(selectedBatchId !== 'ALL' || selectedStatusFilter !== 'ALL') && (
-                  <span className="w-2 h-2 rounded-full bg-amber-500" />
-                )}
+                <MoreVertical className="w-4 h-4 text-slate-600" />
               </button>
-            </div>
 
-            {/* Collapsible Panel (Toggled via Overview button) */}
-            <div className={`${showOverviewFilters ? 'block' : 'hidden'} space-y-3`}>
-              {/* 5-Card Metric Summary Strip (Sidebar Dark Navy Design) */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                {/* Card 1: Total Absentees */}
-                <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                      Total Absentees
-                    </span>
-                    <div className="flex items-baseline gap-1.5 mt-0.5">
-                      <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
-                        {kpi.total_absentees}
-                      </span>
-                      <span className="text-xs font-medium text-slate-400 leading-none">
-                        Recorded
-                      </span>
-                    </div>
-                  </div>
-                  <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
-                    <UserX className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-
-                {/* Card 2: Contacted Rate */}
-                <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                      Contacted Rate
-                    </span>
-                    <div className="flex items-baseline gap-1.5 mt-0.5">
-                      <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base leading-none">
-                        {kpi.contacted_percentage}%
-                      </span>
-                      <span className="text-xs font-medium text-slate-400 leading-none">
-                        ({kpi.contacted_count}/{kpi.total_absentees})
-                      </span>
-                    </div>
-                  </div>
-                  <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
-                    <PhoneCall className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-
-                {/* Card 3: Unreachable / Rings */}
-                <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                      Unreachable
-                    </span>
-                    <div className="flex items-baseline gap-1.5 mt-0.5">
-                      <span className="font-mono font-bold text-amber-400 text-sm sm:text-base leading-none">
-                        {kpi.unreachable_count}
-                      </span>
-                      <span className="text-xs font-medium text-slate-400 leading-none">
-                        Retry
-                      </span>
-                    </div>
-                  </div>
-                  <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
-                    <PhoneMissed className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-
-                {/* Card 4: Pending Calls */}
-                <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                      Pending Calls
-                    </span>
-                    <div className="flex items-baseline gap-1.5 mt-0.5">
-                      <span className="font-mono font-bold text-sky-400 text-sm sm:text-base leading-none">
-                        {kpi.pending_count}
-                      </span>
-                      <span className="text-xs font-medium text-slate-400 leading-none">
-                        Awaiting
-                      </span>
-                    </div>
-                  </div>
-                  <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
-                    <Clock className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-
-                {/* Card 5: Medical Leaves */}
-                <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] col-span-2 sm:col-span-1">
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                      Excused Leaves
-                    </span>
-                    <div className="flex items-baseline gap-1.5 mt-0.5">
-                      <span className="font-mono font-bold text-purple-400 text-sm sm:text-base leading-none">
-                        {kpi.excused_count}
-                      </span>
-                      <span className="text-xs font-medium text-slate-400 leading-none">
-                        Sanctioned
-                      </span>
-                    </div>
-                  </div>
-                  <span className="w-7 h-7 rounded-lg bg-white/10 text-purple-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-              </div>
-
-              {/* Filters Bar */}
-              <div className="bg-white p-3 rounded-xl border border-slate-200/90 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                    <span className="font-semibold text-slate-700">Date:</span>
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={e => setSelectedDate(e.target.value)}
-                      className="px-2.5 py-1 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-slate-700">Batch:</span>
-                    <select
-                      value={selectedBatchId}
-                      onChange={e => setSelectedBatchId(e.target.value)}
-                      className="px-2.5 py-1 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium"
+              {/* Dropdown Menu */}
+              {showAbsenteeModuleMenu && (
+                <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100">
+                  {/* Primary Action */}
+                  <div className="p-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAbsenteeModuleMenu(false);
+                        setRapidQueueIndex(0);
+                        setRapidQueueOpen(true);
+                      }}
+                      disabled={followups.length === 0}
+                      className="w-full px-3 py-1.5 text-xs text-emerald-900 bg-emerald-50 hover:bg-emerald-100 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      <option value="ALL">All Batches</option>
-                      {batches.map(b => (
-                        <option key={b.id} value={b.id}>{b.name}</option>
-                      ))}
-                    </select>
+                      <Zap className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Start Rapid Follow-Up</span>
+                    </button>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-slate-700">Status:</span>
-                    <select
-                      value={selectedStatusFilter}
-                      onChange={e => setSelectedStatusFilter(e.target.value)}
-                      className="px-2.5 py-1 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium"
+                  {/* Views */}
+                  <div className="py-1">
+                    <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                      Module Views
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAbsenteeModuleMenu(false);
+                        setActiveTab('roster');
+                      }}
+                      className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                        activeTab === 'roster' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
                     >
-                      <option value="ALL">All Statuses</option>
-                      <option value="PENDING">Pending Calls</option>
-                      <option value="CONTACTED">Contacted</option>
-                      <option value="UNREACHABLE">Unreachable / Rings</option>
-                      <option value="RESOLVED_EXCUSED">Excused / Medical Leave</option>
-                    </select>
+                      <div className="flex items-center gap-2">
+                        <PhoneForwarded className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Absentee Roster ({followups.length})</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAbsenteeModuleMenu(false);
+                        setActiveTab('retention');
+                      }}
+                      className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                        (activeTab as string) === 'retention' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Users className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Retention Desk ({retentionCases.length})</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAbsenteeModuleMenu(false);
+                        setActiveTab('templates');
+                      }}
+                      className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                        (activeTab as string) === 'templates' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Templates ({templates.length})</span>
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Display (Slider Item) */}
+                  <div className="py-1">
+                    <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                      Display
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowOverviewFilters(prev => !prev)}
+                      className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center justify-between transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Overview Cards</span>
+                      </div>
+                      <div className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                        showOverviewFilters ? 'bg-amber-600' : 'bg-slate-200'
+                      }`}>
+                        <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                          showOverviewFilters ? 'translate-x-4' : 'translate-x-0'
+                        }`} />
+                      </div>
+                    </button>
                   </div>
                 </div>
-
-                <div className="text-slate-400 font-mono text-[11px]">
-                  Showing {followups.length} absentees
-                </div>
-              </div>
+              )}
             </div>
           </div>
+
+          {/* Collapsible Filter Panel */}
+          {showAbsenteeFilters && (
+            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex flex-wrap items-center gap-3 text-xs animate-in fade-in duration-100">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                <span className="font-semibold text-slate-700">Date:</span>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={e => setSelectedDate(e.target.value)}
+                  className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-mono"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-slate-700">Batch:</span>
+                <select
+                  value={selectedBatchId}
+                  onChange={e => setSelectedBatchId(e.target.value)}
+                  className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-medium"
+                >
+                  <option value="ALL">All Batches</option>
+                  {batches.map(b => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-slate-700">Status:</span>
+                <select
+                  value={selectedStatusFilter}
+                  onChange={e => setSelectedStatusFilter(e.target.value)}
+                  className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-medium"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="PENDING">Pending Calls</option>
+                  <option value="CONTACTED">Contacted</option>
+                  <option value="UNREACHABLE">Unreachable / Rings</option>
+                  <option value="RESOLVED_EXCUSED">Excused / Medical Leave</option>
+                </select>
+              </div>
+            </div>
+          )}
 
           {/* Absentee Follow-Up Table */}
           <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
@@ -943,6 +1018,17 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           ===================================================================== */}
       {activeTab === 'retention' && (
         <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('roster')}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+              title="Back to Absentee Roster"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Back to Roster</span>
+            </button>
+          </div>
           <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold shadow-xs">
@@ -1026,11 +1112,22 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
       {activeTab === 'templates' && (
         <div className="space-y-5">
           <div className="flex justify-between items-center">
-            <div>
-              <h3 className="font-bold text-slate-900 text-sm">Dynamic Tag Message Templates</h3>
-              <p className="text-xs text-slate-500">
-                Customizable message templates with live tag replacement and zero Meta API fees.
-              </p>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setActiveTab('roster')}
+                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                title="Back to Absentee Roster"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Back to Roster</span>
+              </button>
+              <div>
+                <h3 className="font-bold text-slate-900 text-sm">Dynamic Tag Message Templates</h3>
+                <p className="text-xs text-slate-500">
+                  Customizable message templates with live tag replacement and zero Meta API fees.
+                </p>
+              </div>
             </div>
             <button
               onClick={() => setShowCreateTemplateModal(true)}
