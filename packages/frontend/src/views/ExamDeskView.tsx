@@ -553,21 +553,21 @@ export const ExamDeskView: React.FC = () => {
       </div>
 
       {/* Mobile Toggle Button for Metrics */}
-      <div className="sm:hidden">
+      <div className="sm:hidden flex justify-end">
         <button
           type="button"
           onClick={() => setShowOverviewMetrics(prev => !prev)}
-          className={`w-full py-1.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+          className={`h-8 px-2.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
             showOverviewMetrics
               ? 'bg-amber-50 border-amber-300 text-amber-900'
               : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
           }`}
+          title="Toggle Summary Metrics"
+          aria-label="Toggle Summary Metrics"
         >
-          <span className="flex items-center gap-1.5">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-            <span>Summary & Metrics ({exams.length} Exams · {bankQuestions.length} Questions)</span>
-          </span>
-          {showOverviewMetrics ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+          <span className="text-[11px]">Metrics</span>
+          {showOverviewMetrics ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}
         </button>
       </div>
 

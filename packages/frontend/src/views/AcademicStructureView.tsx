@@ -19,7 +19,6 @@ import {
   ArrowRightLeft,
   GripVertical,
   DollarSign,
-  ChevronDown,
   SlidersHorizontal,
 } from 'lucide-react';
 import { AcademicProgram, Batch, Subject, SubjectGroup, Student, FeeHead } from '@apex/shared-types';
@@ -1833,7 +1832,7 @@ export const AcademicStructureView: React.FC = () => {
           </div>
 
           {/* Standalone Search Bar & Single Button Filter Toggle */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
@@ -1857,16 +1856,18 @@ export const AcademicStructureView: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowBatchFilters(!showBatchFilters)}
-              className="sm:hidden flex items-center justify-between px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+              className={`sm:hidden w-9 h-9 flex items-center justify-center rounded-xl border transition-colors cursor-pointer shrink-0 relative ${
+                showBatchFilters || filterBatchShift !== 'all' || filterBatchBillingMode !== 'all' || filterBatchStatus !== 'all'
+                  ? 'bg-amber-50 text-amber-900 border-amber-300'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
+              title="Toggle Filters"
+              aria-label="Toggle Filters"
             >
-              <span className="flex items-center gap-1.5">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                <span>Filters</span>
-                {(filterBatchShift !== 'all' || filterBatchBillingMode !== 'all' || filterBatchStatus !== 'all') && (
-                  <span className="w-2 h-2 rounded-full bg-amber-600" />
-                )}
-              </span>
-              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showBatchFilters ? 'rotate-180' : ''}`} />
+              <SlidersHorizontal className="w-4 h-4 text-slate-600" />
+              {(filterBatchShift !== 'all' || filterBatchBillingMode !== 'all' || filterBatchStatus !== 'all') && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-600" />
+              )}
             </button>
           </div>
 

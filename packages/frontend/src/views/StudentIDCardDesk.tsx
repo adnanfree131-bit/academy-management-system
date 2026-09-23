@@ -7,8 +7,7 @@ import {
   Square,
   CreditCard,
   Sliders,
-  X,
-  ChevronDown
+  X
 } from 'lucide-react';
 import { Student, Batch, AcademicProgram } from '@apex/shared-types';
 import { SectionInfo } from '../components/SectionInfo';
@@ -250,16 +249,16 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
               type="button"
               onClick={handlePrint}
               disabled={activeSelectedStudents.length === 0 || isExporting}
-              className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-300 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-300 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>{isExporting ? 'Preparing official cards…' : `Download ${activeSelectedStudents.length} official ID cards`}</span>
+              <span>{isExporting ? 'Preparing…' : `Print Cards (${activeSelectedStudents.length})`}</span>
             </button>
           </div>
         </div>
 
         {/* Standalone Search Bar & Mobile Filter Toggle */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+        <div className="flex items-center gap-2 pt-1">
           <div className="relative flex-1">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -267,7 +266,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search by student name or admission #..."
-              className="w-full pl-8 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white font-sans"
+              className="w-full pl-8 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white font-sans"
             />
             {searchQuery && (
               <button
@@ -285,18 +284,16 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
           <button
             type="button"
             onClick={() => setShowFilters(!showFilters)}
-            className="sm:hidden px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 flex items-center justify-between gap-1.5 transition-colors"
+            className={`sm:hidden w-9 h-9 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center justify-center relative transition-colors shadow-2xs shrink-0 cursor-pointer ${
+              showFilters ? 'border-primary-500 bg-primary-50/30' : ''
+            }`}
+            title="Filters & Layout"
+            aria-label="Filters & Layout"
           >
-            <div className="flex items-center gap-1.5">
-              <Sliders className="w-3.5 h-3.5 text-slate-500" />
-              <span>Filters & Layout</span>
-              {((selectedProgramId !== 'all' ? 1 : 0) + (selectedBatchId !== 'all' ? 1 : 0) + (printLayout !== 'a4-duplex-8' ? 1 : 0)) > 0 && (
-                <span className="w-4 h-4 rounded-full bg-slate-900 text-white text-[10px] font-mono flex items-center justify-center">
-                  {(selectedProgramId !== 'all' ? 1 : 0) + (selectedBatchId !== 'all' ? 1 : 0) + (printLayout !== 'a4-duplex-8' ? 1 : 0)}
-                </span>
-              )}
-            </div>
-            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+            <Sliders className="w-4 h-4 text-slate-600" />
+            {((selectedProgramId !== 'all' ? 1 : 0) + (selectedBatchId !== 'all' ? 1 : 0) + (printLayout !== 'a4-duplex-8' ? 1 : 0)) > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white" />
+            )}
           </button>
         </div>
 

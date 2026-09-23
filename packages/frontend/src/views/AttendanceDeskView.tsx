@@ -21,8 +21,6 @@ import {
   CalendarDays,
   Check,
   Printer,
-  ChevronDown,
-  ChevronUp,
   SlidersHorizontal
 } from 'lucide-react';
 import { 
@@ -1064,22 +1062,22 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 )}
               </div>
 
-              {/* Single Toggle Button on Mobile for Status & Overview */}
+              {/* Single Icon-Only Button on Mobile for Status & Overview */}
               <button
                 type="button"
                 onClick={() => setShowOverviewFilters(prev => !prev)}
-                className={`sm:hidden h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
+                className={`sm:hidden w-9 h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer shrink-0 relative ${
                   showOverviewFilters || statusFilter !== 'ALL'
                     ? 'bg-amber-50 border-amber-300 text-amber-900'
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
+                title="Toggle Filters"
+                aria-label="Toggle Filters"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Filters</span>
+                <SlidersHorizontal className="w-4 h-4 text-slate-600" />
                 {statusFilter !== 'ALL' && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-600" />
                 )}
-                {showOverviewFilters ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}
               </button>
             </div>
 
@@ -1098,7 +1096,6 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
               {/* Status Filter Pills */}
               <div className="flex items-center gap-1 text-xs overflow-x-auto no-scrollbar max-w-full pb-0.5">
-                <span className="text-slate-400 mr-1 text-[11px] font-medium shrink-0">Filter:</span>
                 {(['ALL', 'present', 'absent', 'late', 'excused', 'unmarked'] as const).map(s => {
                   if (s === 'unmarked' && stats.unmarked === 0) return null;
                   const isSel = statusFilter === s;

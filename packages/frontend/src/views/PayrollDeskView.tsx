@@ -259,10 +259,10 @@ export const PayrollDeskView: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowKpis(!showKpis)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-2xs cursor-pointer"
+            className="h-8 px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-2xs flex items-center gap-1.5 cursor-pointer"
           >
             <Sliders className="w-3.5 h-3.5 text-slate-500" />
-            <span>Summary & Metrics</span>
+            <span>Metrics</span>
             <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showKpis ? 'rotate-180' : ''}`} />
           </button>
           <span className="text-xs font-mono text-slate-500">

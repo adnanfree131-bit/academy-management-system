@@ -33,7 +33,6 @@ import {
   User,
   GraduationCap,
   MoreVertical,
-  ChevronDown,
   SlidersHorizontal
 } from 'lucide-react';
 import { useMobileOverlay } from '../lib/mobileOverlay';
@@ -1770,14 +1769,15 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-1.5 self-start sm:self-auto">
           <button
             type="button"
             onClick={() => setIsAddingDocHead(true)}
-            className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-[#E6ECF2] rounded-xl text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="w-8 h-8 rounded-xl bg-white hover:bg-slate-50 text-slate-600 border border-[#E6ECF2] shadow-2xs transition-colors flex items-center justify-center cursor-pointer"
+            title="Document Requirements"
+            aria-label="Document Requirements"
           >
-            <FileText className="w-3.5 h-3.5 text-slate-500" />
-            <span>Document Requirements</span>
+            <FileText className="w-4 h-4 text-slate-500" />
           </button>
 
           <button
@@ -1788,19 +1788,21 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               setBulkImportCsvText('');
               if (batches.length > 0 && !bulkImportBatchId) setBulkImportBatchId(batches[0].id);
             }}
-            className="px-2.5 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-[#E6ECF2] rounded-xl text-xs font-semibold shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="w-8 h-8 rounded-xl bg-white hover:bg-slate-50 text-slate-600 border border-[#E6ECF2] shadow-2xs transition-colors flex items-center justify-center cursor-pointer"
+            title="Import CSV"
+            aria-label="Import CSV"
           >
-            <Upload className="w-3.5 h-3.5 text-slate-500" />
-            <span>Import CSV</span>
+            <Upload className="w-4 h-4 text-slate-500" />
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('new_admission')}
-            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white rounded-xl text-xs font-semibold shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all flex items-center gap-1.5 cursor-pointer"
+            className="h-8 px-2.5 sm:px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white rounded-xl text-xs font-semibold shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all flex items-center gap-1.5 cursor-pointer"
+            title="New Student Admission"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>New Admission</span>
+            <span className="hidden xs:inline">New </span>Admission
           </button>
         </div>
       </div>
@@ -1818,7 +1820,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           }`}
         >
           <Users className="w-3.5 h-3.5" />
-          <span>Directory ({students.length})</span>
+          <span>Students</span>
         </button>
         <button
           type="button"
@@ -1830,7 +1832,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           }`}
         >
           <HelpCircle className="w-3.5 h-3.5" />
-          <span>Inquiries ({inquiries.length})</span>
+          <span>Inquiries</span>
         </button>
         <button
           type="button"
@@ -1842,7 +1844,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           }`}
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>New Admission</span>
+          <span>Admission</span>
         </button>
         <button
           type="button"
@@ -1869,7 +1871,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           }`}
         >
           <Users className="w-3.5 h-3.5" />
-          <span>Directory ({students.length})</span>
+          <span>Students ({students.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('inquiries')}
@@ -1880,7 +1882,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           }`}
         >
           <HelpCircle className="w-3.5 h-3.5" />
-          <span>Inquiries Pipeline ({inquiries.length})</span>
+          <span>Inquiries ({inquiries.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('new_admission')}
@@ -1891,7 +1893,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           }`}
         >
           <UserPlus className="w-3.5 h-3.5" />
-          <span>Admission Form</span>
+          <span>New Admission</span>
         </button>
         <button
           onClick={() => setActiveTab('id_cards')}
@@ -1902,7 +1904,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           }`}
         >
           <CreditCard className="w-3.5 h-3.5" />
-          <span>ID Cards Desk</span>
+          <span>ID Cards</span>
         </button>
       </div>
 
@@ -1927,7 +1929,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       {/* ========================================================================= */}
       {activeTab === 'directory' && (
         <>
-        <div className="bg-white border border-[#E6ECF2] rounded-2xl shadow-2xs overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
           {actionFeedbackMessage && (
             <div className={`p-3 border-b flex items-center justify-between text-xs font-semibold ${
               actionFeedbackMessage.type === 'success'
@@ -1951,8 +1953,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </button>
             </div>
           )}
-          {/* Controls Toolbar: Standalone Search Bar + Single Expand Button for Overview & Filters */}
-          <div className="p-3 bg-white border-b border-slate-200">
+          {/* Controls Toolbar: Standalone Search Bar + Icon-Only Filter & Overview Button */}
+          <div className="p-3 bg-white">
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -1975,26 +1977,24 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 )}
               </div>
 
-              {/* Single Button to Expand All Overview Cards & Filters */}
+              {/* Single Icon-Only Button to Expand All Overview Cards & Filters */}
               <button
                 type="button"
                 onClick={() => setShowDirectoryFiltersAndSummary(prev => !prev)}
-                className={`h-9 sm:h-8 px-3 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
+                className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
                   showDirectoryFiltersAndSummary || activeDirectoryFilterCount > 0
                     ? 'bg-amber-50 text-amber-900 border-amber-300'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
                 title="Toggle Overview & Filters"
+                aria-label="Toggle Overview & Filters"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                <span className="hidden xs:inline">Filters & Overview</span>
-                <span className="xs:hidden">Filters</span>
+                <SlidersHorizontal className="w-4 h-4 text-slate-600" />
                 {activeDirectoryFilterCount > 0 && (
-                  <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
                     {activeDirectoryFilterCount}
                   </span>
                 )}
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showDirectoryFiltersAndSummary ? 'rotate-180' : ''}`} />
               </button>
             </div>
 
@@ -2119,65 +2119,68 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </div>
             )}
           </div>
+        </div>
 
-          {/* Selected Action Bar */}
-          {selectedDirectoryStudentIds.size > 0 && (
-            <div className="sticky top-0 sm:static z-20 bg-amber-50 text-amber-950 p-2.5 px-3 sm:px-4 flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 shadow-xs">
-              <div className="flex items-center gap-2 text-xs font-semibold text-amber-900">
-                <CheckSquare className="w-4 h-4 text-amber-700 shrink-0" />
-                <span>{selectedDirectoryStudentIds.size} student{selectedDirectoryStudentIds.size > 1 ? 's' : ''} selected</span>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setShowBulkIdCardsModal(true)}
-                  className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                >
-                  <CreditCard className="w-3.5 h-3.5 shrink-0" />
-                  <span>Print ID Cards ({selectedDirectoryStudentIds.size})</span>
-                </button>
-                {canArchiveStudents && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBulkArchiveReason('Bulk administrative student archival');
-                      setBulkArchiveCancelUnpaid(false);
-                      setShowBulkArchiveModal(true);
-                    }}
-                    className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    title="Archive Selected Students"
-                  >
-                    <Archive className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                    <span>Archive ({selectedDirectoryStudentIds.size})</span>
-                  </button>
-                )}
-                {canDeleteStudents && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setBulkDeleteForce(false);
-                      setBulkDeleteReason('Bulk administrative student deletion');
-                      setShowBulkDeleteModal(true);
-                    }}
-                    className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                    title="Permanently Delete Selected Students"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                    <span>Delete ({selectedDirectoryStudentIds.size})</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setSelectedDirectoryStudentIds(new Set())}
-                  className="h-8.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                >
-                  Clear
-                </button>
-              </div>
+        {/* Selected Action Bar */}
+        {selectedDirectoryStudentIds.size > 0 && (
+          <div className="sticky top-0 sm:static z-20 bg-amber-50 text-amber-950 p-2.5 px-3 sm:px-4 flex flex-wrap items-center justify-between gap-2 border border-amber-200 rounded-xl shadow-xs">
+            <div className="flex items-center gap-2 text-xs font-semibold text-amber-900">
+              <CheckSquare className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>{selectedDirectoryStudentIds.size} student{selectedDirectoryStudentIds.size > 1 ? 's' : ''} selected</span>
             </div>
-          )}
-          {/* Desktop Directory Table (>= 768px) */}
-          <div className="hidden md:block overflow-x-auto min-h-[300px]">
+            <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => setShowBulkIdCardsModal(true)}
+                className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <CreditCard className="w-3.5 h-3.5 shrink-0" />
+                <span>Print ID Cards ({selectedDirectoryStudentIds.size})</span>
+              </button>
+              {canArchiveStudents && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBulkArchiveReason('Bulk administrative student archival');
+                    setBulkArchiveCancelUnpaid(false);
+                    setShowBulkArchiveModal(true);
+                  }}
+                  className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  title="Archive Selected Students"
+                >
+                  <Archive className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                  <span>Archive ({selectedDirectoryStudentIds.size})</span>
+                </button>
+              )}
+              {canDeleteStudents && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBulkDeleteForce(false);
+                    setBulkDeleteReason('Bulk administrative student deletion');
+                    setShowBulkDeleteModal(true);
+                  }}
+                  className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  title="Permanently Delete Selected Students"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span>Delete ({selectedDirectoryStudentIds.size})</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setSelectedDirectoryStudentIds(new Set())}
+                className="h-8.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Desktop Directory Table (>= 768px) */}
+        <div className="hidden md:block bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
+          <div className="overflow-x-auto min-h-[300px]">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
@@ -2404,16 +2407,42 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 </tbody>
               </table>
             </div>
+            {filteredStudents.length > 0 && (
+              <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-200 bg-slate-50 text-xs">
+                <span className="text-slate-500 font-mono text-[11px]">
+                  Page {directoryPage} of {directoryPageCount} ({filteredStudents.length} students)
+                </span>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    disabled={directoryPage <= 1}
+                    onClick={() => setDirectoryPage(p => Math.max(1, p - 1))}
+                    className="px-3 py-1.5 border border-slate-200 rounded-md bg-white disabled:opacity-40 text-xs font-semibold cursor-pointer"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    disabled={directoryPage >= directoryPageCount}
+                    onClick={() => setDirectoryPage(p => Math.min(directoryPageCount, p + 1))}
+                    className="px-3 py-1.5 border border-slate-200 rounded-md bg-white disabled:opacity-40 text-xs font-semibold cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
-          {/* Mobile Box Cards List (< 768px) */}
-          <div className="md:hidden p-3 space-y-3 bg-slate-50/60">
+          {/* Mobile Box Cards List (< 768px) - 100% Full Width Directly on Page */}
+          <div className="md:hidden space-y-2.5" data-testid="mobile-student-roster">
             {isLoading ? (
-              <div className="py-12 text-center text-slate-400">
+              <div className="py-12 text-center text-slate-400 bg-white rounded-xl border border-slate-200 shadow-2xs">
                 <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                 <span className="text-xs font-mono">Loading student records...</span>
               </div>
             ) : filteredStudents.length === 0 ? (
-              <div className="py-12 text-center text-slate-400">
+              <div className="py-12 text-center text-slate-400 bg-white rounded-xl border border-slate-200 shadow-2xs p-4">
                 <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                 <p className="text-xs font-semibold text-slate-600">No students found matching current filters.</p>
                 {(activeDirectoryFilterCount > 0 || searchQuery) && (
@@ -2446,7 +2475,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   <div
                     key={student.id}
                     data-testid="student-roster-cell"
-                    className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-3 space-y-2.5 transition-all"
+                    className="w-full bg-white rounded-xl border border-slate-200 shadow-2xs p-3.5 space-y-2.5 transition-all"
                   >
                     {/* Top Row: Avatar/Initials + Full Student Name + Admission Number + Status Pill */}
                     <div className="flex items-start justify-between gap-2.5">
@@ -2584,33 +2613,33 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 );
               })
             )}
-          </div>
-          {filteredStudents.length > 0 && (
-            <div className="flex items-center justify-between px-4 py-2.5 border-t border-slate-200 bg-slate-50 text-xs">
-              <span className="text-slate-500">
-                Page {directoryPage} of {directoryPageCount} ({filteredStudents.length} students)
-              </span>
-              <div className="flex gap-1.5">
-                <button
-                  type="button"
-                  disabled={directoryPage <= 1}
-                  onClick={() => setDirectoryPage(p => Math.max(1, p - 1))}
-                  className="px-3 py-1.5 border border-slate-200 rounded-md bg-white disabled:opacity-40"
-                >
-                  Prev
-                </button>
-                <button
-                  type="button"
-                  disabled={directoryPage >= directoryPageCount}
-                  onClick={() => setDirectoryPage(p => Math.min(directoryPageCount, p + 1))}
-                  className="px-3 py-1.5 border border-slate-200 rounded-md bg-white disabled:opacity-40"
-                >
-                  Next
-                </button>
+
+            {filteredStudents.length > 0 && (
+              <div className="flex items-center justify-between p-3 rounded-xl bg-white border border-slate-200 shadow-2xs text-xs">
+                <span className="text-slate-500 font-mono text-[11px]">
+                  Page {directoryPage} of {directoryPageCount} ({filteredStudents.length} students)
+                </span>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    disabled={directoryPage <= 1}
+                    onClick={() => setDirectoryPage(p => Math.max(1, p - 1))}
+                    className="px-3 py-1.5 border border-slate-200 rounded-lg bg-slate-50 disabled:opacity-40 text-xs font-semibold cursor-pointer"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    disabled={directoryPage >= directoryPageCount}
+                    onClick={() => setDirectoryPage(p => Math.min(directoryPageCount, p + 1))}
+                    className="px-3 py-1.5 border border-slate-200 rounded-lg bg-slate-50 disabled:opacity-40 text-xs font-semibold cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         </>
       )}
 

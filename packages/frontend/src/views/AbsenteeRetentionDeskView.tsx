@@ -21,9 +21,7 @@ import {
   Clock,
   ShieldCheck,
   Search,
-  SlidersHorizontal,
-  ChevronDown,
-  ChevronUp
+  SlidersHorizontal
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -473,22 +471,22 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 )}
               </div>
 
-              {/* Single Toggle Button on Mobile for Filters & Overview */}
+              {/* Single Icon-Only Button on Mobile for Filters & Overview */}
               <button
                 type="button"
                 onClick={() => setShowOverviewFilters(prev => !prev)}
-                className={`sm:hidden h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
+                className={`sm:hidden w-9 h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer shrink-0 relative ${
                   showOverviewFilters || selectedBatchId !== 'ALL' || selectedStatusFilter !== 'ALL'
                     ? 'bg-amber-50 border-amber-300 text-amber-900'
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
+                title="Toggle Overview & Filters"
+                aria-label="Toggle Overview & Filters"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Filters & Overview</span>
+                <SlidersHorizontal className="w-4 h-4 text-slate-600" />
                 {(selectedBatchId !== 'ALL' || selectedStatusFilter !== 'ALL') && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-600" />
                 )}
-                {showOverviewFilters ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}
               </button>
             </div>
 

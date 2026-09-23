@@ -28,7 +28,6 @@ import {
   Calendar,
   ArrowRight,
   Phone,
-  ChevronDown,
   SlidersHorizontal,
   User,
   RotateCcw
@@ -2252,20 +2251,20 @@ export const FeeDeskView: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowFeeHeadsModal(true)}
-            className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-lg border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+            className="h-8.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-lg border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
             title="Manage Fee Heads and Allocation Order"
           >
             <DollarSign className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-            <span className="truncate">Fee Heads & Priority</span>
+            <span>Fee Heads</span>
           </button>
           <button
             type="button"
             onClick={() => setShowBulkRevisionModal(true)}
-            className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="h-8.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             title="Adjust tuition fees globally or by class/section"
           >
             <TrendingUp className="w-3.5 h-3.5 text-white/90 shrink-0" />
-            <span className="truncate">Bulk Fee Revision</span>
+            <span>Fee Revision</span>
           </button>
         </div>
       </div>
@@ -2281,8 +2280,7 @@ export const FeeDeskView: React.FC = () => {
           }`}
         >
           <Receipt className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'cashier' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="sm:hidden">Receiving</span>
-          <span className="hidden sm:inline">Fees Receiving</span>
+          <span>Receiving</span>
         </button>
 
         <button
@@ -2294,8 +2292,7 @@ export const FeeDeskView: React.FC = () => {
           }`}
         >
           <AlertCircle className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'defaulters' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="sm:hidden">Dues</span>
-          <span className="hidden sm:inline">Fee Defaulters</span>
+          <span>Defaulters</span>
           {duesSummary.allCount > 0 && (
             <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono ${
               activeTab === 'defaulters' ? 'bg-white text-amber-700' : 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -2314,8 +2311,7 @@ export const FeeDeskView: React.FC = () => {
           }`}
         >
           <BarChart2 className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'reports' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="sm:hidden">Reports</span>
-          <span className="hidden sm:inline">Finance Reports</span>
+          <span>Reports</span>
         </button>
       </div>
 
@@ -2357,26 +2353,24 @@ export const FeeDeskView: React.FC = () => {
                 )}
               </form>
 
-              {/* Single Button to Expand Summary & Class Filter */}
+              {/* Single Icon-Only Button to Expand Summary & Class Filter */}
               <button
                 type="button"
                 onClick={() => setShowCashierSummaryAndFilter(prev => !prev)}
-                className={`h-9 sm:h-8 px-3 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
+                className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
                   showCashierSummaryAndFilter || cashierClassFilter !== 'all'
                     ? 'bg-amber-50 text-amber-900 border-amber-300'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
                 title="Toggle Summary & Filter"
+                aria-label="Toggle Summary & Filter"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                <span className="hidden xs:inline">Summary & Filter</span>
-                <span className="xs:hidden">Summary</span>
+                <SlidersHorizontal className="w-4 h-4 text-slate-600" />
                 {cashierClassFilter !== 'all' && (
-                  <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
                     1
                   </span>
                 )}
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showCashierSummaryAndFilter ? 'rotate-180' : ''}`} />
               </button>
             </div>
 
@@ -2455,145 +2449,137 @@ export const FeeDeskView: React.FC = () => {
           {/* When No Student Selected: Active Dues Register */}
           {!selectedStudent && (
             <div className="space-y-2.5 sm:space-y-3">
-
-              {/* Active Dues Table */}
-              <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
-                <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900">Students with Outstanding Dues</span>
-                    <span className="text-[11px] text-slate-500 font-mono">({allUnpaidStudents.length})</span>
-                  </div>
+              {allUnpaidStudents.length === 0 ? (
+                <div className="bg-white border border-slate-200 rounded-xl shadow-2xs py-8 text-center text-slate-400 text-xs">
+                  <CheckCircle2 className="w-7 h-7 mx-auto mb-1.5 text-emerald-500" />
+                  <p className="font-semibold text-slate-700">All student fees are fully cleared</p>
+                  <p className="text-[10.5px] text-slate-400 mt-0.5">Use the search bar above to look up any student dossier or payment history.</p>
                 </div>
+              ) : (
+                <>
+                  {/* Mobile High-Density Outstanding Fee Box Cards (< 640px) - 100% Full Width Directly on Page */}
+                  <div className="sm:hidden space-y-2.5" data-testid="mobile-unpaid-fee-list">
+                    {allUnpaidStudents.slice(0, 30).map(def => {
+                      const stud = students.find(s => s.id === def.student_id);
+                      const guardianPhone = def.guardian_phone || stud?.guardian_phone || stud?.father_phone || stud?.student_whatsapp || stud?.phone;
+                      const targetInvoice = def.latest_invoice || (def.invoices && def.invoices[0]);
 
-                {allUnpaidStudents.length === 0 ? (
-                  <div className="py-8 text-center text-slate-400 text-xs">
-                    <CheckCircle2 className="w-7 h-7 mx-auto mb-1.5 text-emerald-500" />
-                    <p className="font-semibold text-slate-700">All student fees are fully cleared</p>
-                    <p className="text-[10.5px] text-slate-400 mt-0.5">Use the search bar above to look up any student dossier or payment history.</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Mobile Native High-Density Outstanding Fee Box Cards (< 640px) */}
-                    <div className="sm:hidden p-3 space-y-3 bg-slate-50/60" data-testid="mobile-unpaid-fee-list">
-                      {allUnpaidStudents.slice(0, 30).map(def => {
-                        const stud = students.find(s => s.id === def.student_id);
-                        const guardianPhone = def.guardian_phone || stud?.guardian_phone || stud?.father_phone || stud?.student_whatsapp || stud?.phone;
-                        const targetInvoice = def.latest_invoice || (def.invoices && def.invoices[0]);
-
-                        return (
-                          <div
-                            key={def.student_id}
-                            className="bg-white rounded-xl border border-slate-200 shadow-2xs p-3.5 space-y-3 transition-all"
-                          >
-                            {/* Top Row: Avatar + Full Student Name + Admission # + Challan Badge */}
-                            <div className="flex items-start justify-between gap-2.5">
-                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                                <div className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-sm shrink-0 font-mono shadow-2xs">
-                                  {def.student_name?.charAt(0) || 'S'}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedCashierStudentId(def.student_id);
-                                      setLedgerStudentId(def.student_id);
-                                      setStudentDeskTab('challans');
-                                    }}
-                                    className="font-bold text-[14.5px] text-slate-900 leading-snug text-left block hover:text-amber-800 break-words cursor-pointer"
-                                  >
-                                    {def.student_name}
-                                  </button>
-                                  <div className="text-xs font-mono font-semibold text-slate-500 mt-0.5">
-                                    Adm #{def.admission_number || '—'}
-                                  </div>
+                      return (
+                        <div
+                          key={def.student_id}
+                          className="w-full bg-white rounded-xl border border-slate-200 shadow-2xs p-3.5 space-y-2.5 transition-all"
+                        >
+                          {/* Top Row: Avatar + Full Student Name + Admission # + Challan Badge */}
+                          <div className="flex items-start justify-between gap-2.5">
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <div className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 font-mono shadow-2xs">
+                                {def.student_name?.charAt(0) || 'S'}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCashierStudentId(def.student_id);
+                                    setLedgerStudentId(def.student_id);
+                                    setStudentDeskTab('challans');
+                                  }}
+                                  className="font-semibold text-sm text-slate-900 leading-snug text-left block hover:text-amber-800 break-words cursor-pointer"
+                                >
+                                  {def.student_name}
+                                </button>
+                                <div className="text-[11px] font-mono text-slate-500 mt-0.5">
+                                  Adm #{def.admission_number || '—'}
                                 </div>
                               </div>
+                            </div>
 
-                              <span className="px-2.5 py-1 rounded-full text-[10.5px] font-bold font-mono bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
-                                {def.overdue_invoices_count || 1} Due
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                              {def.overdue_invoices_count || 1} Due
+                            </span>
+                          </div>
+
+                          {/* Middle Details: Flat divider lines - ZERO nested pink box */}
+                          <div className="py-2 border-y border-slate-100 space-y-1.5 text-xs">
+                            <div className="flex items-center justify-between gap-2 text-slate-600">
+                              <span className="text-slate-400 font-normal">Class:</span>
+                              <span className="font-medium text-slate-700 text-right">
+                                {def.program_name} {def.batch_name ? `• ${def.batch_name}` : ''}
                               </span>
                             </div>
-
-                            {/* Middle Separated Due Amount Box: Class/Batch + Father + Bold Amount with ZERO text collisions */}
-                            <div className="bg-rose-50/50 border border-rose-100 rounded-xl p-3 space-y-2">
-                              <div className="flex items-center justify-between gap-2 text-xs">
-                                <span className="text-slate-500 font-medium">Class / Program:</span>
-                                <span className="font-semibold text-slate-800 text-right">
-                                  {def.program_name} {def.batch_name ? `• ${def.batch_name}` : ''}
+                            {def.father_name && (
+                              <div className="flex items-center justify-between gap-2 text-slate-600">
+                                <span className="text-slate-400 font-normal">Guardian:</span>
+                                <span className="text-slate-700 text-right">
+                                  {def.father_name}
                                 </span>
                               </div>
-                              {def.father_name && (
-                                <div className="flex items-center justify-between gap-2 text-xs">
-                                  <span className="text-slate-500 font-medium">Guardian:</span>
-                                  <span className="font-medium text-slate-700 text-right">
-                                    {def.father_name}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="pt-2 border-t border-rose-100/80 flex items-center justify-between gap-2">
-                                <div>
-                                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-rose-700 block">
-                                    Total Outstanding
-                                  </span>
-                                  <span className="text-[11px] text-slate-500 font-mono">
-                                    Cycle: {targetInvoice?.billing_month || 'Current'}
-                                  </span>
-                                </div>
-                                <div className="text-right">
-                                  <span className="font-mono font-bold text-rose-700 text-base leading-none block">
-                                    PKR {def.total_balance.toLocaleString()}
-                                  </span>
-                                </div>
-                              </div>
+                            )}
+                            <div className="flex items-center justify-between gap-2 pt-0.5">
+                              <span className="text-[11px] text-slate-500 font-mono">
+                                Cycle: {targetInvoice?.billing_month || 'Current'}
+                              </span>
+                              <span className="font-mono font-bold text-rose-600 text-sm">
+                                PKR {def.total_balance.toLocaleString()}
+                              </span>
                             </div>
+                          </div>
 
-                            {/* Bottom Action Strip: Call + WhatsApp Reminder + Prominent 1-Tap Receive */}
-                            <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                              {guardianPhone ? (
+                          {/* Bottom Action Strip: Sleek Icon Buttons for Call & WhatsApp + Receive Fee button */}
+                          <div className="flex items-center justify-between gap-2 pt-0.5">
+                            <div className="flex items-center gap-1.5">
+                              {guardianPhone && (
                                 <a
                                   href={`tel:${guardianPhone}`}
-                                  className="h-8 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
                                   title="Call Guardian"
+                                  aria-label="Call Guardian"
                                 >
-                                  <Phone className="w-3.5 h-3.5 text-slate-600" />
-                                  <span>Call</span>
+                                  <Phone className="w-3.5 h-3.5" />
                                 </a>
-                              ) : null}
+                              )}
 
-                              {guardianPhone && targetInvoice ? (
+                              {guardianPhone && targetInvoice && (
                                 <button
                                   type="button"
                                   onClick={() => handleDispatchWhatsAppSlip(targetInvoice, guardianPhone)}
-                                  className="h-8 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                  className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors cursor-pointer"
                                   title="WhatsApp Reminder Slip"
+                                  aria-label="WhatsApp Reminder Slip"
                                 >
-                                  <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span>WhatsApp</span>
+                                  <MessageSquare className="w-3.5 h-3.5" />
                                 </button>
-                              ) : null}
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (targetInvoice) {
-                                    handleOpenCashierDrawer(targetInvoice);
-                                  } else {
-                                    handleViewStudentInDesk(def.student_id);
-                                  }
-                                }}
-                                className="flex-1 h-8 px-3 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                              >
-                                <CreditCard className="w-3.5 h-3.5" />
-                                <span>Receive Fee</span>
-                              </button>
+                              )}
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
 
-                    {/* Desktop Table (>= 640px) */}
-                    <div className="hidden sm:block overflow-x-auto">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (targetInvoice) {
+                                  handleOpenCashierDrawer(targetInvoice);
+                                } else {
+                                  handleViewStudentInDesk(def.student_id);
+                                }
+                              }}
+                              className="px-3 h-8 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+                            >
+                              <CreditCard className="w-3.5 h-3.5" />
+                              <span>Receive Fee</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop Active Dues Table (>= 640px) */}
+                  <div className="hidden sm:block bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-900">Students with Outstanding Dues</span>
+                        <span className="text-[11px] text-slate-500 font-mono">({allUnpaidStudents.length})</span>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs text-slate-700">
                         <thead className="bg-slate-50/80 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider font-mono">
                           <tr>
@@ -2664,9 +2650,9 @@ export const FeeDeskView: React.FC = () => {
                         </tbody>
                       </table>
                     </div>
-                  </>
-                )}
-              </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -2846,9 +2832,9 @@ export const FeeDeskView: React.FC = () => {
 
                 {/* TAB 1: FEE CHALLANS */}
                 {studentDeskTab === 'challans' && (
-                  <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
+                  <div>
                     {studInvoices.length === 0 ? (
-                      <div className="p-8 text-center text-slate-400 text-xs">
+                      <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-400 text-xs shadow-2xs">
                         <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-emerald-500" />
                         <p className="font-semibold text-slate-700">No active fee challans found for this student.</p>
                         <p className="text-[11px] text-slate-400 mt-1">
@@ -2865,15 +2851,15 @@ export const FeeDeskView: React.FC = () => {
                       </div>
                     ) : (
                       <>
-                        {/* Mobile: Challan Box Cards (< 640px) */}
-                        <div className="sm:hidden p-3 space-y-3">
+                        {/* Mobile: Challan Box Cards (< 640px) - 100% Full Width Directly on Page */}
+                        <div className="sm:hidden space-y-2.5">
                           {studInvoices.map(inv => {
                             const isPaid = inv.status === 'paid' || inv.balance_amount <= 0;
                             const guardianPhone = selectedStudent?.guardian_phone || selectedStudent?.phone;
                             return (
                               <div
                                 key={inv.id}
-                                className={`rounded-xl border shadow-2xs p-3.5 space-y-3 transition-all ${
+                                className={`w-full rounded-xl border shadow-2xs p-3.5 space-y-2.5 transition-all ${
                                   isPaid ? 'bg-slate-50/60 border-slate-200' : 'bg-white border-slate-200'
                                 }`}
                               >
@@ -2944,64 +2930,67 @@ export const FeeDeskView: React.FC = () => {
                                   </div>
                                 </div>
 
-                                {/* Action Buttons Row */}
-                                <div className="flex items-center gap-2 pt-1 border-t border-slate-100 flex-wrap">
+                                {/* Action Buttons Row: Sleek Icons on Left, Receive Fee on Right */}
+                                <div className="flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-100">
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveInvoice(inv);
+                                        setShowPrintModal(true);
+                                      }}
+                                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                                      title="Print fee challan"
+                                      aria-label="Print"
+                                    >
+                                      <Printer className="w-4 h-4" />
+                                    </button>
+
+                                    {inv.balance_amount > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDispatchWhatsAppSlip(inv, guardianPhone)}
+                                        className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors cursor-pointer"
+                                        title="WhatsApp fee slip"
+                                        aria-label="WhatsApp"
+                                      >
+                                        <MessageSquare className="w-4 h-4" />
+                                      </button>
+                                    )}
+
+                                    {inv.paid_amount > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleViewReceiptFromInvoice(inv)}
+                                        className="w-8 h-8 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 flex items-center justify-center transition-colors cursor-pointer"
+                                        title="View receipt"
+                                        aria-label="Receipt"
+                                      >
+                                        <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                                      </button>
+                                    )}
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePreviewSlipPicture(inv)}
+                                      className="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors cursor-pointer"
+                                      title="Preview slip picture"
+                                      aria-label="Preview"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </button>
+                                  </div>
+
                                   {inv.balance_amount > 0 && (
                                     <button
                                       type="button"
                                       onClick={() => handleOpenCashierDrawer(inv)}
-                                      className="flex-1 h-8 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                                      className="px-3 h-8 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-xs rounded-lg shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer"
                                     >
-                                      <CreditCard className="w-4 h-4" />
+                                      <CreditCard className="w-3.5 h-3.5" />
                                       <span>Receive Fee</span>
                                     </button>
                                   )}
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveInvoice(inv);
-                                      setShowPrintModal(true);
-                                    }}
-                                    className="h-8 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                                    title="Print fee challan"
-                                  >
-                                    <Printer className="w-4 h-4 text-slate-600" />
-                                    <span>Print</span>
-                                  </button>
-
-                                  {inv.balance_amount > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDispatchWhatsAppSlip(inv, guardianPhone)}
-                                      className="h-8 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                                      title="WhatsApp fee slip"
-                                    >
-                                      <MessageSquare className="w-4 h-4 text-emerald-600" />
-                                      <span>WA</span>
-                                    </button>
-                                  )}
-
-                                  {inv.paid_amount > 0 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleViewReceiptFromInvoice(inv)}
-                                      className="h-8 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
-                                      title="View receipt"
-                                    >
-                                      <CheckCircle2 className="w-4 h-4 text-indigo-600" />
-                                      <span>Receipt</span>
-                                    </button>
-                                  )}
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handlePreviewSlipPicture(inv)}
-                                    className="h-8 w-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors cursor-pointer"
-                                    title="Preview slip picture"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                  </button>
                                 </div>
                               </div>
                             );
@@ -3009,9 +2998,10 @@ export const FeeDeskView: React.FC = () => {
                         </div>
 
                         {/* Desktop Table (>= 640px) */}
-                        <div className="hidden sm:block overflow-x-auto">
-                          <table className="w-full text-left text-xs">
-                            <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase font-mono tracking-wider">
+                        <div className="hidden sm:block bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-left text-xs">
+                              <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase font-mono tracking-wider">
                               <tr>
                                 <th className="py-2.5 px-3">Challan #</th>
                                 <th className="py-2.5 px-3">Month</th>
@@ -3146,8 +3136,9 @@ export const FeeDeskView: React.FC = () => {
                             </tbody>
                           </table>
                         </div>
-                      </>
-                    )}
+                      </div>
+                    </>
+                  )}
                   </div>
                 )}
 
@@ -3566,26 +3557,24 @@ export const FeeDeskView: React.FC = () => {
                 )}
               </div>
 
-              {/* Single Button to Expand All Overview & Filters */}
+              {/* Single Icon-Only Button to Expand All Overview & Filters */}
               <button
                 type="button"
                 onClick={() => setShowDefaulterSummaryAndFilter(prev => !prev)}
-                className={`h-9 sm:h-8 px-3 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
+                className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
                   showDefaulterSummaryAndFilter || activeDefaulterFilterCount > 0 || duesView !== 'all'
                     ? 'bg-amber-50 text-amber-900 border-amber-300'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
                 title="Toggle Overview & Filters"
+                aria-label="Toggle Overview & Filters"
               >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                <span className="hidden xs:inline">Filters & Overview</span>
-                <span className="xs:hidden">Filters</span>
+                <SlidersHorizontal className="w-4 h-4 text-slate-600" />
                 {(activeDefaulterFilterCount > 0 || duesView !== 'all') && (
-                  <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
                     {activeDefaulterFilterCount + (duesView !== 'all' ? 1 : 0)}
                   </span>
                 )}
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showDefaulterSummaryAndFilter ? 'rotate-180' : ''}`} />
               </button>
             </div>
 
@@ -3724,21 +3713,20 @@ export const FeeDeskView: React.FC = () => {
           </div>
 
           {/* Defaulters Table & List Container */}
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-            {/* Mobile Native Defaulter Cards (< 640px) */}
-            {defaultersList.length > 0 && (
-              <div className="sm:hidden p-3 space-y-2.5 bg-slate-50/60" data-testid="mobile-defaulters-list">
-                {defaultersList.map(def => {
-                  const stud = students.find(s => s.id === def.student_id);
-                  const guardianPhone = def.guardian_phone || stud?.guardian_phone || stud?.father_phone || stud?.student_whatsapp || stud?.phone;
-                  const targetInvoice = def.latest_invoice || (def.invoices && def.invoices[0]);
+          {/* Mobile Native Defaulter Cards (< 640px) - 100% Full Width Directly on Page */}
+          {defaultersList.length > 0 && (
+            <div className="sm:hidden space-y-2.5" data-testid="mobile-defaulters-list">
+              {defaultersList.map(def => {
+                const stud = students.find(s => s.id === def.student_id);
+                const guardianPhone = def.guardian_phone || stud?.guardian_phone || stud?.father_phone || stud?.student_whatsapp || stud?.phone;
+                const targetInvoice = def.latest_invoice || (def.invoices && def.invoices[0]);
 
-                  return (
-                    <div
-                      key={def.student_id}
-                      data-testid="defaulter-roster-cell"
-                      className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-3 space-y-2.5 transition-all"
-                    >
+                return (
+                  <div
+                    key={def.student_id}
+                    data-testid="defaulter-roster-cell"
+                    className="w-full bg-white rounded-xl border border-slate-200 shadow-2xs p-3.5 space-y-2.5 transition-all"
+                  >
                       {/* Top Row: Avatar + Full Student Name + Admission # + Challan Count Badge */}
                       <div className="flex items-start justify-between gap-2.5">
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -3850,8 +3838,9 @@ export const FeeDeskView: React.FC = () => {
               </div>
             )}
 
-            {/* Defaulters Desktop Table (>= 640px) */}
-            <div className="hidden sm:block overflow-x-auto">
+          {/* Defaulters Desktop Table (>= 640px) */}
+          <div className="hidden sm:block bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+            <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-slate-700">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-mono text-[11px] uppercase tracking-wider">
                   <tr>

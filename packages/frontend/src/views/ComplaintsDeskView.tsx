@@ -9,7 +9,6 @@ import {
   X,
   Search,
   Sliders,
-  ChevronDown,
   Eye
 } from 'lucide-react';
 import { 
@@ -172,7 +171,7 @@ export const ComplaintsDeskView: React.FC = () => {
       </PageHeading>
 
       {/* Standalone Search Bar & Filters Strip */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+      <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -193,24 +192,24 @@ export const ComplaintsDeskView: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
-          >
-            <Sliders className="w-3.5 h-3.5 text-slate-500" />
-            <span>Filters</span>
-            {hasActiveFilters && (
-              <span className="w-2 h-2 rounded-full bg-amber-500" />
-            )}
-            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-          </button>
+        <button
+          type="button"
+          onClick={() => setShowFilters(!showFilters)}
+          className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs flex items-center justify-center relative cursor-pointer shrink-0 ${
+            showFilters ? 'border-primary-500 bg-primary-50/30' : ''
+          }`}
+          title="Filters"
+          aria-label="Filters"
+        >
+          <Sliders className="w-4 h-4 text-slate-600" />
+          {hasActiveFilters && (
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white" />
+          )}
+        </button>
 
-          <span className="text-xs font-mono text-slate-500 px-2.5 py-1.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
-            <strong className="text-slate-900">{filteredTickets.length}</strong> / {tickets.length}
-          </span>
-        </div>
+        <span className="hidden sm:inline-flex text-xs font-mono text-slate-500 px-2.5 py-1.5 bg-white rounded-xl border border-slate-200 shadow-2xs shrink-0">
+          <strong className="text-slate-900">{filteredTickets.length}</strong> / {tickets.length}
+        </span>
       </div>
 
       {/* Collapsible Filters Container */}
