@@ -33,8 +33,16 @@ import {
   AlertTriangle,
   FileText,
   User,
-  GraduationCap
+  GraduationCap,
+  MoreVertical
 } from 'lucide-react';
+import { 
+  GlanceableKpiStrip, 
+  MobileFilterSheet, 
+  FilterPillButton, 
+  FilterChipGroup, 
+  FilterChip 
+} from '../components/mobile';
 import { 
   AcademicProgram, 
   Batch, 
@@ -102,6 +110,18 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [inquiryStageFilter, setInquiryStageFilter] = useState<string>('all');
   const [directoryPage, setDirectoryPage] = useState(1);
   const DIRECTORY_PAGE_SIZE = 30;
+
+  // Native Mobile Drawer / Sheet States
+  const [showMobileFilterSheet, setShowMobileFilterSheet] = useState(false);
+  const [mobileActionStudent, setMobileActionStudent] = useState<Student | null>(null);
+
+  const activeDirectoryFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedProgramFilter !== 'all') count++;
+    if (selectedBatchFilter !== 'all') count++;
+    if (statusFilter !== 'all') count++;
+    return count;
+  }, [selectedProgramFilter, selectedBatchFilter, statusFilter]);
 
   const availableDirectoryBatches = useMemo(() => {
     if (selectedProgramFilter === 'all') return batches;
@@ -1760,8 +1780,121 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         </div>
       </div>
 
-      {/* 5-Card Metric Summary Strip (Finalized Enterprise Design) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+      {/* Mobile Glanceable KPI Strip (< 640px) */}
+      <GlanceableKpiStrip
+        items={[
+          { label: 'Students', value: students.length },
+          { label: 'Active', value: students.filter(s => s.status === 'active').length, color: 'text-emerald-700' },
+          { label: 'Defaulters', value: students.filter(s => s.fee_clearance_status === 'defaulter' || (Boolean(s.unpaid_balance) && s.unpaid_balance! > 0 && s.status === 'active')).length, color: 'text-rose-600' }
+        ]}
+        insightsTitle="Enrollment Metrics"
+        insightsSubtitle="Summary of students, active enrollments, and status distribution"
+      >
+        <div className="grid grid-cols-1 gap-2.5">
+          {/* Card 1: Total Students */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Total Students
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                  {students.length}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  Roster
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
+              <Users className="w-3.5 h-3.5 text-indigo-700" />
+            </span>
+          </div>
+
+          {/* Card 2: Active Enrolled */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Active Enrolled
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                  {students.filter(s => s.status === 'active').length}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  Attending
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
+              <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
+            </span>
+          </div>
+
+          {/* Card 3: Inquiries Pipeline */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Inquiries Pipeline
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                  {inquiries.length}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  Leads
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
+              <HelpCircle className="w-3.5 h-3.5 text-amber-700" />
+            </span>
+          </div>
+
+          {/* Card 4: Fee Defaulters */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Fee Defaulters
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                  {students.filter(s => s.fee_clearance_status === 'defaulter' || (Boolean(s.unpaid_balance) && s.unpaid_balance! > 0 && s.status === 'active')).length}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  Overdue
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-700" />
+            </span>
+          </div>
+
+          {/* Card 5: Inactive / Departed */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-slate-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Inactive / Departed
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                  {students.filter(s => s.status !== 'active').length}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  Archived
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-slate-50 text-slate-700 flex items-center justify-center border border-slate-200/70 shrink-0 shadow-2xs">
+              <Archive className="w-3.5 h-3.5 text-slate-700" />
+            </span>
+          </div>
+        </div>
+      </GlanceableKpiStrip>
+
+      {/* Desktop 5-Card Metric Summary Strip (Finalized Enterprise Design, >= 640px) */}
+      <div className="hidden sm:grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
         {/* Card 1: Total Students */}
         <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
           <div className="min-w-0">
@@ -2011,7 +2144,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           )}
           {/* Controls Toolbar */}
           <div className="p-3 bg-white border-b border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-            <div className="relative w-full sm:w-80">
+            {/* Desktop Search Input (>= 640px) */}
+            <div className="relative w-full sm:w-80 hidden sm:block">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
               <input
                 type="text"
@@ -2022,54 +2156,133 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               />
             </div>
 
-            {/* Mobile Filter Grid (Eliminates horizontal scrolling hurdle) */}
-            <div className="grid grid-cols-2 sm:hidden gap-1.5 w-full">
-              <select
-                value={selectedProgramFilter}
-                onChange={e => {
-                  setSelectedProgramFilter(e.target.value);
-                  setSelectedBatchFilter('all');
-                }}
-                className="col-span-2 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none"
-              >
-                <option value="all">All Classes ({programs.length})</option>
-                {programs.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-
-              <select
-                value={selectedBatchFilter}
-                onChange={e => setSelectedBatchFilter(e.target.value)}
-                className="col-span-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none"
-              >
-                <option value="all">
-                  {directoryCohortType === 'section'
-                    ? `All Sections (${availableDirectoryBatches.length})`
-                    : directoryCohortType === 'batch'
-                    ? `All Batches (${availableDirectoryBatches.length})`
-                    : `All Sections / Batches (${availableDirectoryBatches.length})`}
-                </option>
-                {availableDirectoryBatches.map(b => (
-                  <option key={b.id} value={b.id}>{b.name}</option>
-                ))}
-              </select>
-
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-                className="col-span-1 px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none"
-              >
-                <option value="all">All Statuses</option>
-                <option value="active">Active</option>
-                <option value="withdrawn">Withdrawn</option>
-                <option value="suspended">Suspended</option>
-                <option value="on_leave">On Leave</option>
-                <option value="alumni">Alumni</option>
-                <option value="waitlisted">Waitlisted</option>
-                <option value="archived">Archived</option>
-              </select>
+            {/* Mobile Native 1-Row Search Bar + Filter Pill (< 640px, Reclaims 120px+ space) */}
+            <div className="flex items-center gap-2 w-full sm:hidden">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search students..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors font-sans text-slate-900"
+                />
+              </div>
+              <FilterPillButton
+                activeCount={activeDirectoryFilterCount}
+                onClick={() => setShowMobileFilterSheet(true)}
+              />
             </div>
+
+            {/* Dedicated Native "Filters & Grouping" Bottom Sheet */}
+            <MobileFilterSheet
+              isOpen={showMobileFilterSheet}
+              onClose={() => setShowMobileFilterSheet(false)}
+              title="Filter Students"
+              subtitle="Filter by class, batch/section, and enrollment status"
+              activeFilterCount={activeDirectoryFilterCount}
+              totalResultsCount={filteredStudents.length}
+              resultsLabel="Students"
+              onReset={() => {
+                setSelectedProgramFilter('all');
+                setSelectedBatchFilter('all');
+                setStatusFilter('all');
+              }}
+            >
+              <FilterChipGroup label="Class / Program" countBadge={programs.length}>
+                <FilterChip
+                  selected={selectedProgramFilter === 'all'}
+                  onClick={() => {
+                    setSelectedProgramFilter('all');
+                    setSelectedBatchFilter('all');
+                  }}
+                  label="All Classes"
+                  count={programs.length}
+                />
+                {programs.map(p => (
+                  <FilterChip
+                    key={p.id}
+                    selected={selectedProgramFilter === p.id}
+                    onClick={() => {
+                      setSelectedProgramFilter(p.id);
+                      setSelectedBatchFilter('all');
+                    }}
+                    label={p.name}
+                  />
+                ))}
+              </FilterChipGroup>
+
+              <FilterChipGroup
+                label={directoryCohortType === 'section' ? 'Section' : directoryCohortType === 'batch' ? 'Batch' : 'Section / Batch'}
+                countBadge={availableDirectoryBatches.length}
+              >
+                <FilterChip
+                  selected={selectedBatchFilter === 'all'}
+                  onClick={() => setSelectedBatchFilter('all')}
+                  label="All"
+                  count={availableDirectoryBatches.length}
+                />
+                {availableDirectoryBatches.map(b => (
+                  <FilterChip
+                    key={b.id}
+                    selected={selectedBatchFilter === b.id}
+                    onClick={() => setSelectedBatchFilter(b.id)}
+                    label={`${b.name} (${b.shift.toUpperCase()})`}
+                  />
+                ))}
+              </FilterChipGroup>
+
+              <FilterChipGroup label="Enrollment Status" countBadge={students.length}>
+                <FilterChip
+                  selected={statusFilter === 'all'}
+                  onClick={() => setStatusFilter('all')}
+                  label="All Statuses"
+                  count={students.length}
+                />
+                <FilterChip
+                  selected={statusFilter === 'active'}
+                  onClick={() => setStatusFilter('active')}
+                  label="Active"
+                  count={students.filter(s => s.status === 'active').length}
+                />
+                <FilterChip
+                  selected={statusFilter === 'withdrawn'}
+                  onClick={() => setStatusFilter('withdrawn')}
+                  label="Withdrawn"
+                  count={students.filter(s => s.status === 'withdrawn').length}
+                />
+                <FilterChip
+                  selected={statusFilter === 'suspended'}
+                  onClick={() => setStatusFilter('suspended')}
+                  label="Suspended"
+                  count={students.filter(s => s.status === 'suspended').length}
+                />
+                <FilterChip
+                  selected={statusFilter === 'on_leave'}
+                  onClick={() => setStatusFilter('on_leave')}
+                  label="On Leave"
+                  count={students.filter(s => s.status === 'on_leave').length}
+                />
+                <FilterChip
+                  selected={statusFilter === 'alumni'}
+                  onClick={() => setStatusFilter('alumni')}
+                  label="Alumni"
+                  count={students.filter(s => s.status === 'alumni').length}
+                />
+                <FilterChip
+                  selected={statusFilter === 'waitlisted'}
+                  onClick={() => setStatusFilter('waitlisted')}
+                  label="Waitlisted"
+                  count={students.filter(s => s.status === 'waitlisted').length}
+                />
+                <FilterChip
+                  selected={statusFilter === 'archived'}
+                  onClick={() => setStatusFilter('archived')}
+                  label="Archived"
+                  count={students.filter(s => s.status === 'archived').length}
+                />
+              </FilterChipGroup>
+            </MobileFilterSheet>
 
             {/* Desktop Filters & Actions */}
             <div className="hidden sm:flex flex-wrap items-center gap-2.5 w-full sm:w-auto justify-end">
@@ -2437,47 +2650,69 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <div
                   key={student.id}
                   onClick={() => setSelectedStudent(student)}
-                  className="p-3.5 active:bg-slate-50 transition-colors flex flex-col gap-2.5 cursor-pointer touch-press"
+                  data-testid="student-roster-cell"
+                  className="p-3.5 active:bg-slate-50 min-h-[70px] flex items-center justify-between gap-2.5 transition-colors cursor-pointer touch-press"
                 >
-                  {/* Top Row: Selection + Avatar + Name + Status */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          toggleDirectoryStudent(student.id);
-                        }}
-                        className="p-1 text-slate-400 active:text-slate-900 shrink-0"
-                      >
-                        {selectedDirectoryStudentIds.has(student.id) ? (
-                          <CheckSquare className="w-4 h-4 text-slate-900" />
-                        ) : (
-                          <Square className="w-4 h-4 text-slate-300" />
-                        )}
-                      </button>
-                      <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 overflow-hidden">
-                        {student.photo_url ? (
-                          <img src={student.photo_url} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          student.full_name.charAt(0)
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-bold text-slate-900 text-sm truncate">
-                          {student.full_name}
-                        </div>
-                        <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          <span className="font-semibold text-slate-800 whitespace-nowrap font-mono">{student.admission_number || '—'}</span>
-                          {((student.active_enrollments_count ?? 1) > 1) && (
-                            <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                              +{(student.active_enrollments_count ?? 1) - 1} classes
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                  {/* Left: Checkbox + Avatar (36px) */}
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation();
+                        toggleDirectoryStudent(student.id);
+                      }}
+                      className="p-1 -ml-1 text-slate-400 active:text-slate-900 shrink-0 cursor-pointer"
+                      aria-label="Select student"
+                    >
+                      {selectedDirectoryStudentIds.has(student.id) ? (
+                        <CheckSquare className="w-4 h-4 text-slate-900" />
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-300" />
+                      )}
+                    </button>
+
+                    <div className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 overflow-hidden">
+                      {student.photo_url ? (
+                        <img src={student.photo_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        student.full_name.charAt(0)
+                      )}
                     </div>
 
+                    {/* Center: Line 1 (Name + Adm #) & Line 2 (Class/Batch · Guardian) */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline gap-1.5 truncate">
+                        <span className="font-semibold text-[13.5px] text-slate-900 truncate leading-snug">
+                          {student.full_name}
+                        </span>
+                        <span className="font-mono text-xs text-slate-400 shrink-0">
+                          #{student.admission_number || '—'}
+                        </span>
+                        {((student.active_enrollments_count ?? 1) > 1) && (
+                          <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                            +{(student.active_enrollments_count ?? 1) - 1}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="text-xs text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
+                        <span className="truncate">
+                          {getProgramName(student.program_id)} • {getBatchName(student.batch_id)}
+                        </span>
+                        {(student.guardian_phone || student.phone) && (
+                          <>
+                            <span className="text-slate-300">·</span>
+                            <span className="font-mono text-[11px] shrink-0 text-slate-400">
+                              {student.guardian_phone || student.phone}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Status Badge + Action Sheet Button (•••) */}
+                  <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize shrink-0 ${
                       student.status === 'active'
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -2497,135 +2732,16 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       }`}></span>
                       {student.status ? student.status.replace('_', ' ') : 'Active'}
                     </span>
-                  </div>
 
-                  {/* Middle Row: Batch & Guardian Details */}
-                  <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50/80 p-2.5 rounded-lg border border-slate-100">
-                    <div>
-                      <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">Class & Batch</span>
-                      <span className="font-medium text-slate-800 truncate block text-[11px]">
-                        {getProgramName(student.program_id)} • {getBatchName(student.batch_id)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">Guardian</span>
-                      <span className="font-medium text-slate-800 truncate block text-[11px]">
-                        {student.guardian_name || '—'} {student.guardian_relation ? `(${student.guardian_relation})` : ''}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Bottom Row: Actions Bar */}
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-100/70 text-xs">
-                    <div className="flex items-center gap-1.5">
-                      {student.guardian_phone && (
-                        <a
-                          href={`tel:${student.guardian_phone}`}
-                          onClick={e => e.stopPropagation()}
-                          className="min-h-[40px] px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1"
-                        >
-                          <Phone className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Call</span>
-                        </a>
-                      )}
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          setContactStudentModal(student);
-                        }}
-                        className="min-h-[40px] px-2.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 border border-emerald-200/50"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span>WhatsApp</span>
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                      {(canDeleteStudents || canArchiveStudents) && (
-                        <div className="relative inline-block text-left student-action-menu-container">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleteMenuStudentId(deleteMenuStudentId === student.id ? null : student.id);
-                            }}
-                            className={`w-10 h-10 min-w-[40px] min-h-[40px] flex items-center justify-center rounded-lg border transition-colors cursor-pointer ${
-                              deleteMenuStudentId === student.id
-                                ? 'bg-rose-50 text-rose-700 border-rose-300 ring-2 ring-rose-200'
-                                : 'bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border-slate-200'
-                            }`}
-                            title="Delete or Archive options"
-                          >
-                            <Trash2 className="w-4 h-4 text-rose-600" />
-                          </button>
-
-                          {deleteMenuStudentId === student.id && (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              className="absolute right-0 bottom-full mb-1.5 w-44 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-30 divide-y divide-slate-100 text-left"
-                            >
-                              <div className="py-1">
-                                {canDeleteStudents && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setDeleteMenuStudentId(null);
-                                      setStudentToDelete(student);
-                                      setDeleteReason('Administrative student deletion');
-                                      setDeleteForce(false);
-                                      setDeleteRequiresForce(false);
-                                      setDeleteErrorMessage(null);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors font-medium cursor-pointer"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                                    <span>Delete Student</span>
-                                  </button>
-                                )}
-                                {canArchiveStudents && (
-                                  student.status === 'archived' ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setDeleteMenuStudentId(null);
-                                        handleUnarchiveStudent(student);
-                                      }}
-                                      className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2 transition-colors font-medium cursor-pointer"
-                                    >
-                                      <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
-                                      <span>Restore Student</span>
-                                    </button>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setDeleteMenuStudentId(null);
-                                        setStudentToArchive(student);
-                                        setArchiveReason('Administrative student archival');
-                                        setCancelUnpaidOnArchive(false);
-                                      }}
-                                      className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-amber-50 hover:text-amber-700 flex items-center gap-2 transition-colors font-medium cursor-pointer"
-                                    >
-                                      <Archive className="w-3.5 h-3.5 text-amber-600" />
-                                      <span>Archive Student</span>
-                                    </button>
-                                  )
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setSelectedStudent(student)}
-                        className="px-2.5 py-1 bg-amber-600 text-white hover:bg-amber-700 rounded-md text-[11px] font-bold flex items-center gap-1 transition-colors"
-                      >
-                        <span>Student Profile</span>
-                        <ChevronRight className="w-3 h-3" />
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      data-testid="student-actions-trigger"
+                      onClick={() => setMobileActionStudent(student)}
+                      className="w-11 h-11 -mr-2 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 active:bg-slate-100 transition-colors cursor-pointer"
+                      aria-label="Student options"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               ))
@@ -5400,6 +5516,124 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         </div>,
         document.body
       )}
+      {/* Native Mobile Student Action Sheet */}
+      {mobileActionStudent && createPortal(
+        <div
+          className="fixed inset-0 z-[9995] flex items-end justify-center p-0 m-0 bg-slate-900/60 backdrop-blur-xs mobile-sheet"
+          onClick={e => {
+            if (e.target === e.currentTarget) setMobileActionStudent(null);
+          }}
+          data-testid="student-action-sheet"
+        >
+          <div className="bg-white rounded-t-3xl border-t border-slate-300 max-w-lg w-full shadow-2xl overflow-hidden flex flex-col mobile-sheet-card max-h-[85dvh]">
+            <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+              <div className="min-w-0">
+                <h3 className="font-bold text-slate-900 text-sm truncate">
+                  {mobileActionStudent.full_name}
+                </h3>
+                <p className="text-[11px] text-slate-500 font-mono">
+                  Adm #{mobileActionStudent.admission_number || '—'} · {getProgramName(mobileActionStudent.program_id)}
+                </p>
+              </div>
+              <button
+                type="button"
+                data-testid="student-action-sheet-close"
+                onClick={() => setMobileActionStudent(null)}
+                className="w-11 h-11 flex items-center justify-center rounded-full text-slate-500 hover:text-slate-900 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 space-y-1.5 overflow-y-auto">
+              <button
+                type="button"
+                data-testid="action-view-profile"
+                onClick={() => {
+                  const s = mobileActionStudent;
+                  setMobileActionStudent(null);
+                  setSelectedStudent(s);
+                }}
+                className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <User className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Open Student Profile & Dossier</span>
+              </button>
+
+              {mobileActionStudent.guardian_phone && (
+                <a
+                  href={`tel:${mobileActionStudent.guardian_phone}`}
+                  onClick={() => setMobileActionStudent(null)}
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors"
+                >
+                  <Phone className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>Call Guardian ({mobileActionStudent.guardian_phone})</span>
+                </a>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  const s = mobileActionStudent;
+                  setMobileActionStudent(null);
+                  setContactStudentModal(s);
+                }}
+                className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Send WhatsApp Notification</span>
+              </button>
+
+              {canArchiveStudents && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const s = mobileActionStudent;
+                    setMobileActionStudent(null);
+                    setStudentToArchive(s);
+                  }}
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-amber-700 hover:bg-amber-50 active:bg-amber-100 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <Archive className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Archive Student Record</span>
+                </button>
+              )}
+
+              {canDeleteStudents && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const s = mobileActionStudent;
+                    setMobileActionStudent(null);
+                    setStudentToDelete(s);
+                    setDeleteReason('Administrative student deletion');
+                    setDeleteForce(false);
+                    setDeleteRequiresForce(false);
+                    setDeleteErrorMessage(null);
+                  }}
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 active:bg-rose-100 flex items-center gap-2.5 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>Delete Student Permanently</span>
+                </button>
+              )}
+            </div>
+
+            <div className="p-3 border-t border-slate-200 bg-slate-50/70 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+              <button
+                type="button"
+                onClick={() => setMobileActionStudent(null)}
+                className="w-full min-h-[44px] py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Contact Options Modal for Student & Guardian */}
       {contactStudentModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 mobile-sheet">

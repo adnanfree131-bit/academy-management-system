@@ -366,6 +366,133 @@ async function runVerification() {
         console.log('No student cards available in directory for profile click test');
       }
 
+      // 10. GLANCEABLE KPI STRIP & INSIGHTS BOTTOM SHEET
+      console.log(`\n-- Step 10: Glanceable KPI Strip & Insights Sheet (${vp.width}px) --`);
+      await goTo('dashboard');
+      const dashStrip = await page.$('[data-testid="glanceable-kpi-strip"]');
+      record(`[${vp.width}px] Dashboard Glanceable KPI Strip Present`, Boolean(dashStrip), 'Rendered on mobile');
+
+      if (dashStrip) {
+        const insightsBtn = await dashStrip.$('[data-testid="kpi-insights-trigger"]');
+        if (insightsBtn) {
+          await insightsBtn.click();
+          await delay(600);
+
+          const sheetInfo = await page.evaluate(() => {
+            const overlay = document.querySelector('.mobile-sheet');
+            const card = document.querySelector('.mobile-sheet-card');
+            const closeBtn = card ? (card.querySelector('[data-testid="kpi-insights-close"]') || card.querySelector('button[aria-label="Close"]')) : null;
+            const closeRect = closeBtn ? closeBtn.getBoundingClientRect() : { width: 0, height: 0 };
+            return {
+              hasOverlay: Boolean(overlay),
+              hasCard: Boolean(card),
+              closeW: Math.round(closeRect.width),
+              closeH: Math.round(closeRect.height)
+            };
+          });
+
+          record(`[${vp.width}px] Dashboard Insights Sheet Opens`, sheetInfo.hasOverlay && sheetInfo.hasCard, 'Rendered with mobile-sheet & card');
+          record(`[${vp.width}px] Dashboard Insights Close Button >= 44x44`, sheetInfo.closeW >= 44 && sheetInfo.closeH >= 44, `${sheetInfo.closeW}x${sheetInfo.closeH}px`);
+
+          // Close sheet
+          const closeBtn = await page.$('.mobile-sheet-card button[aria-label="Close"]');
+          if (closeBtn) {
+            await closeBtn.click();
+            await delay(400);
+          }
+        }
+      }
+
+      // 11. DEDICATED FILTER & GROUPING BOTTOM SHEET
+      console.log(`\n-- Step 11: Dedicated Filters Bottom Sheet (${vp.width}px) --`);
+      await goTo('enrollment');
+      const filterPillBtn = await page.$('[data-testid="filter-pill-button"], [data-testid="mobile-filter-pill-trigger"]');
+      record(`[${vp.width}px] Filter Pill Button Present`, Boolean(filterPillBtn), 'Rendered on mobile enrollment view');
+
+      if (filterPillBtn) {
+        await filterPillBtn.click();
+        await delay(600);
+
+        const filterSheetInfo = await page.evaluate(() => {
+          const sheet = document.querySelector('[data-testid="mobile-filter-sheet"], [data-testid="mobile-filter-sheet-overlay"]');
+          const card = sheet ? (sheet.querySelector('.mobile-sheet-card') || sheet.querySelector('[data-testid="mobile-filter-sheet-card"]')) : null;
+          const closeBtn = card ? (card.querySelector('[data-testid="filter-sheet-close"]') || card.querySelector('button[aria-label="Close"]')) : null;
+          const closeRect = closeBtn ? closeBtn.getBoundingClientRect() : { width: 0, height: 0 };
+          const applyBtn = card ? card.querySelector('[data-testid="filter-sheet-apply"]') : null;
+          const applyRect = applyBtn ? applyBtn.getBoundingClientRect() : { width: 0, height: 0 };
+          const chips = card ? Array.from(card.querySelectorAll('[data-testid^="filter-chip-"]')) : [];
+          return {
+            hasSheet: Boolean(sheet),
+            hasCard: Boolean(card),
+            closeW: Math.round(closeRect.width),
+            closeH: Math.round(closeRect.height),
+            applyW: Math.round(applyRect.width),
+            applyH: Math.round(applyRect.height),
+            chipsCount: chips.length
+          };
+        });
+
+        record(`[${vp.width}px] Filter Bottom Sheet Opens`, filterSheetInfo.hasSheet && filterSheetInfo.hasCard, 'Modal bottom sheet confirmed');
+        record(`[${vp.width}px] Filter Close Button >= 44x44`, filterSheetInfo.closeW >= 44 && filterSheetInfo.closeH >= 44, `${filterSheetInfo.closeW}x${filterSheetInfo.closeH}px`);
+        record(`[${vp.width}px] Filter Apply Button >= 44px Height`, filterSheetInfo.applyH >= 44, `height: ${filterSheetInfo.applyH}px`);
+        record(`[${vp.width}px] Filter Segmented Chips Available`, filterSheetInfo.chipsCount > 0, `${filterSheetInfo.chipsCount} chips`);
+
+        // Close via Apply
+        const applyBtn = await page.$('[data-testid="filter-sheet-apply"]');
+        if (applyBtn) {
+          await applyBtn.click();
+          await delay(400);
+        }
+      }
+
+      // 12. HIGH-DENSITY NATIVE ROSTER CELLS (64px–80px)
+      console.log(`\n-- Step 12: High-Density Native Roster Cells (${vp.width}px) --`);
+      // A. Enrollment Roster
+      const enrollmentCellHeights = await page.evaluate(() => {
+        const cells = Array.from(document.querySelectorAll('[data-testid="student-roster-cell"]')).slice(0, 5);
+        return cells.map(c => Math.round(c.getBoundingClientRect().height));
+      });
+      if (enrollmentCellHeights.length > 0) {
+        const allWithinBounds = enrollmentCellHeights.every(h => h >= 64 && h <= 80);
+        record(
+          `[${vp.width}px] Enrollment Roster Cells Dense (64px–80px)`,
+          allWithinBounds,
+          `Heights: ${enrollmentCellHeights.join(', ')}px`
+        );
+      }
+
+      // B. Attendance Roster
+      await goTo('attendance');
+      const attendanceRowHeights = await page.evaluate(() => {
+        const rows = Array.from(document.querySelectorAll('[data-testid="attendance-roster-row"]')).slice(0, 5);
+        return rows.map(r => Math.round(r.getBoundingClientRect().height));
+      });
+      if (attendanceRowHeights.length > 0) {
+        const allWithinBounds = attendanceRowHeights.every(h => h >= 64 && h <= 80);
+        record(
+          `[${vp.width}px] Attendance Roster Cells Dense (64px–80px)`,
+          allWithinBounds,
+          `Heights: ${attendanceRowHeights.join(', ')}px`
+        );
+      }
+
+      // C. Fee Desk Unpaid List
+      await goTo('voucher');
+      const feeCellHeights = await page.evaluate(() => {
+        const list = document.querySelector('[data-testid="mobile-unpaid-fee-list"]');
+        if (!list) return [];
+        const items = Array.from(list.children).slice(0, 5);
+        return items.map(i => Math.round(i.getBoundingClientRect().height));
+      });
+      if (feeCellHeights.length > 0) {
+        const allWithinBounds = feeCellHeights.every(h => h >= 64 && h <= 80);
+        record(
+          `[${vp.width}px] Fee Cashier Unpaid Cells Dense (64px–80px)`,
+          allWithinBounds,
+          `Heights: ${feeCellHeights.join(', ')}px`
+        );
+      }
+
     } catch (err) {
       console.error(`Viewport ${vp.name} error:`, err);
       record(`Viewport ${vp.name} run`, false, err.message);

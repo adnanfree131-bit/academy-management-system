@@ -17,6 +17,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { GlanceableKpiStrip } from '../components/mobile';
 import {
   Batch,
   AcademicProgram,
@@ -585,6 +586,65 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </button>
       </div>
 
+      {/* ─── Glanceable Mobile KPI Strip (< 640px) ─── */}
+      <div className="sm:hidden -mt-1">
+        <GlanceableKpiStrip
+          icon={<TrendingUp className="w-3.5 h-3.5 text-[#B88634]" />}
+          items={[
+            { label: 'Students', value: activeStudents },
+            { label: 'Attendance', value: `${attendanceRate}%`, color: 'text-blue-700' },
+            { label: 'Realized', value: `${feeRealizationPct}%`, color: 'text-amber-700' },
+          ]}
+          actionLabel="Insights"
+          insightsTitle="Campus Operational Analytics"
+          insightsSubtitle="Student attendance, fee collection, and seat capacity telemetry"
+        >
+          <div className="space-y-4">
+            {/* Visual Insights Stream Distribution Donut */}
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+              <h4 className="text-xs font-bold text-[#0E2A47] mb-2">Academic Stream Distribution</h4>
+              <StreamDonutChart items={donutItems} total={activeStudents} />
+            </div>
+
+            {/* Telemetry Summary Cards */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl">
+                <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider">Attendance</span>
+                <div className="text-base font-bold font-mono text-[#0E2A47] mt-1">{attendanceRate}%</div>
+                <p className="text-[10px] text-slate-500 mt-0.5">{presentCount} Present · {lateCount} Late</p>
+              </div>
+              <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl">
+                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Fee Realized</span>
+                <div className="text-base font-bold font-mono text-[#0E2A47] mt-1">{feeRealizationPct}%</div>
+                <p className="text-[10px] text-slate-500 mt-0.5">{money(totalCollected)}</p>
+              </div>
+              <div className="p-3 bg-sky-50/60 border border-sky-200 rounded-xl">
+                <span className="text-[10px] font-bold text-sky-600 uppercase tracking-wider">Capacity</span>
+                <div className="text-base font-bold font-mono text-[#0E2A47] mt-1">{capacityPct}%</div>
+                <p className="text-[10px] text-slate-500 mt-0.5">{activeStudents} / {totalCapacity} Seats</p>
+              </div>
+              <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl">
+                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Teaching Staff</span>
+                <div className="text-base font-bold font-mono text-[#0E2A47] mt-1">{staffCount}/{staffCount}</div>
+                <p className="text-[10px] text-slate-500 mt-0.5">Geofenced On Duty</p>
+              </div>
+            </div>
+
+            {/* Quick Batch Summary */}
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-700">Active Batches</span>
+                <span className="font-mono font-bold text-[#0E2A47]">{batches.length} Batches</span>
+              </div>
+              <div className="flex items-center justify-between text-xs mt-1.5 pt-1.5 border-t border-slate-200">
+                <span className="font-semibold text-slate-700">Overdue Invoices</span>
+                <span className="font-mono font-bold text-rose-600">{unpaidInvoices.length} ({money(overdueAmount)})</span>
+              </div>
+            </div>
+          </div>
+        </GlanceableKpiStrip>
+      </div>
+
       {/* ─── Centerpiece: Daily Operational Overview ─── */}
       <div className="bg-white border border-[#E6ECF2] rounded-2xl p-3.5 sm:p-5 lg:p-6 shadow-2xs">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-3">
@@ -614,7 +674,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
             </div>
             <div className="mt-1.5 flex items-baseline gap-1">
-              <span className="text-xl font-bold font-mono text-[#0E2A47]">{attendanceRate}%</span>
+              <span className="text-lg font-bold font-mono text-[#0E2A47]">{attendanceRate}%</span>
             </div>
             <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
               {markedBatchesCount > 0 ? `${presentCount} Present` : `${unmarkedBatches.length} Pending`}
@@ -631,7 +691,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <CreditCard className="w-3.5 h-3.5 text-amber-600" />
             </div>
             <div className="mt-1.5 flex items-baseline gap-1">
-              <span className="text-xl font-bold font-mono text-[#0E2A47]">{feeRealizationPct}%</span>
+              <span className="text-lg font-bold font-mono text-[#0E2A47]">{feeRealizationPct}%</span>
             </div>
             <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
               {unpaidInvoices.length > 0 ? `${unpaidInvoices.length} Overdue` : 'All Cleared'}
@@ -648,7 +708,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <Users className="w-3.5 h-3.5 text-sky-600" />
             </div>
             <div className="mt-1.5 flex items-baseline gap-1">
-              <span className="text-xl font-bold font-mono text-[#0E2A47]">{activeStudents}</span>
+              <span className="text-lg font-bold font-mono text-[#0E2A47]">{activeStudents}</span>
               <span className="text-[10px] font-mono text-slate-400">/ {totalCapacity}</span>
             </div>
             <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
@@ -666,7 +726,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <GraduationCap className="w-3.5 h-3.5 text-emerald-600" />
             </div>
             <div className="mt-1.5 flex items-baseline gap-1">
-              <span className="text-xl font-bold font-mono text-[#0E2A47]">{staffCount}/{staffCount}</span>
+              <span className="text-lg font-bold font-mono text-[#0E2A47]">{staffCount}/{staffCount}</span>
             </div>
             <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
               Geofenced On Duty
@@ -728,7 +788,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       </div>
 
       {/* ─── Visual Insights Row: Donut Chart & Modern Weekly Bar Chart (Behance Slide 14) ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="hidden sm:grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Interactive Multi-Segment Donut Chart */}
         <div className="lg:col-span-6 bg-white border border-[#E6ECF2] rounded-2xl p-6 shadow-2xs flex flex-col justify-between">
           <div>

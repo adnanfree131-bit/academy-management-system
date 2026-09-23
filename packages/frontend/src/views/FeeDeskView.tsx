@@ -31,6 +31,7 @@ import {
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import { buildTabularFeeReportPdfBytes } from '../lib/feeReportsPdf';
 import { InPortalPdfViewerModal } from '../components/InPortalPdfViewerModal';
+import { GlanceableKpiStrip } from '../components/mobile';
 import {
   FeeHead,
   StudentInvoice,
@@ -2340,8 +2341,85 @@ export const FeeDeskView: React.FC = () => {
           {/* When No Student Selected: Active Dues Register */}
           {!selectedStudent && (
             <div className="space-y-2.5 sm:space-y-3">
-              {/* 4-Card Financial Summary Strip (Finalized Enterprise Design) */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {/* Mobile Glanceable KPI Strip (< 640px) */}
+              <GlanceableKpiStrip
+                items={[
+                  { label: 'Billed', value: `PKR ${Math.round(duesSummary.totalInvoiced).toLocaleString()}` },
+                  { label: 'Realized', value: `PKR ${Math.round(duesSummary.totalCollected).toLocaleString()}`, color: 'text-emerald-700' },
+                  { label: 'Overdue', value: `PKR ${Math.round(duesSummary.allAmount).toLocaleString()}`, color: 'text-rose-600' }
+                ]}
+                insightsTitle="Fee Collection Summary"
+                insightsSubtitle="Total billing, collections, and overdue receivables"
+              >
+                <div className="grid grid-cols-1 gap-2.5">
+                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                        Total Invoiced
+                      </span>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                          PKR {duesSummary.totalInvoiced.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
+                      <CreditCard className="w-3.5 h-3.5 text-indigo-700" />
+                    </span>
+                  </div>
+
+                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                        Realized Collections
+                      </span>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
+                          PKR {duesSummary.totalCollected.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                    </span>
+                  </div>
+
+                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                        Overdue Receivables
+                      </span>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="font-mono font-bold text-rose-600 text-sm leading-none">
+                          PKR {duesSummary.allAmount.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-700" />
+                    </span>
+                  </div>
+
+                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                        Defaulter Students
+                      </span>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                          {duesSummary.allCount} Students
+                        </span>
+                      </div>
+                    </div>
+                    <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
+                      <Users className="w-3.5 h-3.5 text-amber-700" />
+                    </span>
+                  </div>
+                </div>
+              </GlanceableKpiStrip>
+
+              {/* Desktop 4-Card Financial Summary Strip (>= 640px) */}
+              <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-2.5">
                 {/* Card 1: Total Invoiced */}
                 <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
                   <div className="min-w-0">
@@ -2431,45 +2509,47 @@ export const FeeDeskView: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    {/* Mobile Native Outstanding Fee Cards (Zero Sliders) */}
-                    <div className="sm:hidden space-y-2.5 p-3">
+                    {/* Mobile Native High-Density Outstanding Fee Cards (< 640px) */}
+                    <div className="sm:hidden divide-y divide-slate-100 bg-white" data-testid="mobile-unpaid-fee-list">
                       {allUnpaidStudents.slice(0, 30).map(def => (
-                        <div key={def.student_id} className="p-3 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-2">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-8 h-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 font-mono">
-                                {def.student_name?.charAt(0) || 'S'}
-                              </div>
-                              <div className="min-w-0">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedCashierStudentId(def.student_id);
-                                    setLedgerStudentId(def.student_id);
-                                    setStudentDeskTab('challans');
-                                  }}
-                                  className="font-bold text-slate-900 text-xs truncate leading-snug text-left block hover:underline"
-                                >
-                                  {def.student_name}
-                                </button>
-                                <p className="text-[10px] text-slate-500 font-mono truncate">
-                                  Adm: #{def.admission_number || '—'} • {def.program_name}
-                                </p>
+                        <div
+                          key={def.student_id}
+                          className="p-3 active:bg-slate-50 min-h-[70px] flex items-center justify-between gap-2.5 transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 font-mono">
+                              {def.student_name?.charAt(0) || 'S'}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCashierStudentId(def.student_id);
+                                  setLedgerStudentId(def.student_id);
+                                  setStudentDeskTab('challans');
+                                }}
+                                className="font-semibold text-[13.5px] text-slate-900 truncate leading-snug text-left block hover:underline"
+                              >
+                                {def.student_name}
+                              </button>
+                              <div className="text-xs text-slate-500 font-mono truncate mt-0.5 flex items-center gap-1.5">
+                                <span>#{def.admission_number || '—'}</span>
+                                <span className="text-slate-300">·</span>
+                                <span className="truncate">{def.program_name}</span>
                               </div>
                             </div>
-                            <div className="text-right shrink-0">
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <div className="text-right">
                               <span className="font-mono font-bold text-rose-600 text-xs block">
                                 PKR {def.total_balance.toLocaleString()}
                               </span>
-                              <span className="text-[9.5px] text-slate-400 font-mono">
+                              <span className="text-[10px] text-slate-400 font-mono block">
                                 {def.latest_invoice?.billing_month || 'Due'}
                               </span>
                             </div>
-                          </div>
-                          <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
-                            <span className="text-[10px] text-slate-500 font-mono">
-                              Challan: {def.latest_invoice?.invoice_number || '—'}
-                            </span>
+
                             <button
                               type="button"
                               onClick={() => {
@@ -2480,10 +2560,10 @@ export const FeeDeskView: React.FC = () => {
                                   handleOpenCashierDrawer(def.latest_invoice);
                                 }
                               }}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
+                              className="min-h-[36px] px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-xl shadow-2xs flex items-center gap-1 transition-all cursor-pointer touch-press"
                             >
                               <CreditCard className="w-3.5 h-3.5" />
-                              <span>Receive Fee</span>
+                              <span>Receive</span>
                             </button>
                           </div>
                         </div>
@@ -3374,79 +3454,52 @@ export const FeeDeskView: React.FC = () => {
               </div>
             </div>
 
-            {/* Mobile Native Defaulter Cards (Zero Horizontal Sliders) */}
+            {/* Mobile Native High-Density Defaulter Cards (< 640px) */}
             {defaultersList.length > 0 && (
-              <div className="sm:hidden space-y-2.5 p-3">
-                {defaultersList.map((def, idx) => {
-                  const stud = students.find(s => s.id === def.student_id);
-                  const siblings = stud ? getStudentSiblings(stud) : [];
-
+              <div className="sm:hidden divide-y divide-slate-100 bg-white" data-testid="mobile-defaulters-list">
+                {defaultersList.map(def => {
                   return (
-                    <div key={def.student_id} className="p-3.5 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-2.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="font-mono text-[10px] text-slate-400">#{idx + 1}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleViewStudentInDesk(def.student_id)}
-                              className="font-bold text-slate-900 text-xs truncate leading-snug hover:underline text-left"
-                            >
-                              {def.student_name}
-                            </button>
-                          </div>
-                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                            Adm #{def.admission_number || '—'} • {def.program_name} {def.batch_name ? `• ${def.batch_name}` : ''}
-                          </p>
-                          <p className="text-[10px] text-slate-600 mt-0.5">
-                            Guardian: {def.father_name || '—'} {def.guardian_phone ? `(${def.guardian_phone})` : ''}
-                          </p>
+                    <div
+                      key={def.student_id}
+                      className="p-3 active:bg-slate-50 min-h-[70px] flex items-center justify-between gap-2.5 transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 font-mono">
+                          {def.student_name?.charAt(0) || 'S'}
                         </div>
-                        <div className="text-right shrink-0">
-                          <span className="font-mono font-bold text-rose-600 text-xs block">
-                            PKR {def.total_balance.toLocaleString()}
-                          </span>
-                          <span className="text-[9.5px] text-slate-500 font-medium">
-                            {def.overdue_invoices_count} Challan{def.overdue_invoices_count > 1 ? 's' : ''}
-                          </span>
+                        <div className="min-w-0 flex-1">
+                          <button
+                            type="button"
+                            onClick={() => handleViewStudentInDesk(def.student_id)}
+                            className="font-semibold text-[13.5px] text-slate-900 truncate leading-snug hover:underline text-left block"
+                          >
+                            {def.student_name}
+                          </button>
+                          <div className="text-xs text-slate-500 font-mono truncate mt-0.5 flex items-center gap-1.5">
+                            <span>#{def.admission_number || '—'}</span>
+                            <span className="text-slate-300">·</span>
+                            <span className="truncate">{def.program_name}</span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Mobile Actions */}
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedDefaulterModal(def)}
-                            className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 font-semibold text-[11px] rounded border border-slate-200 transition-colors"
-                          >
-                            Details
-                          </button>
-                          {siblings.length > 0 && stud && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenFamilyModal(stud)}
-                              className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] rounded border border-indigo-200 transition-colors"
-                            >
-                              Family ({siblings.length + 1})
-                            </button>
-                          )}
-                          {def.guardian_phone && (
-                            <button
-                              type="button"
-                              onClick={() => handleDispatchWhatsAppSlip(def.latest_invoice, def.guardian_phone)}
-                              className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-semibold text-[11px] rounded border border-emerald-200 transition-colors"
-                            >
-                              WhatsApp
-                            </button>
-                          )}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <span className="font-mono font-bold text-rose-600 text-xs block">
+                            PKR {def.total_balance.toLocaleString()}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium block">
+                            {def.overdue_invoices_count} Challan{def.overdue_invoices_count > 1 ? 's' : ''}
+                          </span>
                         </div>
+
                         <button
                           type="button"
                           onClick={() => handleOpenCashierDrawer(def.latest_invoice)}
-                          className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs transition-all"
+                          className="min-h-[36px] px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-xl shadow-2xs flex items-center gap-1 transition-all cursor-pointer touch-press"
                         >
-                          Receive Fee
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span>Receive</span>
                         </button>
                       </div>
                     </div>
