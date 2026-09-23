@@ -3,6 +3,13 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 
+// Vite chunk error handler: automatically refresh on stale chunk 404 after deployment
+if (typeof window !== 'undefined') {
+  window.addEventListener('vite:preloadError', () => {
+    window.location.reload();
+  });
+}
+
 // Global Input Caret Fix: When selecting/focusing an input with existing text,
 // prevent awkward caret placement at index 0 (|text) and position at end of text.
 if (typeof document !== 'undefined') {

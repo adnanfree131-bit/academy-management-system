@@ -161,6 +161,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [homeworkList, setHomeworkList] = useState<HomeworkItem[]>([]);
   const [inquiriesList, setInquiriesList] = useState<InquiryItem[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [logoError, setLogoError] = useState(false);
 
   const loadData = async () => {
     if (!token) return;
@@ -313,19 +314,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       <div className="bg-white border border-[#E6ECF2] rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 min-w-0">
           <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 p-1 shrink-0 shadow-2xs flex items-center justify-center overflow-hidden">
-            <img
-              src={tenant?.logo_url || (tenant as any)?.settings?.logo_url || '/tsa-logo.png'}
-              alt={tenant?.name || 'Academy'}
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                (e.target as HTMLElement).style.display = 'none';
-                const parent = (e.target as HTMLElement).parentElement;
-                if (parent) {
-                  parent.className = "w-12 h-12 rounded-xl bg-[#081A2F] text-[#B88634] flex items-center justify-center font-bold text-lg border border-slate-800 shrink-0";
-                  parent.innerText = (tenant?.name || 'A').charAt(0);
-                }
-              }}
-            />
+            {!logoError && (tenant?.logo_url || (tenant as any)?.settings?.logo_url || '/tsa-logo.png') ? (
+              <img
+                src={tenant?.logo_url || (tenant as any)?.settings?.logo_url || '/tsa-logo.png'}
+                alt={tenant?.name || 'Academy'}
+                className="w-full h-full object-contain"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              <div className="w-full h-full rounded-lg bg-[#081A2F] text-amber-400 flex items-center justify-center font-bold text-lg font-mono">
+                {(tenant?.name || 'A').charAt(0)}
+              </div>
+            )}
           </div>
 
           <div className="min-w-0 flex-1">
@@ -387,136 +387,112 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Students</span>
-            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <Users className="w-4 h-4" />
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Students</span>
+            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+              <Users className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="my-2">
+          <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-semibold font-mono text-[#081A2F]">{activeStudents}</span>
+              <span className="text-xl sm:text-2xl font-bold font-mono text-[#081A2F]">{activeStudents}</span>
               <span className="text-[11px] font-mono text-slate-400">/ {totalCapacity}</span>
             </div>
-            <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mt-2">
-              <div
-                className="h-full bg-blue-600 rounded-full transition-all"
-                style={{ width: `${Math.min(100, Math.max(5, capacityPct))}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-slate-400 font-mono mt-1">
-              {capacityPct}% Capacity Occupied
+            <p className="text-[11px] text-slate-500 mt-1">
+              <span className="font-mono font-semibold text-slate-700">{capacityPct}%</span> capacity occupied
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
             <span>{batches.length} Batches</span>
-            <span className="text-blue-600 font-medium hover:underline">Directory →</span>
+            <span className="text-[#081A2F] font-semibold hover:underline">Directory →</span>
           </div>
         </div>
 
         {/* Card 2: Fee Collections */}
         <div
           onClick={() => onNavigate('voucher')}
-          className="bg-white border border-[#E6ECF2] hover:border-amber-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Collections</span>
-            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <CreditCard className="w-4 h-4" />
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Collections</span>
+            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+              <CreditCard className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="my-2">
+          <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-lg sm:text-2xl font-semibold font-mono text-[#081A2F] truncate">
+              <span className="text-lg sm:text-2xl font-bold font-mono text-[#081A2F] truncate">
                 {money(totalCollected)}
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mt-2">
-              <div
-                className="h-full bg-amber-600 rounded-full transition-all"
-                style={{ width: `${Math.min(100, feeRealizationPct)}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-slate-400 font-mono mt-1">
-              {feeRealizationPct}% of {money(totalBilled)} Billed
+            <p className="text-[11px] text-slate-500 mt-1 truncate">
+              <span className="font-mono font-semibold text-slate-700">{feeRealizationPct}%</span> of {money(totalBilled)} billed
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
-            <span className="text-rose-600 font-medium font-mono">{unpaidInvoices.length} Overdue</span>
-            <span className="text-amber-700 font-medium hover:underline">Cashier →</span>
+          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+            <span className="text-rose-600 font-semibold font-mono">{unpaidInvoices.length} Overdue</span>
+            <span className="text-[#081A2F] font-semibold hover:underline">Cashier →</span>
           </div>
         </div>
 
         {/* Card 3: Student Attendance Today */}
         <div
           onClick={() => onNavigate('attendance')}
-          className="bg-white border border-[#E6ECF2] hover:border-emerald-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Attendance</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <CheckSquare className="w-4 h-4" />
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Attendance</span>
+            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+              <CheckSquare className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="my-2">
+          <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-semibold font-mono text-[#081A2F]">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-[#081A2F]">
                 {isAttendanceSubmittedToday ? `${attendanceRate}%` : 'Pending'}
               </span>
               {isAttendanceSubmittedToday && (
-                <span className="text-[11px] text-emerald-700 font-medium font-mono">
+                <span className="text-[11px] text-emerald-700 font-semibold font-mono">
                   {presentCount} Present
                 </span>
               )}
             </div>
-            <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mt-2">
-              <div
-                className="h-full bg-emerald-600 rounded-full transition-all"
-                style={{ width: `${isAttendanceSubmittedToday ? attendanceRate : 0}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-slate-400 font-mono mt-1">
-              {absentCount > 0 ? `${absentCount} Absent • ` : ''}{lateCount > 0 ? `${lateCount} Late • ` : ''}{markedBatchesCount}/{batches.length} Batches Marked
+            <p className="text-[11px] text-slate-500 mt-1">
+              {absentCount > 0 ? `${absentCount} Absent • ` : ''}{lateCount > 0 ? `${lateCount} Late • ` : ''}{markedBatchesCount}/{batches.length} Marked
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
-            <span>{unmarkedBatches.length > 0 ? `${unmarkedBatches.length} Pending` : 'All Marked'}</span>
-            <span className="text-emerald-700 font-medium hover:underline">Register →</span>
+          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+            <span>{unmarkedBatches.length > 0 ? `${unmarkedBatches.length} Pending` : 'All Batches Marked'}</span>
+            <span className="text-[#081A2F] font-semibold hover:underline">Register →</span>
           </div>
         </div>
 
         {/* Card 4: Faculty & Staff Roster */}
         <div
           onClick={() => onNavigate('geofence')}
-          className="bg-white border border-[#E6ECF2] hover:border-purple-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Staff On-Campus</span>
-            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-              <UserCheck className="w-4 h-4" />
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Staff On-Campus</span>
+            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+              <UserCheck className="w-3.5 h-3.5" />
             </div>
           </div>
-          <div className="my-2">
+          <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-semibold font-mono text-[#081A2F]">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-[#081A2F]">
                 {presentStaffCount} <span className="text-sm font-normal text-slate-400 font-sans">/ {totalStaffCount || 6}</span>
               </span>
-              <span className="text-[11px] text-purple-700 font-medium font-mono">
+              <span className="text-[11px] text-slate-600 font-semibold font-mono">
                 {staffPresentPct}% Duty
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mt-2">
-              <div
-                className="h-full bg-purple-600 rounded-full transition-all"
-                style={{ width: `${staffPresentPct}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-slate-400 font-mono mt-1 truncate">
-              {lateStaffCount > 0 ? `${lateStaffCount} Late • ` : ''}{leaveStaffCount > 0 ? `${leaveStaffCount} Leave • ` : ''}Core Subjects Active
+            <p className="text-[11px] text-slate-500 mt-1 truncate">
+              {lateStaffCount > 0 ? `${lateStaffCount} Late • ` : ''}{leaveStaffCount > 0 ? `${leaveStaffCount} Leave • ` : ''}Active On Duty
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
             <span>{timetableSlots.length} Periods Today</span>
-            <span className="text-purple-700 font-semibold hover:underline">Roster →</span>
+            <span className="text-[#081A2F] font-semibold hover:underline">Roster →</span>
           </div>
         </div>
       </div>
@@ -684,59 +660,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             ) : (
               <p className="text-xs text-slate-400 py-4 text-center">
                 No timetable periods configured yet. <button onClick={() => onNavigate('timetable')} className="text-[#081A2F] font-semibold underline">Add slots in Timetables Desk</button>.
-              </p>
-            )}
-          </div>
-
-          {/* Today's Homework & Academic Diary */}
-          <div className="bg-white border border-[#E6ECF2] rounded-2xl p-4 sm:p-5 shadow-2xs">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
-              <div className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-amber-600" />
-                <div>
-                  <h2 className="text-sm font-bold text-[#081A2F]">
-                    Homework Diary & Notebook Checking
-                  </h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Classwork assigned today across batches
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onNavigate('homework')}
-                className="text-xs font-semibold text-[#081A2F] hover:underline cursor-pointer"
-              >
-                Diary Desk →
-              </button>
-            </div>
-
-            {homeworkList.length > 0 ? (
-              <div className="space-y-2.5">
-                {homeworkList.map(hw => (
-                  <div key={hw.id} className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-start justify-between gap-3 text-xs">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-900">{hw.title}</span>
-                        <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-blue-50 text-blue-700 border border-blue-200">
-                          {hw.subject_name || 'Subject'}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Assigned by {hw.teacher_name || 'Faculty'} • {hw.batch_name || 'Batch'}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 block">
-                        Due {hw.due_date}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 py-3 text-center">
-                No homework diary assigned for today yet.
               </p>
             )}
           </div>
@@ -912,89 +835,109 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             <StreamDonut items={donutItems} total={activeStudents} />
           </div>
 
-          {/* Prospective Student Inquiries (Admissions Pipeline) */}
-          <div className="bg-white border border-[#E6ECF2] rounded-2xl p-4 sm:p-5 shadow-2xs">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
-              <div className="flex items-center gap-2">
-                <PhoneCall className="w-4 h-4 text-emerald-600" />
-                <div>
-                  <h2 className="text-sm font-bold text-[#081A2F]">
-                    Prospective Inquiries
-                  </h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Admissions follow-up pipeline
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => onNavigate('enrollment')}
-                className="text-xs font-semibold text-[#081A2F] hover:underline cursor-pointer"
-              >
-                Inquiries →
-              </button>
-            </div>
+        </div>
+      </div>
 
-            {inquiriesList.length > 0 ? (
-              <div className="space-y-2">
-                {inquiriesList.slice(0, 3).map(inq => (
-                  <div key={inq.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2 text-xs">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-slate-900 truncate">{inq.full_name}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">{inq.phone || 'No phone'} • {inq.notes ? inq.notes.slice(0, 30) + '...' : ''}</p>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
-                      {inq.stage?.replace('_', ' ') || 'New'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-400 py-3 text-center">
-                No active student inquiries pending follow-up.
-              </p>
-            )}
+      {/* Executive Desks Summary Bar: Homework, Admissions Pipeline, and Examinations */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Desk 1: Homework Diary */}
+        <div
+          onClick={() => onNavigate('homework')}
+          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Academic Diary</span>
+            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+              <BookOpen className="w-3.5 h-3.5" />
+            </div>
           </div>
-
-          {/* Examinations & Assessments */}
-          {exams.length > 0 && (
-            <div className="bg-white border border-[#E6ECF2] rounded-2xl p-4 sm:p-5 shadow-2xs">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-purple-600" />
-                  <div>
-                    <h2 className="text-sm font-bold text-[#081A2F]">
-                      Term Assessments & Exams
-                    </h2>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Upcoming & recently graded papers
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onNavigate('exams')}
-                  className="text-xs font-semibold text-[#081A2F] hover:underline cursor-pointer"
-                >
-                  Exams →
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {exams.slice(0, 2).map(exam => (
-                  <div key={exam.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2 text-xs">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-slate-900 truncate">{exam.title}</p>
-                      <p className="text-[10px] text-slate-400 font-mono">{exam.subject_name || 'Physics'} • {exam.total_marks || 100} Marks</p>
-                    </div>
-                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
-                      {exam.status || 'SCHEDULED'}
-                    </span>
-                  </div>
-                ))}
-              </div>
+          <div className="my-2.5">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-[#081A2F]">
+                {homeworkList.length}
+              </span>
+              <span className="text-xs text-slate-500 font-medium">
+                Tasks Assigned Today
+              </span>
             </div>
-          )}
+            <p className="text-[11px] text-slate-500 mt-1 truncate">
+              {homeworkList.length > 0 ? (
+                `${homeworkList[0].title} (${homeworkList[0].subject_name || 'Classwork'})`
+              ) : (
+                'All batches up to date'
+              )}
+            </p>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+            <span>Diary & Notebooks</span>
+            <span className="text-[#081A2F] font-semibold hover:underline">Open Desk →</span>
+          </div>
+        </div>
+
+        {/* Desk 2: Prospective Inquiries */}
+        <div
+          onClick={() => onNavigate('enrollment')}
+          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Admissions Pipeline</span>
+            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+              <PhoneCall className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="my-2.5">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-[#081A2F]">
+                {inquiriesList.length}
+              </span>
+              <span className="text-xs text-slate-500 font-medium">
+                Active Inquiries
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1 truncate">
+              {inquiriesList.filter(i => i.stage === 'new' || !i.stage).length > 0
+                ? `${inquiriesList.filter(i => i.stage === 'new' || !i.stage).length} new leads pending review`
+                : 'Follow-up pipeline clear'}
+            </p>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+            <span>Prospects & Inquiries</span>
+            <span className="text-[#081A2F] font-semibold hover:underline">Review Pipeline →</span>
+          </div>
+        </div>
+
+        {/* Desk 3: Examinations & Assessments */}
+        <div
+          onClick={() => onNavigate('exams')}
+          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Examinations</span>
+            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+              <FileText className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          <div className="my-2.5">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-[#081A2F]">
+                {exams.length}
+              </span>
+              <span className="text-xs text-slate-500 font-medium">
+                Configured Papers
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1 truncate">
+              {exams.length > 0 ? (
+                `${exams[0].title} • ${exams[0].status || 'Scheduled'}`
+              ) : (
+                'No papers currently scheduled'
+              )}
+            </p>
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+            <span>Assessment Results</span>
+            <span className="text-[#081A2F] font-semibold hover:underline">Exams Desk →</span>
+          </div>
         </div>
       </div>
     </div>

@@ -13,28 +13,51 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ShieldAlert } from 'lucide-react';
 import { useMobileOverlay, popOverlay, hasActiveOverlay } from './lib/mobileOverlay';
 
+// Resilient lazy import that automatically refreshes on stale Vite chunk 404 after deployment
+function lazyWithRetry<T extends React.ComponentType<any>>(
+  factory: () => Promise<{ default: T }>
+) {
+  return lazy(async () => {
+    try {
+      return await factory();
+    } catch (err) {
+      console.warn('[Vite dynamic import error - attempting auto-recovery]:', err);
+      const key = 'chunk_reload_' + window.location.hash;
+      if (typeof window !== 'undefined' && !sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1');
+        window.location.reload();
+        return new Promise<{ default: T }>(() => {});
+      }
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(key);
+      }
+      throw err;
+    }
+  });
+}
+
 // Lazy-loaded Views for high-speed bundle performance and code-splitting
-const DashboardView = lazy(() => import('./views/DashboardView').then(m => ({ default: m.DashboardView })));
-const AcademicStructureView = lazy(() => import('./views/AcademicStructureView').then(m => ({ default: m.AcademicStructureView })));
-const EnrollmentView = lazy(() => import('./views/EnrollmentView').then(m => ({ default: m.EnrollmentView })));
-const TimetableDesk = lazy(() => import('./views/TimetableDesk').then(m => ({ default: m.TimetableDesk })));
-const AttendanceDeskView = lazy(() => import('./views/AttendanceDeskView').then(m => ({ default: m.AttendanceDeskView })));
-const StaffClockInView = lazy(() => import('./views/StaffClockInView').then(m => ({ default: m.StaffClockInView })));
-const HomeworkDesk = lazy(() => import('./views/HomeworkDesk').then(m => ({ default: m.HomeworkDesk })));
-const ComplaintsDeskView = lazy(() => import('./views/ComplaintsDeskView').then(m => ({ default: m.ComplaintsDeskView })));
-const FeeDeskView = lazy(() => import('./views/FeeDeskView').then(m => ({ default: m.FeeDeskView })));
-const FeeChallansView = lazy(() => import('./views/FeeChallansView').then(m => ({ default: m.FeeChallansView })));
-const FeeReversalsView = lazy(() => import('./views/FeeReversalsView').then(m => ({ default: m.FeeReversalsView })));
-const PayrollDeskView = lazy(() => import('./views/PayrollDeskView').then(m => ({ default: m.PayrollDeskView })));
-const ExamDeskView = lazy(() => import('./views/ExamDeskView').then(m => ({ default: m.ExamDeskView })));
-const AbsenteeRetentionDeskView = lazy(() => import('./views/AbsenteeRetentionDeskView').then(m => ({ default: m.AbsenteeRetentionDeskView })));
-const GenericModuleView = lazy(() => import('./views/GenericModuleView').then(m => ({ default: m.GenericModuleView })));
-const TeacherPortalView = lazy(() => import('./views/TeacherPortalView').then(m => ({ default: m.TeacherPortalView })));
-const StudentParentPortalView = lazy(() => import('./views/StudentParentPortalView').then(m => ({ default: m.StudentParentPortalView })));
-const SuperAdminControlPlaneView = lazy(() => import('./views/SuperAdminControlPlaneView').then(m => ({ default: m.SuperAdminControlPlaneView })));
-const IncomeExpenseDeskView = lazy(() => import('./views/IncomeExpenseDeskView').then(m => ({ default: m.IncomeExpenseDeskView })));
-const AcademySettingsView = lazy(() => import('./views/AcademySettingsView').then(m => ({ default: m.AcademySettingsView })));
-const StaffDeskView = lazy(() => import('./views/StaffDeskView').then(m => ({ default: m.StaffDeskView })));
+const DashboardView = lazyWithRetry(() => import('./views/DashboardView').then(m => ({ default: m.DashboardView })));
+const AcademicStructureView = lazyWithRetry(() => import('./views/AcademicStructureView').then(m => ({ default: m.AcademicStructureView })));
+const EnrollmentView = lazyWithRetry(() => import('./views/EnrollmentView').then(m => ({ default: m.EnrollmentView })));
+const TimetableDesk = lazyWithRetry(() => import('./views/TimetableDesk').then(m => ({ default: m.TimetableDesk })));
+const AttendanceDeskView = lazyWithRetry(() => import('./views/AttendanceDeskView').then(m => ({ default: m.AttendanceDeskView })));
+const StaffClockInView = lazyWithRetry(() => import('./views/StaffClockInView').then(m => ({ default: m.StaffClockInView })));
+const HomeworkDesk = lazyWithRetry(() => import('./views/HomeworkDesk').then(m => ({ default: m.HomeworkDesk })));
+const ComplaintsDeskView = lazyWithRetry(() => import('./views/ComplaintsDeskView').then(m => ({ default: m.ComplaintsDeskView })));
+const FeeDeskView = lazyWithRetry(() => import('./views/FeeDeskView').then(m => ({ default: m.FeeDeskView })));
+const FeeChallansView = lazyWithRetry(() => import('./views/FeeChallansView').then(m => ({ default: m.FeeChallansView })));
+const FeeReversalsView = lazyWithRetry(() => import('./views/FeeReversalsView').then(m => ({ default: m.FeeReversalsView })));
+const PayrollDeskView = lazyWithRetry(() => import('./views/PayrollDeskView').then(m => ({ default: m.PayrollDeskView })));
+const ExamDeskView = lazyWithRetry(() => import('./views/ExamDeskView').then(m => ({ default: m.ExamDeskView })));
+const AbsenteeRetentionDeskView = lazyWithRetry(() => import('./views/AbsenteeRetentionDeskView').then(m => ({ default: m.AbsenteeRetentionDeskView })));
+const GenericModuleView = lazyWithRetry(() => import('./views/GenericModuleView').then(m => ({ default: m.GenericModuleView })));
+const TeacherPortalView = lazyWithRetry(() => import('./views/TeacherPortalView').then(m => ({ default: m.TeacherPortalView })));
+const StudentParentPortalView = lazyWithRetry(() => import('./views/StudentParentPortalView').then(m => ({ default: m.StudentParentPortalView })));
+const SuperAdminControlPlaneView = lazyWithRetry(() => import('./views/SuperAdminControlPlaneView').then(m => ({ default: m.SuperAdminControlPlaneView })));
+const IncomeExpenseDeskView = lazyWithRetry(() => import('./views/IncomeExpenseDeskView').then(m => ({ default: m.IncomeExpenseDeskView })));
+const AcademySettingsView = lazyWithRetry(() => import('./views/AcademySettingsView').then(m => ({ default: m.AcademySettingsView })));
+const StaffDeskView = lazyWithRetry(() => import('./views/StaffDeskView').then(m => ({ default: m.StaffDeskView })));
 
 const ViewLoadingSkeleton: React.FC = () => (
   <div className="space-y-4 animate-pulse">
@@ -362,8 +385,8 @@ const MainLayout: React.FC = () => {
         />
 
         <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-none px-3 sm:px-5 lg:px-6 py-3 md:pb-6 pb-[calc(4.25rem+env(safe-area-inset-bottom))]">
-          <Suspense fallback={<ViewLoadingSkeleton />}>
-            <ErrorBoundary key={currentScreen} onReset={() => handleSwitchScreen('dashboard')}>
+          <ErrorBoundary key={currentScreen} onReset={() => handleSwitchScreen('dashboard')}>
+            <Suspense fallback={<ViewLoadingSkeleton />}>
             {/* ROLE: STUDENT / PARENT VIEW ROUTING */}
             {user.role === 'student' || user.role === 'parent' ? (
               currentScreen === 'complaints' ? (
@@ -462,8 +485,8 @@ const MainLayout: React.FC = () => {
                 <GenericModuleView moduleId={currentScreen} />
               )
             )}
-            </ErrorBoundary>
-          </Suspense>
+            </Suspense>
+          </ErrorBoundary>
         </main>
 
         {/* Mobile Bottom Navigation Bar (< 768px touch screen devices) */}

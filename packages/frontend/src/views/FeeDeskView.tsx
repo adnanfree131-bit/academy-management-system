@@ -321,23 +321,29 @@ export const FeeDeskView: React.FC = () => {
   const fetchData = async () => {
     if (!token) return;
     try {
-      const [invRes, headsRes, discRes, studRes, batchRes, progRes, settRes, priorityRes, payRes] = await Promise.all([
-        fetch('/api/v1/finance/invoices', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/finance/heads', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/finance/discounts', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/sis/students', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/academic/batches', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/academic/programs', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/academic/academy-settings', { headers: { authorization: `Bearer ${token}` } }).catch(() => null),
-        fetch('/api/v1/finance/priority-config', { headers: { authorization: `Bearer ${token}` } }).catch(() => null),
-        fetch('/api/v1/finance/payments', { headers: { authorization: `Bearer ${token}` } }).catch(() => null),
-      ]);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const headers = { authorization: `Bearer ${token}` };
+      const safeFetch = (url: string) => fetch(url, { headers, signal: controller.signal }).catch(() => null);
 
-      if (invRes.ok) setInvoices((await invRes.json()).data || []);
+      const [invRes, headsRes, discRes, studRes, batchRes, progRes, settRes, priorityRes, payRes] = await Promise.all([
+        safeFetch('/api/v1/finance/invoices'),
+        safeFetch('/api/v1/finance/heads'),
+        safeFetch('/api/v1/finance/discounts'),
+        safeFetch('/api/v1/sis/students'),
+        safeFetch('/api/v1/academic/batches'),
+        safeFetch('/api/v1/academic/programs'),
+        safeFetch('/api/v1/academic/academy-settings'),
+        safeFetch('/api/v1/finance/priority-config'),
+        safeFetch('/api/v1/finance/payments'),
+      ]);
+      clearTimeout(timeoutId);
+
+      if (invRes && invRes.ok) setInvoices((await invRes.json()).data || []);
       if (payRes && payRes.ok) setPayments((await payRes.json()).data || []);
       
       let fetchedHeads: FeeHead[] = [];
-      if (headsRes.ok) fetchedHeads = (await headsRes.json()).data || [];
+      if (headsRes && headsRes.ok) fetchedHeads = (await headsRes.json()).data || [];
       if (priorityRes && priorityRes.ok) {
         const pData = await priorityRes.json();
         const order: string[] = pData?.data?.priority_order || [];
@@ -355,7 +361,7 @@ export const FeeDeskView: React.FC = () => {
       }
       setFeeHeads(fetchedHeads);
 
-      if (discRes.ok) setDiscounts((await discRes.json()).data || []);
+      if (discRes && discRes.ok) setDiscounts((await discRes.json()).data || []);
       await fetchCashbook();
       if (settRes && settRes.ok) {
         const sData = await settRes.json();
@@ -363,14 +369,14 @@ export const FeeDeskView: React.FC = () => {
           setAcademySettings(sData.data.settings || sData.data);
         }
       }
-      if (studRes.ok) {
+      if (studRes && studRes.ok) {
         const studList = (await studRes.json()).data || [];
         setStudents(studList);
         if (studList.length > 0) {
           setLedgerStudentId(prev => prev || studList[0].id);
         }
       }
-      if (batchRes.ok) setBatches((await batchRes.json()).data || []);
+      if (batchRes && batchRes.ok) setBatches((await batchRes.json()).data || []);
       if (progRes && progRes.ok) setPrograms((await progRes.json()).data || []);
     } catch (err) {
       console.error('Failed to load fee data:', err);
@@ -489,15 +495,17 @@ export const FeeDeskView: React.FC = () => {
       }
 
       entry.invoices.push(inv);
-      entry.total_balance += inv.balance_amount;
+      entry.total_balance += (inv.balance_amount ?? inv.balance_due ?? 0);
       entry.overdue_invoices_count += 1;
       if (inv.overdue_days > entry.max_overdue_days) {
         entry.max_overdue_days = inv.overdue_days;
       }
-      if (!entry.unpaid_months.includes(inv.billing_month)) {
+      if (inv.billing_month && !entry.unpaid_months.includes(inv.billing_month)) {
         entry.unpaid_months.push(inv.billing_month);
       }
-      if (new Date(inv.due_date).getTime() >= new Date(entry.latest_invoice.due_date).getTime()) {
+      const invDueTime = inv.due_date ? new Date(inv.due_date).getTime() : 0;
+      const latestDueTime = entry.latest_invoice?.due_date ? new Date(entry.latest_invoice.due_date).getTime() : 0;
+      if (invDueTime >= latestDueTime) {
         entry.latest_invoice = inv;
       }
     }
@@ -643,15 +651,17 @@ export const FeeDeskView: React.FC = () => {
       }
 
       entry.invoices.push(inv);
-      entry.total_balance += inv.balance_amount;
+      entry.total_balance += (inv.balance_amount ?? inv.balance_due ?? 0);
       entry.overdue_invoices_count += 1;
       if (inv.overdue_days > entry.max_overdue_days) {
         entry.max_overdue_days = inv.overdue_days;
       }
-      if (!entry.unpaid_months.includes(inv.billing_month)) {
+      if (inv.billing_month && !entry.unpaid_months.includes(inv.billing_month)) {
         entry.unpaid_months.push(inv.billing_month);
       }
-      if (new Date(inv.due_date).getTime() >= new Date(entry.latest_invoice.due_date).getTime()) {
+      const invDueTime = inv.due_date ? new Date(inv.due_date).getTime() : 0;
+      const latestDueTime = entry.latest_invoice?.due_date ? new Date(entry.latest_invoice.due_date).getTime() : 0;
+      if (invDueTime >= latestDueTime) {
         entry.latest_invoice = inv;
       }
     }
