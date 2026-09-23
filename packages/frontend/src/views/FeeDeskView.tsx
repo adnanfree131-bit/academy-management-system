@@ -26,12 +26,20 @@ import {
   Users,
   Calendar,
   RefreshCw,
-  ArrowRight
+  ArrowRight,
+  Phone
 } from 'lucide-react';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import { buildTabularFeeReportPdfBytes } from '../lib/feeReportsPdf';
 import { InPortalPdfViewerModal } from '../components/InPortalPdfViewerModal';
-import { GlanceableKpiStrip } from '../components/mobile';
+import { 
+  GlanceableKpiStrip, 
+  MobileFilterSheet, 
+  FilterPillButton, 
+  FilterChipGroup, 
+  FilterChip 
+} from '../components/mobile';
+import { useMobileOverlay } from '../lib/mobileOverlay';
 import {
   FeeHead,
   StudentInvoice,
@@ -75,6 +83,18 @@ export const FeeDeskView: React.FC = () => {
   const [unpaidMonthsFilter, setUnpaidMonthsFilter] = useState<'any' | '1' | '2' | '3+'>('any');
   const [selectedDefaulterHead, setSelectedDefaulterHead] = useState<string>('all');
   const [selectedDefaulterModal, setSelectedDefaulterModal] = useState<any | null>(null);
+  const [showMobileDefaulterFilterSheet, setShowMobileDefaulterFilterSheet] = useState<boolean>(false);
+
+  const activeDefaulterFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedBatch !== 'all') count++;
+    if (unpaidMonthsFilter !== 'any') count++;
+    if (selectedDefaulterHead !== 'all') count++;
+    return count;
+  }, [selectedBatch, unpaidMonthsFilter, selectedDefaulterHead]);
+
+  // Register mobile back button handler for defaulter details modal
+  useMobileOverlay('sheet', Boolean(selectedDefaulterModal), () => setSelectedDefaulterModal(null));
   const [siblingReportOpen, setSiblingReportOpen] = useState(false);
   const [siblingReportScope, setSiblingReportScope] = useState<'one_student' | 'one_class' | 'all_classes'>('all_classes');
   const [siblingReportStudentId, setSiblingReportStudentId] = useState('');
@@ -3372,8 +3392,109 @@ export const FeeDeskView: React.FC = () => {
                 </button>
               </div>
 
-              {/* Right: Inline Dropdown Filters & Search */}
-              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              {/* Mobile Filter Toolbar (< 640px) */}
+              <div className="flex sm:hidden items-center gap-2 w-full">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search student, admission #..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-7 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-slate-400 text-slate-900 shadow-2xs"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <FilterPillButton
+                  activeCount={activeDefaulterFilterCount}
+                  onClick={() => setShowMobileDefaulterFilterSheet(true)}
+                  testId="defaulter-filter-pill-button"
+                />
+              </div>
+
+              {/* Mobile Filter Bottom Sheet */}
+              <MobileFilterSheet
+                isOpen={showMobileDefaulterFilterSheet}
+                onClose={() => setShowMobileDefaulterFilterSheet(false)}
+                title="Filter Defaulters"
+                subtitle="Filter by class/batch, overdue period, and fee head"
+                activeFilterCount={activeDefaulterFilterCount}
+                totalResultsCount={defaultersList.length}
+                resultsLabel="Defaulters"
+                testId="defaulter-mobile-filter-sheet"
+                onReset={() => {
+                  setSelectedBatch('all');
+                  setUnpaidMonthsFilter('any');
+                  setSelectedDefaulterHead('all');
+                }}
+              >
+                <FilterChipGroup label="Class / Batch" countBadge={batches.length}>
+                  <FilterChip
+                    selected={selectedBatch === 'all'}
+                    onClick={() => setSelectedBatch('all')}
+                    label="All Classes"
+                    count={batches.length}
+                  />
+                  {batches.map(b => (
+                    <FilterChip
+                      key={b.id}
+                      selected={selectedBatch === b.id}
+                      onClick={() => setSelectedBatch(b.id)}
+                      label={`${getProgramName(b.program_id) ? `${getProgramName(b.program_id)} • ` : ''}${b.name}`}
+                    />
+                  ))}
+                </FilterChipGroup>
+
+                <FilterChipGroup label="Overdue Period">
+                  <FilterChip
+                    selected={unpaidMonthsFilter === 'any'}
+                    onClick={() => setUnpaidMonthsFilter('any')}
+                    label="All Periods"
+                  />
+                  <FilterChip
+                    selected={unpaidMonthsFilter === '1'}
+                    onClick={() => setUnpaidMonthsFilter('1')}
+                    label="1 Month Due"
+                  />
+                  <FilterChip
+                    selected={unpaidMonthsFilter === '2'}
+                    onClick={() => setUnpaidMonthsFilter('2')}
+                    label="2 Months Due"
+                  />
+                  <FilterChip
+                    selected={unpaidMonthsFilter === '3+'}
+                    onClick={() => setUnpaidMonthsFilter('3+')}
+                    label="3+ Months Overdue"
+                  />
+                </FilterChipGroup>
+
+                <FilterChipGroup label="Fee Head" countBadge={feeHeads.filter(h => h.code !== 'ARREARS').length}>
+                  <FilterChip
+                    selected={selectedDefaulterHead === 'all'}
+                    onClick={() => setSelectedDefaulterHead('all')}
+                    label="All Fee Heads"
+                  />
+                  {feeHeads.filter(h => h.code !== 'ARREARS').map(h => (
+                    <FilterChip
+                      key={h.id}
+                      selected={selectedDefaulterHead === h.id}
+                      onClick={() => setSelectedDefaulterHead(h.id)}
+                      label={h.name}
+                    />
+                  ))}
+                </FilterChipGroup>
+              </MobileFilterSheet>
+
+              {/* Desktop: Inline Dropdown Filters & Search (>= 640px) */}
+              <div className="hidden sm:flex items-center gap-2 flex-wrap sm:flex-nowrap">
                 {/* Class & Batch Filter */}
                 <select
                   value={selectedBatch}
@@ -3458,20 +3579,28 @@ export const FeeDeskView: React.FC = () => {
             {defaultersList.length > 0 && (
               <div className="sm:hidden divide-y divide-slate-100 bg-white" data-testid="mobile-defaulters-list">
                 {defaultersList.map(def => {
+                  const stud = students.find(s => s.id === def.student_id);
+                  const guardianPhone = def.guardian_phone || stud?.guardian_phone || stud?.phone;
+
                   return (
                     <div
                       key={def.student_id}
                       className="p-3 active:bg-slate-50 min-h-[70px] flex items-center justify-between gap-2.5 transition-colors"
+                      data-testid="defaulter-roster-cell"
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 font-mono">
+                        <div
+                          onClick={() => setSelectedDefaulterModal(def)}
+                          className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 font-mono cursor-pointer touch-press"
+                          title="View Defaulter Dossier"
+                        >
                           {def.student_name?.charAt(0) || 'S'}
                         </div>
                         <div className="min-w-0 flex-1">
                           <button
                             type="button"
-                            onClick={() => handleViewStudentInDesk(def.student_id)}
-                            className="font-semibold text-[13.5px] text-slate-900 truncate leading-snug hover:underline text-left block"
+                            onClick={() => setSelectedDefaulterModal(def)}
+                            className="font-semibold text-[13.5px] text-slate-900 truncate leading-snug hover:underline text-left block cursor-pointer"
                           >
                             {def.student_name}
                           </button>
@@ -3479,6 +3608,31 @@ export const FeeDeskView: React.FC = () => {
                             <span>#{def.admission_number || '—'}</span>
                             <span className="text-slate-300">·</span>
                             <span className="truncate">{def.program_name}</span>
+                            {guardianPhone && (
+                              <div className="flex items-center gap-1 shrink-0 ml-1">
+                                <a
+                                  href={`tel:${guardianPhone}`}
+                                  onClick={e => e.stopPropagation()}
+                                  className="p-1 text-slate-500 hover:text-slate-900 active:bg-slate-200 rounded transition-colors"
+                                  title="Call Guardian"
+                                >
+                                  <Phone className="w-3 h-3" />
+                                </a>
+                                {def.latest_invoice && (
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      handleDispatchWhatsAppSlip(def.latest_invoice, guardianPhone);
+                                    }}
+                                    className="p-1 text-emerald-600 hover:text-emerald-800 active:bg-emerald-100 rounded transition-colors cursor-pointer"
+                                    title="WhatsApp Reminder"
+                                  >
+                                    <MessageSquare className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -3495,7 +3649,13 @@ export const FeeDeskView: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={() => handleOpenCashierDrawer(def.latest_invoice)}
+                          onClick={() => {
+                            if (def.latest_invoice) {
+                              handleOpenCashierDrawer(def.latest_invoice);
+                            } else {
+                              handleViewStudentInDesk(def.student_id);
+                            }
+                          }}
                           className="min-h-[36px] px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-xl shadow-2xs flex items-center gap-1 transition-all cursor-pointer touch-press"
                         >
                           <CreditCard className="w-3.5 h-3.5" />

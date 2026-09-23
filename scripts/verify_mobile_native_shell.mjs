@@ -443,6 +443,24 @@ async function runVerification() {
           await applyBtn.click();
           await delay(400);
         }
+
+        // Student Action Sheet Back Button (popstate) test
+        const actionTrigger = await page.$('[data-testid="student-actions-trigger"]');
+        if (actionTrigger) {
+          await actionTrigger.click();
+          await delay(400);
+          const actionSheetOpen = await page.$('[data-testid="student-action-sheet"]');
+          record(`[${vp.width}px] Student Action Sheet Opens`, Boolean(actionSheetOpen), 'Rendered mobile student options sheet');
+          if (actionSheetOpen) {
+            // Dispatch popstate to verify hardware back-button dismisses sheet
+            await page.evaluate(() => {
+              window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+            });
+            await delay(400);
+            const actionSheetAfterPop = await page.$('[data-testid="student-action-sheet"]');
+            record(`[${vp.width}px] Student Action Sheet Closed via Back Button`, !actionSheetAfterPop, 'Dismissed via popstate stack');
+          }
+        }
       }
 
       // 12. HIGH-DENSITY NATIVE ROSTER CELLS (64px–80px)
@@ -476,7 +494,7 @@ async function runVerification() {
         );
       }
 
-      // C. Fee Desk Unpaid List
+      // C. Fee Desk Unpaid List & Defaulters List
       await goTo('voucher');
       const feeCellHeights = await page.evaluate(() => {
         const list = document.querySelector('[data-testid="mobile-unpaid-fee-list"]');
@@ -491,6 +509,56 @@ async function runVerification() {
           allWithinBounds,
           `Heights: ${feeCellHeights.join(', ')}px`
         );
+      }
+
+      // D. Fee Desk Defaulters Tab Filter Sheet & Dense Cells
+      const defaultersTab = await page.$('button:has-text("Defaulters")');
+      if (defaultersTab) {
+        await defaultersTab.click();
+        await delay(500);
+
+        const defaulterFilterBtn = await page.$('[data-testid="defaulter-filter-pill-button"]');
+        record(`[${vp.width}px] Fee Defaulters Filter Pill Button Present`, Boolean(defaulterFilterBtn), 'Rendered in fee defaulters tab');
+
+        if (defaulterFilterBtn) {
+          await defaulterFilterBtn.click();
+          await delay(500);
+
+          const defSheetInfo = await page.evaluate(() => {
+            const sheet = document.querySelector('[data-testid="defaulter-mobile-filter-sheet"]');
+            const card = sheet ? sheet.querySelector('.mobile-sheet-card') : null;
+            const closeBtn = card ? card.querySelector('[data-testid="filter-sheet-close"]') : null;
+            const closeRect = closeBtn ? closeBtn.getBoundingClientRect() : { width: 0, height: 0 };
+            return {
+              hasSheet: Boolean(sheet),
+              hasCard: Boolean(card),
+              closeW: Math.round(closeRect.width),
+              closeH: Math.round(closeRect.height)
+            };
+          });
+
+          record(`[${vp.width}px] Fee Defaulters Filter Sheet Opens`, defSheetInfo.hasSheet && defSheetInfo.hasCard, 'Modal bottom sheet confirmed');
+          record(`[${vp.width}px] Fee Defaulters Filter Close Target >= 44x44`, defSheetInfo.closeW >= 44 && defSheetInfo.closeH >= 44, `${defSheetInfo.closeW}x${defSheetInfo.closeH}px`);
+
+          const defApplyBtn = await page.$('[data-testid="defaulter-mobile-filter-sheet"] [data-testid="filter-sheet-apply"]');
+          if (defApplyBtn) {
+            await defApplyBtn.click();
+            await delay(400);
+          }
+        }
+
+        const defaulterCellHeights = await page.evaluate(() => {
+          const rows = Array.from(document.querySelectorAll('[data-testid="defaulter-roster-cell"]')).slice(0, 5);
+          return rows.map(r => Math.round(r.getBoundingClientRect().height));
+        });
+        if (defaulterCellHeights.length > 0) {
+          const allWithinBounds = defaulterCellHeights.every(h => h >= 64 && h <= 80);
+          record(
+            `[${vp.width}px] Fee Defaulter Cells Dense (64px–80px)`,
+            allWithinBounds,
+            `Heights: ${defaulterCellHeights.join(', ')}px`
+          );
+        }
       }
 
     } catch (err) {

@@ -43,6 +43,7 @@ import {
   FilterChipGroup, 
   FilterChip 
 } from '../components/mobile';
+import { useMobileOverlay } from '../lib/mobileOverlay';
 import { 
   AcademicProgram, 
   Batch, 
@@ -196,6 +197,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [bulkDeleteForce, setBulkDeleteForce] = useState<boolean>(false);
   const [isBulkOperating, setIsBulkOperating] = useState<boolean>(false);
   const [actionFeedbackMessage, setActionFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Register mobile back-button stack handlers
+  useMobileOverlay('sheet', Boolean(mobileActionStudent), () => setMobileActionStudent(null));
+  useMobileOverlay('sheet', Boolean(contactStudentModal), () => setContactStudentModal(null));
+  useMobileOverlay('sheet', Boolean(admitInquiryModal), () => setAdmitInquiryModal(null));
+  useMobileOverlay('sheet', Boolean(studentToArchive), () => setStudentToArchive(null));
+  useMobileOverlay('sheet', Boolean(studentToDelete), () => setStudentToDelete(null));
 
   // New Inquiry Modal
   const [showNewInquiryModal, setShowNewInquiryModal] = useState(false);
@@ -2644,6 +2652,21 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <div className="py-12 text-center text-slate-400">
                 <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                 <p className="text-xs font-semibold text-slate-600">No students found matching current filters.</p>
+                {(activeDirectoryFilterCount > 0 || searchQuery) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedProgramFilter('all');
+                      setSelectedBatchFilter('all');
+                      setStatusFilter('all');
+                      setSearchQuery('');
+                    }}
+                    className="mt-3 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 text-xs font-semibold transition-colors inline-flex items-center gap-1.5 cursor-pointer touch-press"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Reset All Filters</span>
+                  </button>
+                )}
               </div>
             ) : (
               pagedStudents.map(student => (

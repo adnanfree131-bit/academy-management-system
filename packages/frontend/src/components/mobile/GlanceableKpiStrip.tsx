@@ -49,7 +49,12 @@ export const GlanceableKpiStrip: React.FC<GlanceableKpiStripProps> = ({
   return (
     <div className={`sm:hidden ${className}`} data-testid={testId}>
       {/* 36px–40px Compact Ticker Bar */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50 border border-slate-200/90 rounded-xl text-xs shadow-2xs">
+      <div
+        onClick={children ? handleOpen : undefined}
+        className={`flex items-center justify-between px-3 py-1.5 bg-slate-50 border border-slate-200/90 rounded-xl text-xs shadow-2xs ${
+          children ? 'cursor-pointer active:bg-slate-100/80 transition-colors' : ''
+        }`}
+      >
         <div className="flex items-center gap-1.5 min-w-0 overflow-hidden text-slate-700">
           {icon ? (
             <span className="shrink-0 text-slate-500">{icon}</span>
@@ -76,7 +81,10 @@ export const GlanceableKpiStrip: React.FC<GlanceableKpiStripProps> = ({
           <button
             type="button"
             data-testid="kpi-insights-trigger"
-            onClick={handleOpen}
+            onClick={e => {
+              e.stopPropagation();
+              handleOpen();
+            }}
             className="ml-2 shrink-0 min-h-[36px] px-2.5 py-1 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer touch-press"
             aria-label="Open insights bottom sheet"
           >

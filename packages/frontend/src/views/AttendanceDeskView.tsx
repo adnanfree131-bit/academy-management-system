@@ -1036,7 +1036,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               />
             </div>
 
-            <div className="flex items-center gap-1 text-xs">
+            <div className="flex items-center gap-1 text-xs overflow-x-auto no-scrollbar max-w-full pb-0.5">
               <span className="text-slate-400 mr-1 text-[11px] font-medium">Filter:</span>
               {(['ALL', 'present', 'absent', 'late', 'excused', 'unmarked'] as const).map(s => {
                 if (s === 'unmarked' && stats.unmarked === 0) return null;
