@@ -31,7 +31,7 @@ import {
   SlidersHorizontal,
   User,
   RotateCcw,
-  LayoutGrid,
+  MoreHorizontal,
   ArrowLeft
 } from 'lucide-react';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
@@ -124,11 +124,11 @@ export const FeeDeskView: React.FC = () => {
   const [showAllocationBreakdown, setShowAllocationBreakdown] = useState<boolean>(false);
   // Module Options Menu
   const [showFeeModuleMenu, setShowFeeModuleMenu] = useState<boolean>(false);
-  const feeModuleMenuRef = useRef<HTMLDivElement>(null);
+  const feeModuleContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
-      if (feeModuleMenuRef.current && !feeModuleMenuRef.current.contains(e.target as Node)) {
+      if (feeModuleContainerRef.current && !feeModuleContainerRef.current.contains(e.target as Node)) {
         setShowFeeModuleMenu(false);
       }
     };
@@ -2285,24 +2285,23 @@ export const FeeDeskView: React.FC = () => {
         </div>
 
         {/* ONE Icon Place to open all financial desks & configuration tools */}
-        <div className="relative self-start sm:self-auto shrink-0">
+        <div ref={feeModuleContainerRef} className="relative self-start sm:self-auto shrink-0">
           <button
             type="button"
             onClick={() => setShowFeeModuleMenu(prev => !prev)}
-            className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shadow-2xs ${
+            className={`w-8.5 h-8.5 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shadow-2xs ${
               showFeeModuleMenu
-                ? 'bg-slate-900 border-slate-900 text-white'
+                ? 'bg-slate-100 border-slate-300 text-slate-900'
                 : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
             }`}
             title="Fee Desks & Options"
             aria-label="Fee Desks & Options"
           >
-            <LayoutGrid className="w-4 h-4" />
+            <MoreHorizontal className="w-4 h-4 text-slate-600" />
           </button>
 
           {showFeeModuleMenu && (
             <div
-              ref={feeModuleMenuRef}
               className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100"
             >
               <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
