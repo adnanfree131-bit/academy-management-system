@@ -32,8 +32,8 @@ import {
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import { buildTabularFeeReportPdfBytes } from '../lib/feeReportsPdf';
 import { InPortalPdfViewerModal } from '../components/InPortalPdfViewerModal';
+import { ModernSelect } from '../components/ModernSelect';
 import { 
-  GlanceableKpiStrip, 
   MobileFilterSheet, 
   FilterPillButton, 
   FilterChipGroup, 
@@ -2336,16 +2336,16 @@ export const FeeDeskView: React.FC = () => {
 
               {/* Class Filter */}
               <div className="w-full sm:w-48 shrink-0">
-                <select
+                <ModernSelect
                   value={cashierClassFilter}
-                  onChange={e => setCashierClassFilter(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg text-slate-800 font-medium focus:outline-none focus:border-[#0E2A47] cursor-pointer"
+                  onChange={val => setCashierClassFilter(val)}
+                  buttonClassName="bg-slate-50/70 border-slate-200"
                 >
                   <option value="all">All Classes ({programs.length})</option>
                   {programs.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
-                </select>
+                </ModernSelect>
               </div>
 
               <button
@@ -2361,85 +2361,8 @@ export const FeeDeskView: React.FC = () => {
           {/* When No Student Selected: Active Dues Register */}
           {!selectedStudent && (
             <div className="space-y-2.5 sm:space-y-3">
-              {/* Mobile Glanceable KPI Strip (< 640px) */}
-              <GlanceableKpiStrip
-                items={[
-                  { label: 'Billed', value: `PKR ${Math.round(duesSummary.totalInvoiced).toLocaleString()}` },
-                  { label: 'Realized', value: `PKR ${Math.round(duesSummary.totalCollected).toLocaleString()}`, color: 'text-emerald-700' },
-                  { label: 'Overdue', value: `PKR ${Math.round(duesSummary.allAmount).toLocaleString()}`, color: 'text-rose-600' }
-                ]}
-                insightsTitle="Fee Collection Summary"
-                insightsSubtitle="Total billing, collections, and overdue receivables"
-              >
-                <div className="grid grid-cols-1 gap-2.5">
-                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                        Total Invoiced
-                      </span>
-                      <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                          PKR {duesSummary.totalInvoiced.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
-                      <CreditCard className="w-3.5 h-3.5 text-indigo-700" />
-                    </span>
-                  </div>
-
-                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                        Realized Collections
-                      </span>
-                      <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
-                          PKR {duesSummary.totalCollected.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                    </span>
-                  </div>
-
-                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                        Overdue Receivables
-                      </span>
-                      <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="font-mono font-bold text-rose-600 text-sm leading-none">
-                          PKR {duesSummary.allAmount.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
-                      <AlertCircle className="w-3.5 h-3.5 text-rose-700" />
-                    </span>
-                  </div>
-
-                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                        Defaulter Students
-                      </span>
-                      <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                          {duesSummary.allCount} Students
-                        </span>
-                      </div>
-                    </div>
-                    <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-                      <Users className="w-3.5 h-3.5 text-amber-700" />
-                    </span>
-                  </div>
-                </div>
-              </GlanceableKpiStrip>
-
-              {/* Desktop 4-Card Financial Summary Strip (>= 640px) */}
-              <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {/* 4-Card Financial Summary Strip (Responsive: 2 columns on mobile, 4 on desktop) */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
                 {/* Card 1: Total Invoiced */}
                 <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
                   <div className="min-w-0">
@@ -2529,65 +2452,123 @@ export const FeeDeskView: React.FC = () => {
                   </div>
                 ) : (
                   <>
-                    {/* Mobile Native High-Density Outstanding Fee Cards (< 640px) */}
-                    <div className="sm:hidden divide-y divide-slate-100 bg-white" data-testid="mobile-unpaid-fee-list">
-                      {allUnpaidStudents.slice(0, 30).map(def => (
-                        <div
-                          key={def.student_id}
-                          className="p-3 active:bg-slate-50 min-h-[70px] flex items-center justify-between gap-2.5 transition-colors"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                            <div className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 font-mono">
-                              {def.student_name?.charAt(0) || 'S'}
+                    {/* Mobile Native High-Density Outstanding Fee Box Cards (< 640px) */}
+                    <div className="sm:hidden p-3 space-y-3 bg-slate-50/60" data-testid="mobile-unpaid-fee-list">
+                      {allUnpaidStudents.slice(0, 30).map(def => {
+                        const stud = students.find(s => s.id === def.student_id);
+                        const guardianPhone = def.guardian_phone || stud?.guardian_phone || stud?.phone;
+
+                        return (
+                          <div
+                            key={def.student_id}
+                            className="bg-white rounded-xl border border-slate-200 shadow-2xs p-3.5 space-y-3 transition-all"
+                          >
+                            {/* Top Row: Avatar + Full Student Name + Admission # + Challan Badge */}
+                            <div className="flex items-start justify-between gap-2.5">
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <div className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-sm shrink-0 font-mono shadow-2xs">
+                                  {def.student_name?.charAt(0) || 'S'}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedCashierStudentId(def.student_id);
+                                      setLedgerStudentId(def.student_id);
+                                      setStudentDeskTab('challans');
+                                    }}
+                                    className="font-bold text-[14.5px] text-slate-900 leading-snug text-left block hover:text-amber-800 break-words cursor-pointer"
+                                  >
+                                    {def.student_name}
+                                  </button>
+                                  <div className="text-xs font-mono font-semibold text-slate-500 mt-0.5">
+                                    Adm #{def.admission_number || '—'}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <span className="px-2.5 py-1 rounded-full text-[10.5px] font-bold font-mono bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                                {def.overdue_invoices_count || 1} Due
+                              </span>
                             </div>
-                            <div className="min-w-0 flex-1">
+
+                            {/* Middle Separated Due Amount Box: Class/Batch + Father + Bold Amount with ZERO text collisions */}
+                            <div className="bg-rose-50/50 border border-rose-100 rounded-xl p-3 space-y-2">
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="text-slate-500 font-medium">Class / Program:</span>
+                                <span className="font-semibold text-slate-800 text-right">
+                                  {def.program_name} {def.batch_name ? `• ${def.batch_name}` : ''}
+                                </span>
+                              </div>
+                              {def.father_name && (
+                                <div className="flex items-center justify-between gap-2 text-xs">
+                                  <span className="text-slate-500 font-medium">Guardian:</span>
+                                  <span className="font-medium text-slate-700 text-right">
+                                    {def.father_name}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="pt-2 border-t border-rose-100/80 flex items-center justify-between gap-2">
+                                <div>
+                                  <span className="text-[10.5px] font-bold uppercase tracking-wider text-rose-700 block">
+                                    Total Outstanding
+                                  </span>
+                                  <span className="text-[11px] text-slate-500 font-mono">
+                                    Cycle: {def.latest_invoice?.billing_month || 'Current'}
+                                  </span>
+                                </div>
+                                <div className="text-right">
+                                  <span className="font-mono font-bold text-rose-700 text-base leading-none block">
+                                    PKR {def.total_balance.toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Bottom Action Strip: Call + WhatsApp Reminder + Prominent 1-Tap Receive */}
+                            <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                              {guardianPhone ? (
+                                <a
+                                  href={`tel:${guardianPhone}`}
+                                  className="min-h-[38px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                  title="Call Guardian"
+                                >
+                                  <Phone className="w-3.5 h-3.5 text-slate-600" />
+                                  <span>Call</span>
+                                </a>
+                              ) : null}
+
+                              {guardianPhone && def.latest_invoice ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDispatchWhatsAppSlip(def.latest_invoice, guardianPhone)}
+                                  className="min-h-[38px] px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                  title="WhatsApp Reminder Slip"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>WhatsApp</span>
+                                </button>
+                              ) : null}
+
                               <button
                                 type="button"
                                 onClick={() => {
                                   setSelectedCashierStudentId(def.student_id);
                                   setLedgerStudentId(def.student_id);
                                   setStudentDeskTab('challans');
+                                  if (def.latest_invoice) {
+                                    handleOpenCashierDrawer(def.latest_invoice);
+                                  }
                                 }}
-                                className="font-semibold text-[13.5px] text-slate-900 truncate leading-snug text-left block hover:underline"
+                                className="flex-1 min-h-[38px] px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press"
                               >
-                                {def.student_name}
+                                <CreditCard className="w-4 h-4" />
+                                <span>Receive Fee</span>
                               </button>
-                              <div className="text-xs text-slate-500 font-mono truncate mt-0.5 flex items-center gap-1.5">
-                                <span>#{def.admission_number || '—'}</span>
-                                <span className="text-slate-300">·</span>
-                                <span className="truncate">{def.program_name}</span>
-                              </div>
                             </div>
                           </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="text-right">
-                              <span className="font-mono font-bold text-rose-600 text-xs block">
-                                PKR {def.total_balance.toLocaleString()}
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-mono block">
-                                {def.latest_invoice?.billing_month || 'Due'}
-                              </span>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedCashierStudentId(def.student_id);
-                                setLedgerStudentId(def.student_id);
-                                setStudentDeskTab('challans');
-                                if (def.latest_invoice) {
-                                  handleOpenCashierDrawer(def.latest_invoice);
-                                }
-                              }}
-                              className="min-h-[36px] px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-xl shadow-2xs flex items-center gap-1 transition-all cursor-pointer touch-press"
-                            >
-                              <CreditCard className="w-3.5 h-3.5" />
-                              <span>Receive</span>
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     {/* Desktop Table (>= 640px) */}
@@ -3496,44 +3477,50 @@ export const FeeDeskView: React.FC = () => {
               {/* Desktop: Inline Dropdown Filters & Search (>= 640px) */}
               <div className="hidden sm:flex items-center gap-2 flex-wrap sm:flex-nowrap">
                 {/* Class & Batch Filter */}
-                <select
-                  value={selectedBatch}
-                  onChange={e => setSelectedBatch(e.target.value)}
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                >
-                  <option value="all">All Classes</option>
-                  {batches.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {getProgramName(b.program_id) ? `${getProgramName(b.program_id)} • ` : ''}{b.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-48 shrink-0">
+                  <ModernSelect
+                    value={selectedBatch}
+                    onChange={val => setSelectedBatch(val)}
+                    buttonClassName="bg-white border-slate-200"
+                  >
+                    <option value="all">All Classes</option>
+                    {batches.map(b => (
+                      <option key={b.id} value={b.id}>
+                        {getProgramName(b.program_id) ? `${getProgramName(b.program_id)} • ` : ''}{b.name}
+                      </option>
+                    ))}
+                  </ModernSelect>
+                </div>
 
                 {/* Duration Filter */}
-                <select
-                  value={unpaidMonthsFilter}
-                  onChange={e => setUnpaidMonthsFilter(e.target.value as any)}
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                >
-                  <option value="any">All Periods</option>
-                  <option value="1">1 Month</option>
-                  <option value="2">2 Months</option>
-                  <option value="3+">3+ Months</option>
-                </select>
+                <div className="w-36 shrink-0">
+                  <ModernSelect
+                    value={unpaidMonthsFilter}
+                    onChange={val => setUnpaidMonthsFilter(val as any)}
+                    buttonClassName="bg-white border-slate-200"
+                  >
+                    <option value="any">All Periods</option>
+                    <option value="1">1 Month</option>
+                    <option value="2">2 Months</option>
+                    <option value="3+">3+ Months</option>
+                  </ModernSelect>
+                </div>
 
                 {/* Fee Head Filter */}
-                <select
-                  value={selectedDefaulterHead}
-                  onChange={e => setSelectedDefaulterHead(e.target.value)}
-                  className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer shadow-2xs"
-                >
-                  <option value="all">All Fee Heads</option>
-                  {feeHeads.filter(h => h.code !== 'ARREARS').map(h => (
-                    <option key={h.id} value={h.id}>
-                      {h.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="w-40 shrink-0">
+                  <ModernSelect
+                    value={selectedDefaulterHead}
+                    onChange={val => setSelectedDefaulterHead(val)}
+                    buttonClassName="bg-white border-slate-200"
+                  >
+                    <option value="all">All Fee Heads</option>
+                    {feeHeads.filter(h => h.code !== 'ARREARS').map(h => (
+                      <option key={h.id} value={h.id}>
+                        {h.name}
+                      </option>
+                    ))}
+                  </ModernSelect>
+                </div>
 
                 {/* Search Box */}
                 <div className="relative min-w-[180px] sm:w-56 flex-1 sm:flex-none">
@@ -3575,9 +3562,9 @@ export const FeeDeskView: React.FC = () => {
               </div>
             </div>
 
-            {/* Mobile Native High-Density Defaulter Cards (< 640px) */}
+            {/* Mobile Native High-Density Defaulter Box Cards (< 640px) */}
             {defaultersList.length > 0 && (
-              <div className="sm:hidden divide-y divide-slate-100 bg-white" data-testid="mobile-defaulters-list">
+              <div className="sm:hidden p-3 space-y-3 bg-slate-50/60" data-testid="mobile-defaulters-list">
                 {defaultersList.map(def => {
                   const stud = students.find(s => s.id === def.student_id);
                   const guardianPhone = def.guardian_phone || stud?.guardian_phone || stud?.phone;
@@ -3585,67 +3572,95 @@ export const FeeDeskView: React.FC = () => {
                   return (
                     <div
                       key={def.student_id}
-                      className="p-3 active:bg-slate-50 min-h-[70px] flex items-center justify-between gap-2.5 transition-colors"
                       data-testid="defaulter-roster-cell"
+                      className="bg-white rounded-xl border border-slate-200 shadow-2xs p-3.5 space-y-3 transition-all"
                     >
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div
-                          onClick={() => setSelectedDefaulterModal(def)}
-                          className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 font-mono cursor-pointer touch-press"
-                          title="View Defaulter Dossier"
-                        >
-                          {def.student_name?.charAt(0) || 'S'}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <button
-                            type="button"
+                      {/* Top Row: Avatar + Full Student Name + Admission # + Challan Count Badge */}
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div
                             onClick={() => setSelectedDefaulterModal(def)}
-                            className="font-semibold text-[13.5px] text-slate-900 truncate leading-snug hover:underline text-left block cursor-pointer"
+                            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-sm shrink-0 font-mono shadow-2xs cursor-pointer touch-press"
+                            title="View Defaulter Dossier"
                           >
-                            {def.student_name}
-                          </button>
-                          <div className="text-xs text-slate-500 font-mono truncate mt-0.5 flex items-center gap-1.5">
-                            <span>#{def.admission_number || '—'}</span>
-                            <span className="text-slate-300">·</span>
-                            <span className="truncate">{def.program_name}</span>
-                            {guardianPhone && (
-                              <div className="flex items-center gap-1 shrink-0 ml-1">
-                                <a
-                                  href={`tel:${guardianPhone}`}
-                                  onClick={e => e.stopPropagation()}
-                                  className="p-1 text-slate-500 hover:text-slate-900 active:bg-slate-200 rounded transition-colors"
-                                  title="Call Guardian"
-                                >
-                                  <Phone className="w-3 h-3" />
-                                </a>
-                                {def.latest_invoice && (
-                                  <button
-                                    type="button"
-                                    onClick={e => {
-                                      e.stopPropagation();
-                                      handleDispatchWhatsAppSlip(def.latest_invoice, guardianPhone);
-                                    }}
-                                    className="p-1 text-emerald-600 hover:text-emerald-800 active:bg-emerald-100 rounded transition-colors cursor-pointer"
-                                    title="WhatsApp Reminder"
-                                  >
-                                    <MessageSquare className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </div>
-                            )}
+                            {def.student_name?.charAt(0) || 'S'}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDefaulterModal(def)}
+                              className="font-bold text-[14.5px] text-slate-900 leading-snug text-left block hover:text-amber-800 break-words cursor-pointer"
+                            >
+                              {def.student_name}
+                            </button>
+                            <div className="text-xs font-mono font-semibold text-slate-500 mt-0.5">
+                              Adm #{def.admission_number || '—'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <span className="px-2.5 py-1 rounded-full text-[10.5px] font-bold font-mono bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                          {def.overdue_invoices_count} Challan{def.overdue_invoices_count > 1 ? 's' : ''}
+                        </span>
+                      </div>
+
+                      {/* Middle Separated Due Amount Box: Class/Batch + Father + Bold Amount with ZERO text collisions */}
+                      <div className="bg-rose-50/50 border border-rose-100 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2 text-xs">
+                          <span className="text-slate-500 font-medium">Class & Batch:</span>
+                          <span className="font-semibold text-slate-800 text-right">
+                            {def.program_name} {def.batch_name ? `• ${def.batch_name}` : ''}
+                          </span>
+                        </div>
+                        {def.father_name && (
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-slate-500 font-medium">Father / Guardian:</span>
+                            <span className="font-medium text-slate-700 text-right">
+                              {def.father_name}
+                            </span>
+                          </div>
+                        )}
+                        <div className="pt-2 border-t border-rose-100/80 flex items-center justify-between gap-2">
+                          <div>
+                            <span className="text-[10.5px] font-bold uppercase tracking-wider text-rose-700 block">
+                              Total Balance Due
+                            </span>
+                            <span className="text-[11px] text-slate-500 font-mono">
+                              {def.max_overdue_days > 0 ? `${def.max_overdue_days} Days Overdue` : 'Current Billing Cycle'}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-mono font-bold text-rose-700 text-base leading-none block">
+                              PKR {def.total_balance.toLocaleString()}
+                            </span>
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="text-right">
-                          <span className="font-mono font-bold text-rose-600 text-xs block">
-                            PKR {def.total_balance.toLocaleString()}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-medium block">
-                            {def.overdue_invoices_count} Challan{def.overdue_invoices_count > 1 ? 's' : ''}
-                          </span>
-                        </div>
+                      {/* Bottom Action Strip: Call + WhatsApp Reminder + Prominent 1-Tap Receive */}
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                        {guardianPhone ? (
+                          <a
+                            href={`tel:${guardianPhone}`}
+                            className="min-h-[38px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            title="Call Guardian"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-slate-600" />
+                            <span>Call</span>
+                          </a>
+                        ) : null}
+
+                        {guardianPhone && def.latest_invoice ? (
+                          <button
+                            type="button"
+                            onClick={() => handleDispatchWhatsAppSlip(def.latest_invoice, guardianPhone)}
+                            className="min-h-[38px] px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            title="WhatsApp Fee Slip"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>WhatsApp</span>
+                          </button>
+                        ) : null}
 
                         <button
                           type="button"
@@ -3656,9 +3671,9 @@ export const FeeDeskView: React.FC = () => {
                               handleViewStudentInDesk(def.student_id);
                             }
                           }}
-                          className="min-h-[36px] px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-xl shadow-2xs flex items-center gap-1 transition-all cursor-pointer touch-press"
+                          className="flex-1 min-h-[38px] px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press"
                         >
-                          <CreditCard className="w-3.5 h-3.5" />
+                          <CreditCard className="w-4 h-4" />
                           <span>Receive</span>
                         </button>
                       </div>

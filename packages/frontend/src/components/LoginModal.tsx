@@ -449,21 +449,21 @@ export const LoginModal: React.FC = () => {
 
   const activeAcademyName = mode === 'register'
     ? (regName.trim() || 'Academy Name')
-    : (branding?.name || (isSubdomain ? 'Academy' : 'Academy Management System'));
+    : (branding?.name || (tenantSlug === 'tsa' || !tenantSlug ? 'The Smart Academy' : isSubdomain ? `${tenantSlug.toUpperCase()} Academy` : 'The Smart Academy'));
 
   const activeAcademyLogo = mode === 'register'
     ? regLogoUrl
-    : (branding?.logo_url || (tenantSlug ? null : '/kampus-logo.png?v=official2'));
+    : (branding?.logo_url || '/tsa-logo.png');
 
   const activeDomain = mode === 'register'
     ? (regSlug.trim() ? `${regSlug.trim().toLowerCase()}.${baseDomain}` : `subdomain.${baseDomain}`)
     : (typeof window !== 'undefined' && window.location.hostname.toLowerCase() === 'edu.kampus.pk'
         ? 'edu.kampus.pk'
-        : (branding?.domain || (tenantSlug ? `${tenantSlug}.${baseDomain}` : `app.${baseDomain}`)));
+        : (branding?.domain || (tenantSlug ? `${tenantSlug}.${baseDomain}` : `tsa.${baseDomain}`)));
 
   return (
-    <div className="min-h-[100dvh] bg-slate-100 flex items-center justify-center p-0 sm:p-6 lg:p-10 font-sans">
-      <div className="w-full max-w-6xl bg-white sm:rounded-2xl shadow-xl sm:border sm:border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[100dvh] sm:min-h-[680px]">
+    <div className="min-h-[100dvh] bg-slate-50 sm:bg-slate-100 flex items-center justify-center p-3 sm:p-6 lg:p-10 font-sans">
+      <div className="w-full max-w-md lg:max-w-6xl bg-white rounded-2xl shadow-sm sm:shadow-xl border border-slate-200/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-0 lg:min-h-[680px]">
         
         <div className="hidden lg:flex lg:col-span-5 bg-slate-950 text-white p-8 lg:p-10 flex-col justify-between relative overflow-hidden border-r border-slate-900">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:3.5rem_3.5rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
@@ -539,72 +539,63 @@ export const LoginModal: React.FC = () => {
         {/* ================================================================ */}
         {/* RIGHT COLUMN: PORTAL FORMS (7/12 cols)                            */}
         {/* ================================================================ */}
-        <div className="lg:col-span-7 bg-white p-4 sm:p-10 lg:p-12 flex flex-col justify-between min-h-0 sm:min-h-[600px] overflow-y-auto">
+        <div className="lg:col-span-7 bg-white p-5 sm:p-8 lg:p-12 flex flex-col justify-between min-h-0 lg:min-h-[680px] overflow-y-auto">
           
-          {/* Top Bar: Mode Switcher & Mobile Branding */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 border-b border-slate-100 pb-4">
-            <div className="flex items-center justify-between w-full sm:w-auto">
-              {/* Mobile brand presentation */}
-              <div className="flex items-center gap-2.5">
-                {isSubdomain ? (
-                  <div className="flex items-center gap-2">
-                    {branding?.logo_url ? (
-                      <img src={branding.logo_url} alt={branding?.name || tenantSlug || 'Academy'} className="h-7 w-auto object-contain max-w-[140px]" />
-                    ) : (
-                      <div className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
-                        {(branding?.name || tenantSlug || 'A').charAt(0).toUpperCase()}
-                      </div>
-                    )}
-                    <span className="text-xs font-bold text-slate-800 truncate max-w-[180px]">
-                      {branding?.name || (tenantSlug ? tenantSlug.toUpperCase() : 'Academy')}
-                    </span>
-                  </div>
-                ) : (
-                  <img src="/kampus-logo.png?v=official2" alt="Kampus" className="h-8 w-auto object-contain object-left" />
-                )}
-              </div>
-              {tenantSlug && branding?.name && !isSubdomain && (
-                <span className="text-xs font-semibold text-slate-700 truncate max-w-[180px]">
-                  {branding.name}
-                </span>
+          {/* Mobile Institutional Branding Header (Visible only on mobile/tablet < lg) */}
+          <div className="lg:hidden text-center mb-6 pt-1">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-2 border border-slate-200/80 shadow-xs flex items-center justify-center mx-auto mb-3">
+              {activeAcademyLogo ? (
+                <img src={activeAcademyLogo} alt={activeAcademyName} className="w-full h-full object-contain" />
+              ) : (
+                <GraduationCap className="w-8 h-8 text-slate-700" />
               )}
             </div>
-
-            {/* Mode Switcher (Visible ONLY on platform root and in form step; NEVER on academy subdomains) */}
-            {!isSubdomain && step === 'form' && (
-              <div className="grid grid-cols-2 sm:flex p-1 bg-slate-100 rounded-lg text-xs font-semibold w-full sm:w-auto gap-1">
-                <button
-                  type="button"
-                  onClick={() => { setMode('login'); setError(null); setMessage(null); }}
-                  className={`px-3.5 py-2.5 min-h-[44px] rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    mode === 'login' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Sign In</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setMode('register'); setError(null); setMessage(null); }}
-                  className={`px-3.5 py-2.5 min-h-[44px] rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    mode === 'register' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                >
-                  <PlusCircle className="w-3.5 h-3.5" />
-                  <span>Register Academy</span>
-                </button>
-              </div>
-            )}
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-brand">
+              {activeAcademyName}
+            </h1>
+            <p className="text-xs text-slate-500 font-medium mt-1">
+              Staff &amp; Guardian Portal • Session 2026–2027
+            </p>
+            <div className="mt-2.5">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-600">
+                <Lock className="w-2.5 h-2.5 text-slate-400" />
+                {activeDomain}
+              </span>
+            </div>
           </div>
 
+          {/* Mode Switcher (Visible ONLY on platform root and in form step; NEVER on academy subdomains) */}
+          {!isSubdomain && step === 'form' && (
+            <div className="mb-5 p-1 bg-slate-100 rounded-lg text-xs font-semibold grid grid-cols-2 gap-1 w-full max-w-xs mx-auto">
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(null); setMessage(null); }}
+                className={`px-3.5 py-2 min-h-[40px] rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  mode === 'login' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode('register'); setError(null); setMessage(null); }}
+                className={`px-3.5 py-2 min-h-[40px] rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  mode === 'register' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span>Register Academy</span>
+              </button>
+            </div>
+          )}
+
           {/* Main Form Content */}
-          <div className="max-w-md w-full mx-auto my-auto py-4">
+          <div className="max-w-md w-full mx-auto my-auto py-2 sm:py-4">
             
-
-
             {/* Headings */}
             <div className="mb-6">
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+              <h2 className={`text-2xl font-bold tracking-tight text-slate-900 ${step === 'form' && mode === 'login' ? 'hidden lg:block' : ''}`}>
                 {step === 'otp' && 'Verify Academy Email'}
                 {step === 'registration_success' && 'Registration Complete'}
                 {step === 'forgot_password_request' && 'Reset Password'}
@@ -612,7 +603,7 @@ export const LoginModal: React.FC = () => {
                 {step === 'contact_admin_forgot_password' && 'Password Reset Assistance'}
                 {step === 'form' && (mode === 'login' ? 'Sign In' : 'Register Academy')}
               </h2>
-              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+              <p className={`text-xs text-slate-500 mt-1.5 leading-relaxed ${step === 'form' && mode === 'login' ? 'hidden lg:block' : ''}`}>
                 {step === 'otp' && `Enter the 6-digit verification code sent to ${email}`}
                 {step === 'registration_success' && 'Your academy portal is active and ready to use.'}
                 {step === 'forgot_password_request' && 'Enter your institutional email to receive a password reset code.'}
@@ -623,6 +614,7 @@ export const LoginModal: React.FC = () => {
                   : 'Create your academy profile, choose your web address, and set up your director account.')}
               </p>
             </div>
+
 
             {/* Error Message */}
             {error && (
@@ -1411,9 +1403,9 @@ export const LoginModal: React.FC = () => {
           </div>
 
           <div className="pt-6 border-t border-slate-100 text-center text-[11px] text-slate-400">
-            {tenantSlug && branding?.name && mode === 'login'
-              ? `© ${new Date().getFullYear()} ${branding.name}`
-              : `© ${new Date().getFullYear()} Kampus`}
+            {activeAcademyName && mode === 'login'
+              ? `© ${new Date().getFullYear()} ${activeAcademyName}`
+              : `© ${new Date().getFullYear()} The Smart Academy`}
           </div>
 
         </div>

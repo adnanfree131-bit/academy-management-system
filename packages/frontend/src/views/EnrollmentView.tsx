@@ -37,7 +37,6 @@ import {
   MoreVertical
 } from 'lucide-react';
 import { 
-  GlanceableKpiStrip, 
   MobileFilterSheet, 
   FilterPillButton, 
   FilterChipGroup, 
@@ -1788,121 +1787,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         </div>
       </div>
 
-      {/* Mobile Glanceable KPI Strip (< 640px) */}
-      <GlanceableKpiStrip
-        items={[
-          { label: 'Students', value: students.length },
-          { label: 'Active', value: students.filter(s => s.status === 'active').length, color: 'text-emerald-700' },
-          { label: 'Defaulters', value: students.filter(s => s.fee_clearance_status === 'defaulter' || (Boolean(s.unpaid_balance) && s.unpaid_balance! > 0 && s.status === 'active')).length, color: 'text-rose-600' }
-        ]}
-        insightsTitle="Enrollment Metrics"
-        insightsSubtitle="Summary of students, active enrollments, and status distribution"
-      >
-        <div className="grid grid-cols-1 gap-2.5">
-          {/* Card 1: Total Students */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-            <div className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                Total Students
-              </span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                  {students.length}
-                </span>
-                <span className="text-xs font-medium text-slate-500 leading-none">
-                  Roster
-                </span>
-              </div>
-            </div>
-            <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
-              <Users className="w-3.5 h-3.5 text-indigo-700" />
-            </span>
-          </div>
-
-          {/* Card 2: Active Enrolled */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-            <div className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                Active Enrolled
-              </span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                  {students.filter(s => s.status === 'active').length}
-                </span>
-                <span className="text-xs font-medium text-slate-500 leading-none">
-                  Attending
-                </span>
-              </div>
-            </div>
-            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-              <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
-            </span>
-          </div>
-
-          {/* Card 3: Inquiries Pipeline */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-            <div className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                Inquiries Pipeline
-              </span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                  {inquiries.length}
-                </span>
-                <span className="text-xs font-medium text-slate-500 leading-none">
-                  Leads
-                </span>
-              </div>
-            </div>
-            <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-              <HelpCircle className="w-3.5 h-3.5 text-amber-700" />
-            </span>
-          </div>
-
-          {/* Card 4: Fee Defaulters */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-            <div className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                Fee Defaulters
-              </span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                  {students.filter(s => s.fee_clearance_status === 'defaulter' || (Boolean(s.unpaid_balance) && s.unpaid_balance! > 0 && s.status === 'active')).length}
-                </span>
-                <span className="text-xs font-medium text-slate-500 leading-none">
-                  Overdue
-                </span>
-              </div>
-            </div>
-            <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
-              <AlertCircle className="w-3.5 h-3.5 text-rose-700" />
-            </span>
-          </div>
-
-          {/* Card 5: Inactive / Departed */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-slate-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-            <div className="min-w-0">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                Inactive / Departed
-              </span>
-              <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                  {students.filter(s => s.status !== 'active').length}
-                </span>
-                <span className="text-xs font-medium text-slate-500 leading-none">
-                  Archived
-                </span>
-              </div>
-            </div>
-            <span className="w-7 h-7 rounded-lg bg-slate-50 text-slate-700 flex items-center justify-center border border-slate-200/70 shrink-0 shadow-2xs">
-              <Archive className="w-3.5 h-3.5 text-slate-700" />
-            </span>
-          </div>
-        </div>
-      </GlanceableKpiStrip>
-
-      {/* Desktop 5-Card Metric Summary Strip (Finalized Enterprise Design, >= 640px) */}
-      <div className="hidden sm:grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+      {/* 5-Card Metric Summary Strip (Responsive: 2 columns on mobile, 5 on desktop) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
         {/* Card 1: Total Students */}
         <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
           <div className="min-w-0">
@@ -2641,8 +2527,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </table>
             </div>
 
-          {/* Mobile Native Cards List (< 768px) */}
-          <div className="md:hidden divide-y divide-slate-100 bg-white">
+          {/* Mobile Box Cards List (< 768px) */}
+          <div className="md:hidden p-3 space-y-3 bg-slate-50/60">
             {isLoading ? (
               <div className="py-12 text-center text-slate-400">
                 <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
@@ -2669,105 +2555,159 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 )}
               </div>
             ) : (
-              pagedStudents.map(student => (
-                <div
-                  key={student.id}
-                  onClick={() => setSelectedStudent(student)}
-                  data-testid="student-roster-cell"
-                  className="p-3.5 active:bg-slate-50 min-h-[70px] flex items-center justify-between gap-2.5 transition-colors cursor-pointer touch-press"
-                >
-                  {/* Left: Checkbox + Avatar (36px) */}
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <button
-                      type="button"
-                      onClick={e => {
-                        e.stopPropagation();
-                        toggleDirectoryStudent(student.id);
-                      }}
-                      className="p-1 -ml-1 text-slate-400 active:text-slate-900 shrink-0 cursor-pointer"
-                      aria-label="Select student"
-                    >
-                      {selectedDirectoryStudentIds.has(student.id) ? (
-                        <CheckSquare className="w-4 h-4 text-slate-900" />
-                      ) : (
-                        <Square className="w-4 h-4 text-slate-300" />
-                      )}
-                    </button>
+              pagedStudents.map(student => {
+                const guardianPhone = student.guardian_phone || student.phone;
+                const guardianDisplay = student.guardian_name
+                  ? `${student.guardian_name}${student.guardian_relation ? ` (${student.guardian_relation})` : ''}`
+                  : 'Guardian unlisted';
 
-                    <div className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 overflow-hidden">
-                      {student.photo_url ? (
-                        <img src={student.photo_url} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        student.full_name.charAt(0)
-                      )}
-                    </div>
+                return (
+                  <div
+                    key={student.id}
+                    data-testid="student-roster-cell"
+                    className="bg-white rounded-xl border border-slate-200 shadow-2xs p-3.5 space-y-3 transition-all"
+                  >
+                    {/* Top Row: Avatar/Initials + Full Student Name (never truncated!) + Admission Number + Status Pill */}
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleDirectoryStudent(student.id);
+                          }}
+                          className="p-1 -ml-1 text-slate-400 active:text-slate-900 shrink-0 cursor-pointer"
+                          aria-label="Select student"
+                        >
+                          {selectedDirectoryStudentIds.has(student.id) ? (
+                            <CheckSquare className="w-4 h-4 text-slate-900" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-300" />
+                          )}
+                        </button>
 
-                    {/* Center: Line 1 (Name + Adm #) & Line 2 (Class/Batch · Guardian) */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline gap-1.5 truncate">
-                        <span className="font-semibold text-[13.5px] text-slate-900 truncate leading-snug">
-                          {student.full_name}
-                        </span>
-                        <span className="font-mono text-xs text-slate-400 shrink-0">
-                          #{student.admission_number || '—'}
-                        </span>
-                        {((student.active_enrollments_count ?? 1) > 1) && (
-                          <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
-                            +{(student.active_enrollments_count ?? 1) - 1}
-                          </span>
-                        )}
+                        <div className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-sm shrink-0 overflow-hidden shadow-2xs">
+                          {student.photo_url ? (
+                            <img src={student.photo_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            student.full_name.charAt(0).toUpperCase()
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              onClick={() => setSelectedStudent(student)}
+                              className="font-bold text-[14.5px] text-slate-900 leading-snug cursor-pointer hover:text-amber-800 break-words"
+                            >
+                              {student.full_name}
+                            </span>
+                            {((student.active_enrollments_count ?? 1) > 1) && (
+                              <span className="px-1.5 py-0.2 rounded text-[9.5px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                                +{(student.active_enrollments_count ?? 1) - 1}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs font-mono font-semibold text-slate-500 mt-0.5">
+                            Adm #{student.admission_number || '—'}
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="text-xs text-slate-500 truncate flex items-center gap-1.5 mt-0.5">
-                        <span className="truncate">
+                      {/* Status Pill */}
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-bold border capitalize shrink-0 ${
+                        student.status === 'active'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : student.status === 'withdrawn'
+                          ? 'bg-rose-50 text-rose-700 border-rose-200'
+                          : student.status === 'suspended'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : student.status === 'on_leave'
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : 'bg-slate-100 text-slate-700 border-slate-200'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          student.status === 'active' ? 'bg-emerald-500' :
+                          student.status === 'withdrawn' ? 'bg-rose-500' :
+                          student.status === 'suspended' ? 'bg-amber-500' :
+                          student.status === 'on_leave' ? 'bg-blue-500' : 'bg-slate-400'
+                        }`}></span>
+                        {student.status ? student.status.replace('_', ' ') : 'Active'}
+                      </span>
+                    </div>
+
+                    {/* Middle Details Box: Class & Batch, Guardian Name & Relation */}
+                    <div className="bg-slate-50/90 rounded-xl p-2.5 border border-slate-100 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-slate-400 font-medium">Class & Batch:</span>
+                        <span className="font-semibold text-slate-800 text-right">
                           {getProgramName(student.program_id)} • {getBatchName(student.batch_id)}
                         </span>
-                        {(student.guardian_phone || student.phone) && (
-                          <>
-                            <span className="text-slate-300">·</span>
-                            <span className="font-mono text-[11px] shrink-0 text-slate-400">
-                              {student.guardian_phone || student.phone}
-                            </span>
-                          </>
-                        )}
                       </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-slate-400 font-medium">Guardian:</span>
+                        <span className="font-medium text-slate-700 text-right">
+                          {guardianDisplay}
+                        </span>
+                      </div>
+                      {guardianPhone && (
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-slate-400 font-medium">Phone:</span>
+                          <span className="font-mono text-slate-700 text-right">
+                            {guardianPhone}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom Action Strip: Call, WhatsApp, View Profile */}
+                    <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                      {guardianPhone ? (
+                        <a
+                          href={`tel:${guardianPhone}`}
+                          className="flex-1 min-h-[36px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                          title="Call Guardian"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-slate-600" />
+                          <span>Call</span>
+                        </a>
+                      ) : null}
+
+                      {guardianPhone ? (
+                        <a
+                          href={`https://wa.me/${guardianPhone.replace(/[^0-9]/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 min-h-[36px] px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                          title="WhatsApp Guardian"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>WhatsApp</span>
+                        </a>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStudent(student)}
+                        className="flex-1 min-h-[36px] px-3 py-1.5 bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-900 border border-amber-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <User className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Profile</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        data-testid="student-actions-trigger"
+                        onClick={() => setMobileActionStudent(student)}
+                        className="w-9 h-9 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 active:bg-slate-100 border border-slate-200 transition-colors cursor-pointer shrink-0"
+                        aria-label="Student options"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-
-                  {/* Right: Status Badge + Action Sheet Button (•••) */}
-                  <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize shrink-0 ${
-                      student.status === 'active'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : student.status === 'withdrawn'
-                        ? 'bg-rose-50 text-rose-700 border-rose-200'
-                        : student.status === 'suspended'
-                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : student.status === 'on_leave'
-                        ? 'bg-blue-50 text-blue-700 border-blue-200'
-                        : 'bg-slate-100 text-slate-700 border-slate-200'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        student.status === 'active' ? 'bg-emerald-500' :
-                        student.status === 'withdrawn' ? 'bg-rose-500' :
-                        student.status === 'suspended' ? 'bg-amber-500' :
-                        student.status === 'on_leave' ? 'bg-blue-500' : 'bg-slate-400'
-                      }`}></span>
-                      {student.status ? student.status.replace('_', ' ') : 'Active'}
-                    </span>
-
-                    <button
-                      type="button"
-                      data-testid="student-actions-trigger"
-                      onClick={() => setMobileActionStudent(student)}
-                      className="w-11 h-11 -mr-2 flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 active:bg-slate-100 transition-colors cursor-pointer"
-                      aria-label="Student options"
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
           {filteredStudents.length > 0 && (

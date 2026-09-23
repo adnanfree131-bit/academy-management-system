@@ -34,6 +34,7 @@ import {
 } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
+import { ModernSelect } from '../components/ModernSelect';
 import { hapticLight, hapticSuccess, hapticSelection } from '../lib/haptics';
 
 export type DeskAttendanceStatus = AttendanceStatus | 'unmarked';
@@ -696,62 +697,71 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
         <>
         <div className="space-y-3.5 sm:space-y-4">
           {/* Mobile Native Compact Session Bar (< 640px) */}
-          <div className="sm:hidden bg-white border border-slate-200 rounded-2xl p-2.5 shadow-2xs space-y-2">
-            {/* Line 1: Batch & Date Stepper */}
-            <div className="flex items-center gap-1.5">
-              <select
+          <div className="sm:hidden bg-white border border-slate-200 rounded-2xl p-3 shadow-2xs space-y-2.5">
+            {/* Line 1: Batch Selector using ModernSelect (Full Width, Zero Truncation) */}
+            <div>
+              <ModernSelect
                 value={selectedBatchId}
-                onChange={e => setSelectedBatchId(e.target.value)}
-                className="flex-1 min-w-0 text-xs bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none"
+                onChange={val => setSelectedBatchId(val)}
+                className="w-full"
+                buttonClassName="bg-slate-50/80 border-slate-200 text-xs font-semibold py-2 px-3 text-[#081A2F]"
+                placeholder="Select Batch / Section..."
               >
-                {filteredBatches.map(b => (
-                  <option key={b.id} value={b.id}>{b.name} ({b.shift.toUpperCase()})</option>
-                ))}
-              </select>
+                {filteredBatches.map(b => {
+                  const progName = programs.find(p => p.id === b.program_id)?.name;
+                  return (
+                    <option key={b.id} value={b.id}>
+                      {progName ? `${progName} • ` : ''}{b.name} ({b.shift.toUpperCase()})
+                    </option>
+                  );
+                })}
+              </ModernSelect>
+            </div>
 
-              {/* Compact Date Stepper */}
-              <div className="flex items-center gap-0.5 bg-slate-50 border border-slate-200 rounded-xl p-0.5 shrink-0">
+            {/* Line 2: Date Stepper & Attendance Quick Actions */}
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+              {/* Generous Date Stepper - Zero Truncation for Dates */}
+              <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-xl p-1 shrink-0">
                 <button
                   type="button"
                   onClick={handlePrevDay}
-                  className="p-1 text-slate-600 active:bg-slate-200 rounded-lg transition-colors touch-press"
+                  className="p-1.5 text-slate-600 active:bg-slate-200 rounded-lg transition-colors touch-press cursor-pointer"
                   aria-label="Previous day"
+                  title="Previous Day"
                 >
-                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={e => setSelectedDate(e.target.value)}
-                  className="text-[11px] bg-transparent border-0 font-mono font-bold text-slate-900 focus:outline-none px-0.5 text-center w-[105px]"
+                  className="text-xs bg-transparent border-0 font-mono font-bold text-slate-900 focus:outline-none px-1 text-center w-[124px]"
                 />
                 <button
                   type="button"
                   onClick={handleNextDay}
-                  className="p-1 text-slate-600 active:bg-slate-200 rounded-lg transition-colors touch-press"
+                  className="p-1.5 text-slate-600 active:bg-slate-200 rounded-lg transition-colors touch-press cursor-pointer"
                   aria-label="Next day"
+                  title="Next Day"
                 >
-                  <ChevronRight className="w-3.5 h-3.5" />
+                  <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
-            </div>
 
-            {/* Line 2: Quick Stats + 1-Tap All Present */}
-            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100">
-              <div className="flex items-center gap-1.5 text-[11px] font-mono font-bold">
-                <span className="text-emerald-700">P:{stats.present}</span>
-                <span className="text-amber-700">L:{stats.late}</span>
-                <span className="text-rose-700">A:{stats.absent}</span>
-                <span className="text-slate-300">·</span>
-                <span className="text-indigo-700 font-bold">{stats.attendancePct === null ? '—' : `${stats.attendancePct}%`}</span>
+              {/* Quick Stats + All Present */}
+              <div className="flex items-center gap-2">
+                <div className="hidden xs:flex items-center gap-1 text-[11px] font-mono font-bold">
+                  <span className="text-emerald-700">P:{stats.present}</span>
+                  <span className="text-rose-700">A:{stats.absent}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={markAllPresent}
+                  className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-200 text-emerald-800 text-xs font-bold touch-press cursor-pointer shadow-2xs whitespace-nowrap"
+                >
+                  All Present
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={markAllPresent}
-                className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-200 text-emerald-800 text-[11px] font-bold touch-press cursor-pointer"
-              >
-                All Present
-              </button>
             </div>
           </div>
 
@@ -760,41 +770,46 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
             <div className="flex flex-wrap items-center justify-between gap-2.5">
               {/* Academic Hierarchy: Program & Batch Selectors */}
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-slate-600">Class:</span>
-                  <select
-                    value={selectedProgramId}
-                    onChange={e => setSelectedProgramId(e.target.value)}
-                    className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 font-medium text-slate-800 focus:outline-none focus:border-indigo-600"
-                  >
-                    <option value="ALL">All Classes / Programs</option>
-                    {programs.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
+                <div className="flex items-center gap-1.5 min-w-[200px]">
+                  <span className="text-xs font-bold text-slate-600 shrink-0">Class:</span>
+                  <div className="w-52">
+                    <ModernSelect
+                      value={selectedProgramId}
+                      onChange={val => setSelectedProgramId(val)}
+                      buttonClassName="bg-slate-50 border-slate-200 text-xs py-1.5"
+                    >
+                      <option value="ALL">All Classes / Programs</option>
+                      {programs.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </ModernSelect>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold text-slate-600">Batch:</span>
-                  <select
-                    value={selectedBatchId}
-                    onChange={e => setSelectedBatchId(e.target.value)}
-                    disabled={filteredBatches.length === 0}
-                    className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 font-medium text-slate-800 focus:outline-none focus:border-indigo-600"
-                  >
-                    {filteredBatches.length === 0 ? (
-                      <option value="">No batches found</option>
-                    ) : (
-                      filteredBatches.map(b => {
-                        const progName = programs.find(p => p.id === b.program_id)?.name;
-                        return (
-                          <option key={b.id} value={b.id}>
-                            {selectedProgramId === 'ALL' && progName ? `${progName} • ` : ''}{b.name} ({b.shift.toUpperCase()})
-                          </option>
-                        );
-                      })
-                    )}
-                  </select>
+                <div className="flex items-center gap-1.5 min-w-[220px]">
+                  <span className="text-xs font-bold text-slate-600 shrink-0">Batch:</span>
+                  <div className="w-60">
+                    <ModernSelect
+                      value={selectedBatchId}
+                      onChange={val => setSelectedBatchId(val)}
+                      disabled={filteredBatches.length === 0}
+                      buttonClassName="bg-slate-50 border-slate-200 text-xs py-1.5"
+                      placeholder="Select Batch..."
+                    >
+                      {filteredBatches.length === 0 ? (
+                        <option value="">No batches found</option>
+                      ) : (
+                        filteredBatches.map(b => {
+                          const progName = programs.find(p => p.id === b.program_id)?.name;
+                          return (
+                            <option key={b.id} value={b.id}>
+                              {selectedProgramId === 'ALL' && progName ? `${progName} • ` : ''}{b.name} ({b.shift.toUpperCase()})
+                            </option>
+                          );
+                        })
+                      )}
+                    </ModernSelect>
+                  </div>
                 </div>
 
                 {activeBatchObj && (
@@ -1437,22 +1452,25 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
         <div className="space-y-4">
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-bold text-slate-600">Batch:</span>
-                <select
-                  value={selectedBatchId}
-                  onChange={e => setSelectedBatchId(e.target.value)}
-                  className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none"
-                >
-                  {batches.map(b => {
-                    const progName = programs.find(p => p.id === b.program_id)?.name;
-                    return (
-                      <option key={b.id} value={b.id}>
-                        {progName ? `${progName} • ` : ''}{b.name} ({b.shift.toUpperCase()})
-                      </option>
-                    );
-                  })}
-                </select>
+              <div className="flex items-center gap-1.5 min-w-[240px]">
+                <span className="text-xs font-bold text-slate-600 shrink-0">Batch:</span>
+                <div className="w-64">
+                  <ModernSelect
+                    value={selectedBatchId}
+                    onChange={val => setSelectedBatchId(val)}
+                    buttonClassName="bg-slate-50 border-slate-200 text-xs py-1.5"
+                    placeholder="Select Batch..."
+                  >
+                    {batches.map(b => {
+                      const progName = programs.find(p => p.id === b.program_id)?.name;
+                      return (
+                        <option key={b.id} value={b.id}>
+                          {progName ? `${progName} • ` : ''}{b.name} ({b.shift.toUpperCase()})
+                        </option>
+                      );
+                    })}
+                  </ModernSelect>
+                </div>
               </div>
 
               <div className="flex items-center gap-1.5">
