@@ -120,6 +120,7 @@ import {
   ROLE_DEFAULT_TEMPLATES,
   derivePermissions,
   resolveUserAccess,
+  can,
 } from '../lib/access.js';
 
 export interface StoredOTP {
@@ -10306,9 +10307,14 @@ export class InMemoryDataStore implements IDataStore {
       if (s.batch_id) assignedBatchIds.add(s.batch_id);
     }
 
+    const hasAllClasses = teacherUser.role === 'tenant_admin' ||
+                          teacherUser.role === 'super_admin' ||
+                          teacherUser.role === 'academic_head' ||
+                          can(teacherUser, 'all_classes', 'view');
+
     const assignedBatches = assignedBatchIds.size > 0
       ? this.batches.filter(b => b.tenant_id === tenantId && assignedBatchIds.has(b.id))
-      : this.batches.filter(b => b.tenant_id === tenantId);
+      : (hasAllClasses ? this.batches.filter(b => b.tenant_id === tenantId) : []);
 
     // Attendance pending batches for today
     const markedBatchIds = new Set(
@@ -10321,12 +10327,12 @@ export class InMemoryDataStore implements IDataStore {
     // Exams with pending evaluations
     const pendingGradingExams = assignedBatchIds.size > 0
       ? this.exams.filter(e => e.tenant_id === tenantId && e.status === 'PUBLISHED' && assignedBatchIds.has(e.batch_id))
-      : this.exams.filter(e => e.tenant_id === tenantId && e.status === 'PUBLISHED');
+      : (hasAllClasses ? this.exams.filter(e => e.tenant_id === tenantId && e.status === 'PUBLISHED') : []);
 
     // Recent diary entries
     const recentDiary = (assignedBatchIds.size > 0
       ? this.homeworkAssignments.filter(h => h.tenant_id === tenantId && assignedBatchIds.has(h.batch_id))
-      : this.homeworkAssignments.filter(h => h.tenant_id === tenantId)
+      : (hasAllClasses ? this.homeworkAssignments.filter(h => h.tenant_id === tenantId) : [])
     ).slice(0, 5);
 
     // Geofence status

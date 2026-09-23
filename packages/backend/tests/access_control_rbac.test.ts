@@ -754,5 +754,61 @@ describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement',
     const body = JSON.parse(portalRes.body);
     expect(body.error.code).toBe('STUDENT_UNLINKED');
   });
+
+  // ---------------------------------------------------------------------------
+  // Test 17: Strict fail-closed: unassigned teacher with all_classes off sees 0
+  // batches and 0 students, but gains full scope when all_classes is enabled.
+  // ---------------------------------------------------------------------------
+  it('Test 17: Strict fail-closed: unassigned teacher with all_classes off sees empty batches, not whole academy', async () => {
+    const unassignedTeacher = await store.createStaff({
+      tenant_id: TENANT_A_ID,
+      email: 'unassigned.strict@apexacademy.edu.pk',
+      full_name: 'Sir Unassigned Strict',
+      role: 'teacher',
+      // No teaching assignments, default template (all_classes off)
+    });
+
+    const unassignedToken = app.jwt.sign({
+      sub: unassignedTeacher.id,
+      user_id: unassignedTeacher.id,
+      email: unassignedTeacher.email,
+      role: 'teacher',
+      tenant_id: TENANT_A_ID,
+    });
+
+    // 1. Teacher Portal Overview should have 0 assigned batches
+    const overview = await store.getTeacherPortalOverview(TENANT_A_ID, unassignedTeacher.id);
+    expect(overview.assigned_batches.length).toBe(0);
+    expect(overview.pending_attendance_batches.length).toBe(0);
+    expect(overview.pending_grading_exams.length).toBe(0);
+
+    // 2. SIS Student List should return 0 students (since batchScope is [])
+    const sisRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/sis/students',
+      headers: { authorization: `Bearer ${unassignedToken}` },
+    });
+    expect(sisRes.statusCode).toBe(200);
+    const sisBody = JSON.parse(sisRes.body);
+    expect(sisBody.data.length).toBe(0);
+
+    // 3. If administrator turns on all_classes: 'view', they immediately see whole academy
+    const liveTeacher = await store.getUserByEmail(TENANT_A_ID, unassignedTeacher.email);
+    if (liveTeacher && liveTeacher.metadata) {
+      (liveTeacher.metadata as any).access.all_classes = 'view';
+    }
+
+    const overviewAll = await store.getTeacherPortalOverview(TENANT_A_ID, unassignedTeacher.id);
+    expect(overviewAll.assigned_batches.length).toBeGreaterThan(0);
+
+    const sisResAll = await app.inject({
+      method: 'GET',
+      url: '/api/v1/sis/students',
+      headers: { authorization: `Bearer ${unassignedToken}` },
+    });
+    expect(sisResAll.statusCode).toBe(200);
+    const sisBodyAll = JSON.parse(sisResAll.body);
+    expect(sisBodyAll.data.length).toBeGreaterThan(0);
+  });
 });
 

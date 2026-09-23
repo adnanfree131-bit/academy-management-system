@@ -377,34 +377,43 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {batches.map(b => (
-                <div key={b.id} className="p-4 rounded-xl border border-slate-200 bg-white space-y-3 shadow-2xs">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-xs">{b.name}</h4>
-                      <p className="text-[10px] text-slate-500">{b.shift.toUpperCase()} {b.start_time && b.end_time ? `• ${b.start_time} – ${b.end_time}` : ''}</p>
-                    </div>
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-700 font-mono text-[10px] font-bold rounded">
-                      {b.current_enrollment} Students
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                    <button
-                      onClick={() => onNavigate('attendance')}
-                      className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold rounded-xl transition-all text-center border border-slate-200/60 min-h-[40px] flex items-center justify-center"
-                    >
-                      Mark Attendance
-                    </button>
-                    <button
-                      onClick={() => onNavigate('exams')}
-                      className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold rounded-xl transition-all text-center min-h-[40px] flex items-center justify-center"
-                    >
-                      Assessments
-                    </button>
-                  </div>
+              {batches.length === 0 ? (
+                <div className="col-span-full py-8 px-4 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                  <p className="text-xs font-bold text-slate-700">No batches currently assigned</p>
+                  <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
+                    Your teaching workload has not been allocated yet. Please contact academy administration to assign your classes and subjects.
+                  </p>
                 </div>
-              ))}
+              ) : (
+                batches.map(b => (
+                  <div key={b.id} className="p-4 rounded-xl border border-slate-200 bg-white space-y-3 shadow-2xs">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-xs">{b.name}</h4>
+                        <p className="text-[10px] text-slate-500">{b.shift.toUpperCase()} {b.start_time && b.end_time ? `• ${b.start_time} – ${b.end_time}` : ''}</p>
+                      </div>
+                      <span className="px-2 py-0.5 bg-slate-100 text-slate-700 font-mono text-[10px] font-bold rounded">
+                        {b.current_enrollment} Students
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                      <button
+                        onClick={() => onNavigate('attendance')}
+                        className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold rounded-xl transition-all text-center border border-slate-200/60 min-h-[40px] flex items-center justify-center"
+                      >
+                        Mark Attendance
+                      </button>
+                      <button
+                        onClick={() => onNavigate('exams')}
+                        className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold rounded-xl transition-all text-center min-h-[40px] flex items-center justify-center"
+                      >
+                        Assessments
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

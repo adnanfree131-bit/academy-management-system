@@ -225,8 +225,12 @@ export function requireFeature(featureId: FeatureId, requiredLevel: AccessLevel 
  * Class scope helper:
  * batchScope(user) -> string[] | 'all'
  * - If user has all_classes permission -> 'all'
- * - If teaching_assignments is empty -> 'all'
- * - If teaching_assignments has rows -> return array of assigned batch_ids
+ * - If tenant_admin or super_admin -> 'all'
+ * - If user.role === 'teacher':
+ *     - If teaching_assignments is empty and all_classes is off -> [] (strict fail-closed)
+ *     - If teaching_assignments has rows -> return array of assigned batch_ids
+ * - For non-teacher staff (accountant, academic head):
+ *     - If teaching_assignments is empty -> 'all'
  */
 export function batchScope(user: any): string[] | 'all' {
   if (!user) return [];
@@ -234,6 +238,13 @@ export function batchScope(user: any): string[] | 'all' {
   if (can(user, 'all_classes', 'view')) return 'all';
 
   const assignments = (user.teaching_assignments || []) as Array<{ batch_id: string }>;
+  if (user.role === 'teacher') {
+    if (!assignments || assignments.length === 0) {
+      return [];
+    }
+    return Array.from(new Set(assignments.map(a => a.batch_id).filter(Boolean)));
+  }
+
   if (!assignments || assignments.length === 0) {
     return 'all';
   }
