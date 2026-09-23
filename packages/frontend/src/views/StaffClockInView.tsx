@@ -1991,22 +1991,22 @@ export const StaffClockInView: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Distance to Campus</span>
-              <span className="text-2xl font-bold font-mono text-slate-900 mt-1 block">
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider block">Distance to Campus</span>
+              <span className="text-lg sm:text-xl font-bold font-mono text-slate-900 mt-0.5 block">
                 {personalDistanceMeters !== null ? `${personalDistanceMeters}m` : '—'}
               </span>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[10.5px] text-slate-500">
                 Center Radius: {geofenceConfig?.radius_meters || 150}m
               </span>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Arrival Status</span>
-              <span className="text-2xl font-bold font-mono text-slate-900 mt-1 block">
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider block">Arrival Status</span>
+              <span className="text-lg sm:text-xl font-bold font-mono text-slate-900 mt-0.5 block">
                 {formatIsoToTime(personalClockInRecord?.clock_in_time)}
               </span>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[10.5px] text-slate-500">
                 {personalClockInRecord?.head_name
                   ? `${personalClockInRecord.head_name} (${personalClockInRecord.head_code})`
                   : personalClockInRecord?.status === 'late'
@@ -2017,12 +2017,12 @@ export const StaffClockInView: React.FC = () => {
               </span>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Duty Duration</span>
-              <span className="text-2xl font-bold font-mono text-slate-900 mt-1 block">
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider block">Duty Duration</span>
+              <span className="text-lg sm:text-xl font-bold font-mono text-slate-900 mt-0.5 block">
                 {formatMinutesToHours(personalClockInRecord?.work_duration_minutes)}
               </span>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-[10.5px] text-slate-500">
                 Departure: {formatIsoToTime(personalClockInRecord?.clock_out_time)}
               </span>
             </div>
@@ -2474,18 +2474,18 @@ export const StaffClockInView: React.FC = () => {
                   </div>
                 )}
 
-                <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100">
+                <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
                   <button
                     type="button"
                     onClick={() => setIsRegModalOpen(false)}
-                    className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+                    className="h-8.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmittingReg}
-                    className="min-h-[44px] px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+                    className="h-8.5 px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
                   >
                     {isSubmittingReg ? 'Submitting...' : 'Submit Request'}
                   </button>
@@ -4975,17 +4975,17 @@ export const StaffClockInView: React.FC = () => {
               </div>
 
               {/* Footer Actions */}
-              <div className="pt-3 flex items-center justify-end gap-2.5 border-t border-slate-100">
+              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsHeadModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer min-h-[44px]"
+                  className="h-8.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 min-h-[44px]"
+                  className="h-8.5 px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <Check className="w-3.5 h-3.5" />
                   {editingHeadIndex !== null ? 'Save Changes' : 'Add Rule'}
@@ -5132,18 +5132,18 @@ export const StaffClockInView: React.FC = () => {
                 </div>
               )}
 
-              <div className="pt-2 flex items-center justify-end gap-2.5">
+              <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={closeEditModal}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer min-h-[44px]"
+                  className="h-8.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingEdit}
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 min-h-[44px]"
+                  className="h-8.5 px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   {isSubmittingEdit ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   Save Changes

@@ -111,7 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
               <button 
                 onClick={onClose} 
-                className="md:hidden text-slate-400 hover:text-slate-200 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+                className="md:hidden text-slate-400 hover:text-slate-200 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                 aria-label="Close navigation"
               >
                 <X className="w-5 h-5" />
@@ -673,7 +673,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={logout}
               title="Sign Out" 
               aria-label="Sign Out"
-              className="text-rose-400 hover:text-rose-300 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl hover:bg-rose-950/40 transition-colors shrink-0 cursor-pointer"
+              className="text-rose-400 hover:text-rose-300 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-rose-950/40 transition-colors shrink-0 cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
             </button>

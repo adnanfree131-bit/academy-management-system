@@ -11,7 +11,6 @@ import {
   CheckSquare,
   CreditCard,
   Plus,
-  RefreshCw,
   AlertTriangle,
   BookOpen,
   MessageSquare,
@@ -145,7 +144,7 @@ function CircularGauge({
         </svg>
         {/* Centered Readout */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-1 pointer-events-none">
-          <span className="text-xl sm:text-2xl font-bold font-mono tracking-tight text-[#081A2F] leading-none">
+          <span className="text-base sm:text-xl font-bold font-mono tracking-tight text-[#081A2F] leading-none">
             {value}%
           </span>
           {sublabel && (
@@ -221,7 +220,7 @@ function StreamDonutChart({
 
         {/* Dynamic Center Readout */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center p-2">
-          <span className="text-2xl font-bold tracking-tight text-[#081A2F] font-mono leading-none">
+          <span className="text-base sm:text-xl font-bold tracking-tight text-[#081A2F] font-mono leading-none">
             {activeItem ? activeItem.count : total}
           </span>
           <span className="text-[10px] text-slate-500 font-medium mt-1 truncate max-w-[85px]">
@@ -292,7 +291,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [homeworkList, setHomeworkList] = useState<HomeworkItem[]>([]);
   const [complaintsList, setComplaintsList] = useState<ComplaintItem[]>([]);
   const [animated, setAnimated] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [scheduleView, setScheduleView] = useState<'today' | 'all'>('today');
 
   useEffect(() => {
@@ -302,7 +300,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
   const loadData = async () => {
     if (!token) return;
-    setIsRefreshing(true);
     const headers = { Authorization: `Bearer ${token}` };
     const today = new Date().toISOString().slice(0, 10);
 
@@ -356,8 +353,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       if (Array.isArray(comps)) setComplaintsList(comps);
     } catch (err) {
       console.error('Dashboard load failed', err);
-    } finally {
-      setIsRefreshing(false);
     }
   };
 
@@ -447,9 +442,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   return (
     <div className="space-y-6 font-sans pb-10">
       {/* ─── Institutional Academy Header ─── */}
-      <div className="bg-white border border-[#E6ECF2] rounded-3xl p-4 sm:p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white border border-slate-200 p-1 shrink-0 shadow-2xs flex items-center justify-center overflow-hidden">
+      <div className="bg-white border border-[#E6ECF2] rounded-xl p-3.5 sm:p-4.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white border border-slate-200 p-1 shrink-0 shadow-2xs flex items-center justify-center overflow-hidden">
             <img
               src={tenant?.logo_url || (tenant as any)?.settings?.logo_url || '/tsa-logo.png'}
               alt={tenant?.name || 'Academy'}
@@ -458,22 +453,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 (e.target as HTMLElement).style.display = 'none';
                 const parent = (e.target as HTMLElement).parentElement;
                 if (parent) {
-                  parent.className = "w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-[#081A2F] text-[#B88634] flex items-center justify-center font-bold text-xl border border-slate-800 shrink-0 shadow-2xs";
-                  parent.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7 sm:w-8 sm:h-8"><path d="M21.42 10.922a1 1 0 0 0-.019-.838L12.83 2.18a2 2 0 0 0-1.66 0L2.6 10.084a1 1 0 0 0 0 1.832l8.57 7.908a2 2 0 0 0 1.66 0l8.57-7.908a1 1 0 0 0 .02-.994Z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg>';
+                  parent.className = "w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#081A2F] text-[#B88634] flex items-center justify-center font-bold text-lg border border-slate-800 shrink-0 shadow-2xs";
+                  parent.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M21.42 10.922a1 1 0 0 0-.019-.838L12.83 2.18a2 2 0 0 0-1.66 0L2.6 10.084a1 1 0 0 0 0 1.832l8.57 7.908a2 2 0 0 0 1.66 0l8.57-7.908a1 1 0 0 0 .02-.994Z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg>';
                 }
               }}
             />
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-[#081A2F] truncate">
+            <h1 className="text-base sm:text-lg font-bold tracking-tight text-[#081A2F] truncate">
               {tenant?.name || 'Academy Management System'}
             </h1>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-200/80">
+            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-amber-50 text-amber-900 border border-amber-200/80">
                 Session {tenant?.academic_session || '2026–2027'} • {tenant?.campus_name || 'Main Campus'}
               </span>
-              <span className="text-xs text-slate-500 font-medium">
+              <span className="text-[11px] text-slate-500 font-medium">
                 Director / Administrator Portal • {displayName}
               </span>
             </div>
@@ -482,27 +477,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
         {/* Action / Date bar */}
         <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-          <button
-            type="button"
-            onClick={loadData}
-            title="Refresh Real-Time Data"
-            className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-[#E6ECF2] rounded-xl transition-all cursor-pointer shadow-2xs active:scale-95"
-          >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-amber-600' : ''}`} />
-          </button>
-          <div className="flex items-center gap-2 min-h-[38px] px-3.5 py-1.5 bg-slate-50/70 border border-[#E6ECF2] rounded-xl text-xs font-semibold text-slate-700 shadow-2xs">
+          <div className="flex items-center gap-1.5 h-8 px-2.5 py-1 bg-slate-50/70 border border-[#E6ECF2] rounded-lg text-xs font-semibold text-slate-700 shadow-2xs">
             <Calendar className="w-3.5 h-3.5 text-[#081A2F]" />
-            <span className="font-mono">{formattedDate}</span>
+            <span className="font-mono text-[11px]">{formattedDate}</span>
           </div>
         </div>
       </div>
 
       {/* ─── Mobile Quick Action Chips (2x2 Grid) ─── */}
-      <div className="sm:hidden grid grid-cols-2 gap-2 -mt-2">
+      <div className="sm:hidden grid grid-cols-2 gap-1.5 -mt-2">
         <button
           type="button"
           onClick={() => onNavigate('attendance')}
-          className="flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 shadow-2xs active:scale-95 transition-all"
+          className="flex items-center justify-center gap-1.5 h-8.5 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 shadow-2xs active:scale-95 transition-all"
         >
           <CheckSquare className="w-3.5 h-3.5 text-blue-600 shrink-0" />
           <span className="truncate">Attendance</span>
@@ -510,7 +497,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         <button
           type="button"
           onClick={() => onNavigate('voucher')}
-          className="flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 shadow-2xs active:scale-95 transition-all"
+          className="flex items-center justify-center gap-1.5 h-8.5 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 shadow-2xs active:scale-95 transition-all"
         >
           <CreditCard className="w-3.5 h-3.5 text-amber-600 shrink-0" />
           <span className="truncate">Receive Fee</span>
@@ -518,7 +505,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         <button
           type="button"
           onClick={() => onNavigate('new_admission')}
-          className="flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 shadow-2xs active:scale-95 transition-all"
+          className="flex items-center justify-center gap-1.5 h-8.5 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 shadow-2xs active:scale-95 transition-all"
         >
           <Plus className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
           <span className="truncate">New Admission</span>
@@ -526,7 +513,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         <button
           type="button"
           onClick={() => onNavigate('challans')}
-          className="flex items-center justify-center gap-1.5 min-h-[40px] px-3 py-2 bg-white border border-slate-200 rounded-2xl text-xs font-semibold text-slate-700 shadow-2xs active:scale-95 transition-all"
+          className="flex items-center justify-center gap-1.5 h-8.5 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 shadow-2xs active:scale-95 transition-all"
         >
           <Receipt className="w-3.5 h-3.5 text-purple-600 shrink-0" />
           <span className="truncate">Challans</span>
@@ -534,7 +521,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       </div>
 
       {/* ─── Hero Section: Today's Academic Schedule & Live Classroom Dispatch ─── */}
-      <div className="bg-gradient-to-br from-[#081A2F] via-[#0E2A47] to-[#15365A] text-white rounded-3xl p-5 sm:p-7 shadow-sm border border-[#1E4570] relative overflow-hidden">
+      <div className="bg-gradient-to-br from-[#081A2F] via-[#0E2A47] to-[#15365A] text-white rounded-xl p-3.5 sm:p-5 shadow-sm border border-[#1E4570] relative overflow-hidden">
         <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" />
 
         {/* Top Header of Hero Card */}
@@ -667,7 +654,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       </div>
 
       {/* ─── Operational Vital Signs: 3 Circular Progress Rings (Ground Truth Data) ─── */}
-      <div className="bg-white border border-[#E6ECF2] rounded-3xl p-5 sm:p-7 shadow-2xs">
+      <div className="bg-white border border-[#E6ECF2] rounded-xl p-3.5 sm:p-5 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3 mb-5">
           <div>
             <h2 className="text-sm font-bold text-[#081A2F] flex items-center gap-2">
@@ -882,7 +869,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       </div>
 
       {/* ─── Active Batches & Attendance Submission Roster ─── */}
-      <div className="bg-white border border-[#E6ECF2] rounded-3xl p-5 sm:p-7 shadow-2xs">
+      <div className="bg-white border border-[#E6ECF2] rounded-xl p-3.5 sm:p-5 shadow-2xs">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <div>
             <h2 className="text-sm font-bold text-[#081A2F]">
@@ -1023,9 +1010,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       </div>
 
       {/* ─── Visual Insights: Stream Distribution & Priority Defaulters ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left: Stream Distribution Donut */}
-        <div className="lg:col-span-6 bg-white border border-[#E6ECF2] rounded-3xl p-6 shadow-2xs flex flex-col justify-between">
+        <div className="lg:col-span-6 bg-white border border-[#E6ECF2] rounded-xl p-3.5 sm:p-5 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-5">
               <div>
@@ -1058,7 +1045,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
 
         {/* Right: Priority Defaulters & Fee Clearance */}
-        <div className="lg:col-span-6 bg-white border border-[#E6ECF2] rounded-3xl p-6 shadow-2xs flex flex-col justify-between">
+        <div className="lg:col-span-6 bg-white border border-[#E6ECF2] rounded-xl p-3.5 sm:p-5 shadow-2xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
               <div>
@@ -1163,7 +1150,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       </div>
 
       {/* ─── Examinations & Assessments Overview ─── */}
-      <div className="bg-white border border-[#E6ECF2] rounded-3xl p-6 shadow-2xs">
+      <div className="bg-white border border-[#E6ECF2] rounded-xl p-3.5 sm:p-5 shadow-2xs">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
           <div>
             <h2 className="text-sm font-bold text-[#081A2F] flex items-center gap-2">

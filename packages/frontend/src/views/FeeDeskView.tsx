@@ -37,8 +37,7 @@ import {
   MobileFilterSheet, 
   FilterPillButton, 
   FilterChipGroup, 
-  FilterChip,
-  GlanceableKpiStrip
+  FilterChip
 } from '../components/mobile';
 import { useMobileOverlay } from '../lib/mobileOverlay';
 import {
@@ -195,17 +194,6 @@ export const FeeDeskView: React.FC = () => {
 
   // Register mobile back button handler for cashier drawer modal
   useMobileOverlay('sheet', showCashierDrawer, () => setShowCashierDrawer(false));
-
-  // Lock body scroll when cashier modal is open to eliminate jitter and background scrolling
-  useEffect(() => {
-    if (showCashierDrawer) {
-      const origOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = origOverflow;
-      };
-    }
-  }, [showCashierDrawer]);
 
   // Active Entity Selection
   const [activeInvoice, setActiveInvoice] = useState<StudentInvoice | null>(null);
@@ -2265,7 +2253,7 @@ export const FeeDeskView: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowFeeHeadsModal(true)}
-            className="flex-1 sm:flex-initial min-h-[40px] px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs rounded-xl border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+            className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-lg border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
             title="Manage Fee Heads and Allocation Order"
           >
             <DollarSign className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -2274,7 +2262,7 @@ export const FeeDeskView: React.FC = () => {
           <button
             type="button"
             onClick={() => setShowBulkRevisionModal(true)}
-            className="flex-1 sm:flex-initial min-h-[40px] px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             title="Adjust tuition fees globally or by class/section"
           >
             <TrendingUp className="w-3.5 h-3.5 text-white/90 shrink-0" />
@@ -2287,7 +2275,7 @@ export const FeeDeskView: React.FC = () => {
       <div className="flex items-center max-w-full bg-white p-1 rounded-xl border border-slate-200 text-xs font-semibold shadow-2xs">
         <button
           onClick={() => setActiveTab('cashier')}
-          className={`flex-1 min-w-0 min-h-[40px] py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
+          className={`flex-1 min-w-0 h-8.5 py-1 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 text-xs transition-all cursor-pointer ${
             activeTab === 'cashier'
               ? 'bg-amber-600 text-white shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -2300,7 +2288,7 @@ export const FeeDeskView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('defaulters')}
-          className={`flex-1 min-w-0 min-h-[40px] py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
+          className={`flex-1 min-w-0 h-8.5 py-1 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 text-xs transition-all cursor-pointer ${
             activeTab === 'defaulters'
               ? 'bg-amber-600 text-white shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -2310,7 +2298,7 @@ export const FeeDeskView: React.FC = () => {
           <span className="sm:hidden">Dues</span>
           <span className="hidden sm:inline">Fee Defaulters</span>
           {duesSummary.allCount > 0 && (
-            <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold font-mono ${
+            <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono ${
               activeTab === 'defaulters' ? 'bg-white text-amber-700' : 'bg-rose-50 text-rose-700 border border-rose-200'
             }`}>
               {duesSummary.allCount}
@@ -2320,7 +2308,7 @@ export const FeeDeskView: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('reports')}
-          className={`flex-1 min-w-0 min-h-[40px] py-2 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press ${
+          className={`flex-1 min-w-0 h-8.5 py-1 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 text-xs transition-all cursor-pointer ${
             activeTab === 'reports'
               ? 'bg-amber-600 text-white shadow-xs font-bold'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -2336,7 +2324,7 @@ export const FeeDeskView: React.FC = () => {
       {activeTab === 'cashier' && (
         <div className="space-y-2.5 sm:space-y-3">
           {/* Hero Search & Action Bar */}
-          <div className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+          <div className="bg-white border border-slate-200 rounded-xl p-2 sm:p-2.5 shadow-2xs">
             <form
               onSubmit={e => {
                 e.preventDefault();
@@ -2346,7 +2334,7 @@ export const FeeDeskView: React.FC = () => {
             >
               <div className="flex items-center gap-2 flex-1">
                 <div className="relative flex-1">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input
                     type="text"
                     placeholder="Search student, Roll #, Phone, CNIC..."
@@ -2358,24 +2346,24 @@ export const FeeDeskView: React.FC = () => {
                       if (next.trim()) setShowSearchPopup(true);
                       else setShowSearchPopup(false);
                     }}
-                    className="w-full pl-9 pr-8 py-2 text-base sm:text-xs bg-slate-50/70 border border-slate-200 rounded-xl focus:outline-none focus:border-amber-600 focus:bg-white text-slate-900 transition-colors"
+                    className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg focus:outline-none focus:border-amber-600 focus:bg-white text-slate-900 transition-colors"
                   />
                   {cashierSearch && (
                     <button
                       type="button"
                       onClick={() => setCashierSearch('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
 
                 <button
                   type="submit"
-                  className="sm:hidden min-h-[40px] px-3.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                  className="sm:hidden h-8.5 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
                 >
-                  <Search className="w-4 h-4" />
+                  <Search className="w-3.5 h-3.5" />
                 </button>
               </div>
 
@@ -2384,7 +2372,7 @@ export const FeeDeskView: React.FC = () => {
                 <ModernSelect
                   value={cashierClassFilter}
                   onChange={val => setCashierClassFilter(val)}
-                  buttonClassName="bg-slate-50/70 border-slate-200 text-base sm:text-xs py-2"
+                  buttonClassName="bg-slate-50/70 border-slate-200 text-xs py-1.5"
                 >
                   <option value="all">All Classes ({programs.length})</option>
                   {programs.map(p => (
@@ -2395,7 +2383,7 @@ export const FeeDeskView: React.FC = () => {
 
               <button
                 type="submit"
-                className="hidden sm:flex px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-xl shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                className="hidden sm:flex h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-xs transition-all items-center justify-center gap-1.5 cursor-pointer shrink-0"
               >
                 <Search className="w-3.5 h-3.5" />
                 <span>Search</span>
@@ -2406,160 +2394,76 @@ export const FeeDeskView: React.FC = () => {
           {/* When No Student Selected: Active Dues Register */}
           {!selectedStudent && (
             <div className="space-y-2.5 sm:space-y-3">
-              {/* Mobile: 1-Line Glanceable KPI Strip & Insights Bottom Sheet */}
-              <GlanceableKpiStrip
-                items={[
-                  { label: 'Collected', value: `PKR ${duesSummary.totalCollected.toLocaleString()}`, color: 'text-emerald-700' },
-                  { label: 'Defaulters', value: duesSummary.allCount, color: 'text-amber-700' },
-                ]}
-                insightsTitle="Fee Collection & Dues Overview"
-                insightsSubtitle="Invoiced amounts, collections, and overdue receivables"
-                actionLabel="Insights"
-              >
-                <div className="grid grid-cols-2 gap-2.5">
-                  {/* Card 1: Total Invoiced */}
-                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                        Total Invoiced
-                      </span>
-                      <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                          PKR {duesSummary.totalInvoiced.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
-                      <CreditCard className="w-3.5 h-3.5 text-indigo-700" />
-                    </span>
-                  </div>
-
-                  {/* Card 2: Realized Collections */}
-                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                        Realized Collections
-                      </span>
-                      <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
-                          PKR {duesSummary.totalCollected.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-                    </span>
-                  </div>
-
-                  {/* Card 3: Overdue Receivables */}
-                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                        Overdue Receivables
-                      </span>
-                      <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="font-mono font-bold text-rose-600 text-sm leading-none">
-                          PKR {duesSummary.allAmount.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
-                      <AlertCircle className="w-3.5 h-3.5 text-rose-700" />
-                    </span>
-                  </div>
-
-                  {/* Card 4: Defaulter Students */}
-                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                        Defaulters
-                      </span>
-                      <div className="flex items-baseline gap-1 mt-0.5">
-                        <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                          {duesSummary.allCount}
-                        </span>
-                        <span className="text-xs font-medium text-slate-500 leading-none">
-                          Students
-                        </span>
-                      </div>
-                    </div>
-                    <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-                      <Users className="w-3.5 h-3.5 text-amber-700" />
-                    </span>
-                  </div>
-                </div>
-              </GlanceableKpiStrip>
-
-              {/* Desktop 4-Card Financial Summary Strip (>= 640px) */}
-              <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+              {/* 4-Card Financial Summary Strip */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
                 {/* Card 1: Total Invoiced */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center justify-between shadow-2xs">
                   <div className="min-w-0">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                       Total Invoiced
                     </span>
                     <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                      <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm leading-none">
                         PKR {duesSummary.totalInvoiced.toLocaleString()}
                       </span>
                     </div>
                   </div>
-                  <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
-                    <CreditCard className="w-3.5 h-3.5 text-indigo-700" />
+                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
+                    <CreditCard className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-700" />
                   </span>
                 </div>
 
                 {/* Card 2: Realized Collections */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center justify-between shadow-2xs">
                   <div className="min-w-0">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                       Realized Collections
                     </span>
                     <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
+                      <span className="font-mono font-bold text-emerald-700 text-xs sm:text-sm leading-none">
                         PKR {duesSummary.totalCollected.toLocaleString()}
                       </span>
                     </div>
                   </div>
-                  <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
+                    <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-700" />
                   </span>
                 </div>
 
                 {/* Card 3: Overdue Receivables */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center justify-between shadow-2xs">
                   <div className="min-w-0">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                       Overdue Receivables
                     </span>
                     <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-mono font-bold text-rose-600 text-sm leading-none">
+                      <span className="font-mono font-bold text-rose-600 text-xs sm:text-sm leading-none">
                         PKR {duesSummary.allAmount.toLocaleString()}
                       </span>
                     </div>
                   </div>
-                  <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-700" />
+                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
+                    <AlertCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-700" />
                   </span>
                 </div>
 
                 {/* Card 4: Defaulter Students */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center justify-between shadow-2xs">
                   <div className="min-w-0">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                      Defaulter Students
+                      Defaulters
                     </span>
                     <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                      <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm leading-none">
                         {duesSummary.allCount}
                       </span>
-                      <span className="text-xs font-medium text-slate-500 leading-none">
+                      <span className="text-[11px] font-medium text-slate-500 leading-none">
                         Students
                       </span>
                     </div>
                   </div>
-                  <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-                    <Users className="w-3.5 h-3.5 text-amber-700" />
+                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
+                    <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-700" />
                   </span>
                 </div>
               </div>
@@ -2660,7 +2564,7 @@ export const FeeDeskView: React.FC = () => {
                               {guardianPhone ? (
                                 <a
                                   href={`tel:${guardianPhone}`}
-                                  className="min-h-[38px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                  className="h-8 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                                   title="Call Guardian"
                                 >
                                   <Phone className="w-3.5 h-3.5 text-slate-600" />
@@ -2672,7 +2576,7 @@ export const FeeDeskView: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => handleDispatchWhatsAppSlip(targetInvoice, guardianPhone)}
-                                  className="min-h-[38px] px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                                  className="h-8 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                                   title="WhatsApp Reminder Slip"
                                 >
                                   <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
@@ -2683,18 +2587,15 @@ export const FeeDeskView: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setSelectedCashierStudentId(def.student_id);
-                                  setLedgerStudentId(def.student_id);
-                                  setStudentDeskTab('challans');
                                   if (targetInvoice) {
                                     handleOpenCashierDrawer(targetInvoice);
                                   } else {
                                     handleViewStudentInDesk(def.student_id);
                                   }
                                 }}
-                                className="flex-1 min-h-[38px] px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press"
+                                className="flex-1 h-8 px-3 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                               >
-                                <CreditCard className="w-4 h-4" />
+                                <CreditCard className="w-3.5 h-3.5" />
                                 <span>Receive Fee</span>
                               </button>
                             </div>
@@ -2758,11 +2659,10 @@ export const FeeDeskView: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setSelectedCashierStudentId(def.student_id);
-                                    setLedgerStudentId(def.student_id);
-                                    setStudentDeskTab('challans');
                                     if (def.latest_invoice) {
                                       handleOpenCashierDrawer(def.latest_invoice);
+                                    } else {
+                                      handleViewStudentInDesk(def.student_id);
                                     }
                                   }}
                                   className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
@@ -3062,7 +2962,7 @@ export const FeeDeskView: React.FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => handleOpenCashierDrawer(inv)}
-                                      className="flex-1 min-h-[40px] px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer touch-press"
+                                      className="flex-1 h-8 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                                     >
                                       <CreditCard className="w-4 h-4" />
                                       <span>Receive Fee</span>
@@ -3075,7 +2975,7 @@ export const FeeDeskView: React.FC = () => {
                                       setActiveInvoice(inv);
                                       setShowPrintModal(true);
                                     }}
-                                    className="min-h-[40px] px-3 py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                                    className="h-8 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
                                     title="Print fee challan"
                                   >
                                     <Printer className="w-4 h-4 text-slate-600" />
@@ -3086,7 +2986,7 @@ export const FeeDeskView: React.FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => handleDispatchWhatsAppSlip(inv, guardianPhone)}
-                                      className="min-h-[40px] px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                                      className="h-8 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
                                       title="WhatsApp fee slip"
                                     >
                                       <MessageSquare className="w-4 h-4 text-emerald-600" />
@@ -3098,7 +2998,7 @@ export const FeeDeskView: React.FC = () => {
                                     <button
                                       type="button"
                                       onClick={() => handleViewReceiptFromInvoice(inv)}
-                                      className="min-h-[40px] px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs font-semibold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                                      className="h-8 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 text-xs font-semibold rounded-lg transition-colors flex items-center justify-center gap-1 cursor-pointer"
                                       title="View receipt"
                                     >
                                       <CheckCircle2 className="w-4 h-4 text-indigo-600" />
@@ -3109,7 +3009,7 @@ export const FeeDeskView: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => handlePreviewSlipPicture(inv)}
-                                    className="min-h-[40px] w-10 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors cursor-pointer"
+                                    className="h-8 w-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors cursor-pointer"
                                     title="Preview slip picture"
                                   >
                                     <Eye className="w-4 h-4" />
@@ -4600,19 +4500,19 @@ export const FeeDeskView: React.FC = () => {
       {/* RECEIVE FEE PAYMENT MODAL (CENTERED INSTITUTIONAL DIALOG) */}
       {/* ========================================================================= */}
       {showCashierDrawer && activeInvoice && createPortal(
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden max-h-[92dvh] mobile-sheet-card animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="w-full max-w-lg bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-2xl flex flex-col overflow-hidden max-h-[92dvh] mobile-sheet-card">
             {/* Modal Header */}
-            <div className="px-5 py-3.5 bg-slate-50/90 border-b border-slate-200 flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
-                  <CreditCard className="w-5 h-5" />
+            <div className="px-4 py-3 bg-slate-50/90 border-b border-slate-200 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+                  <CreditCard className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 leading-tight">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">
                     Receive Fee Payment
                   </h3>
-                  <p className="text-xs text-slate-500 font-mono mt-0.5">
+                  <p className="text-[11px] text-slate-500 font-mono mt-0.5">
                     Challan: <span className="font-semibold text-slate-700">{activeInvoice.invoice_number}</span> • Month: <span className="font-semibold text-slate-700">{activeInvoice.billing_month}</span>
                   </p>
                 </div>
@@ -4620,16 +4520,16 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowCashierDrawer(false)}
-                className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
                 title="Close"
                 aria-label="Close dialog"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Scrollable Modal Body */}
-            <div className="p-5 space-y-4 overflow-y-auto flex-1">
+            <div className="p-3.5 sm:p-5 space-y-3.5 overflow-y-auto flex-1">
               {/* Student & Due Summary */}
               <div className="bg-slate-50/80 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
@@ -4921,11 +4821,11 @@ export const FeeDeskView: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+            <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowCashierDrawer(false)}
-                className="h-11 min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-xl transition-colors cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -4933,16 +4833,16 @@ export const FeeDeskView: React.FC = () => {
                 type="submit"
                 form="cashierDrawerForm"
                 disabled={isCommittingPayment || (Number(collectionAmount) || 0) <= 0}
-                className="flex-1 sm:flex-initial h-11 min-h-[44px] px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer touch-press"
+                className="flex-1 sm:flex-initial h-8.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
               >
                 {isCommittingPayment ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                     <span>Receiving Payment...</span>
                   </>
                 ) : (
                   <>
-                    <Check className="w-4 h-4" />
+                    <Check className="w-3.5 h-3.5" />
                     <span>Receive Payment</span>
                   </>
                 )}
@@ -4970,7 +4870,7 @@ export const FeeDeskView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="min-h-[44px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="h-8 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                   title="Print A6 portrait receipt"
                 >
                   <Printer className="w-3.5 h-3.5" />
@@ -4978,7 +4878,7 @@ export const FeeDeskView: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setShowReceiptModal(false)}
-                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                   aria-label="Close dialog"
                 >
                   <X className="w-5 h-5" />
@@ -5049,7 +4949,7 @@ export const FeeDeskView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="min-h-[44px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="h-8 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                   title="Print A6 portrait slip"
                 >
                   <Printer className="w-3.5 h-3.5" />
@@ -5057,7 +4957,7 @@ export const FeeDeskView: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setShowPictureSlipModal(false)}
-                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                   aria-label="Close dialog"
                 >
                   <X className="w-5 h-5" />
@@ -5421,7 +5321,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setCancelInvoiceTarget(null)}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -5462,7 +5362,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setCancelInvoiceTarget(null)}
-                className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Back
               </button>
@@ -5470,7 +5370,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 disabled={cancelSubmitting || cancelInvoiceReason.trim().length < 3}
                 onClick={handleCancelInvoice}
-                className="min-h-[44px] px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs cursor-pointer"
               >
                 {cancelSubmitting ? 'Cancelling...' : 'Confirm Void Invoice'}
               </button>
@@ -5492,7 +5392,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowHeadModal(false)}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -5565,14 +5465,14 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowHeadModal(false)}
-                  className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  className="h-8.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSavingHead}
-                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition-colors cursor-pointer"
+                  className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs transition-colors cursor-pointer"
                 >
                   {isSavingHead ? 'Saving...' : 'Save Fee Head'}
                 </button>
@@ -5593,7 +5493,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowDiscountModal(false)}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -5684,13 +5584,13 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowDiscountModal(false)}
-                  className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  className="h-8.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
+                  className="h-8.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-xs cursor-pointer"
                 >
                   Grant Concession
                 </button>
@@ -5714,7 +5614,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setVoidPaymentModal(null)}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -5743,7 +5643,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setVoidPaymentModal(null)}
-                className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Cancel
               </button>
@@ -5751,7 +5651,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={handleConfirmVoid}
                 disabled={voidSubmitting}
-                className="min-h-[44px] px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs rounded-lg shadow-xs cursor-pointer"
               >
                 {voidSubmitting ? 'Voiding...' : 'Confirm Void'}
               </button>
@@ -5780,7 +5680,7 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowBulkRevisionModal(false)}
-                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                   aria-label="Close dialog"
                 >
                   <X className="w-5 h-5" />
@@ -5808,7 +5708,7 @@ export const FeeDeskView: React.FC = () => {
                             setBulkRevBatchId(batches[0].id);
                           }
                         }}
-                        className={`min-h-[44px] py-2 px-3 text-xs font-semibold rounded-lg border transition-all ${
+                        className={`py-1.5 px-2.5 text-xs font-semibold rounded-lg border transition-all ${
                           bulkRevScope === tab.id
                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                             : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
@@ -5914,7 +5814,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowBulkRevisionModal(false)}
-                className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Cancel
               </button>
@@ -5922,7 +5822,7 @@ export const FeeDeskView: React.FC = () => {
                 type="submit"
                 form="bulkRevForm"
                 disabled={isSubmittingBulkRev || affectedStudents.length === 0}
-                className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition-colors cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs transition-colors cursor-pointer"
               >
                 {isSubmittingBulkRev ? 'Applying...' : `Apply Revision to ${affectedStudents.length} Students`}
               </button>
@@ -5957,7 +5857,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedFamily(null)}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -6152,14 +6052,14 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedFamily(null)}
-                  className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  className="h-8.5 px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingFamily || Object.values(familyAllocations).reduce((sum, v) => sum + (Number(v) || 0), 0) <= 0}
-                  className="min-h-[48px] px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 cursor-pointer"
+                  className="h-8.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
                   <span>
@@ -6191,7 +6091,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setFamilyReceiptData(null)}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -6259,7 +6159,7 @@ export const FeeDeskView: React.FC = () => {
                   const url = phone ? `https://wa.me/${phone.startsWith('0') ? '92' + phone.slice(1) : phone}?text=${encodeURIComponent(text)}` : `https://wa.me/?text=${encodeURIComponent(text)}`;
                   window.open(url, '_blank');
                 }}
-                className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>WhatsApp Share</span>
@@ -6267,7 +6167,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="min-h-[44px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>Print</span>
@@ -6275,7 +6175,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setFamilyReceiptData(null)}
-                className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs transition-colors cursor-pointer"
               >
                 Done
               </button>
@@ -6304,7 +6204,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowSearchPopup(false)}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-4 h-4" />
@@ -6413,7 +6313,7 @@ export const FeeDeskView: React.FC = () => {
 
                         <button
                           type="button"
-                          className="min-h-[40px] px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-lg transition-colors shadow-xs flex items-center gap-1 cursor-pointer"
+                          className="h-8.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold rounded-lg transition-colors shadow-xs flex items-center gap-1 cursor-pointer"
                         >
                           <span>Select</span>
                           <ArrowRight className="w-3 h-3" />
@@ -6429,7 +6329,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowSearchPopup(false)}
-                className="min-h-[44px] px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Close
               </button>
@@ -6458,7 +6358,7 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleOpenNewHead}
-                  className="min-h-[40px] px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  className="h-8.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>New Fee Head</span>
@@ -6466,7 +6366,7 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowFeeHeadsModal(false)}
-                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                   aria-label="Close dialog"
                 >
                   <X className="w-4 h-4" />
@@ -6554,7 +6454,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowFeeHeadsModal(false)}
-                className="min-h-[44px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg cursor-pointer"
               >
                 Close
               </button>
@@ -6582,7 +6482,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowConcessionReportModal(false)}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-4 h-4" />
@@ -6599,7 +6499,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setConcessionReportType('all')}
-                    className={`min-h-[44px] py-2 px-2.5 rounded-lg border text-center transition-all ${
+                    className={`py-1.5 px-2 rounded-lg border text-center text-xs transition-all ${
                       concessionReportType === 'all'
                         ? 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -6610,7 +6510,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setConcessionReportType('scholarship')}
-                    className={`min-h-[44px] py-2 px-2.5 rounded-lg border text-center transition-all ${
+                    className={`py-1.5 px-2 rounded-lg border text-center text-xs transition-all ${
                       concessionReportType === 'scholarship'
                         ? 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -6621,7 +6521,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setConcessionReportType('counter')}
-                    className={`min-h-[44px] py-2 px-2.5 rounded-lg border text-center transition-all ${
+                    className={`py-1.5 px-2 rounded-lg border text-center text-xs transition-all ${
                       concessionReportType === 'counter'
                         ? 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -6641,7 +6541,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setConcessionPeriodType('monthly')}
-                    className={`min-h-[40px] py-1.5 px-2 rounded-lg border text-center transition-all ${
+                    className={`py-1 px-2 rounded-lg border text-center text-xs transition-all ${
                       concessionPeriodType === 'monthly'
                         ? 'bg-amber-600 text-white font-bold border-amber-600 shadow-xs'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -6652,7 +6552,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setConcessionPeriodType('yearly')}
-                    className={`min-h-[40px] py-1.5 px-2 rounded-lg border text-center transition-all ${
+                    className={`py-1 px-2 rounded-lg border text-center text-xs transition-all ${
                       concessionPeriodType === 'yearly'
                         ? 'bg-amber-600 text-white font-bold border-amber-600 shadow-xs'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -6663,7 +6563,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setConcessionPeriodType('date_range')}
-                    className={`min-h-[40px] py-1.5 px-2 rounded-lg border text-center transition-all ${
+                    className={`py-1 px-2 rounded-lg border text-center text-xs transition-all ${
                       concessionPeriodType === 'date_range'
                         ? 'bg-amber-600 text-white font-bold border-amber-600 shadow-xs'
                         : 'border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -6745,7 +6645,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowConcessionReportModal(false)}
-                className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
               >
                 Cancel
               </button>
@@ -6753,7 +6653,7 @@ export const FeeDeskView: React.FC = () => {
                 type="button"
                 onClick={handleGenerateConcessionReport}
                 disabled={isGeneratingPdf}
-                className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>{isGeneratingPdf ? 'Rendering PDF...' : 'Generate & Open PDF'}</span>
@@ -6814,7 +6714,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSiblingReportOpen(false)}
-                className="min-h-[44px] px-3.5 py-1.5 text-xs border border-slate-200 rounded-md cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 text-xs border border-slate-200 rounded-lg cursor-pointer"
               >
                 Cancel
               </button>
@@ -6824,7 +6724,7 @@ export const FeeDeskView: React.FC = () => {
                   setSiblingReportOpen(false);
                   void handleOpenReportPdf('family');
                 }}
-                className="min-h-[44px] px-3.5 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md font-semibold transition-colors shadow-xs cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 text-xs bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-semibold transition-colors shadow-xs cursor-pointer"
               >
                 Open PDF
               </button>
@@ -6938,7 +6838,7 @@ export const FeeDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedDefaulterModal(null)}
-                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors"
                   title="Close"
                   aria-label="Close dialog"
                 >
@@ -7139,7 +7039,7 @@ export const FeeDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedDefaulterModal(null)}
-                    className="min-h-[44px] px-4 py-2 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-md transition-colors cursor-pointer w-full sm:w-auto"
+                    className="h-8.5 px-3.5 py-1.5 border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer w-full sm:w-auto"
                   >
                     Close
                   </button>
@@ -7150,7 +7050,7 @@ export const FeeDeskView: React.FC = () => {
                       setSelectedDefaulterModal(null);
                       handleViewStudentInDesk(studId);
                     }}
-                    className="min-h-[44px] px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-md transition-colors cursor-pointer w-full sm:w-auto flex items-center justify-center gap-1.5"
+                    className="h-8.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer w-full sm:w-auto flex items-center justify-center gap-1.5"
                     title="Open full student profile & ledger"
                   >
                     <FileText className="w-3.5 h-3.5 text-indigo-600" />
@@ -7170,7 +7070,7 @@ export const FeeDeskView: React.FC = () => {
                       setSelectedDefaulterModal(null);
                       handleOpenCashierDrawer(latestInv);
                     }}
-                    className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-md shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 w-full sm:w-auto"
+                    className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 w-full sm:w-auto"
                   >
                     <CreditCard className="w-4 h-4" />
                     <span>Receive Fee (Cashier)</span>

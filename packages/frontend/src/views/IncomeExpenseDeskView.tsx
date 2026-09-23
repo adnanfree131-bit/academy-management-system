@@ -977,14 +977,14 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowVoucherModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 min-h-[44px]"
+                  className="h-8.5 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingVoucher}
-                  className={`px-5 py-2 rounded-xl text-xs font-bold text-white shadow-xs transition-colors min-h-[44px] cursor-pointer ${
+                  className={`h-8.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white shadow-xs transition-colors cursor-pointer ${
                     voucherType === 'income' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-rose-600 hover:bg-rose-700'
                   }`}
                 >
@@ -1070,14 +1070,14 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowHeadModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 min-h-[44px]"
+                  className="h-8.5 px-3.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingHead}
-                  className="px-5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors cursor-pointer min-h-[44px]"
+                  className="h-8.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isSubmittingHead ? 'Saving...' : 'Save Account Head'}
                 </button>

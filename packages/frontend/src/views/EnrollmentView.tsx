@@ -2387,7 +2387,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <button
                   type="button"
                   onClick={() => setShowBulkIdCardsModal(true)}
-                  className="flex-1 sm:flex-initial min-h-[44px] px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
                   <CreditCard className="w-3.5 h-3.5 shrink-0" />
                   <span>Print ID Cards ({selectedDirectoryStudentIds.size})</span>
@@ -2400,7 +2400,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       setBulkArchiveCancelUnpaid(false);
                       setShowBulkArchiveModal(true);
                     }}
-                    className="flex-1 sm:flex-initial min-h-[44px] px-3 py-2 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     title="Archive Selected Students"
                   >
                     <Archive className="w-3.5 h-3.5 text-amber-700 shrink-0" />
@@ -2415,7 +2415,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       setBulkDeleteReason('Bulk administrative student deletion');
                       setShowBulkDeleteModal(true);
                     }}
-                    className="flex-1 sm:flex-initial min-h-[44px] px-3 py-2 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     title="Permanently Delete Selected Students"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
@@ -2425,7 +2425,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <button
                   type="button"
                   onClick={() => setSelectedDirectoryStudentIds(new Set())}
-                  className="min-h-[44px] px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                  className="h-8.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                 >
                   Clear
                 </button>
@@ -2802,7 +2802,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       {guardianPhone ? (
                         <a
                           href={`tel:${guardianPhone}`}
-                          className="flex-1 min-h-[36px] px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
+                          className="flex-1 h-8 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
                           title="Call Guardian"
                         >
                           <Phone className="w-3.5 h-3.5 text-slate-600 shrink-0" />
@@ -2815,7 +2815,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           href={`https://wa.me/${cleanWaPhone || guardianPhone.replace(/[^0-9]/g, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex-1 min-h-[36px] px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
+                          className="flex-1 h-8 px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
                           title="WhatsApp Guardian"
                         >
                           <MessageSquare className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -2826,7 +2826,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       <button
                         type="button"
                         onClick={() => setSelectedStudent(student)}
-                        className="flex-1 min-h-[36px] px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-900 border border-amber-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
+                        className="flex-1 h-8 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-900 border border-amber-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
                       >
                         <User className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                         <span className="truncate">Profile</span>
@@ -2836,7 +2836,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         type="button"
                         data-testid="student-actions-trigger"
                         onClick={() => setMobileActionStudent(student)}
-                        className="w-9 h-9 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 active:bg-slate-100 border border-slate-200 transition-colors cursor-pointer shrink-0"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 active:bg-slate-100 border border-slate-200 transition-colors cursor-pointer shrink-0"
                         aria-label="Student options"
                       >
                         <MoreVertical className="w-4 h-4" />
@@ -5182,7 +5182,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setAdmitInquiryModal(null)}
-                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -5403,7 +5403,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowNewInquiryModal(false)}
-                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -5599,7 +5599,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowBulkIdCardsModal(false)}
-                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -5639,7 +5639,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 type="button"
                 data-testid="student-action-sheet-close"
                 onClick={() => setMobileActionStudent(null)}
-                className="w-11 h-11 flex items-center justify-center rounded-full text-slate-500 hover:text-slate-900 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 transition-colors"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -5655,7 +5655,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   setMobileActionStudent(null);
                   setSelectedStudent(s);
                 }}
-                className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors cursor-pointer"
+                className="w-full h-9 px-3 py-1.5 rounded-lg text-left text-xs font-semibold text-slate-800 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors cursor-pointer"
               >
                 <User className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>Open Student Profile & Dossier</span>
@@ -5665,7 +5665,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <a
                   href={`tel:${mobileActionStudent.guardian_phone}`}
                   onClick={() => setMobileActionStudent(null)}
-                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors"
+                  className="w-full h-9 px-3 py-1.5 rounded-lg text-left text-xs font-semibold text-slate-800 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors"
                 >
                   <Phone className="w-4 h-4 text-blue-600 shrink-0" />
                   <span>Call Guardian ({mobileActionStudent.guardian_phone})</span>
@@ -5679,7 +5679,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   setMobileActionStudent(null);
                   setContactStudentModal(s);
                 }}
-                className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-slate-800 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors cursor-pointer"
+                className="w-full h-9 px-3 py-1.5 rounded-lg text-left text-xs font-semibold text-slate-800 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors cursor-pointer"
               >
                 <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>Send WhatsApp Notification</span>
@@ -5693,7 +5693,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     setMobileActionStudent(null);
                     setStudentToArchive(s);
                   }}
-                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-amber-700 hover:bg-amber-50 active:bg-amber-100 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  className="w-full h-9 px-3 py-1.5 rounded-lg text-left text-xs font-semibold text-amber-700 hover:bg-amber-50 active:bg-amber-100 flex items-center gap-2.5 transition-colors cursor-pointer"
                 >
                   <Archive className="w-4 h-4 text-amber-600 shrink-0" />
                   <span>Archive Student Record</span>
@@ -5712,7 +5712,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     setDeleteRequiresForce(false);
                     setDeleteErrorMessage(null);
                   }}
-                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 active:bg-rose-100 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  className="w-full h-9 px-3 py-1.5 rounded-lg text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 active:bg-rose-100 flex items-center gap-2.5 transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>Delete Student Permanently</span>
@@ -5724,7 +5724,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setMobileActionStudent(null)}
-                className="w-full min-h-[44px] py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="w-full h-8.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer"
               >
                 Cancel
               </button>
@@ -5746,7 +5746,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setContactStudentModal(null)}
-                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -5847,7 +5847,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setReceiptModalData(null)}
-                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -6067,7 +6067,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowBulkImportModal(false)}
-                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-xl transition-colors cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -6196,7 +6196,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setStudentToArchive(null)}
-                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-white rounded-xl transition-colors cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -6252,7 +6252,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setStudentToArchive(null)}
-                className="w-full sm:w-auto min-h-[44px] px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
+                className="w-full sm:w-auto h-8.5 px-3.5 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-semibold text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -6260,7 +6260,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 type="button"
                 onClick={handleArchiveStudent}
                 disabled={isArchiving || !archiveReason.trim()}
-                className="w-full sm:w-auto min-h-[48px] px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold text-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                className="w-full sm:w-auto h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Archive className="w-3.5 h-3.5" />
                 <span>{isArchiving ? 'Archiving...' : 'Confirm Archival'}</span>
@@ -6283,7 +6283,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setStudentToDelete(null)}
-                className="text-white/80 hover:text-white w-11 h-11 flex items-center justify-center rounded-lg cursor-pointer"
+                className="text-white/80 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -6350,7 +6350,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setStudentToDelete(null)}
-                className="min-h-[44px] px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-semibold text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -6358,7 +6358,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 type="button"
                 onClick={handleDeleteStudent}
                 disabled={isDeleting || !deleteReason.trim() || (deleteRequiresForce && !deleteForce)}
-                className="min-h-[44px] px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="h-8.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isDeleting ? 'Deleting...' : 'Confirm Permanent Deletion'}</span>
@@ -6381,7 +6381,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowBulkArchiveModal(false)}
-                className="text-slate-400 hover:text-white w-11 h-11 flex items-center justify-center rounded-lg cursor-pointer"
+                className="text-slate-400 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -6434,7 +6434,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowBulkArchiveModal(false)}
-                className="min-h-[44px] px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-semibold text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -6442,7 +6442,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 type="button"
                 onClick={handleBulkArchive}
                 disabled={isBulkOperating || !bulkArchiveReason.trim()}
-                className="min-h-[44px] px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Archive className="w-3.5 h-3.5" />
                 <span>{isBulkOperating ? 'Archiving...' : `Archive (${selectedDirectoryStudentIds.size}) Students`}</span>
@@ -6465,7 +6465,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowBulkDeleteModal(false)}
-                className="text-white/80 hover:text-white w-11 h-11 flex items-center justify-center rounded-lg cursor-pointer"
+                className="text-white/80 hover:text-white w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -6515,7 +6515,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowBulkDeleteModal(false)}
-                className="min-h-[44px] px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-medium text-xs transition-colors cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-semibold text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -6523,7 +6523,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 type="button"
                 onClick={handleBulkDelete}
                 disabled={isBulkOperating || !bulkDeleteReason.trim()}
-                className="min-h-[44px] px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="h-8.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isBulkOperating ? 'Deleting...' : `Delete (${selectedDirectoryStudentIds.size}) Students`}</span>
@@ -6550,7 +6550,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   setNewDocHeadTitle('');
                   setNewDocHeadMandatory(false);
                 }}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-4 h-4" />
@@ -6578,7 +6578,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   type="button"
                   disabled={!newDocHeadTitle.trim() || isSavingDocHead}
                   onClick={handleAddDocHeadFromEnrollment}
-                  className="min-h-[44px] px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg transition-colors disabled:opacity-40 cursor-pointer shadow-xs"
+                  className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg transition-colors disabled:opacity-40 cursor-pointer shadow-xs"
                 >
                   {isSavingDocHead ? 'Saving...' : 'Add'}
                 </button>
@@ -6645,7 +6645,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       <button
                         type="button"
                         onClick={() => handleDeleteDocHeadFromEnrollment(h.code)}
-                        className="text-slate-400 hover:text-rose-600 p-2 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                        className="text-slate-400 hover:text-rose-600 p-1.5 w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer"
                         title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -6664,7 +6664,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   setNewDocHeadTitle('');
                   setNewDocHeadMandatory(false);
                 }}
-                className="min-h-[44px] px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition-colors cursor-pointer"
               >
                 Done
               </button>

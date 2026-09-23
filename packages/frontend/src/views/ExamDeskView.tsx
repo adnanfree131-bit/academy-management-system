@@ -1219,14 +1219,14 @@ export const ExamDeskView: React.FC = () => {
                   <div className="pt-3 border-t border-slate-800 flex items-baseline justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">Total Obtained</span>
-                      <div className="text-3xl font-bold text-white">
-                        {totalCalculatedObtained} <span className="text-sm font-normal text-slate-400">/ {examTotalMarks}</span>
+                      <div className="text-xl font-bold text-white font-mono">
+                        {totalCalculatedObtained} <span className="text-xs font-normal text-slate-400 font-sans">/ {examTotalMarks}</span>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] uppercase font-bold text-slate-400 block">Grade</span>
-                      <div className="text-2xl font-bold text-emerald-400">
-                        {derivedGrade} <span className="text-xs text-slate-300 font-normal">({calculatedPercentage}%)</span>
+                      <div className="text-lg font-bold text-emerald-400 font-mono">
+                        {derivedGrade} <span className="text-xs text-slate-300 font-normal font-sans">({calculatedPercentage}%)</span>
                       </div>
                     </div>
                   </div>
@@ -1463,13 +1463,13 @@ export const ExamDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowCreateExamModal(false)}
-                  className="min-h-[44px] px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
+                  className="h-8.5 px-3 py-1.5 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 text-xs cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg shadow-xs"
+                  className="h-8.5 px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
                 >
                   Create Exam
                 </button>
@@ -1491,7 +1491,7 @@ export const ExamDeskView: React.FC = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="min-h-[44px] px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
+                  className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" /> Print / Save PDF
                 </button>
@@ -1655,13 +1655,13 @@ export const ExamDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowExcelImportModal(false)}
-                  className="min-h-[44px] px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
+                  className="h-8.5 px-3 py-1.5 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 text-xs cursor-pointer"
                 >
                   Close
                 </button>
                 <button
                   type="submit"
-                  className="min-h-[44px] px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-xs flex items-center gap-1.5"
+                  className="h-8.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <Upload className="w-3.5 h-3.5" /> Parse & Import to Bank
                 </button>
@@ -1812,13 +1812,13 @@ export const ExamDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddQuestionModal(false)}
-                  className="min-h-[44px] px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50"
+                  className="h-8.5 px-3 py-1.5 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 text-xs cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold rounded-lg shadow-xs"
+                  className="h-8.5 px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs cursor-pointer"
                 >
                   Save Question
                 </button>
@@ -1831,8 +1831,8 @@ export const ExamDeskView: React.FC = () => {
       {/* OFFICIAL STUDENT REPORT CARD MODAL */}
       {showReportCardModal && activeReportCard && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto no-sheet-overlay">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3 print:hidden">
+          <div className="bg-white rounded-xl max-w-2xl w-full p-3.5 sm:p-5 shadow-xl space-y-3.5 my-0 sm:my-8">
+            <div className="flex justify-between items-center border-b border-slate-200 pb-2.5 print:hidden">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <Award className="w-4 h-4 text-purple-600" />
                 Official Student Report Card
@@ -1884,12 +1884,12 @@ export const ExamDeskView: React.FC = () => {
                     });
                     await downloadPdfBytes(bytes, `report-card-${activeReportCard.student.admission_number || activeReportCard.student.id}.pdf`);
                   }}
-                  className="min-h-[44px] px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5"
+                  className="h-8.5 px-3 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Download className="w-3.5 h-3.5" /> Download official report card
+                  <Download className="w-3.5 h-3.5" /> Download report
                 </button>
-                <button onClick={() => setShowReportCardModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg touch-press -mr-2">
-                  <X className="w-5 h-5" />
+                <button onClick={() => setShowReportCardModal(false)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors">
+                  <X className="w-4 h-4" />
                 </button>
               </div>
             </div>

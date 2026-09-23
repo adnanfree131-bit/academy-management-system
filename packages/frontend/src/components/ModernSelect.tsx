@@ -218,7 +218,7 @@ export const ModernSelect: React.FC<ModernSelectProps> = ({
         aria-label={ariaLabel || displayLabel}
         disabled={disabled}
         onClick={() => !disabled && setIsOpen(prev => !prev)}
-        className={`group w-full flex items-center justify-between gap-2 px-3 py-2 text-xs rounded-lg border transition-all duration-150 text-left select-none ${
+        className={`group w-full flex items-center justify-between gap-2 px-2.5 py-1.5 min-h-[32px] sm:min-h-[34px] text-xs rounded-lg border transition-all duration-150 text-left select-none ${
           disabled
             ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
             : isOpen

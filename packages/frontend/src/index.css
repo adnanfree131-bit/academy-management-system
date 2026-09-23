@@ -81,11 +81,12 @@
     padding: 8px 12px;
   }
 
-  /* Prevent automatic iOS Safari zoom when focusing on form inputs (< 768px) */
-  @media screen and (max-width: 768px) {
-    input, select, textarea {
-      font-size: 16px !important;
-    }
+  /* Institutional High-Density Compact Form Controls */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 12.5px;
+    line-height: 1.25rem;
   }
 
   /* Universal mobile scrollbar suppression: keeps kinetic touch swipe, completely eliminates desktop scroll sliders */

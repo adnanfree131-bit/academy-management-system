@@ -213,7 +213,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                   type="button"
                   onClick={() => handleAction('in')}
                   disabled={isProcessing}
-                  className="px-3.5 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer min-h-[44px]"
+                  className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   {isProcessing ? (
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -227,7 +227,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                   type="button"
                   onClick={() => handleAction('out')}
                   disabled={isProcessing}
-                  className="px-3.5 py-2.5 bg-rose-700 hover:bg-rose-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer min-h-[44px]"
+                  className="h-8.5 px-3.5 py-1.5 bg-rose-700 hover:bg-rose-800 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   {isProcessing ? (
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -237,7 +237,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                   Clock Out
                 </button>
               ) : (
-                <span className="px-3 py-2 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-[11px] font-bold font-mono min-h-[44px] flex items-center">
+                <span className="h-8.5 px-3 py-1 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[11px] font-semibold font-mono flex items-center">
                   Recorded
                 </span>
               )}
@@ -245,7 +245,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
               <button
                 type="button"
                 onClick={() => onNavigate('geofence')}
-                className="px-3 py-2 text-slate-600 hover:text-slate-900 text-xs font-semibold hover:bg-slate-200/60 rounded-xl transition-all min-h-[44px] flex items-center"
+                className="h-8.5 px-3 py-1 text-slate-600 hover:text-slate-900 text-xs font-semibold hover:bg-slate-200/60 rounded-lg transition-all flex items-center"
                 title="View Personal Monthly Attendance Register"
               >
                 Log
@@ -281,25 +281,25 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
         <div className="mt-5 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Today's Lectures</span>
-            <span className="text-2xl font-bold font-mono text-slate-900 mt-0.5 block">{schedule.length} Classes</span>
+            <span className="text-base sm:text-lg font-bold font-mono text-slate-900 mt-0.5 block">{schedule.length} Classes</span>
             <span className="text-[10px] text-slate-500">Academic Tracks</span>
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Assigned Batches</span>
-            <span className="text-2xl font-bold font-mono text-slate-900 mt-0.5 block">{batches.length} Batches</span>
+            <span className="text-base sm:text-lg font-bold font-mono text-slate-900 mt-0.5 block">{batches.length} Batches</span>
             <span className="text-[10px] text-slate-500">92 Enrolled Students</span>
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pending Attendance</span>
-            <span className="text-2xl font-bold font-mono text-slate-900 mt-0.5 block">{pendingAttendance.length} Batch</span>
+            <span className="text-base sm:text-lg font-bold font-mono text-slate-900 mt-0.5 block">{pendingAttendance.length} Batch</span>
             <span className="text-[10px] text-slate-500">Attendance Pending</span>
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Exams to Grade</span>
-            <span className="text-2xl font-bold font-mono text-slate-900 mt-0.5 block">{pendingGrading.length} Exams</span>
+            <span className="text-base sm:text-lg font-bold font-mono text-slate-900 mt-0.5 block">{pendingGrading.length} Exams</span>
             <span className="text-[10px] text-slate-500">Mid-Term Assessments</span>
           </div>
         </div>
@@ -350,14 +350,14 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                     <div className="flex items-center gap-2 self-end sm:self-auto">
                       <button
                         onClick={() => onNavigate('attendance')}
-                        className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1 transition-all cursor-pointer min-h-[40px]"
+                        className="h-8 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1 transition-all cursor-pointer"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                         Mark Attendance
                       </button>
                       <button
                         onClick={() => onNavigate('homework')}
-                        className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl transition-all min-h-[40px] flex items-center gap-1"
+                        className="h-8 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold text-xs rounded-lg transition-all flex items-center gap-1"
                       >
                         <BookOpen className="w-3.5 h-3.5 text-slate-600" />
                         Diary
@@ -400,13 +400,13 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                     <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                       <button
                         onClick={() => onNavigate('attendance')}
-                        className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold rounded-xl transition-all text-center border border-slate-200/60 min-h-[40px] flex items-center justify-center"
+                        className="flex-1 h-8 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-semibold rounded-lg transition-all text-center border border-slate-200/60 flex items-center justify-center"
                       >
                         Mark Attendance
                       </button>
                       <button
                         onClick={() => onNavigate('exams')}
-                        className="flex-1 py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-bold rounded-xl transition-all text-center min-h-[40px] flex items-center justify-center"
+                        className="flex-1 h-8 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold rounded-lg transition-all text-center flex items-center justify-center"
                       >
                         Assessments
                       </button>
@@ -442,7 +442,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                   </div>
                   <button
                     onClick={() => onNavigate('exams')}
-                    className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-[11px] rounded-xl shadow-xs flex items-center justify-center gap-1 transition-all cursor-pointer min-h-[44px]"
+                    className="w-full h-8.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
                   >
                     <span>Enter Marks & Remarks</span>
                     <ArrowRight className="w-3 h-3" />
@@ -463,7 +463,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
             </p>
             <button
               onClick={() => onNavigate('homework')}
-              className="w-full py-2.5 bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all min-h-[44px]"
+              className="w-full h-8.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-900 font-semibold text-xs rounded-lg shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
               <BookOpen className="w-3.5 h-3.5" />
               <span>Check Notebooks</span>

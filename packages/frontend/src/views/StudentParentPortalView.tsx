@@ -553,7 +553,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                         setSelectedStudentId(child.id);
                         fetchOverview(child.id);
                       }}
-                      className={`min-h-[44px] px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      className={`h-8 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         isSelected
                           ? 'bg-amber-600 text-white shadow-xs'
                           : 'bg-white text-slate-700 hover:bg-slate-200'
@@ -581,7 +581,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                         setSelectedEnrollmentId(enr.id);
                         fetchOverview(selectedStudentId, enr.id);
                       }}
-                      className={`min-h-[44px] px-2.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      className={`h-8 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
                         isSelected
                           ? 'bg-amber-600 text-white shadow-xs'
                           : 'bg-white text-slate-700 hover:bg-slate-200 border border-slate-200'
@@ -614,7 +614,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 setConfirmPasswordInput('');
                 setShowChangePasswordModal(true);
               }}
-              className="min-h-[44px] px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+              className="h-8.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
             >
               <Key className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span>Change Password</span>
@@ -646,7 +646,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   {unpaidBalance === 0 ? 'All Paid' : 'Due'}
                 </span>
               </div>
-              <div className={`text-2xl font-bold font-mono ${unpaidBalance === 0 ? 'text-emerald-800' : 'text-rose-700'}`}>
+              <div className={`text-lg sm:text-xl font-bold font-mono ${unpaidBalance === 0 ? 'text-emerald-800' : 'text-rose-700'}`}>
                 {unpaidBalance === 0 ? 'PKR 0' : `PKR ${unpaidBalance.toLocaleString()}`}
               </div>
               <p className="text-xs text-slate-600">
@@ -665,14 +665,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             </div>
 
             {/* 2. Monthly Attendance */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-2">
+            <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-slate-200 shadow-2xs space-y-1.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-700">Attendance</span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
                   This Month
                 </span>
               </div>
-              <div className="text-2xl font-bold font-mono text-slate-900">
+              <div className="text-lg sm:text-xl font-bold font-mono text-slate-900">
                 {attendanceStats.pct}%
               </div>
               <p className="text-xs text-slate-600">
@@ -689,14 +689,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             </div>
 
             {/* 3. Today's Classes */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-2">
+            <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-slate-200 shadow-2xs space-y-1.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-700">Today's Schedule</span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">
                   {new Date().toLocaleDateString('en-GB', { weekday: 'short' })}
                 </span>
               </div>
-              <div className="text-2xl font-bold font-mono text-slate-900">
+              <div className="text-lg sm:text-xl font-bold font-mono text-slate-900">
                 {todaySchedule.length} Lectures
               </div>
               <p className="text-xs text-slate-600">
@@ -715,14 +715,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             </div>
 
             {/* 4. Latest Exam Marks */}
-            <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-2">
+            <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-slate-200 shadow-2xs space-y-1.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-700">Exam Results</span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
                   Latest Exam
                 </span>
               </div>
-              <div className="text-2xl font-bold font-mono text-slate-900">
+              <div className="text-lg sm:text-xl font-bold font-mono text-slate-900">
                 {reportCards.length > 0 
                   ? `${(reportCards[0].evaluation.percentage != null ? Number(reportCards[0].evaluation.percentage).toFixed(0) : '0')}%`
                   : 'Active'}
@@ -755,7 +755,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 href={waUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 sm:flex-initial min-h-[44px] px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
               >
                 <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                 <span>Send Fee Screenshot on WhatsApp</span>
@@ -763,7 +763,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowLeaveModal(true)}
-                className="flex-1 sm:flex-initial min-h-[44px] px-3.5 py-2.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
               >
                 <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 <span>+ Request Sick Leave / Absence</span>
@@ -1234,7 +1234,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-center">
                 <span className="text-xs text-slate-500 font-bold uppercase block">Attendance Rate</span>
-                <span className={`text-2xl font-bold font-mono block ${attendanceStats.pct >= 75 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                <span className={`text-lg sm:text-xl font-bold font-mono block ${attendanceStats.pct >= 75 ? 'text-emerald-700' : 'text-rose-600'}`}>
                   {attendanceStats.pct}%
                 </span>
                 <span className="text-[11px] text-slate-400">Regular</span>
@@ -1242,19 +1242,19 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
 
               <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-center">
                 <span className="text-xs text-emerald-800 font-bold uppercase block">Days Present</span>
-                <span className="text-2xl font-bold font-mono text-emerald-900 block">{attendanceStats.presentCount}</span>
+                <span className="text-lg sm:text-xl font-bold font-mono text-emerald-900 block">{attendanceStats.presentCount}</span>
                 <span className="text-[11px] text-emerald-600">Classes Attended</span>
               </div>
 
               <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl text-center">
                 <span className="text-xs text-amber-800 font-bold uppercase block">Days Late</span>
-                <span className="text-2xl font-bold font-mono text-amber-900 block">{attendanceStats.lateCount}</span>
+                <span className="text-lg sm:text-xl font-bold font-mono text-amber-900 block">{attendanceStats.lateCount}</span>
                 <span className="text-[11px] text-amber-600">Arrived Late</span>
               </div>
 
               <div className="p-3.5 bg-rose-50/70 border border-rose-200 rounded-xl text-center">
                 <span className="text-xs text-rose-800 font-bold uppercase block">Days Absent</span>
-                <span className="text-2xl font-bold font-mono text-rose-900 block">{attendanceStats.absentCount}</span>
+                <span className="text-lg sm:text-xl font-bold font-mono text-rose-900 block">{attendanceStats.absentCount}</span>
                 <span className="text-[11px] text-rose-600">Missed Classes</span>
               </div>
             </div>
@@ -1368,14 +1368,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
         <div className="space-y-6">
 
           {/* Simple Fee Status Banner */}
-          <div className={`p-6 rounded-2xl border shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+          <div className={`p-3.5 sm:p-4 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
             unpaidBalance === 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'
           }`}>
             <div>
               <span className={`text-xs font-bold uppercase tracking-wider block ${unpaidBalance === 0 ? 'text-emerald-800' : 'text-rose-800'}`}>
                 {unpaidBalance === 0 ? 'Fee Status: Fully Cleared' : 'Fee Status: Payment Due'}
               </span>
-              <div className={`text-3xl font-bold font-mono mt-1 ${unpaidBalance === 0 ? 'text-emerald-900' : 'text-rose-700'}`}>
+              <div className={`text-lg sm:text-xl font-bold font-mono mt-0.5 ${unpaidBalance === 0 ? 'text-emerald-900' : 'text-rose-700'}`}>
                 PKR {unpaidBalance.toLocaleString()}
               </div>
               <p className="text-xs text-slate-600 mt-1">
@@ -1800,7 +1800,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                       </div>
 
                       <div className="sm:text-right">
-                        <span className="text-2xl font-bold font-mono text-slate-900">
+                        <span className="text-lg sm:text-xl font-bold font-mono text-slate-900">
                           {rc.evaluation.total_obtained} / {rc.exam.total_marks} Marks
                         </span>
                         <span className="text-xs font-bold text-slate-600 block">
@@ -1849,7 +1849,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               </h3>
               <button 
                 onClick={() => setShowLeaveModal(false)} 
-                className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -1922,14 +1922,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowLeaveModal(false)}
-                  className="w-full sm:w-auto min-h-[48px] px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium cursor-pointer"
+                  className="w-full sm:w-auto h-8.5 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingLeave}
-                  className="w-full sm:w-auto min-h-[48px] px-5 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                  className="w-full sm:w-auto h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{isSubmittingLeave ? 'Sending...' : 'Send Notice'}</span>
@@ -1958,7 +1958,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="min-h-[44px] px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="h-8.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Challan</span>
@@ -1966,7 +1966,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedChallanInvoice(null)}
-                  className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-white rounded cursor-pointer"
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white rounded-lg cursor-pointer"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5" />
@@ -2116,7 +2116,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer min-h-[40px]"
+                  className="h-8.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   <span>Print Report Card</span>
@@ -2124,7 +2124,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setPrintingReportCard(null)}
-                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-white rounded-lg touch-press -mr-2 cursor-pointer"
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white rounded-lg cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -2264,7 +2264,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowChangePasswordModal(false)}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-white rounded-lg touch-press -mr-2 cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white rounded-lg cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2356,14 +2356,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowChangePasswordModal(false)}
-                    className="px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 font-medium text-xs transition-colors cursor-pointer min-h-[44px]"
+                    className="h-8.5 px-3.5 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-semibold text-xs transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isChangingPassword || !currentPasswordInput || !newPasswordInput}
-                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs min-h-[44px]"
+                    className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <Lock className="w-3.5 h-3.5" />
                     <span>{isChangingPassword ? 'Updating...' : 'Update Password'}</span>

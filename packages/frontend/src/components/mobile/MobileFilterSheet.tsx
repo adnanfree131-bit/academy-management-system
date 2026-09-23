@@ -96,7 +96,7 @@ export const MobileFilterSheet: React.FC<MobileFilterSheetProps> = ({
             data-testid="filter-sheet-reset"
             onClick={onReset}
             disabled={activeFilterCount === 0}
-            className="flex-1 min-h-[44px] px-3 py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 disabled:opacity-40 disabled:pointer-events-none rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer touch-press"
+            className="flex-1 h-8.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 disabled:opacity-40 disabled:pointer-events-none rounded-lg text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
@@ -109,7 +109,7 @@ export const MobileFilterSheet: React.FC<MobileFilterSheetProps> = ({
               if (onApply) onApply();
               onClose();
             }}
-            className="flex-2 min-h-[48px] px-4 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer touch-press"
+            className="flex-2 h-8.5 px-4 py-1.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg text-xs font-semibold transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <span>
               Apply Filters
@@ -145,7 +145,7 @@ export const FilterPillButton: React.FC<FilterPillButtonProps> = ({
       type="button"
       data-testid={testId}
       onClick={onClick}
-      className={`min-h-[40px] px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press shrink-0 ${
+      className={`h-7.5 px-2.5 py-1 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 ${
         activeCount > 0
           ? 'bg-amber-600 text-white border-amber-600 shadow-2xs font-bold'
           : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'

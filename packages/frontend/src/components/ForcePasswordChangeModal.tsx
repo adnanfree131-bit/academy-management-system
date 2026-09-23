@@ -148,20 +148,20 @@ export const ForcePasswordChangeModal: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-2.5">
             <button
               type="button"
               onClick={logout}
-              className="w-full sm:w-auto h-12 min-h-[48px] px-4 py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors order-2 sm:order-1"
+              className="w-full sm:w-auto h-8.5 px-3.5 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors order-2 sm:order-1 cursor-pointer"
             >
               Sign Out
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full sm:flex-1 h-12 min-h-[48px] px-4 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-xl shadow-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer order-1 sm:order-2"
+              className="w-full sm:flex-1 h-8.5 px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer order-1 sm:order-2"
             >
-              <CheckCircle2 className="w-4 h-4" />
+              <CheckCircle2 className="w-3.5 h-3.5" />
               <span>{isSubmitting ? 'Updating...' : 'Set New Password & Continue'}</span>
             </button>
           </div>

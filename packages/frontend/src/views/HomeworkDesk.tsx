@@ -268,7 +268,7 @@ export const HomeworkDesk: React.FC = () => {
       >
         <button
           onClick={() => setShowNewHwModal(true)}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer min-h-[40px]"
+          className="flex items-center gap-1.5 h-8.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Assign Homework</span>
@@ -358,7 +358,7 @@ export const HomeworkDesk: React.FC = () => {
                   type="button"
                   onClick={handleSaveChecks}
                   disabled={isSavingChecks || students.length === 0}
-                  className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs transition-all disabled:bg-slate-300 cursor-pointer min-h-[40px]"
+                  className="flex items-center justify-center gap-1.5 h-8.5 px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all disabled:bg-slate-300 cursor-pointer"
                 >
                   {isSavingChecks ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
                   <span>{isSavingChecks ? 'Saving...' : 'Save Inspection'}</span>
@@ -598,14 +598,14 @@ export const HomeworkDesk: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowNewHwModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 min-h-[44px]"
+                  className="h-8.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingHw}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer min-h-[44px]"
+                  className="h-8.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {isSubmittingHw ? 'Assigning...' : 'Confirm Assignment'}
                 </button>

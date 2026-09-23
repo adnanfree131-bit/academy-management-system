@@ -31,7 +31,7 @@ export const PageHeading: React.FC<PageHeadingProps> = ({
             </span>
           )}
           <div className="min-w-0 flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 truncate">
+            <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 truncate">
               {title}
             </h1>
             
@@ -40,7 +40,7 @@ export const PageHeading: React.FC<PageHeadingProps> = ({
             )}
 
             {badge && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
                 {badgeIcon}
                 <span>{badge}</span>
               </span>
@@ -57,7 +57,7 @@ export const PageHeading: React.FC<PageHeadingProps> = ({
 
       {/* Mobile Action Strip (< sm): Makes modal trigger buttons visible, wrapped, and thumb-accessible */}
       {children && (
-        <div className="sm:hidden flex flex-wrap items-center gap-2 py-1.5 w-full shrink-0 [&>*]:min-h-[40px] [&>*]:flex-1 sm:[&>*]:flex-initial">
+        <div className="sm:hidden flex flex-wrap items-center gap-1.5 py-1 w-full shrink-0 [&>*]:min-h-[32px] sm:[&>*]:min-h-[34px] [&>*]:flex-1 sm:[&>*]:flex-initial">
           {children}
         </div>
       )}

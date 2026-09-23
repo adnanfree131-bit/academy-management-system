@@ -569,7 +569,7 @@ export const LoginModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => { setMode('login'); setError(null); setMessage(null); }}
-                className={`px-3.5 py-2 min-h-[40px] rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`h-8 px-3 py-1 rounded-md text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   mode === 'login' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
@@ -579,7 +579,7 @@ export const LoginModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => { setMode('register'); setError(null); setMessage(null); }}
-                className={`px-3.5 py-2 min-h-[40px] rounded-md transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                className={`h-8 px-3 py-1 rounded-md text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                   mode === 'register' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
@@ -686,7 +686,7 @@ export const LoginModal: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-0 top-0 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                      className="absolute right-0 top-0 h-full w-9 flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -698,7 +698,7 @@ export const LoginModal: React.FC = () => {
                   id="login-submit-btn"
                   type="submit"
                   disabled={loading}
-                  className="w-full h-10 min-h-[40px] py-2 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  className="w-full h-8.5 px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -1020,7 +1020,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || !regName.trim() || !regSlug.trim() || !regEmail.trim() || !regPassword || slugAvailability.status !== 'available'}
-                  className="w-full h-10 min-h-[40px] py-2 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  className="w-full h-8.5 px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -1072,7 +1072,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== 6}
-                  className="w-full h-10 min-h-[40px] py-2 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                  className="w-full h-8.5 px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -1280,7 +1280,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || !email.trim()}
-                  className="w-full h-10 min-h-[40px] py-2 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                  className="w-full h-8.5 px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -1344,7 +1344,7 @@ export const LoginModal: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowResetPassword(!showResetPassword)}
-                      className="absolute right-0 top-0 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                      className="absolute right-0 top-0 h-full w-9 flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
                       aria-label={showResetPassword ? 'Hide password' : 'Show password'}
                     >
                       {showResetPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -1371,7 +1371,7 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== 6 || !resetNewPassword}
-                  className="w-full h-10 min-h-[40px] py-2 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  className="w-full h-8.5 px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>

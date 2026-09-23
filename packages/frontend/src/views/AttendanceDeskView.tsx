@@ -696,14 +696,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
         <>
         <div className="space-y-3.5 sm:space-y-4">
           {/* Mobile Native Compact Session Bar (< 640px) */}
-          <div className="sm:hidden bg-white border border-slate-200 rounded-2xl p-3 shadow-2xs space-y-2.5">
+          <div className="sm:hidden bg-white border border-slate-200 rounded-xl p-2.5 shadow-2xs space-y-2">
             {/* Line 1: Batch Selector using ModernSelect (Full Width, Zero Truncation) */}
             <div>
               <ModernSelect
                 value={selectedBatchId}
                 onChange={val => setSelectedBatchId(val)}
                 className="w-full"
-                buttonClassName="bg-slate-50/80 border-slate-200 text-xs font-semibold py-2 px-3 text-[#081A2F]"
+                buttonClassName="bg-slate-50/80 border-slate-200 text-xs font-semibold py-1.5 px-2.5 text-[#081A2F]"
                 placeholder="Select Batch / Section..."
               >
                 {filteredBatches.map(b => {
@@ -1443,7 +1443,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               handleSaveAttendance();
             }}
             disabled={isSaving}
-            className="h-10 min-h-[40px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+            className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
           >
             {isSaving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
             <span>{isSaving ? 'Saving...' : 'Save Roster'}</span>
@@ -1622,19 +1622,19 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-500 font-mono text-[11px] uppercase">
-                    <th className="py-3 px-4">Adm #</th>
-                    <th className="py-3 px-4">Student Name</th>
-                    <th className="py-3 px-4">Guardian & Mobile</th>
-                    <th className="py-3 px-4 text-center">Sessions Held</th>
-                    <th className="py-3 px-4 text-center">Attended</th>
-                    <th className="py-3 px-4 text-center">Missed</th>
-                    <th className="py-3 px-4 text-center">Attendance %</th>
-                    <th className="py-3 px-4 text-right">Intervention</th>
+                  <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-500 font-mono text-[10.5px] uppercase">
+                    <th className="py-2 px-3">Adm #</th>
+                    <th className="py-2 px-3">Student Name</th>
+                    <th className="py-2 px-3">Guardian & Mobile</th>
+                    <th className="py-2 px-3 text-center">Sessions Held</th>
+                    <th className="py-2 px-3 text-center">Attended</th>
+                    <th className="py-2 px-3 text-center">Missed</th>
+                    <th className="py-2 px-3 text-center">Attendance %</th>
+                    <th className="py-2 px-3 text-right">Intervention</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -1643,15 +1643,15 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
                     return (
                       <tr key={item.student.id} className={item.isDefaulter ? 'bg-rose-50/30' : 'hover:bg-slate-50/60'}>
-                        <td className="py-3 px-4 font-mono font-bold text-slate-700">{item.student.admission_number}</td>
-                        <td className="py-3 px-4 font-bold text-slate-900">{item.student.full_name}</td>
-                        <td className="py-3 px-4 text-slate-600">
+                        <td className="py-2 px-3 font-mono font-bold text-slate-700">{item.student.admission_number}</td>
+                        <td className="py-2 px-3 font-bold text-slate-900">{item.student.full_name}</td>
+                        <td className="py-2 px-3 text-slate-600">
                           {item.student.guardian_name || '—'} {item.student.guardian_phone ? `(${item.student.guardian_phone})` : ''}
                         </td>
-                        <td className="py-3 px-4 text-center font-mono">{item.totalSessions}</td>
-                        <td className="py-3 px-4 text-center font-mono text-emerald-700 font-bold">{item.presentCount}</td>
-                        <td className="py-3 px-4 text-center font-mono text-rose-700 font-bold">{item.absentCount}</td>
-                        <td className="py-3 px-4 text-center font-mono font-bold">
+                        <td className="py-2 px-3 text-center font-mono">{item.totalSessions}</td>
+                        <td className="py-2 px-3 text-center font-mono text-emerald-700 font-bold">{item.presentCount}</td>
+                        <td className="py-2 px-3 text-center font-mono text-rose-700 font-bold">{item.absentCount}</td>
+                        <td className="py-2 px-3 text-center font-mono font-bold">
                           <span className={`px-2 py-0.5 rounded ${
                             item.percentage >= 75 
                               ? 'bg-emerald-50 text-emerald-700' 
@@ -1662,7 +1662,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                             {item.totalSessions > 0 ? `${item.percentage}%` : '—'}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-right">
+                        <td className="py-2 px-3 text-right">
                           {cleanPhone && (
                             <button
                               type="button"
@@ -1701,24 +1701,24 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
             </button>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
             {leaves.length === 0 ? (
-              <div className="p-12 text-center text-slate-400">
-                <FileText className="w-8 h-8 mx-auto mb-2 text-slate-300" />
-                <p className="text-sm font-bold text-slate-700">No leave applications on record</p>
-                <p className="text-xs text-slate-400 mt-1">Submit applications above to automate absence excusing on the daily roster.</p>
+              <div className="p-8 text-center text-slate-400">
+                <FileText className="w-7 h-7 mx-auto mb-2 text-slate-300" />
+                <p className="text-xs font-bold text-slate-700">No leave applications on record</p>
+                <p className="text-[11px] text-slate-400 mt-1">Submit applications above to automate absence excusing on the daily roster.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-500 font-mono text-[11px] uppercase tracking-wider">
-                      <th className="py-3 px-4">Student Details</th>
-                      <th className="py-3 px-4">Leave Duration</th>
-                      <th className="py-3 px-4">Category</th>
-                      <th className="py-3 px-4">Reason</th>
-                      <th className="py-3 px-4 text-center">Status</th>
-                      <th className="py-3 px-4 text-right">Action</th>
+                    <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-500 font-mono text-[10.5px] uppercase tracking-wider">
+                      <th className="py-2 px-3">Student Details</th>
+                      <th className="py-2 px-3">Leave Duration</th>
+                      <th className="py-2 px-3">Category</th>
+                      <th className="py-2 px-3">Reason</th>
+                      <th className="py-2 px-3 text-center">Status</th>
+                      <th className="py-2 px-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1727,25 +1727,25 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
                       return (
                         <tr key={leave.id} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="py-3 px-4">
+                          <td className="py-2 px-3">
                             <span className="font-bold text-slate-900 block">{student?.full_name || 'Student ID: ' + leave.student_id.slice(0, 8)}</span>
-                            <span className="text-[11px] font-mono text-slate-500">{student?.admission_number || '—'}</span>
+                            <span className="text-[10.5px] font-mono text-slate-500">{student?.admission_number || '—'}</span>
                           </td>
-                          <td className="py-3 px-4 font-mono text-slate-700">
+                          <td className="py-2 px-3 font-mono text-slate-700">
                             {leave.start_date} to {leave.end_date}
                           </td>
-                          <td className="py-3 px-4">
+                          <td className="py-2 px-3">
                             <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold capitalize bg-slate-100 text-slate-700 border border-slate-200">
                               {leave.category}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-slate-700 max-w-xs truncate">
+                          <td className="py-2 px-3 text-slate-700 max-w-xs truncate">
                             {leave.reason}
                             {leave.review_notes && (
                               <span className="block text-[10px] text-slate-400 italic">Notes: {leave.review_notes}</span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-center">
+                          <td className="py-2 px-3 text-center">
                             <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold capitalize ${
                               leave.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
                               leave.status === 'rejected' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
@@ -1754,7 +1754,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                               {leave.status}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-2 px-3 text-right">
                             {leave.status === 'pending' ? (
                               <button
                                 type="button"
@@ -1862,14 +1862,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 <button
                   type="button"
                   onClick={() => setShowNewLeaveModal(false)}
-                  className="min-h-[44px] px-3.5 py-1.5 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium transition-colors"
+                  className="h-8.5 px-3.5 py-1.5 text-xs text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg font-medium transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingLeave}
-                  className="min-h-[44px] px-4 py-1.5 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg font-semibold disabled:opacity-50 transition-colors shadow-xs"
+                  className="h-8.5 px-3.5 py-1.5 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg font-semibold disabled:opacity-50 transition-colors shadow-xs cursor-pointer"
                 >
                   {isSubmittingLeave ? 'Submitting...' : 'Submit Leave'}
                 </button>
@@ -1925,7 +1925,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 type="button"
                 onClick={() => handleReviewLeave('rejected')}
                 disabled={isReviewing}
-                className="min-h-[44px] px-3.5 py-1.5 text-xs text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg font-bold transition-colors"
+                className="h-8.5 px-3.5 py-1.5 text-xs text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg font-semibold transition-colors cursor-pointer"
               >
                 Reject Leave
               </button>
@@ -1933,7 +1933,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 type="button"
                 onClick={() => handleReviewLeave('approved')}
                 disabled={isReviewing}
-                className="min-h-[44px] px-4 py-1.5 text-xs text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg font-bold transition-colors"
+                className="h-8.5 px-3.5 py-1.5 text-xs text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg font-semibold transition-colors cursor-pointer"
               >
                 Approve & Excuse
               </button>

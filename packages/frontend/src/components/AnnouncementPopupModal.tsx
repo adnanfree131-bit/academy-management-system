@@ -134,26 +134,26 @@ export const AnnouncementPopupModal: React.FC = () => {
               type="button"
               onClick={handleDismiss}
               aria-label="Close announcement"
-              className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-xl hover:bg-black/5 transition-colors cursor-pointer"
+              className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg hover:bg-black/5 transition-colors cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* Modal Body */}
-        <div className="p-4 sm:p-6 text-xs text-slate-700 leading-relaxed whitespace-pre-wrap overflow-y-auto max-h-[60vh]">
+        <div className="p-4 sm:p-5 text-xs text-slate-700 leading-relaxed whitespace-pre-wrap overflow-y-auto max-h-[60vh]">
           {announcement.message}
         </div>
 
         {/* Action Button if specified */}
         {announcement.action_url && announcement.action_label && (
-          <div className="px-4 sm:px-6 pb-2">
+          <div className="px-4 sm:px-5 pb-2">
             <a
               href={announcement.action_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs rounded-lg border border-indigo-200 transition-colors min-h-[40px]"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs rounded-lg border border-indigo-200 transition-colors h-8"
             >
               <span>{announcement.action_label}</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -162,7 +162,7 @@ export const AnnouncementPopupModal: React.FC = () => {
         )}
 
         {/* Modal Footer */}
-        <div className="px-4 sm:px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+        <div className="px-4 sm:px-5 py-2.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="text-[11px] text-slate-500 font-medium text-center sm:text-left">
             {announcement.frequency === 'every_login' 
               ? 'Institutional broadcast alert' 
@@ -171,9 +171,9 @@ export const AnnouncementPopupModal: React.FC = () => {
           <button
             onClick={handleDismiss}
             disabled={dismissing}
-            className="w-full sm:w-auto h-12 min-h-[48px] px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-400 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+            className="w-full sm:w-auto h-8.5 px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-400 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
           >
-            <Check className="w-4 h-4" />
+            <Check className="w-3.5 h-3.5" />
             <span>{dismissing ? 'Acknowledging...' : 'Acknowledge & Close'}</span>
           </button>
         </div>

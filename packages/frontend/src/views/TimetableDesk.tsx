@@ -669,14 +669,14 @@ export const TimetableDesk: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowScheduleModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 min-h-[44px]"
+                  className="h-8.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingSlot || collisionState?.has_conflict}
-                  className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition-all min-h-[44px] ${
+                  className={`h-8.5 px-4 py-1.5 rounded-lg text-xs font-bold text-white transition-all ${
                     collisionState?.has_conflict
                       ? 'bg-slate-300 cursor-not-allowed'
                       : 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800 shadow-xs cursor-pointer'
@@ -749,14 +749,14 @@ export const TimetableDesk: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSubstituteSlot(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 min-h-[44px]"
+                  className="h-8.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isAssigningSub || substituteCandidates.length === 0}
-                  className="px-5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs cursor-pointer min-h-[44px]"
+                  className="h-8.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {isAssigningSub ? 'Routing...' : 'Assign Substitute'}
                 </button>

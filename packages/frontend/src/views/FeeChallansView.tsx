@@ -1147,7 +1147,7 @@ export const FeeChallansView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setEditingInvoice(null)}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -1205,7 +1205,7 @@ export const FeeChallansView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setEditingInvoice(null)}
-                className="min-h-[44px] px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg font-semibold text-xs cursor-pointer"
               >
                 Cancel
               </button>
@@ -1213,7 +1213,7 @@ export const FeeChallansView: React.FC = () => {
                 type="button"
                 onClick={handleSaveEditInvoice}
                 disabled={isSavingEdit}
-                className="min-h-[44px] px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-bold text-xs shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-semibold text-xs shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
               >
                 {isSavingEdit ? 'Saving...' : 'Save Changes'}
               </button>
@@ -1239,7 +1239,7 @@ export const FeeChallansView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDeletingInvoice(null)}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -1272,7 +1272,7 @@ export const FeeChallansView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setDeletingInvoice(null)}
-                className="min-h-[44px] px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-xl font-bold text-xs cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg font-semibold text-xs cursor-pointer"
               >
                 Cancel
               </button>
@@ -1280,7 +1280,7 @@ export const FeeChallansView: React.FC = () => {
                 type="button"
                 onClick={handleConfirmDeleteInvoice}
                 disabled={isDeleting || !deleteReason.trim()}
-                className="min-h-[44px] px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs shadow-xs disabled:opacity-50 cursor-pointer"
+                className="h-8.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold text-xs shadow-xs disabled:opacity-50 cursor-pointer"
               >
                 {isDeleting ? 'Deleting...' : 'Permanently Delete Challan'}
               </button>

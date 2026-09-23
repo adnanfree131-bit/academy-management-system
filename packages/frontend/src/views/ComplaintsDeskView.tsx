@@ -298,7 +298,7 @@ export const ComplaintsDeskView: React.FC = () => {
                 title="Submit Ticket"
                 description="Report facility, academic, or administrative feedback"
               />
-              <button onClick={() => setShowNewModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
+              <button onClick={() => setShowNewModal(false)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -360,14 +360,14 @@ export const ComplaintsDeskView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowNewModal(false)}
-                  className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
+                  className="h-8.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors"
+                  className="h-8.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors cursor-pointer"
                 >
                   {isSubmitting ? 'Filing...' : 'Submit Ticket'}
                 </button>
@@ -386,7 +386,7 @@ export const ComplaintsDeskView: React.FC = () => {
                 title={isStaff ? 'Manage Resolution' : 'Ticket Details & Resolution'}
                 description={isStaff ? 'Update ticket status and provide official resolution notes' : 'View ticket status and official administration reply'}
               />
-              <button onClick={() => setSelectedTicket(null)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
+              <button onClick={() => setSelectedTicket(null)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -436,14 +436,14 @@ export const ComplaintsDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedTicket(null)}
-                    className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                    className="h-8.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isUpdating}
-                    className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer transition-colors"
+                    className="h-8.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer transition-colors"
                   >
                     {isUpdating ? 'Saving...' : 'Save Resolution'}
                   </button>
@@ -495,7 +495,7 @@ export const ComplaintsDeskView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedTicket(null)}
-                    className="min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 cursor-pointer shadow-xs transition-colors"
+                    className="h-8.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 cursor-pointer shadow-2xs transition-colors"
                   >
                     Close
                   </button>

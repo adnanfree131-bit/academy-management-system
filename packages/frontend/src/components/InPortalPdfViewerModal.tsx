@@ -140,7 +140,7 @@ export const InPortalPdfViewerModal: React.FC<InPortalPdfViewerModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
               title="Close viewer (Esc)"
               aria-label="Close viewer"
             >

@@ -712,7 +712,7 @@ export const AcademySettingsView: React.FC = () => {
             <form onSubmit={handleSave} className="space-y-6">
               {/* SECTION 1: INSTITUTION PROFILE */}
               {activeTab === 'profile' && (
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+                <div className="bg-white border border-slate-200/90 rounded-xl p-4 sm:p-5 shadow-2xs space-y-4">
                   <div className="border-b border-slate-100 pb-3">
                     <SectionInfo
                       title="Campus Profile"
@@ -942,7 +942,7 @@ export const AcademySettingsView: React.FC = () => {
 
               {/* SECTION: STAFF & ACADEMIC DEPARTMENTS */}
               {activeTab === 'departments' && (
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-5">
+                <div className="bg-white border border-slate-200/90 rounded-xl p-4 sm:p-5 shadow-2xs space-y-5">
                   <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                     <SectionInfo
                       title="Staff & Academic Departments"
@@ -1029,7 +1029,7 @@ export const AcademySettingsView: React.FC = () => {
               {/* SECTION 2 & 3: BANK DETAILS & PAYMENT ALLOCATION */}
               {activeTab === 'challan' && (
                 <>
-                  <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+                  <div className="bg-white border border-slate-200/90 rounded-xl p-4 sm:p-5 shadow-2xs space-y-4">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <SectionInfo
                         title="Fee Challan Bank Accounts"
@@ -1096,7 +1096,7 @@ export const AcademySettingsView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+                  <div className="bg-white border border-slate-200/90 rounded-xl p-4 sm:p-5 shadow-2xs space-y-4">
                     <div className="border-b border-slate-100 pb-3">
                       <SectionInfo
                         title="Fee Invoicing & Payment Allocation"
@@ -1231,7 +1231,7 @@ export const AcademySettingsView: React.FC = () => {
                   </div>
 
                   {/* Institutional Kinship / Sibling Concession Policy */}
-                  <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+                  <div className="bg-white border border-slate-200/90 rounded-xl p-4 sm:p-5 shadow-2xs space-y-4">
                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <SectionInfo
                         title="Kinship / Sibling Concession Policy"
@@ -1330,7 +1330,7 @@ export const AcademySettingsView: React.FC = () => {
 
               {/* SECTION: ADMISSION DOCUMENT CHECKLIST HEADS */}
               {activeTab === 'documents' && (
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-5">
+                <div className="bg-white border border-slate-200/90 rounded-xl p-4 sm:p-5 shadow-2xs space-y-5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
                     <SectionInfo
                       title="Admission Document Checklist Heads"
@@ -1551,7 +1551,7 @@ export const AcademySettingsView: React.FC = () => {
 
               {/* SECTION 4: CAMPUS SHIFTS */}
               {activeTab === 'shifts' && (
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-4">
+                <div className="bg-white border border-slate-200/90 rounded-xl p-4 sm:p-5 shadow-2xs space-y-4">
                   <div className="border-b border-slate-100 pb-3">
                     <SectionInfo
                       title="Shift Operating Hours"
@@ -1626,7 +1626,7 @@ export const AcademySettingsView: React.FC = () => {
           ) : (
             /* ISOLATED FORM FOR ACCOUNT SECURITY: NO NESTED FORMS */
             <form onSubmit={handlePasswordChange} className="space-y-6">
-              <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-xs space-y-6">
+              <div className="bg-white border border-slate-200/90 rounded-xl p-4 sm:p-5 shadow-2xs space-y-6">
                 <div className="border-b border-slate-100 pb-4">
                   <SectionInfo
                     title="Change Password"
@@ -1756,13 +1756,13 @@ export const AcademySettingsView: React.FC = () => {
                   type="password"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
-                  className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 min-h-[40px]"
+                  className="w-full text-xs border border-slate-200 rounded-lg px-3 py-1.5"
                 />
                 <input
                   type="password"
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
-                  className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 min-h-[40px]"
+                  className="w-full text-xs border border-slate-200 rounded-lg px-3 py-1.5"
                 />
               </div>
             )}
@@ -1770,18 +1770,18 @@ export const AcademySettingsView: React.FC = () => {
               autoFocus
               value={otpCode}
               onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-              className="mt-4 w-full text-center text-lg font-mono tracking-[0.4em] border border-slate-200 rounded-xl py-2.5 min-h-[44px]"
+              className="mt-3 w-full text-center text-base font-mono tracking-[0.3em] border border-slate-200 rounded-lg py-1.5"
             />
             {securityError && <p className="text-xs text-rose-600 mt-2">{securityError}</p>}
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setOtpModal(null)} className="min-h-[44px] px-3 py-2 text-xs rounded-lg border border-slate-200">
+              <button type="button" onClick={() => setOtpModal(null)} className="h-8.5 px-3.5 py-1.5 text-xs rounded-lg border border-slate-200 cursor-pointer">
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmOtp}
                 disabled={isChangingPassword || otpCode.length !== 6}
-                className="min-h-[44px] px-4 py-2 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white disabled:opacity-50 shadow-xs transition-colors"
+                className="h-8.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white disabled:opacity-50 shadow-xs transition-colors cursor-pointer"
               >
                 {isChangingPassword ? 'Checking…' : 'Confirm'}
               </button>
