@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -30,7 +30,8 @@ import {
   Phone,
   SlidersHorizontal,
   User,
-  RotateCcw
+  RotateCcw,
+  MoreHorizontal
 } from 'lucide-react';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import { buildTabularFeeReportPdfBytes } from '../lib/feeReportsPdf';
@@ -120,6 +121,23 @@ export const FeeDeskView: React.FC = () => {
   const [counterDiscountReason, setCounterDiscountReason] = useState<string>('');
   const [showDiscountSection, setShowDiscountSection] = useState<boolean>(false);
   const [showAllocationBreakdown, setShowAllocationBreakdown] = useState<boolean>(false);
+  // Module Options Menu
+  const [showFeeModuleMenu, setShowFeeModuleMenu] = useState<boolean>(false);
+  const feeModuleMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (feeModuleMenuRef.current && !feeModuleMenuRef.current.contains(e.target as Node)) {
+        setShowFeeModuleMenu(false);
+      }
+    };
+    if (showFeeModuleMenu) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [showFeeModuleMenu]);
 
   // Unified Concessions Report Modal State
   const [showConcessionReportModal, setShowConcessionReportModal] = useState<boolean>(false);
@@ -2237,7 +2255,7 @@ export const FeeDeskView: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+      <div className="flex items-center justify-between gap-2.5">
         <div>
           <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
             Fee Ledger & Collections
@@ -2247,25 +2265,108 @@ export const FeeDeskView: React.FC = () => {
           </p>
         </div>
 
-        <div className="hidden sm:flex items-center gap-2 flex-wrap w-full md:w-auto">
+        <div className="relative self-start sm:self-auto shrink-0">
           <button
             type="button"
-            onClick={() => setShowFeeHeadsModal(true)}
-            className="h-8.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-lg border border-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-            title="Manage Fee Heads and Allocation Order"
+            onClick={() => setShowFeeModuleMenu(prev => !prev)}
+            className={`w-8.5 h-8.5 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shadow-2xs ${
+              showFeeModuleMenu
+                ? 'bg-amber-50 border-amber-300 text-amber-900'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+            }`}
+            title="Fee Desks & Tools"
+            aria-label="Fee Desks & Tools"
           >
-            <DollarSign className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-            <span>Fee Heads</span>
+            <MoreHorizontal className="w-4 h-4 text-slate-600" />
           </button>
-          <button
-            type="button"
-            onClick={() => setShowBulkRevisionModal(true)}
-            className="h-8.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-            title="Adjust tuition fees globally or by class/section"
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-white/90 shrink-0" />
-            <span>Fee Revision</span>
-          </button>
+
+          {showFeeModuleMenu && (
+            <div
+              ref={feeModuleMenuRef}
+              className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100"
+            >
+              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                Financial Desks
+              </div>
+              <div className="py-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('cashier');
+                    setShowFeeModuleMenu(false);
+                  }}
+                  className={`w-full px-3 py-1.5 text-xs flex items-center gap-2 transition-colors cursor-pointer ${
+                    activeTab === 'cashier' ? 'bg-amber-50 text-amber-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <Receipt className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Fees Receiving Desk</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('defaulters');
+                    setShowFeeModuleMenu(false);
+                  }}
+                  className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'defaulters' ? 'bg-amber-50 text-amber-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Fee Defaulters</span>
+                  </div>
+                  {duesSummary.allCount > 0 && (
+                    <span className="font-mono text-[10px] text-rose-600 font-bold">{duesSummary.allCount}</span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('reports');
+                    setShowFeeModuleMenu(false);
+                  }}
+                  className={`w-full px-3 py-1.5 text-xs flex items-center gap-2 transition-colors cursor-pointer ${
+                    activeTab === 'reports' ? 'bg-amber-50 text-amber-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <BarChart2 className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Finance Reports</span>
+                </button>
+              </div>
+
+              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                Configuration & Tools
+              </div>
+              <div className="py-0.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFeeModuleMenu(false);
+                    setShowFeeHeadsModal(true);
+                  }}
+                  className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Fee Heads & Priority</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFeeModuleMenu(false);
+                    setShowBulkRevisionModal(true);
+                  }}
+                  className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <TrendingUp className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Bulk Fee Revision</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -2530,7 +2631,7 @@ export const FeeDeskView: React.FC = () => {
                               {guardianPhone && (
                                 <a
                                   href={`tel:${guardianPhone}`}
-                                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                                  className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
                                   title="Call Guardian"
                                   aria-label="Call Guardian"
                                 >
@@ -2542,7 +2643,7 @@ export const FeeDeskView: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => handleDispatchWhatsAppSlip(targetInvoice, guardianPhone)}
-                                  className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors cursor-pointer"
+                                  className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-emerald-700 hover:text-emerald-800 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
                                   title="WhatsApp Reminder Slip"
                                   aria-label="WhatsApp Reminder Slip"
                                 >
@@ -3787,7 +3888,7 @@ export const FeeDeskView: React.FC = () => {
                         {guardianPhone ? (
                           <a
                             href={`tel:${guardianPhone}`}
-                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                            className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
                             title="Call Guardian"
                             aria-label="Call Guardian"
                           >
@@ -3799,7 +3900,7 @@ export const FeeDeskView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleDispatchWhatsAppSlip(targetInvoice, guardianPhone)}
-                            className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-600 border border-emerald-200/80 flex items-center justify-center transition-colors cursor-pointer"
+                            className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-emerald-700 hover:text-emerald-800 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
                             title="WhatsApp Fee Slip"
                             aria-label="WhatsApp Fee Slip"
                           >
@@ -6082,7 +6183,6 @@ export const FeeDeskView: React.FC = () => {
                 onChange={e => setCashierSearch(e.target.value)}
                 placeholder="Type to filter results by name, admission #, phone, CNIC..."
                 className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600"
-                autoFocus
               />
               {cashierSearch && (
                 <button

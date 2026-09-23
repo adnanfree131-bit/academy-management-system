@@ -33,6 +33,7 @@ import {
   User,
   GraduationCap,
   MoreVertical,
+  MoreHorizontal,
   SlidersHorizontal
 } from 'lucide-react';
 import { useMobileOverlay } from '../lib/mobileOverlay';
@@ -107,6 +108,22 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   // Native Mobile Drawer / Sheet States
   const [showDirectoryFiltersAndSummary, setShowDirectoryFiltersAndSummary] = useState(false);
   const [mobileActionStudent, setMobileActionStudent] = useState<Student | null>(null);
+  const [showModuleMenu, setShowModuleMenu] = useState(false);
+  const moduleMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (moduleMenuRef.current && !moduleMenuRef.current.contains(e.target as Node)) {
+        setShowModuleMenu(false);
+      }
+    };
+    if (showModuleMenu) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [showModuleMenu]);
 
   const activeDirectoryFilterCount = useMemo(() => {
     let count = 0;
@@ -1769,41 +1786,143 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setIsAddingDocHead(true)}
-            className="w-8 h-8 rounded-xl bg-white hover:bg-slate-50 text-slate-600 border border-[#E6ECF2] shadow-2xs transition-colors flex items-center justify-center cursor-pointer"
-            title="Document Requirements"
-            aria-label="Document Requirements"
-          >
-            <FileText className="w-4 h-4 text-slate-500" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setShowBulkImportModal(true);
-              setBulkImportResult(null);
-              setBulkImportCsvText('');
-              if (batches.length > 0 && !bulkImportBatchId) setBulkImportBatchId(batches[0].id);
-            }}
-            className="w-8 h-8 rounded-xl bg-white hover:bg-slate-50 text-slate-600 border border-[#E6ECF2] shadow-2xs transition-colors flex items-center justify-center cursor-pointer"
-            title="Import CSV"
-            aria-label="Import CSV"
-          >
-            <Upload className="w-4 h-4 text-slate-500" />
-          </button>
-
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('new_admission')}
-            className="h-8 px-2.5 sm:px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white rounded-xl text-xs font-semibold shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all flex items-center gap-1.5 cursor-pointer"
+            className="h-8.5 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
             title="New Student Admission"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline">New </span>Admission
+            <span>Admission</span>
           </button>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowModuleMenu(prev => !prev)}
+              className={`w-8.5 h-8.5 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shadow-2xs ${
+                showModuleMenu
+                  ? 'bg-amber-50 border-amber-300 text-amber-900'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+              }`}
+              title="Module Desks & Tools"
+              aria-label="Module Desks & Tools"
+            >
+              <MoreHorizontal className="w-4 h-4 text-slate-600" />
+            </button>
+
+            {/* Premium Institutional Dropdown Menu */}
+            {showModuleMenu && (
+              <div
+                ref={moduleMenuRef}
+                className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100"
+              >
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                  Module Desks
+                </div>
+                <div className="py-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('directory');
+                      setShowModuleMenu(false);
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      activeTab === 'directory' ? 'bg-amber-50 text-amber-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Users className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Students Directory</span>
+                    </div>
+                    <span className="font-mono text-[10px] text-slate-400">{students.length}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('inquiries');
+                      setShowModuleMenu(false);
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      activeTab === 'inquiries' ? 'bg-amber-50 text-amber-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Inquiries Pipeline</span>
+                    </div>
+                    <span className="font-mono text-[10px] text-slate-400">{inquiries.length}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('new_admission');
+                      setShowModuleMenu(false);
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      activeTab === 'new_admission' ? 'bg-amber-50 text-amber-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <UserPlus className="w-3.5 h-3.5 text-slate-500" />
+                      <span>New Admission</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('id_cards');
+                      setShowModuleMenu(false);
+                    }}
+                    className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                      activeTab === 'id_cards' ? 'bg-amber-50 text-amber-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Student ID Cards</span>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                  Administrative Tools
+                </div>
+                <div className="py-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      setShowBulkImportModal(true);
+                      setBulkImportResult(null);
+                      setBulkImportCsvText('');
+                      if (batches.length > 0 && !bulkImportBatchId) setBulkImportBatchId(batches[0].id);
+                    }}
+                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Bulk CSV Upload</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      setIsAddingDocHead(true);
+                    }}
+                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Document Requirements</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -2567,7 +2686,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       {guardianPhone && (
                         <a
                           href={`tel:${guardianPhone}`}
-                          className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                          className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
                           title="Call Guardian"
                           aria-label="Call Guardian"
                         >
@@ -2580,7 +2699,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           href={`https://wa.me/${cleanWaPhone || guardianPhone.replace(/[^0-9]/g, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-600 border border-emerald-200/80 flex items-center justify-center transition-colors cursor-pointer"
+                          className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-emerald-700 hover:text-emerald-800 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
                           title="WhatsApp Guardian"
                           aria-label="WhatsApp Guardian"
                         >
@@ -2591,7 +2710,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       <button
                         type="button"
                         onClick={() => setSelectedStudent(student)}
-                        className="w-8 h-8 rounded-lg bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-800 border border-amber-200/80 flex items-center justify-center transition-colors cursor-pointer"
+                        className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
                         title="Student Profile"
                         aria-label="Student Profile"
                       >
@@ -2602,7 +2721,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         type="button"
                         data-testid="student-actions-trigger"
                         onClick={() => setMobileActionStudent(student)}
-                        className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-500 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                        className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-500 hover:text-slate-800 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
                         title="More Options"
                         aria-label="More Options"
                       >
@@ -5424,32 +5543,22 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 }}
                 className="w-full h-9 px-3 py-1.5 rounded-lg text-left text-xs font-semibold text-slate-800 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors cursor-pointer"
               >
-                <User className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>Open Student Profile & Dossier</span>
+                <User className="w-4 h-4 text-slate-600 shrink-0" />
+                <span>Open Student Profile</span>
               </button>
-
-              {mobileActionStudent.guardian_phone && (
-                <a
-                  href={`tel:${mobileActionStudent.guardian_phone}`}
-                  onClick={() => setMobileActionStudent(null)}
-                  className="w-full h-9 px-3 py-1.5 rounded-lg text-left text-xs font-semibold text-slate-800 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors"
-                >
-                  <Phone className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>Call Guardian ({mobileActionStudent.guardian_phone})</span>
-                </a>
-              )}
 
               <button
                 type="button"
                 onClick={() => {
                   const s = mobileActionStudent;
                   setMobileActionStudent(null);
-                  setContactStudentModal(s);
+                  setSelectedDirectoryStudentIds(new Set([s.id]));
+                  setShowBulkIdCardsModal(true);
                 }}
                 className="w-full h-9 px-3 py-1.5 rounded-lg text-left text-xs font-semibold text-slate-800 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors cursor-pointer"
               >
-                <MessageSquare className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Send WhatsApp Notification</span>
+                <CreditCard className="w-4 h-4 text-slate-600 shrink-0" />
+                <span>Print Official ID Card</span>
               </button>
 
               {canArchiveStudents && (
@@ -5460,9 +5569,9 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     setMobileActionStudent(null);
                     setStudentToArchive(s);
                   }}
-                  className="w-full h-9 px-3 py-1.5 rounded-lg text-left text-xs font-semibold text-amber-700 hover:bg-amber-50 active:bg-amber-100 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  className="w-full h-9 px-3 py-1.5 rounded-lg text-left text-xs font-semibold text-slate-700 hover:bg-slate-100 active:bg-slate-200 flex items-center gap-2.5 transition-colors cursor-pointer"
                 >
-                  <Archive className="w-4 h-4 text-amber-600 shrink-0" />
+                  <Archive className="w-4 h-4 text-slate-500 shrink-0" />
                   <span>Archive Student Record</span>
                 </button>
               )}
@@ -5479,9 +5588,9 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     setDeleteRequiresForce(false);
                     setDeleteErrorMessage(null);
                   }}
-                  className="w-full h-9 px-3 py-1.5 rounded-lg text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 active:bg-rose-100 flex items-center gap-2.5 transition-colors cursor-pointer"
+                  className="w-full h-9 px-3 py-1.5 rounded-lg text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 active:bg-rose-100 flex items-center gap-2.5 transition-colors cursor-pointer"
                 >
-                  <Trash2 className="w-4 h-4 text-rose-600 shrink-0" />
+                  <Trash2 className="w-4 h-4 text-rose-500 shrink-0" />
                   <span>Delete Student Permanently</span>
                 </button>
               )}
@@ -6339,7 +6448,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   }}
                   placeholder="Document name (e.g. B-Form, Father CNIC)"
                   className="flex-1 text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400"
-                  autoFocus
                 />
                 <button
                   type="button"

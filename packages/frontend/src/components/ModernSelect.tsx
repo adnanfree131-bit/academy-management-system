@@ -138,16 +138,11 @@ export const ModernSelect: React.FC<ModernSelectProps> = ({
         setOpenUpward(false);
       }
 
-      // Auto-focus search input if searchable
-      if (isSearchable) {
-        setTimeout(() => {
-          searchInputRef.current?.focus();
-        }, 30);
-      }
+      // Do not auto-focus search input to avoid mobile virtual keyboard popup and viewport jerk
     } else {
       setSearchTerm('');
     }
-  }, [isOpen, isSearchable]);
+  }, [isOpen]);
 
   // Click outside to close
   useEffect(() => {
