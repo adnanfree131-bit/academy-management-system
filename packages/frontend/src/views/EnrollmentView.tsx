@@ -34,8 +34,7 @@ import {
   GraduationCap,
   MoreVertical,
   SlidersHorizontal,
-  ArrowLeft,
-  MoreHorizontal
+  ArrowLeft
 } from 'lucide-react';
 import { useMobileOverlay } from '../lib/mobileOverlay';
 import { 
@@ -1809,132 +1808,121 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           </p>
         </div>
 
-        {/* ONE Icon Place: Consolidates Student, Inquiries, Admission, ID Cards, Bulk CSV & Documents */}
-        <div ref={moduleContainerRef} className="relative self-start sm:self-auto shrink-0">
+        {/* Header Action Bar: Options Menu + Primary New Admission Button */}
+        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+          <div ref={moduleContainerRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setShowModuleMenu(prev => !prev)}
+              className={`h-8.5 px-2.5 sm:px-3 rounded-xl border flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs text-xs font-semibold ${
+                showModuleMenu
+                  ? 'bg-slate-100 border-slate-300 text-slate-900'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+              }`}
+              title="Administrative Tools & Desks"
+              aria-label="Administrative Tools & Desks"
+            >
+              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+              <span className="hidden sm:inline">Options</span>
+            </button>
+
+            {/* Premium Institutional Dropdown Menu */}
+            {showModuleMenu && (
+              <div
+                className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100"
+              >
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                  Administrative Tools
+                </div>
+                <div className="py-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      setShowBulkImportModal(true);
+                      setBulkImportResult(null);
+                      setBulkImportCsvText('');
+                      if (batches.length > 0 && !bulkImportBatchId) setBulkImportBatchId(batches[0].id);
+                    }}
+                    className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Bulk CSV Upload</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      setIsAddingDocHead(true);
+                    }}
+                    className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Physical Document Requirements</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
-            onClick={() => setShowModuleMenu(prev => !prev)}
-            className={`w-8.5 h-8.5 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shadow-2xs ${
-              showModuleMenu
-                ? 'bg-slate-100 border-slate-300 text-slate-900'
-                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-            }`}
-            title="Module Desks & Options"
-            aria-label="Module Desks & Options"
+            onClick={() => setActiveTab('new_admission')}
+            className="h-8.5 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-[0_1px_2px_rgba(217,119,6,0.25)] transition-all cursor-pointer shrink-0"
           >
-            <MoreHorizontal className="w-4 h-4 text-slate-600" />
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Admission</span>
           </button>
-
-          {/* Premium Institutional Dropdown Menu */}
-          {showModuleMenu && (
-            <div
-              className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1.5 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100"
-            >
-              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                Student Desks
-              </div>
-              <div className="py-0.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('directory');
-                    setShowModuleMenu(false);
-                  }}
-                  className={`w-full px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                    activeTab === 'directory' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Students Directory</span>
-                  </div>
-                  <span className="font-mono text-[10px] text-slate-500 font-semibold">{students.length}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('inquiries');
-                    setShowModuleMenu(false);
-                  }}
-                  className={`w-full px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                    activeTab === 'inquiries' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Inquiries Pipeline</span>
-                  </div>
-                  <span className="font-mono text-[10px] text-slate-500 font-semibold">{inquiries.length}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('new_admission');
-                    setShowModuleMenu(false);
-                  }}
-                  className={`w-full px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                    activeTab === 'new_admission' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <UserPlus className="w-3.5 h-3.5 text-slate-500" />
-                    <span>New Admission</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('id_cards');
-                    setShowModuleMenu(false);
-                  }}
-                  className={`w-full px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                    activeTab === 'id_cards' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Student ID Cards</span>
-                  </div>
-                </button>
-              </div>
-
-              <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                Administrative Tools
-              </div>
-              <div className="py-0.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModuleMenu(false);
-                    setShowBulkImportModal(true);
-                    setBulkImportResult(null);
-                    setBulkImportCsvText('');
-                    if (batches.length > 0 && !bulkImportBatchId) setBulkImportBatchId(batches[0].id);
-                  }}
-                  className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
-                >
-                  <Upload className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Bulk CSV Upload</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModuleMenu(false);
-                    setIsAddingDocHead(true);
-                  }}
-                  className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
-                >
-                  <FileText className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Physical Document Requirements</span>
-                </button>
-              </div>
-            </div>
-          )}
         </div>
+      </div>
+
+      {/* Navigation Tabs Bar (Desktop + Tablet + Mobile Scrollable) */}
+      <div className="flex items-center overflow-x-auto no-scrollbar max-w-full whitespace-nowrap bg-white p-0.5 rounded-xl border border-slate-200 text-xs font-semibold shadow-2xs">
+        <button
+          onClick={() => setActiveTab('directory')}
+          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            activeTab === 'directory' 
+              ? 'bg-amber-600 text-white shadow-xs font-bold' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5" />
+          <span>Students ({students.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('inquiries')}
+          className={`flex-1 min-w-[90px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            activeTab === 'inquiries' 
+              ? 'bg-amber-600 text-white shadow-xs font-bold' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <HelpCircle className="w-3.5 h-3.5" />
+          <span>Inquiries ({inquiries.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('new_admission')}
+          className={`flex-1 min-w-[110px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            activeTab === 'new_admission' 
+              ? 'bg-amber-600 text-white shadow-xs font-bold' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <UserPlus className="w-3.5 h-3.5" />
+          <span>New Admission</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('id_cards')}
+          className={`flex-1 min-w-[80px] py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+            activeTab === 'id_cards' 
+              ? 'bg-amber-600 text-white shadow-xs font-bold' 
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          <span>ID Cards</span>
+        </button>
       </div>
 
       {/* Error state */}
@@ -2030,44 +2018,54 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             {/* Expandable Overview & Filters Section (Collapsed by default to reclaim 50%+ of screen!) */}
             {showDirectoryFiltersAndSummary && (
               <div className="mt-3 pt-3 border-t border-slate-100 space-y-3 animate-in fade-in duration-150">
-                {/* 5-Card Metric Summary Strip */}
+                {/* 5-Card Metric Summary Strip (Sidebar Dark Navy Design) */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
-                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Total Students</span>
-                      <span className="font-mono font-semibold text-slate-800 text-sm">{students.length}</span>
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Total Students</span>
+                      <span className="font-mono font-bold text-white text-base">{students.length}</span>
                     </div>
-                    <Users className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center shrink-0">
+                      <Users className="w-3.5 h-3.5" />
+                    </span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
-                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Active Enrolled</span>
-                      <span className="font-mono font-semibold text-emerald-700 text-sm">{students.filter(s => s.status === 'active').length}</span>
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Active Enrolled</span>
+                      <span className="font-mono font-bold text-emerald-400 text-base">{students.filter(s => s.status === 'active').length}</span>
                     </div>
-                    <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0">
+                      <UserCheck className="w-3.5 h-3.5" />
+                    </span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
-                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Inquiries</span>
-                      <span className="font-mono font-semibold text-amber-700 text-sm">{inquiries.length}</span>
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Inquiries</span>
+                      <span className="font-mono font-bold text-amber-400 text-base">{inquiries.length}</span>
                     </div>
-                    <HelpCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0">
+                      <HelpCircle className="w-3.5 h-3.5" />
+                    </span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
-                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Defaulters</span>
-                      <span className="font-mono font-semibold text-rose-600 text-sm">
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Defaulters</span>
+                      <span className="font-mono font-bold text-rose-400 text-base">
                         {students.filter(s => s.fee_clearance_status === 'defaulter' || (Boolean(s.unpaid_balance) && s.unpaid_balance! > 0 && s.status === 'active')).length}
                       </span>
                     </div>
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                    </span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between col-span-2 sm:col-span-1">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] col-span-2 sm:col-span-1">
                     <div>
-                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Inactive / Alumni</span>
-                      <span className="font-mono font-semibold text-slate-600 text-sm">{students.filter(s => s.status !== 'active').length}</span>
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Inactive / Alumni</span>
+                      <span className="font-mono font-bold text-slate-300 text-base">{students.filter(s => s.status !== 'active').length}</span>
                     </div>
-                    <Archive className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
+                      <Archive className="w-3.5 h-3.5" />
+                    </span>
                   </div>
                 </div>
 

@@ -14,7 +14,7 @@ import {
   LogOut,
   RefreshCw,
   AlertTriangle,
-  ChevronDown
+  SlidersHorizontal
 } from 'lucide-react';
 
 interface TeacherPortalProps {
@@ -279,44 +279,50 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
           </div>
         )}
 
-        {/* Mobile Metric Toggle */}
-        <div className="sm:hidden pt-3 border-t border-slate-100 flex justify-end">
+        {/* Metric Toggle */}
+        <div className="pt-3 border-t border-slate-100 flex justify-end">
           <button
             type="button"
             onClick={() => setShowMetrics(!showMetrics)}
-            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition-colors"
+            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              showMetrics
+                ? 'bg-[#081A2F] text-amber-400 border-[#173252]'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
           >
-            <span>Overview & Metrics</span>
-            <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${showMetrics ? 'rotate-180' : ''}`} />
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Overview</span>
           </button>
         </div>
 
-        {/* 4 Metric Cards (Always visible on sm+, collapsible on mobile) */}
-        <div className={`${showMetrics ? 'grid' : 'hidden'} sm:grid mt-4 pt-4 border-t border-slate-100 grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs`}>
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Today's Lectures</span>
-            <span className="text-base sm:text-lg font-semibold font-mono text-slate-900 mt-0.5 block">{schedule.length} Classes</span>
-            <span className="text-[10px] text-slate-500">Academic Tracks</span>
-          </div>
+        {/* 4 Metric Cards (Sidebar Dark Navy Design) */}
+        {showMetrics && (
+          <div className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs animate-in fade-in duration-150">
+            <div className="p-3 bg-[#081A2F] rounded-xl border border-[#173252] shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+              <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">Today's Lectures</span>
+              <span className="text-base sm:text-lg font-bold font-mono text-white mt-0.5 block">{schedule.length} Classes</span>
+              <span className="text-[10px] text-slate-400">Academic Tracks</span>
+            </div>
 
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Assigned Batches</span>
-            <span className="text-base sm:text-lg font-semibold font-mono text-slate-900 mt-0.5 block">{batches.length} Batches</span>
-            <span className="text-[10px] text-slate-500">Enrolled Students</span>
-          </div>
+            <div className="p-3 bg-[#081A2F] rounded-xl border border-[#173252] shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+              <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">Assigned Batches</span>
+              <span className="text-base sm:text-lg font-bold font-mono text-white mt-0.5 block">{batches.length} Batches</span>
+              <span className="text-[10px] text-slate-400">Enrolled Students</span>
+            </div>
 
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Pending Attendance</span>
-            <span className="text-base sm:text-lg font-semibold font-mono text-slate-900 mt-0.5 block">{pendingAttendance.length} Batch</span>
-            <span className="text-[10px] text-slate-500">Attendance Pending</span>
-          </div>
+            <div className="p-3 bg-[#081A2F] rounded-xl border border-[#173252] shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+              <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">Pending Attendance</span>
+              <span className="text-base sm:text-lg font-bold font-mono text-amber-400 mt-0.5 block">{pendingAttendance.length} Batch</span>
+              <span className="text-[10px] text-slate-400">Attendance Pending</span>
+            </div>
 
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Exams to Grade</span>
-            <span className="text-base sm:text-lg font-semibold font-mono text-slate-900 mt-0.5 block">{pendingGrading.length} Exams</span>
-            <span className="text-[10px] text-slate-500">Assessments</span>
+            <div className="p-3 bg-[#081A2F] rounded-xl border border-[#173252] shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+              <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">Exams to Grade</span>
+              <span className="text-base sm:text-lg font-bold font-mono text-rose-400 mt-0.5 block">{pendingGrading.length} Exams</span>
+              <span className="text-[10px] text-slate-400">Assessments</span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Main Grid: Today's Schedule & Quick Action Hub */}

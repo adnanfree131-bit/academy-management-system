@@ -12,7 +12,7 @@ import {
   Filter,
   History,
   MessageSquare,
-  Sliders
+  SlidersHorizontal
 } from 'lucide-react';
 import { StudentInvoice, FeePayment } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
@@ -656,15 +656,18 @@ export const FeeReversalsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowFilters(!showFilters)}
-                    className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors shadow-2xs flex items-center justify-center relative cursor-pointer ${
-                      showFilters ? 'border-primary-500 bg-primary-50/30' : ''
+                    className={`h-8 px-2.5 rounded-lg border flex items-center gap-1.5 transition-colors shadow-2xs relative cursor-pointer text-xs font-semibold ${
+                      showFilters
+                        ? 'bg-[#081A2F] text-amber-400 border-[#173252]'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                     }`}
                     title="Filters & Overview"
                     aria-label="Filters & Overview"
                   >
-                    <Sliders className="w-4 h-4 text-slate-600" />
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Overview</span>
                     {hasActiveFilters && (
-                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white" />
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
                     )}
                   </button>
 
@@ -712,14 +715,14 @@ export const FeeReversalsView: React.FC = () => {
               )}
 
               {/* Collapsible Overview & Secondary Filters Container */}
-              <div className={showFilters ? 'block space-y-3 pt-2 border-t border-slate-100' : 'hidden sm:block sm:space-y-3 sm:pt-2 sm:border-t sm:border-slate-100'}>
-                {/* Metric Strip */}
+              <div className={`${showFilters ? 'block' : 'hidden'} space-y-3 pt-2 border-t border-slate-100 animate-in fade-in duration-150`}>
+                {/* Metric Strip (Sidebar Dark Navy Design) */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 shadow-2xs">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block font-mono">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
                       Total Invoiced
                     </span>
-                    <span className="text-sm sm:text-base font-mono font-semibold text-slate-900 mt-0.5 block">
+                    <span className="text-sm sm:text-base font-mono font-bold text-white mt-0.5 block">
                       PKR {totalInvoiced.toLocaleString()}
                     </span>
                     <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
@@ -727,25 +730,25 @@ export const FeeReversalsView: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 shadow-2xs">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block font-mono">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
                       Total Collected
                     </span>
-                    <span className="text-sm sm:text-base font-mono font-semibold text-emerald-700 mt-0.5 block">
+                    <span className="text-sm sm:text-base font-mono font-bold text-emerald-400 mt-0.5 block">
                       PKR {totalCollected.toLocaleString()}
                     </span>
-                    <span className="text-[10px] text-emerald-600/80 mt-0.5 block truncate">
+                    <span className="text-[10px] text-emerald-300 mt-0.5 block truncate">
                       Realized Receipts
                     </span>
                   </div>
 
-                  <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 shadow-2xs">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block font-mono">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
                       Outstanding Balance
                     </span>
                     <span
-                      className={`text-sm sm:text-base font-mono font-semibold mt-0.5 block ${
-                        totalDue > 0 ? 'text-rose-600' : 'text-emerald-700'
+                      className={`text-sm sm:text-base font-mono font-bold mt-0.5 block ${
+                        totalDue > 0 ? 'text-rose-400' : 'text-emerald-400'
                       }`}
                     >
                       PKR {totalDue.toLocaleString()}
@@ -755,11 +758,11 @@ export const FeeReversalsView: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 shadow-2xs">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block font-mono">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
                       Active Receipts
                     </span>
-                    <span className="text-sm sm:text-base font-mono font-semibold text-slate-800 mt-0.5 block">
+                    <span className="text-sm sm:text-base font-mono font-bold text-slate-200 mt-0.5 block">
                       {displayedPayments.length} Receipt{displayedPayments.length !== 1 ? 's' : ''}
                     </span>
                     <span className="text-[10px] text-slate-400 mt-0.5 block truncate">

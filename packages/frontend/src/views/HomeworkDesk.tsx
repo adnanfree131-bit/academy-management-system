@@ -372,19 +372,19 @@ export const HomeworkDesk: React.FC = () => {
                 </div>
               )}
 
-              {/* Progress Counters */}
+              {/* Progress Counters (Sidebar Dark Navy Design) */}
               <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                <div className="bg-emerald-50 border border-emerald-200/80 rounded-xl p-2.5 sm:p-3">
-                  <span className="text-[10px] font-mono uppercase text-emerald-700 font-semibold block truncate">Done</span>
-                  <span className="text-base sm:text-lg font-semibold font-mono text-emerald-800 mt-0.5 block">{checkStats.done}</span>
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 sm:p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                  <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold block truncate">Done</span>
+                  <span className="text-base sm:text-lg font-bold font-mono text-white mt-0.5 block">{checkStats.done}</span>
                 </div>
-                <div className="bg-amber-50 border border-amber-200/80 rounded-xl p-2.5 sm:p-3">
-                  <span className="text-[10px] font-mono uppercase text-amber-700 font-semibold block truncate">Incomplete</span>
-                  <span className="text-base sm:text-lg font-semibold font-mono text-amber-800 mt-0.5 block">{checkStats.incomplete}</span>
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 sm:p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                  <span className="text-[10px] font-mono uppercase text-amber-400 font-bold block truncate">Incomplete</span>
+                  <span className="text-base sm:text-lg font-bold font-mono text-white mt-0.5 block">{checkStats.incomplete}</span>
                 </div>
-                <div className="bg-rose-50 border border-rose-200/80 rounded-xl p-2.5 sm:p-3">
-                  <span className="text-[10px] font-mono uppercase text-rose-700 font-semibold block truncate">Missing</span>
-                  <span className="text-base sm:text-lg font-semibold font-mono text-rose-800 mt-0.5 block">{checkStats.missing}</span>
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 sm:p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                  <span className="text-[10px] font-mono uppercase text-rose-400 font-bold block truncate">Missing</span>
+                  <span className="text-base sm:text-lg font-bold font-mono text-white mt-0.5 block">{checkStats.missing}</span>
                 </div>
               </div>
 

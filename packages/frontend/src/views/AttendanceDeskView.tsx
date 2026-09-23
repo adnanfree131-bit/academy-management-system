@@ -1085,14 +1085,14 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
             {/* Collapsible Panel on Mobile (Desktop always shown) */}
             <div className={`${showOverviewFilters ? 'block' : 'hidden'} sm:block space-y-2`}>
-              {/* High-density summary strip on mobile when expanded */}
-              <div className="sm:hidden bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs space-y-2">
+              {/* High-density summary strip on mobile when expanded (Sidebar Dark Navy Design) */}
+              <div className="sm:hidden bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 text-xs space-y-2 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                 <div className="flex items-center justify-between text-[11px] font-mono">
-                  <span className="text-slate-600 font-medium">Total: <strong className="text-slate-900">{stats.total}</strong></span>
-                  <span className="text-emerald-700">Present: <strong>{stats.present}</strong></span>
-                  <span className="text-amber-700">Late: <strong>{stats.late}</strong></span>
-                  <span className="text-rose-700">Absent: <strong>{stats.absent}</strong></span>
-                  <span className="text-indigo-700">Excused: <strong>{stats.excused}</strong></span>
+                  <span className="text-slate-400 font-medium">Total: <strong className="text-white">{stats.total}</strong></span>
+                  <span className="text-emerald-400">Present: <strong>{stats.present}</strong></span>
+                  <span className="text-amber-400">Late: <strong>{stats.late}</strong></span>
+                  <span className="text-rose-400">Absent: <strong>{stats.absent}</strong></span>
+                  <span className="text-indigo-300">Excused: <strong>{stats.excused}</strong></span>
                 </div>
               </div>
 

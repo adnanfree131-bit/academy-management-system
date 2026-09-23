@@ -2465,43 +2465,51 @@ export const FeeDeskView: React.FC = () => {
             {/* Expandable Section: 4 Summary Cards + Class Filter (Collapsed by default on mobile) */}
             {showCashierSummaryAndFilter && (
               <div className="mt-3 pt-3 border-t border-slate-100 space-y-3 animate-in fade-in duration-150">
-                {/* 4 Financial Summary Cards */}
+                {/* 4 Financial Summary Cards (Sidebar Dark Navy Design) */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
-                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Total Invoiced</span>
-                      <span className="font-mono font-semibold text-slate-800 text-xs sm:text-sm">
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Total Invoiced</span>
+                      <span className="font-mono font-bold text-white text-xs sm:text-sm">
                         PKR {duesSummary.totalInvoiced.toLocaleString()}
                       </span>
                     </div>
-                    <CreditCard className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center shrink-0">
+                      <CreditCard className="w-3.5 h-3.5" />
+                    </span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
-                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Collections</span>
-                      <span className="font-mono font-semibold text-emerald-700 text-xs sm:text-sm">
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Collections</span>
+                      <span className="font-mono font-bold text-emerald-400 text-xs sm:text-sm">
                         PKR {duesSummary.totalCollected.toLocaleString()}
                       </span>
                     </div>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    </span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
-                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Overdue Receivables</span>
-                      <span className="font-mono font-semibold text-rose-600 text-xs sm:text-sm">
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Overdue Receivables</span>
+                      <span className="font-mono font-bold text-rose-400 text-xs sm:text-sm">
                         PKR {duesSummary.allAmount.toLocaleString()}
                       </span>
                     </div>
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                    </span>
                   </div>
-                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
-                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Defaulters</span>
-                      <span className="font-mono font-semibold text-slate-800 text-xs sm:text-sm">
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Defaulters</span>
+                      <span className="font-mono font-bold text-amber-400 text-xs sm:text-sm">
                         {duesSummary.allCount} Students
                       </span>
                     </div>
-                    <Users className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0">
+                      <Users className="w-3.5 h-3.5" />
+                    </span>
                   </div>
                 </div>
 
@@ -3672,13 +3680,13 @@ export const FeeDeskView: React.FC = () => {
                 {/* Summary Metrics & PDF Export */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
-                      <span className="text-[10px] uppercase font-medium text-slate-400">Filtered:</span>
-                      <span className="font-mono font-semibold text-slate-800 text-xs">{totalDefaultersCount} Students</span>
+                    <div className="bg-[#081A2F] border border-[#173252] rounded-lg px-2.5 py-1.5 flex items-center gap-2 shadow-2xs">
+                      <span className="text-[10px] uppercase font-mono font-bold text-slate-400">Filtered:</span>
+                      <span className="font-mono font-bold text-white text-xs">{totalDefaultersCount} Students</span>
                     </div>
-                    <div className="bg-rose-50 border border-rose-200/80 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
-                      <span className="text-[10px] uppercase font-medium text-rose-500">Total Dues:</span>
-                      <span className="font-mono font-semibold text-rose-700 text-xs">PKR {totalDefaultersAmount.toLocaleString()}</span>
+                    <div className="bg-[#081A2F] border border-[#173252] rounded-lg px-2.5 py-1.5 flex items-center gap-2 shadow-2xs">
+                      <span className="text-[10px] uppercase font-mono font-bold text-rose-400">Total Dues:</span>
+                      <span className="font-mono font-bold text-rose-400 text-xs">PKR {totalDefaultersAmount.toLocaleString()}</span>
                     </div>
                   </div>
 

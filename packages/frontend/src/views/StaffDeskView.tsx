@@ -710,21 +710,22 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
           )}
         </div>
 
-        {/* Mobile Icon-Only Button for Filters & Overview */}
+        {/* Button for Filters & Overview */}
         <button
           type="button"
           onClick={() => setShowOverviewFilters(!showOverviewFilters)}
-          className={`md:hidden w-9 h-9 flex items-center justify-center rounded-xl border transition-colors cursor-pointer shrink-0 relative ${
+          className={`h-9 px-2.5 sm:px-3 flex items-center justify-center gap-1.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer shrink-0 relative ${
             showOverviewFilters || selectedFilterTab !== 'all'
-              ? 'bg-amber-50 text-amber-900 border-amber-300'
+              ? 'bg-[#081A2F] text-amber-400 border-[#173252] shadow-2xs'
               : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
           }`}
           title="Toggle Overview & Filters"
           aria-label="Toggle Overview & Filters"
         >
-          <SlidersHorizontal className="w-4 h-4 text-slate-600" />
+          <SlidersHorizontal className="w-4 h-4" />
+          <span className="hidden sm:inline">Overview</span>
           {selectedFilterTab !== 'all' && (
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-600" />
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
           )}
         </button>
 
@@ -788,8 +789,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Overview & Mobile Filters Panel (Collapsed on Mobile, Open on Desktop) */}
-      <div className={`${showOverviewFilters ? 'block' : 'hidden'} md:block space-y-2.5`}>
+      {/* Overview & Mobile Filters Panel (Toggled via Overview button) */}
+      <div className={`${showOverviewFilters ? 'block' : 'hidden'} space-y-2.5 animate-in fade-in duration-150`}>
         {/* Mobile Filter Pill Selector */}
         <div className="md:hidden flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
           {(['all', 'faculty', 'admin_accounts', 'support', 'archived'] as const).map(tab => (
@@ -808,85 +809,85 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
           ))}
         </div>
 
-        {/* 4 Metric Summary Cards */}
+        {/* 4 Metric Summary Cards (Sidebar Dark Navy Design) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
           {/* Card 1: Total Staff */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Total Staff
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-semibold text-slate-900 text-sm leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {totalStaffCount}
                 </span>
-                <span className="text-xs font-normal text-slate-500 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   {activeStaffCount} Active
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
-              <Users className="w-3.5 h-3.5 text-indigo-700" />
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-indigo-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <Users className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 2: Teaching Faculty */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Teaching Faculty
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-semibold text-emerald-700 text-sm leading-none">
+                <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base leading-none">
                   {activeFacultyCount}
                 </span>
-                <span className="text-xs font-normal text-slate-500 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Teachers
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-              <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <BookOpen className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 3: Clocked-In Today */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Clocked-In Today
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-semibold text-amber-700 text-sm leading-none">
+                <span className="font-mono font-bold text-amber-400 text-sm sm:text-base leading-none">
                   {presentTodayCount}
                 </span>
-                <span className="text-xs font-normal text-slate-500 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Attended
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <ShieldCheck className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 4: Monthly Payroll */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-slate-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Monthly Payroll
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-semibold text-slate-900 text-sm leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   PKR {monthlyPayrollTotal.toLocaleString()}
                 </span>
-                <span className="text-xs font-normal text-slate-500 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Billed
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-slate-50 text-slate-700 flex items-center justify-center border border-slate-200/70 shrink-0 shadow-2xs">
-              <CreditCard className="w-3.5 h-3.5 text-slate-700" />
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <CreditCard className="w-3.5 h-3.5" />
             </span>
           </div>
         </div>

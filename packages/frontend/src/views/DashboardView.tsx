@@ -379,120 +379,120 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* ─── 4 Executive Institutional KPI Cards ─── */}
+      {/* ─── 4 Executive Institutional KPI Cards (Sidebar Dark Navy Palette) ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Card 1: Active Enrollment */}
         <div
           onClick={() => onNavigate('enrollment')}
-          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Students</span>
-            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Students</span>
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <Users className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-bold font-mono text-[#081A2F]">{activeStudents}</span>
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white">{activeStudents}</span>
               <span className="text-[11px] font-mono text-slate-400">/ {totalCapacity}</span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1">
-              <span className="font-mono font-semibold text-slate-700">{capacityPct}%</span> capacity occupied
+            <p className="text-[11px] text-slate-300 mt-1">
+              <span className="font-mono font-semibold text-amber-400">{capacityPct}%</span> capacity occupied
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
             <span>{batches.length} Batches</span>
-            <span className="text-[#081A2F] font-semibold hover:underline">Directory →</span>
+            <span className="text-amber-400 font-semibold hover:underline">Directory →</span>
           </div>
         </div>
 
         {/* Card 2: Fee Collections */}
         <div
           onClick={() => onNavigate('voucher')}
-          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Collections</span>
-            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Collections</span>
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <CreditCard className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-lg sm:text-2xl font-bold font-mono text-[#081A2F] truncate">
+              <span className="text-lg sm:text-2xl font-bold font-mono text-white truncate">
                 {money(totalCollected)}
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1 truncate">
-              <span className="font-mono font-semibold text-slate-700">{feeRealizationPct}%</span> of {money(totalBilled)} billed
+            <p className="text-[11px] text-slate-300 mt-1 truncate">
+              <span className="font-mono font-semibold text-emerald-400">{feeRealizationPct}%</span> of {money(totalBilled)} billed
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
-            <span className="text-rose-600 font-semibold font-mono">{unpaidInvoices.length} Overdue</span>
-            <span className="text-[#081A2F] font-semibold hover:underline">Cashier →</span>
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
+            <span className="text-rose-400 font-semibold font-mono">{unpaidInvoices.length} Overdue</span>
+            <span className="text-amber-400 font-semibold hover:underline">Cashier →</span>
           </div>
         </div>
 
         {/* Card 3: Student Attendance Today */}
         <div
           onClick={() => onNavigate('attendance')}
-          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Attendance</span>
-            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Attendance</span>
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <CheckSquare className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-bold font-mono text-[#081A2F]">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {isAttendanceSubmittedToday ? `${attendanceRate}%` : 'Pending'}
               </span>
               {isAttendanceSubmittedToday && (
-                <span className="text-[11px] text-emerald-700 font-semibold font-mono">
+                <span className="text-[11px] text-emerald-400 font-semibold font-mono">
                   {presentCount} Present
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-[11px] text-slate-300 mt-1">
               {absentCount > 0 ? `${absentCount} Absent • ` : ''}{lateCount > 0 ? `${lateCount} Late • ` : ''}{markedBatchesCount}/{batches.length} Marked
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
             <span>{unmarkedBatches.length > 0 ? `${unmarkedBatches.length} Pending` : 'All Batches Marked'}</span>
-            <span className="text-[#081A2F] font-semibold hover:underline">Register →</span>
+            <span className="text-amber-400 font-semibold hover:underline">Register →</span>
           </div>
         </div>
 
         {/* Card 4: Faculty & Staff Roster */}
         <div
           onClick={() => onNavigate('geofence')}
-          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Staff On-Campus</span>
-            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Staff On-Campus</span>
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <UserCheck className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-bold font-mono text-[#081A2F]">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {presentStaffCount} <span className="text-sm font-normal text-slate-400 font-sans">/ {totalStaffCount || 6}</span>
               </span>
-              <span className="text-[11px] text-slate-600 font-semibold font-mono">
+              <span className="text-[11px] text-amber-400 font-semibold font-mono">
                 {staffPresentPct}% Duty
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1 truncate">
+            <p className="text-[11px] text-slate-300 mt-1 truncate">
               {lateStaffCount > 0 ? `${lateStaffCount} Late • ` : ''}{leaveStaffCount > 0 ? `${leaveStaffCount} Leave • ` : ''}Active On Duty
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
             <span>{timetableSlots.length} Periods Today</span>
-            <span className="text-[#081A2F] font-semibold hover:underline">Roster →</span>
+            <span className="text-amber-400 font-semibold hover:underline">Roster →</span>
           </div>
         </div>
       </div>
@@ -838,29 +838,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Executive Desks Summary Bar: Homework, Admissions Pipeline, and Examinations */}
+      {/* Executive Desks Summary Bar: Homework, Admissions Pipeline, and Examinations (Sidebar Dark Navy Palette) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Desk 1: Homework Diary */}
         <div
           onClick={() => onNavigate('homework')}
-          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Academic Diary</span>
-            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Academic Diary</span>
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <BookOpen className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-bold font-mono text-[#081A2F]">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {homeworkList.length}
               </span>
-              <span className="text-xs text-slate-500 font-medium">
+              <span className="text-xs text-slate-400 font-medium">
                 Tasks Assigned Today
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1 truncate">
+            <p className="text-[11px] text-slate-300 mt-1 truncate">
               {homeworkList.length > 0 ? (
                 `${homeworkList[0].title} (${homeworkList[0].subject_name || 'Classwork'})`
               ) : (
@@ -868,65 +868,65 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               )}
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
             <span>Diary & Notebooks</span>
-            <span className="text-[#081A2F] font-semibold hover:underline">Open Desk →</span>
+            <span className="text-amber-400 font-semibold hover:underline">Open Desk →</span>
           </div>
         </div>
 
         {/* Desk 2: Prospective Inquiries */}
         <div
           onClick={() => onNavigate('enrollment')}
-          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Admissions Pipeline</span>
-            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Admissions Pipeline</span>
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <PhoneCall className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-bold font-mono text-[#081A2F]">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {inquiriesList.length}
               </span>
-              <span className="text-xs text-slate-500 font-medium">
+              <span className="text-xs text-slate-400 font-medium">
                 Active Inquiries
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1 truncate">
+            <p className="text-[11px] text-slate-300 mt-1 truncate">
               {inquiriesList.filter(i => i.stage === 'new' || !i.stage).length > 0
                 ? `${inquiriesList.filter(i => i.stage === 'new' || !i.stage).length} new leads pending review`
                 : 'Follow-up pipeline clear'}
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
             <span>Prospects & Inquiries</span>
-            <span className="text-[#081A2F] font-semibold hover:underline">Review Pipeline →</span>
+            <span className="text-amber-400 font-semibold hover:underline">Review Pipeline →</span>
           </div>
         </div>
 
         {/* Desk 3: Examinations & Assessments */}
         <div
           onClick={() => onNavigate('exams')}
-          className="bg-white border border-[#E6ECF2] hover:border-slate-300 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all cursor-pointer flex flex-col justify-between"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Examinations</span>
-            <div className="w-7 h-7 rounded-lg bg-slate-100 text-[#081A2F] border border-slate-200/70 flex items-center justify-center">
+            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Examinations</span>
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <FileText className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-bold font-mono text-[#081A2F]">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {exams.length}
               </span>
-              <span className="text-xs text-slate-500 font-medium">
+              <span className="text-xs text-slate-400 font-medium">
                 Configured Papers
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-1 truncate">
+            <p className="text-[11px] text-slate-300 mt-1 truncate">
               {exams.length > 0 ? (
                 `${exams[0].title} • ${exams[0].status || 'Scheduled'}`
               ) : (
@@ -934,9 +934,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               )}
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
             <span>Assessment Results</span>
-            <span className="text-[#081A2F] font-semibold hover:underline">Exams Desk →</span>
+            <span className="text-amber-400 font-semibold hover:underline">Exams Desk →</span>
           </div>
         </div>
       </div>

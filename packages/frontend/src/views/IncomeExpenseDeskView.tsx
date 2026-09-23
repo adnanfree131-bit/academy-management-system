@@ -43,6 +43,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
   const [showCashbookFilters, setShowCashbookFilters] = useState<boolean>(false);
+  const [showOverviewCards, setShowOverviewCards] = useState<boolean>(false);
 
   // Modals
   const [showVoucherModal, setShowVoucherModal] = useState<boolean>(false);
@@ -317,6 +318,20 @@ export const IncomeExpenseDeskView: React.FC = () => {
         icon={<Wallet className="w-4 h-4 text-slate-700" />}
       >
         <button
+          type="button"
+          onClick={() => setShowOverviewCards(!showOverviewCards)}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+            showOverviewCards
+              ? 'bg-[#081A2F] text-amber-400 border-[#173252] shadow-2xs'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+          }`}
+          title="Toggle overview summary cards"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Overview</span>
+        </button>
+
+        <button
           onClick={() => setShowHeadModal(true)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold shadow-xs transition-colors"
         >
@@ -347,68 +362,64 @@ export const IncomeExpenseDeskView: React.FC = () => {
         </button>
       </PageHeading>
 
-      {/* High-Density Compact Financial KPI Strip (Finalized Enterprise Design) */}
-      <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5">
-        {/* Card 1: Total Income */}
-        <div className="bg-white border border-slate-200/85 border-l-[3px] sm:border-l-[3.5px] border-l-emerald-600 rounded-xl px-2 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Income
-            </span>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="font-mono font-bold text-emerald-700 text-xs sm:text-sm leading-none truncate">
-                PKR {totalIncome.toLocaleString()}
+      {/* High-Density Financial KPI Strip (Sidebar Dark Navy Design) */}
+      {showOverviewCards && (
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2.5 animate-in fade-in duration-150">
+          {/* Card 1: Total Income */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-2.5 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Income
               </span>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className="font-mono font-bold text-emerald-400 text-xs sm:text-base leading-none truncate">
+                  PKR {totalIncome.toLocaleString()}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 leading-none hidden sm:inline">Inflow</span>
             </div>
-            <span className="text-[10px] text-slate-400 leading-none hidden sm:inline">Inflow</span>
+            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs hidden xs:flex">
+              <TrendingUp className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
+            </span>
           </div>
-          <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs hidden xs:flex">
-            <TrendingUp className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-emerald-700" />
-          </span>
-        </div>
 
-        {/* Card 2: Total Expenses */}
-        <div className="bg-white border border-slate-200/85 border-l-[3px] sm:border-l-[3.5px] border-l-rose-600 rounded-xl px-2 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Expenses
-            </span>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className="font-mono font-bold text-rose-700 text-xs sm:text-sm leading-none truncate">
-                PKR {totalExpense.toLocaleString()}
+          {/* Card 2: Total Expenses */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-2.5 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Expenses
               </span>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className="font-mono font-bold text-rose-400 text-xs sm:text-base leading-none truncate">
+                  PKR {totalExpense.toLocaleString()}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 leading-none hidden sm:inline">Outflow</span>
             </div>
-            <span className="text-[10px] text-slate-400 leading-none hidden sm:inline">Outflow</span>
+            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs hidden xs:flex">
+              <TrendingDown className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
+            </span>
           </div>
-          <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs hidden xs:flex">
-            <TrendingDown className="w-3 sm:w-3.5 h-3 sm:h-3.5 text-rose-700" />
-          </span>
-        </div>
 
-        {/* Card 3: Net Balance */}
-        <div className={`bg-white border border-slate-200/85 ${
-          netBalance >= 0 ? 'border-l-emerald-600' : 'border-l-rose-600'
-        } border-l-[3px] sm:border-l-[3.5px] rounded-xl px-2 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all`}>
-          <div className="min-w-0">
-            <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Net Balance
-            </span>
-            <div className="flex items-baseline gap-1 mt-0.5">
-              <span className={`font-mono font-bold text-xs sm:text-sm leading-none truncate ${netBalance >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                PKR {netBalance.toLocaleString()}
+          {/* Card 3: Net Balance */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-2.5 sm:px-3.5 py-2 sm:py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Net Balance
               </span>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className={`font-mono font-bold text-xs sm:text-base leading-none truncate ${netBalance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  PKR {netBalance.toLocaleString()}
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-400 leading-none hidden sm:inline">{netBalance >= 0 ? 'Surplus' : 'Deficit'}</span>
             </div>
-            <span className="text-[10px] text-slate-400 leading-none hidden sm:inline">{netBalance >= 0 ? 'Surplus' : 'Deficit'}</span>
+            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs hidden xs:flex">
+              <Scale className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
+            </span>
           </div>
-          <span className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center border shrink-0 shadow-2xs hidden xs:flex ${
-            netBalance >= 0 
-              ? 'bg-emerald-50 text-emerald-700 border-emerald-200/70' 
-              : 'bg-rose-50 text-rose-700 border-rose-200/70'
-          }`}>
-            <Scale className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
-          </span>
         </div>
-      </div>
+      )}
 
       {/* Tabs Navigation - Segmented Control (Image 1 Style) */}
       <div className="flex items-center gap-1 bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs text-xs font-semibold w-full sm:w-fit">

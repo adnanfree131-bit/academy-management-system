@@ -14,8 +14,7 @@ import {
   Users,
   Receipt,
   X,
-  ChevronDown,
-  Sliders
+  SlidersHorizontal
 } from 'lucide-react';
 import {
   StaffSalaryProfile,
@@ -250,108 +249,107 @@ export const PayrollDeskView: React.FC = () => {
               return <option key={label} value={label}>{label}</option>;
             })}
           </select>
-        </div>
-      </PageHeading>
 
-      {/* KPI Cards Strip with Mobile Toggle */}
-      <div className="space-y-2">
-        <div className="flex sm:hidden items-center justify-between">
           <button
             type="button"
             onClick={() => setShowKpis(!showKpis)}
-            className="h-8 px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-2xs flex items-center gap-1.5 cursor-pointer"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+              showKpis
+                ? 'bg-[#081A2F] text-amber-400 border-[#173252] shadow-2xs'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+            title="Toggle overview summary cards"
           >
-            <Sliders className="w-3.5 h-3.5 text-slate-500" />
-            <span>Metrics</span>
-            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showKpis ? 'rotate-180' : ''}`} />
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Overview</span>
           </button>
-          <span className="text-xs font-mono text-slate-500">
-            {payslips.length} slips processed
-          </span>
         </div>
+      </PageHeading>
 
-        <div className={showKpis ? 'grid grid-cols-2 lg:grid-cols-4 gap-2.5' : 'hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2.5'}>
+      {/* KPI Cards Strip (Sidebar Dark Navy Design) */}
+      {showKpis && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 animate-in fade-in duration-150">
           {/* Card 1: Total Month Payroll */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Total Month Payroll
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-semibold text-slate-900 text-sm leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   PKR {totalPayrollBilled.toLocaleString()}
                 </span>
-                <span className="text-xs font-medium text-slate-500 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   {payslips.length} Slips
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
-              <Receipt className="w-3.5 h-3.5 text-indigo-700" />
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-indigo-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <Receipt className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 2: Disbursed / Paid */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Disbursed / Paid
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-semibold text-emerald-700 text-sm leading-none">
+                <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base leading-none">
                   PKR {totalPayrollPaid.toLocaleString()}
                 </span>
-                <span className="text-xs font-medium text-slate-500 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   {payslips.filter(p => p.status === 'paid').length} Cleared
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <CheckCircle2 className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 3: Pending Disbursement */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Pending Disbursement
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-semibold text-amber-700 text-sm leading-none">
+                <span className="font-mono font-bold text-amber-400 text-sm sm:text-base leading-none">
                   PKR {(totalPayrollBilled - totalPayrollPaid).toLocaleString()}
                 </span>
-                <span className="text-xs font-medium text-slate-500 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   {payslips.filter(p => p.status === 'processed').length} Pending
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-              <Clock className="w-3.5 h-3.5 text-amber-700" />
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <Clock className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 4: Active Staff Contracts */}
-          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-slate-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Active Staff Contracts
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-semibold text-slate-900 text-sm leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {profiles.length}
                 </span>
-                <span className="text-xs font-medium text-slate-500 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Profiles
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-slate-50 text-slate-700 flex items-center justify-center border border-slate-200/70 shrink-0 shadow-2xs">
-              <Users className="w-3.5 h-3.5 text-slate-700" />
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <Users className="w-3.5 h-3.5" />
             </span>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Side-by-Side Processing Desk */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">

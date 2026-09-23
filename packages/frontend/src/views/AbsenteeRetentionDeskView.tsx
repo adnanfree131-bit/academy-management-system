@@ -471,126 +471,127 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 )}
               </div>
 
-              {/* Single Icon-Only Button on Mobile for Filters & Overview */}
+              {/* Button for Filters & Overview */}
               <button
                 type="button"
                 onClick={() => setShowOverviewFilters(prev => !prev)}
-                className={`sm:hidden w-9 h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer shrink-0 relative ${
+                className={`h-9 px-2.5 sm:px-3 flex items-center justify-center gap-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shrink-0 relative ${
                   showOverviewFilters || selectedBatchId !== 'ALL' || selectedStatusFilter !== 'ALL'
-                    ? 'bg-amber-50 border-amber-300 text-amber-900'
+                    ? 'bg-[#081A2F] border-[#173252] text-amber-400 shadow-2xs'
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                 }`}
                 title="Toggle Overview & Filters"
                 aria-label="Toggle Overview & Filters"
               >
-                <SlidersHorizontal className="w-4 h-4 text-slate-600" />
+                <SlidersHorizontal className="w-4 h-4" />
+                <span className="hidden sm:inline">Overview</span>
                 {(selectedBatchId !== 'ALL' || selectedStatusFilter !== 'ALL') && (
-                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-600" />
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
                 )}
               </button>
             </div>
 
-            {/* Collapsible Panel on Mobile (Desktop always shown) */}
-            <div className={`${showOverviewFilters ? 'block' : 'hidden'} sm:block space-y-3`}>
-              {/* 5-Card Metric Summary Strip */}
+            {/* Collapsible Panel (Toggled via Overview button) */}
+            <div className={`${showOverviewFilters ? 'block' : 'hidden'} space-y-3`}>
+              {/* 5-Card Metric Summary Strip (Sidebar Dark Navy Design) */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                 {/* Card 1: Total Absentees */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                   <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                       Total Absentees
                     </span>
                     <div className="flex items-baseline gap-1.5 mt-0.5">
-                      <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                      <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                         {kpi.total_absentees}
                       </span>
-                      <span className="text-xs font-medium text-slate-500 leading-none">
+                      <span className="text-xs font-medium text-slate-400 leading-none">
                         Recorded
                       </span>
                     </div>
                   </div>
-                  <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
-                    <UserX className="w-3.5 h-3.5 text-rose-700" />
+                  <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+                    <UserX className="w-3.5 h-3.5" />
                   </span>
                 </div>
 
                 {/* Card 2: Contacted Rate */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                   <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                       Contacted Rate
                     </span>
                     <div className="flex items-baseline gap-1.5 mt-0.5">
-                      <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
+                      <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base leading-none">
                         {kpi.contacted_percentage}%
                       </span>
-                      <span className="text-xs font-medium text-slate-500 leading-none">
+                      <span className="text-xs font-medium text-slate-400 leading-none">
                         ({kpi.contacted_count}/{kpi.total_absentees})
                       </span>
                     </div>
                   </div>
-                  <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-                    <PhoneCall className="w-3.5 h-3.5 text-emerald-700" />
+                  <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+                    <PhoneCall className="w-3.5 h-3.5" />
                   </span>
                 </div>
 
                 {/* Card 3: Unreachable / Rings */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                   <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                       Unreachable
                     </span>
                     <div className="flex items-baseline gap-1.5 mt-0.5">
-                      <span className="font-mono font-bold text-amber-700 text-sm leading-none">
+                      <span className="font-mono font-bold text-amber-400 text-sm sm:text-base leading-none">
                         {kpi.unreachable_count}
                       </span>
-                      <span className="text-xs font-medium text-slate-500 leading-none">
+                      <span className="text-xs font-medium text-slate-400 leading-none">
                         Retry
                       </span>
                     </div>
                   </div>
-                  <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-                    <PhoneMissed className="w-3.5 h-3.5 text-amber-700" />
+                  <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+                    <PhoneMissed className="w-3.5 h-3.5" />
                   </span>
                 </div>
 
                 {/* Card 4: Pending Calls */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-sky-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                   <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                       Pending Calls
                     </span>
                     <div className="flex items-baseline gap-1.5 mt-0.5">
-                      <span className="font-mono font-bold text-sky-700 text-sm leading-none">
+                      <span className="font-mono font-bold text-sky-400 text-sm sm:text-base leading-none">
                         {kpi.pending_count}
                       </span>
-                      <span className="text-xs font-medium text-slate-500 leading-none">
+                      <span className="text-xs font-medium text-slate-400 leading-none">
                         Awaiting
                       </span>
                     </div>
                   </div>
-                  <span className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200/70 shrink-0 shadow-2xs">
-                    <Clock className="w-3.5 h-3.5 text-sky-700" />
+                  <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+                    <Clock className="w-3.5 h-3.5" />
                   </span>
                 </div>
 
                 {/* Card 5: Medical Leaves */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-purple-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all col-span-2 sm:col-span-1">
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] col-span-2 sm:col-span-1">
                   <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                       Excused Leaves
                     </span>
                     <div className="flex items-baseline gap-1.5 mt-0.5">
-                      <span className="font-mono font-bold text-purple-700 text-sm leading-none">
+                      <span className="font-mono font-bold text-purple-400 text-sm sm:text-base leading-none">
                         {kpi.excused_count}
                       </span>
-                      <span className="text-xs font-medium text-slate-500 leading-none">
+                      <span className="text-xs font-medium text-slate-400 leading-none">
                         Sanctioned
                       </span>
                     </div>
                   </div>
-                  <span className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-200/70 shrink-0 shadow-2xs">
-                    <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
+                  <span className="w-7 h-7 rounded-lg bg-white/10 text-purple-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+                    <ShieldCheck className="w-3.5 h-3.5" />
                   </span>
                 </div>
               </div>

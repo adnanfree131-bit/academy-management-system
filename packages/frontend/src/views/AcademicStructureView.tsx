@@ -54,6 +54,7 @@ export const AcademicStructureView: React.FC = () => {
   const [filterBatchBillingMode, setFilterBatchBillingMode] = useState('all');
   const [filterBatchStatus, setFilterBatchStatus] = useState<'all' | 'active' | 'archived'>('all');
   const [showBatchFilters, setShowBatchFilters] = useState(false);
+  const [showOverviewCards, setShowOverviewCards] = useState(false);
 
   // Modals
   const [showProgramModal, setShowProgramModal] = useState(false);
@@ -1025,6 +1026,21 @@ export const AcademicStructureView: React.FC = () => {
         badge={`Session ${tenant?.academic_session || '2026-2027'}`}
       >
         <div className="flex items-center gap-2">
+          {/* Toggle Overview Information Cards Button */}
+          <button
+            type="button"
+            onClick={() => setShowOverviewCards(prev => !prev)}
+            className={`w-9 h-9 rounded-xl border flex items-center justify-center transition-colors cursor-pointer shrink-0 ${
+              showOverviewCards
+                ? 'bg-amber-50 text-amber-900 border-amber-300'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+            title="Toggle Overview Cards"
+            aria-label="Toggle Overview Cards"
+          >
+            <SlidersHorizontal className="w-4 h-4 text-slate-600" />
+          </button>
+
           {viewMode === 'classes' && (
             <button
               onClick={openCreateProgramModal}
@@ -1072,89 +1088,91 @@ export const AcademicStructureView: React.FC = () => {
         </div>
       )}
 
-      {/* 1. CARDS ROW (Above Navigation Tabs - Image 1 Hierarchy) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-        {/* Card 1: Classes / Grades */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Classes / Grades
+      {/* 1. CARDS ROW (Collapsible overview styled in sidebar dark navy) */}
+      {showOverviewCards && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 animate-in fade-in duration-150">
+          {/* Card 1: Classes / Grades */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Classes / Grades
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
+                  {programs.length}
+                </span>
+                <span className="text-xs font-medium text-slate-400 leading-none">
+                  Registered
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <GraduationCap className="w-3.5 h-3.5" />
             </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                {programs.length}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Registered
-              </span>
-            </div>
           </div>
-          <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-            <GraduationCap className="w-3.5 h-3.5 text-amber-700" />
-          </span>
-        </div>
 
-        {/* Card 2: Class Sections */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-sky-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Class Sections
+          {/* Card 2: Class Sections */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Class Sections
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
+                  {actualSectionsCount}
+                </span>
+                <span className="text-xs font-medium text-slate-400 leading-none">
+                  Active
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <FolderTree className="w-3.5 h-3.5" />
             </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                {actualSectionsCount}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Active
-              </span>
-            </div>
           </div>
-          <span className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200/70 shrink-0 shadow-2xs">
-            <FolderTree className="w-3.5 h-3.5 text-sky-700" />
-          </span>
-        </div>
 
-        {/* Card 3: Total Students */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Total Students
+          {/* Card 3: Total Students */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Total Students
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
+                  {totalEnrolled}
+                </span>
+                <span className="text-xs font-medium text-slate-400 leading-none">
+                  Enrolled
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <Users className="w-3.5 h-3.5" />
             </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                {totalEnrolled}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Enrolled
-              </span>
-            </div>
           </div>
-          <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-            <Users className="w-3.5 h-3.5 text-emerald-700" />
-          </span>
-        </div>
 
-        {/* Card 4: Total Occupancy */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 leading-tight">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">
-                Total Occupancy
-              </span>
-              <span className="text-[10px] font-mono font-bold text-indigo-700 bg-indigo-50 px-1 py-0.5 rounded border border-indigo-200/70">
-                {Math.round(capacityPercent)}%
-              </span>
+          {/* Card 4: Total Occupancy */}
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 leading-tight">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 truncate">
+                  Total Occupancy
+                </span>
+                <span className="text-[10px] font-mono font-bold text-amber-300 bg-white/10 px-1 py-0.5 rounded border border-white/10">
+                  {Math.round(capacityPercent)}%
+                </span>
+              </div>
+              <div className="font-mono text-xs mt-0.5 leading-none">
+                <span className="font-bold text-white text-sm sm:text-base">{totalEnrolled}</span>
+                <span className="font-normal text-slate-400 ml-1">/ {totalCapacity} Seats</span>
+              </div>
             </div>
-            <div className="font-mono text-xs mt-0.5 leading-none">
-              <span className="font-bold text-slate-900 text-sm">{totalEnrolled}</span>
-              <span className="font-normal text-slate-400 ml-1">/ {totalCapacity} Seats</span>
-            </div>
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-indigo-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+              <Users className="w-3.5 h-3.5" />
+            </span>
           </div>
-          <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
-            <Users className="w-3.5 h-3.5 text-indigo-700" />
-          </span>
         </div>
-      </div>
+      )}
 
       {/* 2. NAVIGATION TABS BAR (Below Cards - Solid Amber Active Tab matching Image 1) */}
       <div className="flex items-center overflow-x-auto no-scrollbar max-w-full whitespace-nowrap bg-white p-0.5 rounded-xl border border-slate-200 text-xs font-semibold shadow-2xs">
