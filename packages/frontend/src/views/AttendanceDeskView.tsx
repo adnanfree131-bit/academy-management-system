@@ -1268,16 +1268,19 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                               </span>
                             ) : (
                               <div className="flex items-center gap-1.5">
-                                <select
-                                  value={record.reasonCategory || ''}
-                                  onChange={e => updateStudentReasonCategory(student.id, e.target.value)}
-                                  className="text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-700 focus:outline-none max-w-[140px]"
-                                >
-                                  <option value="">-- Reason --</option>
-                                  {COMMON_REASONS.map(r => (
-                                    <option key={r} value={r}>{r}</option>
-                                  ))}
-                                </select>
+                                <div className="w-36 shrink-0">
+                                  <ModernSelect
+                                    value={record.reasonCategory || ''}
+                                    onChange={val => updateStudentReasonCategory(student.id, val)}
+                                    buttonClassName="text-xs bg-slate-50 border-slate-200 py-1 px-2 text-slate-700"
+                                    placeholder="-- Reason --"
+                                  >
+                                    <option value="">-- Reason --</option>
+                                    {COMMON_REASONS.map(r => (
+                                      <option key={r} value={r}>{r}</option>
+                                    ))}
+                                  </ModernSelect>
+                                </div>
                                 <input
                                   type="text"
                                   placeholder="Specific note / remarks..."
@@ -1396,16 +1399,19 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                       {/* Reason / Remarks if Absent or Excused */}
                       {(record.status === 'absent' || record.status === 'excused' || record.remarks) && (
                         <div className="mt-1 flex items-center gap-1.5 pt-1 border-t border-slate-100">
-                          <select
-                            value={record.reasonCategory || ''}
-                            onChange={e => updateStudentReasonCategory(student.id, e.target.value)}
-                            className="text-[11px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-slate-700 flex-1 min-w-0"
-                          >
-                            <option value="">Reason...</option>
-                            {COMMON_REASONS.map(cat => (
-                              <option key={cat} value={cat}>{cat}</option>
-                            ))}
-                          </select>
+                          <div className="flex-1 min-w-0">
+                            <ModernSelect
+                              value={record.reasonCategory || ''}
+                              onChange={val => updateStudentReasonCategory(student.id, val)}
+                              buttonClassName="text-[11px] bg-slate-50 border-slate-200 py-1 px-2 text-slate-700"
+                              placeholder="Reason..."
+                            >
+                              <option value="">Reason...</option>
+                              {COMMON_REASONS.map(cat => (
+                                <option key={cat} value={cat}>{cat}</option>
+                              ))}
+                            </ModernSelect>
+                          </div>
                           <input
                             type="text"
                             placeholder="Remarks..."
@@ -1791,17 +1797,18 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
             <form onSubmit={handleSubmitLeave} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">Select Student</label>
-                <select
+                <ModernSelect
                   value={newLeaveForm.student_id}
-                  onChange={e => setNewLeaveForm({ ...newLeaveForm, student_id: e.target.value })}
+                  onChange={val => setNewLeaveForm({ ...newLeaveForm, student_id: val })}
                   required
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
+                  buttonClassName="w-full text-xs bg-slate-50 border-slate-200 py-2"
+                  placeholder="-- Choose Student --"
                 >
                   <option value="">-- Choose Student --</option>
                   {students.map(s => (
                     <option key={s.id} value={s.id}>{s.full_name} ({s.admission_number})</option>
                   ))}
-                </select>
+                </ModernSelect>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1829,15 +1836,15 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">Category</label>
-                <select
+                <ModernSelect
                   value={newLeaveForm.category}
-                  onChange={e => setNewLeaveForm({ ...newLeaveForm, category: e.target.value as LeaveCategory })}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
+                  onChange={val => setNewLeaveForm({ ...newLeaveForm, category: val as LeaveCategory })}
+                  buttonClassName="w-full text-xs bg-slate-50 border-slate-200 py-2"
                 >
                   <option value="medical">Medical / Health Issue</option>
                   <option value="personal">Personal / Family Matter</option>
                   <option value="emergency">Emergency / Urgent</option>
-                </select>
+                </ModernSelect>
               </div>
 
               <div>

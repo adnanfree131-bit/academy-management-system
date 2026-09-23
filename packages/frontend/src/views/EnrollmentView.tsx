@@ -1567,7 +1567,15 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
   // Helper resolvers
   const getProgramName = (progId?: string | null) => (progId ? programs.find(p => p.id === progId)?.name || 'General Academic' : 'General Academic');
-  const getBatchName = (batchId?: string | null) => (batchId ? batches.find(b => b.id === batchId)?.name || 'Unassigned Batch' : 'Unassigned Batch');
+  const getBatchName = (batchId?: string | null) => {
+    if (!batchId) return 'Unassigned Batch';
+    const b = batches.find(x => x.id === batchId);
+    if (!b) return 'Unassigned Batch';
+    if (b.shift && !b.name.toLowerCase().includes(b.shift.toLowerCase())) {
+      return `${b.name} (${b.shift.charAt(0).toUpperCase() + b.shift.slice(1).toLowerCase()})`;
+    }
+    return b.name;
+  };
   const getSubjectNames = (subIds: string[]) => {
     return subIds.map(id => subjects.find(s => s.id === id)?.name || id).filter(Boolean);
   };
@@ -2556,10 +2564,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </div>
             ) : (
               pagedStudents.map(student => {
-                const guardianPhone = student.guardian_phone || student.phone;
+                const guardianPhone = student.guardian_phone || student.father_phone || student.student_whatsapp || student.phone;
                 const guardianDisplay = student.guardian_name
                   ? `${student.guardian_name}${student.guardian_relation ? ` (${student.guardian_relation})` : ''}`
+                  : student.father_name
+                  ? `${student.father_name} (Father)`
                   : 'Guardian unlisted';
+                const cleanWaPhone = cleanPhoneForWhatsApp(guardianPhone);
 
                 return (
                   <div
@@ -2665,34 +2676,34 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       {guardianPhone ? (
                         <a
                           href={`tel:${guardianPhone}`}
-                          className="flex-1 min-h-[36px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                          className="flex-1 min-h-[36px] px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
                           title="Call Guardian"
                         >
-                          <Phone className="w-3.5 h-3.5 text-slate-600" />
-                          <span>Call</span>
+                          <Phone className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                          <span className="truncate">Call</span>
                         </a>
                       ) : null}
 
                       {guardianPhone ? (
                         <a
-                          href={`https://wa.me/${guardianPhone.replace(/[^0-9]/g, '')}`}
+                          href={`https://wa.me/${cleanWaPhone || guardianPhone.replace(/[^0-9]/g, '')}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex-1 min-h-[36px] px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                          className="flex-1 min-h-[36px] px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
                           title="WhatsApp Guardian"
                         >
-                          <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>WhatsApp</span>
+                          <MessageSquare className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">WhatsApp</span>
                         </a>
                       ) : null}
 
                       <button
                         type="button"
                         onClick={() => setSelectedStudent(student)}
-                        className="flex-1 min-h-[36px] px-3 py-1.5 bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-900 border border-amber-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="flex-1 min-h-[36px] px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-900 border border-amber-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer min-w-0"
                       >
-                        <User className="w-3.5 h-3.5 text-amber-700" />
-                        <span>Profile</span>
+                        <User className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                        <span className="truncate">Profile</span>
                       </button>
 
                       <button

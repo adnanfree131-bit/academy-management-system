@@ -213,6 +213,8 @@ function StreamDonutChart({
                 className="transition-all duration-300 cursor-pointer hover:opacity-95"
                 onMouseEnter={() => setActiveItem(item)}
                 onMouseLeave={() => setActiveItem(null)}
+                onClick={() => setActiveItem(activeItem?.label === item.label ? null : item)}
+                onTouchStart={() => setActiveItem(activeItem?.label === item.label ? null : item)}
               />
             );
           })}
@@ -243,6 +245,7 @@ function StreamDonutChart({
               key={item.label}
               onMouseEnter={() => setActiveItem(item)}
               onMouseLeave={() => setActiveItem(null)}
+              onClick={() => setActiveItem(activeItem?.label === item.label ? null : item)}
               className={`p-2.5 rounded-xl border transition-all cursor-pointer ${
                 isHovered
                   ? 'border-[#0E2A47] bg-slate-50 shadow-2xs'
@@ -556,10 +559,33 @@ function MultiClassTrendChart({
                       className="cursor-pointer transition-all duration-150"
                       onMouseEnter={() => setHoveredPointIndex(dIdx)}
                       onMouseLeave={() => setHoveredPointIndex(null)}
+                      onClick={() => setHoveredPointIndex(hoveredPointIndex === dIdx ? null : dIdx)}
+                      onTouchStart={() => setHoveredPointIndex(dIdx)}
                     />
                   );
                 })}
               </g>
+            );
+          })}
+
+          {/* Transparent interactive column overlay for mobile tap targets */}
+          {days.map((d, dIdx) => {
+            const x = getX(dIdx);
+            const colWidth = innerWidth / Math.max(1, days.length - 1);
+            return (
+              <rect
+                key={`col-${d.iso}`}
+                x={x - colWidth / 2}
+                y={padTop}
+                width={colWidth}
+                height={innerHeight}
+                fill="transparent"
+                className="cursor-pointer"
+                onMouseEnter={() => setHoveredPointIndex(dIdx)}
+                onMouseLeave={() => setHoveredPointIndex(null)}
+                onClick={() => setHoveredPointIndex(hoveredPointIndex === dIdx ? null : dIdx)}
+                onTouchStart={() => setHoveredPointIndex(dIdx)}
+              />
             );
           })}
 
@@ -760,17 +786,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       <div className="bg-white border border-[#E6ECF2] rounded-2xl p-4 sm:p-6 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
           {/* Academy Logo / Crest */}
-          {tenant?.logo_url ? (
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-white border border-slate-200 p-1 shrink-0 shadow-2xs flex items-center justify-center overflow-hidden">
             <img
-              src={tenant.logo_url}
-              alt={tenant.name || 'Academy Logo'}
-              className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl object-contain border border-slate-200 bg-white p-1 shrink-0 shadow-2xs"
+              src={tenant?.logo_url || (tenant as any)?.settings?.logo_url || '/tsa-logo.png'}
+              alt={tenant?.name || 'The Smart Academy'}
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+                const parent = (e.target as HTMLElement).parentElement;
+                if (parent) {
+                  parent.className = "w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#081A2F] text-[#B88634] flex items-center justify-center font-bold text-xl border border-slate-800 shrink-0 shadow-2xs";
+                  parent.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7 sm:w-8 sm:h-8"><path d="M21.42 10.922a1 1 0 0 0-.019-.838L12.83 2.18a2 2 0 0 0-1.66 0L2.6 10.084a1 1 0 0 0 0 1.832l8.57 7.908a2 2 0 0 0 1.66 0l8.57-7.908a1 1 0 0 0 .02-.994Z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg>';
+                }
+              }}
             />
-          ) : (
-            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-[#081A2F] text-[#B88634] flex items-center justify-center font-bold text-xl border border-slate-800 shrink-0 shadow-2xs">
-              <GraduationCap className="w-7 h-7 sm:w-8 sm:h-8 text-amber-500" />
-            </div>
-          )}
+          </div>
 
           <div className="min-w-0 flex-1">
             <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-[#081A2F] truncate">

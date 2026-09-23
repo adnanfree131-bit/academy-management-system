@@ -2456,7 +2456,8 @@ export const FeeDeskView: React.FC = () => {
                     <div className="sm:hidden p-3 space-y-3 bg-slate-50/60" data-testid="mobile-unpaid-fee-list">
                       {allUnpaidStudents.slice(0, 30).map(def => {
                         const stud = students.find(s => s.id === def.student_id);
-                        const guardianPhone = def.guardian_phone || stud?.guardian_phone || stud?.phone;
+                        const guardianPhone = def.guardian_phone || stud?.guardian_phone || stud?.father_phone || stud?.student_whatsapp || stud?.phone;
+                        const targetInvoice = def.latest_invoice || (def.invoices && def.invoices[0]);
 
                         return (
                           <div
@@ -2514,7 +2515,7 @@ export const FeeDeskView: React.FC = () => {
                                     Total Outstanding
                                   </span>
                                   <span className="text-[11px] text-slate-500 font-mono">
-                                    Cycle: {def.latest_invoice?.billing_month || 'Current'}
+                                    Cycle: {targetInvoice?.billing_month || 'Current'}
                                   </span>
                                 </div>
                                 <div className="text-right">
@@ -2538,10 +2539,10 @@ export const FeeDeskView: React.FC = () => {
                                 </a>
                               ) : null}
 
-                              {guardianPhone && def.latest_invoice ? (
+                              {guardianPhone && targetInvoice ? (
                                 <button
                                   type="button"
-                                  onClick={() => handleDispatchWhatsAppSlip(def.latest_invoice, guardianPhone)}
+                                  onClick={() => handleDispatchWhatsAppSlip(targetInvoice, guardianPhone)}
                                   className="min-h-[38px] px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                                   title="WhatsApp Reminder Slip"
                                 >
@@ -2556,8 +2557,10 @@ export const FeeDeskView: React.FC = () => {
                                   setSelectedCashierStudentId(def.student_id);
                                   setLedgerStudentId(def.student_id);
                                   setStudentDeskTab('challans');
-                                  if (def.latest_invoice) {
-                                    handleOpenCashierDrawer(def.latest_invoice);
+                                  if (targetInvoice) {
+                                    handleOpenCashierDrawer(targetInvoice);
+                                  } else {
+                                    handleViewStudentInDesk(def.student_id);
                                   }
                                 }}
                                 className="flex-1 min-h-[38px] px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press"
@@ -3567,7 +3570,8 @@ export const FeeDeskView: React.FC = () => {
               <div className="sm:hidden p-3 space-y-3 bg-slate-50/60" data-testid="mobile-defaulters-list">
                 {defaultersList.map(def => {
                   const stud = students.find(s => s.id === def.student_id);
-                  const guardianPhone = def.guardian_phone || stud?.guardian_phone || stud?.phone;
+                  const guardianPhone = def.guardian_phone || stud?.guardian_phone || stud?.father_phone || stud?.student_whatsapp || stud?.phone;
+                  const targetInvoice = def.latest_invoice || (def.invoices && def.invoices[0]);
 
                   return (
                     <div
@@ -3650,10 +3654,10 @@ export const FeeDeskView: React.FC = () => {
                           </a>
                         ) : null}
 
-                        {guardianPhone && def.latest_invoice ? (
+                        {guardianPhone && targetInvoice ? (
                           <button
                             type="button"
-                            onClick={() => handleDispatchWhatsAppSlip(def.latest_invoice, guardianPhone)}
+                            onClick={() => handleDispatchWhatsAppSlip(targetInvoice, guardianPhone)}
                             className="min-h-[38px] px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                             title="WhatsApp Fee Slip"
                           >
@@ -3665,8 +3669,8 @@ export const FeeDeskView: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            if (def.latest_invoice) {
-                              handleOpenCashierDrawer(def.latest_invoice);
+                            if (targetInvoice) {
+                              handleOpenCashierDrawer(targetInvoice);
                             } else {
                               handleViewStudentInDesk(def.student_id);
                             }
@@ -4174,17 +4178,18 @@ export const FeeDeskView: React.FC = () => {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-600 block mb-1">Select Student</label>
-                  <select
+                  <ModernSelect
                     value={ledgerStudentId}
-                    onChange={e => setLedgerStudentId(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded font-medium focus:outline-none focus:border-indigo-500"
+                    onChange={val => setLedgerStudentId(val)}
+                    buttonClassName="w-full text-xs bg-slate-50 border-slate-200"
+                    placeholder="Select Student..."
                   >
                     {students.map(s => (
                       <option key={s.id} value={s.id}>
                         {s.full_name} ({s.admission_number || 'No Adm #'})
                       </option>
                     ))}
-                  </select>
+                  </ModernSelect>
                 </div>
               </div>
               <button
@@ -4278,17 +4283,17 @@ export const FeeDeskView: React.FC = () => {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Method *</label>
-                    <select
+                    <ModernSelect
                       value={paymentMethod}
-                      onChange={e => setPaymentMethod(e.target.value as PaymentMethod)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 text-slate-800 font-medium cursor-pointer"
+                      onChange={val => setPaymentMethod(val as PaymentMethod)}
+                      buttonClassName="w-full text-xs bg-white border-slate-300 py-2"
                     >
                       <option value="cash">Cash (Counter)</option>
                       <option value="bank_transfer">Bank Transfer / Meezan IBFT</option>
                       <option value="easypaisa">EasyPaisa</option>
                       <option value="jazzcash">JazzCash</option>
                       <option value="cheque">Bank Cheque</option>
-                    </select>
+                    </ModernSelect>
                   </div>
 
                   <div>
@@ -5210,29 +5215,31 @@ export const FeeDeskView: React.FC = () => {
             <form onSubmit={handleApplyDiscount} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">Student</label>
-                <select
+                <ModernSelect
                   value={discountStudentId}
-                  onChange={e => {
-                    setDiscountStudentId(e.target.value);
-                    const unpaidInv = invoices.find(i => i.student_id === e.target.value && i.status !== 'paid');
+                  onChange={val => {
+                    setDiscountStudentId(val);
+                    const unpaidInv = invoices.find(i => i.student_id === val && i.status !== 'paid');
                     if (unpaidInv) setDiscountInvoiceId(unpaidInv.id);
                   }}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg"
+                  buttonClassName="w-full text-xs bg-slate-50 border-slate-200 py-2"
+                  placeholder="Select student..."
                   required
                 >
                   <option value="">Select student</option>
                   {students.map(s => (
                     <option key={s.id} value={s.id}>{s.full_name} ({s.admission_number})</option>
                   ))}
-                </select>
+                </ModernSelect>
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">Target Invoice</label>
-                <select
+                <ModernSelect
                   value={discountInvoiceId}
-                  onChange={e => setDiscountInvoiceId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                  onChange={val => setDiscountInvoiceId(val)}
+                  buttonClassName="w-full text-xs bg-slate-50 border-slate-200 py-2 font-mono"
+                  placeholder="Select invoice..."
                   required
                 >
                   <option value="">Select invoice</option>
@@ -5243,20 +5250,20 @@ export const FeeDeskView: React.FC = () => {
                         {i.invoice_number} ({i.billing_month} - Balance: {i.balance_amount} PKR)
                       </option>
                     ))}
-                </select>
+                </ModernSelect>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">Type</label>
-                  <select
+                  <ModernSelect
                     value={discountType}
-                    onChange={e => setDiscountType(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg"
+                    onChange={val => setDiscountType(val as any)}
+                    buttonClassName="w-full text-xs bg-slate-50 border-slate-200 py-2"
                   >
                     <option value="flat">Fixed PKR Amount</option>
                     <option value="percentage">Percentage (%)</option>
-                  </select>
+                  </ModernSelect>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">Value</label>
@@ -5427,34 +5434,36 @@ export const FeeDeskView: React.FC = () => {
                   {bulkRevScope === 'program' && (
                     <div className="pt-2">
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Select Academic Class</label>
-                      <select
+                      <ModernSelect
                         value={bulkRevProgramId}
-                        onChange={e => setBulkRevProgramId(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
+                        onChange={val => setBulkRevProgramId(val)}
+                        buttonClassName="w-full text-xs bg-slate-50 border-slate-200 py-2"
+                        placeholder="Select class..."
                         required
                       >
                         <option value="" disabled>Select class</option>
                         {programs.map(p => (
                           <option key={p.id} value={p.id}>{p.name}</option>
                         ))}
-                      </select>
+                      </ModernSelect>
                     </div>
                   )}
 
                   {bulkRevScope === 'batch' && (
                     <div className="pt-2">
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">Select Section / Batch</label>
-                      <select
+                      <ModernSelect
                         value={bulkRevBatchId}
-                        onChange={e => setBulkRevBatchId(e.target.value)}
-                        className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
+                        onChange={val => setBulkRevBatchId(val)}
+                        buttonClassName="w-full text-xs bg-slate-50 border-slate-200 py-2"
+                        placeholder="Select section..."
                         required
                       >
                         <option value="" disabled>Select section</option>
                         {batches.map(b => (
                           <option key={b.id} value={b.id}>{b.name} ({b.academic_session})</option>
                         ))}
-                      </select>
+                      </ModernSelect>
                     </div>
                   )}
                 </div>
@@ -5462,14 +5471,14 @@ export const FeeDeskView: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">Adjustment Method</label>
-                    <select
+                    <ModernSelect
                       value={bulkRevType}
-                      onChange={e => setBulkRevType(e.target.value as 'percentage' | 'fixed')}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
+                      onChange={val => setBulkRevType(val as 'percentage' | 'fixed')}
+                      buttonClassName="w-full text-xs bg-slate-50 border-slate-200 py-2"
                     >
                       <option value="percentage">Percentage Hike (+%)</option>
                       <option value="fixed">Fixed Increment (+PKR)</option>
-                    </select>
+                    </ModernSelect>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">
@@ -5488,15 +5497,15 @@ export const FeeDeskView: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-medium text-slate-700 mb-1">Rounding Rule</label>
-                  <select
+                  <ModernSelect
                     value={bulkRevRounding}
-                    onChange={e => setBulkRevRounding(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
+                    onChange={val => setBulkRevRounding(val as any)}
+                    buttonClassName="w-full text-xs bg-slate-50 border-slate-200 py-2"
                   >
                     <option value="nearest_100">Round to nearest 100 PKR (e.g. 5,480 → 5,500)</option>
                     <option value="nearest_50">Round to nearest 50 PKR (e.g. 5,420 → 5,450)</option>
                     <option value="none">Exact calculation (no rounding)</option>
-                  </select>
+                  </ModernSelect>
                 </div>
 
                 <div>
@@ -5713,17 +5722,17 @@ export const FeeDeskView: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">Payment Method</label>
-                    <select
+                    <ModernSelect
                       value={familyPaymentMethod}
-                      onChange={e => setFamilyPaymentMethod(e.target.value as PaymentMethod)}
-                      className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-medium text-slate-800"
+                      onChange={val => setFamilyPaymentMethod(val as PaymentMethod)}
+                      buttonClassName="w-full text-xs bg-white border-slate-200 py-2"
                     >
                       <option value="cash">Cash Counter</option>
                       <option value="bank_transfer">Bank IBFT / Meezan</option>
                       <option value="easypaisa">EasyPaisa</option>
                       <option value="jazzcash">JazzCash</option>
                       <option value="cheque">Bank Cheque</option>
-                    </select>
+                    </ModernSelect>
                   </div>
 
                   <div>
@@ -6331,16 +6340,16 @@ export const FeeDeskView: React.FC = () => {
                 <label className="block text-xs font-medium text-slate-700 mb-1">
                   Academic Class Filter
                 </label>
-                <select
+                <ModernSelect
                   value={concessionClassFilter}
-                  onChange={e => setConcessionClassFilter(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-medium"
+                  onChange={val => setConcessionClassFilter(val)}
+                  buttonClassName="w-full text-xs bg-slate-50 border-slate-200 py-2"
                 >
                   <option value="all">All Classes ({programs.length})</option>
                   {programs.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
-                </select>
+                </ModernSelect>
               </div>
             </div>
 
@@ -6389,28 +6398,29 @@ export const FeeDeskView: React.FC = () => {
               ))}
             </div>
             {siblingReportScope === 'one_student' && (
-              <select
+              <ModernSelect
                 value={siblingReportStudentId}
-                onChange={e => setSiblingReportStudentId(e.target.value)}
-                className="w-full text-xs border border-slate-200 rounded-md p-2"
+                onChange={val => setSiblingReportStudentId(val)}
+                buttonClassName="w-full text-xs border-slate-200 py-2"
+                placeholder="Select student..."
               >
                 <option value="">Select student</option>
                 {students.map(s => (
                   <option key={s.id} value={s.id}>{s.full_name} ({s.admission_number})</option>
                 ))}
-              </select>
+              </ModernSelect>
             )}
             {siblingReportScope === 'one_class' && (
-              <select
+              <ModernSelect
                 value={siblingReportProgramId}
-                onChange={e => setSiblingReportProgramId(e.target.value)}
-                className="w-full text-xs border border-slate-200 rounded-md p-2"
+                onChange={val => setSiblingReportProgramId(val)}
+                buttonClassName="w-full text-xs border-slate-200 py-2"
               >
                 <option value="all">Select class</option>
                 {programs.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
-              </select>
+              </ModernSelect>
             )}
             <div className="flex justify-end gap-2">
               <button
