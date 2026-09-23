@@ -12,7 +12,6 @@ import {
   Phone, 
   MessageSquare, 
   Printer, 
-  RefreshCw, 
   TrendingUp,
   Clock,
   ChevronDown,
@@ -2856,7 +2855,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                 {isLoadingAttendance ? (
                   <div className="p-8 text-center text-slate-400">
-                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-500" />
+                    <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                     <p className="text-xs font-mono">Loading live attendance records...</p>
                   </div>
                 ) : attendanceLogs.length === 0 ? (

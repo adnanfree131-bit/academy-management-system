@@ -9,7 +9,6 @@ import {
   PhoneCall, 
   Mail, 
   CheckCircle2, 
-  RefreshCw,
   LogOut
 } from 'lucide-react';
 
@@ -257,14 +256,6 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
                     Upload Bank Transfer Proof
                   </h3>
                 </div>
-                <button
-                  type="button"
-                  onClick={fetchTrialStatus}
-                  className="text-slate-400 hover:text-slate-600 p-1"
-                  title="Refresh Status"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </button>
               </div>
 
               <form onSubmit={handleSubmitReceipt} className="space-y-3.5 text-xs">
@@ -350,11 +341,11 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
                 <button
                   type="submit"
                   disabled={submitting || !referenceNumber}
-                  className="w-full h-12 min-h-[48px] py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  className="w-full h-10 min-h-[40px] py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
                   {submitting ? (
                     <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
                       Submitting Receipt...
                     </>
                   ) : (

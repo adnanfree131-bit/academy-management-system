@@ -26,7 +26,6 @@ import {
   EyeOff, 
   Lock, 
   AlertCircle, 
-  RefreshCw, 
   Building2, 
   AlertTriangle, 
   Copy, 
@@ -419,9 +418,8 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           <button
             type="button"
             onClick={() => fetchOverview(selectedStudentId)}
-            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-xs"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
             <span>Try Again</span>
           </button>
         </div>

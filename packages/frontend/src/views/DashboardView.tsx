@@ -5,10 +5,8 @@ import {
   PhoneForwarded,
   Receipt,
   Clock,
-  ArrowRight,
   ExternalLink,
   ChevronRight,
-  RefreshCw,
   UserCheck,
   TrendingUp,
   CheckSquare,
@@ -66,100 +64,6 @@ function money(n: number) {
   return `PKR ${Math.round(n).toLocaleString('en-US')}`;
 }
 
-/* ─── Premium Animated Radial Telemetry Gauge (Behance / Swiss Precision) ─── */
-function RadialTelemetryGauge({
-  percentage,
-  label,
-  valueText,
-  sublabel,
-  statusBadge,
-  color = '#0E2A47',
-  trackColor = '#E6ECF2',
-  size = 130,
-  strokeWidth = 9,
-  animated = true,
-  onClick,
-}: {
-  percentage: number;
-  label: string;
-  valueText?: string;
-  sublabel: string;
-  statusBadge?: string;
-  color?: string;
-  trackColor?: string;
-  size?: number;
-  strokeWidth?: number;
-  animated?: boolean;
-  onClick?: () => void;
-}) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const clampedPct = Math.min(100, Math.max(0, percentage));
-  const strokeDashoffset = circumference - (clampedPct / 100) * circumference;
-
-  return (
-    <div
-      onClick={onClick}
-      className="flex flex-col items-center justify-between p-4 text-center group cursor-pointer hover:bg-slate-50/80 rounded-2xl transition-all duration-200"
-    >
-      <div
-        className="relative transition-transform duration-300 group-hover:scale-105"
-        style={{ width: size, height: size }}
-      >
-        <svg className="w-full h-full transform -rotate-90" viewBox={`0 0 ${size} ${size}`}>
-          {/* Subtle Background Track */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke={trackColor}
-            strokeWidth={strokeWidth}
-            fill="transparent"
-          />
-          {/* Animated Value Arc */}
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke={color}
-            strokeWidth={strokeWidth}
-            strokeDasharray={circumference}
-            strokeDashoffset={animated ? strokeDashoffset : circumference}
-            strokeLinecap="round"
-            fill="transparent"
-            className="transition-all duration-1000 ease-out"
-          />
-        </svg>
-
-        {/* Center Readout */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <span className="text-2xl font-bold tracking-tight text-[#0E2A47] font-mono leading-none">
-            {valueText || `${percentage}%`}
-          </span>
-          <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase mt-1">
-            {label}
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-3 w-full">
-        <p className="text-xs font-semibold text-slate-800 leading-snug truncate px-1">
-          {sublabel}
-        </p>
-        <div className="mt-1 flex items-center justify-center gap-1.5">
-          {statusBadge && (
-            <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200">
-              {statusBadge}
-            </span>
-          )}
-          <span className="text-[10px] text-slate-400 flex items-center gap-0.5 group-hover:text-[#0E2A47] transition-colors">
-            <ArrowRight className="w-2.5 h-2.5" />
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ─── Interactive Multi-Segment Donut Chart (Behance Slide 14) ─── */
 function StreamDonutChart({
@@ -641,9 +545,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   const [absenteeList, setAbsenteeList] = useState<AbsenteeFollowup[]>([]);
   const [timetableSlots, setTimetableSlots] = useState<TimetableSlot[]>([]);
   const [attendanceRecords, setAttendanceRecords] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [animated, setAnimated] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setAnimated(true), 150);
@@ -655,7 +557,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     const headers = { Authorization: `Bearer ${token}` };
     const today = new Date().toISOString().slice(0, 10);
 
-    setRefreshing(true);
     try {
       const [
         studRes,
@@ -707,9 +608,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       }
     } catch (err) {
       console.error('Dashboard load failed', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -817,21 +715,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* Date & Refresh Telemetry */}
+        {/* Date */}
         <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-          <button
-            type="button"
-            onClick={loadData}
-            disabled={refreshing || loading}
-            className="flex items-center justify-center gap-1.5 min-w-[40px] min-h-[40px] px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-[#E6ECF2] rounded-xl text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-            title="Refresh Telemetry"
-            aria-label="Refresh Telemetry"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#081A2F] ${(refreshing || loading) ? 'animate-spin' : ''}`} />
-            <span className="hidden md:inline">Sync</span>
-          </button>
-
-          <div className="flex items-center gap-2 min-h-[40px] px-3.5 py-2 bg-slate-50/70 border border-[#E6ECF2] rounded-xl text-xs font-semibold text-slate-700 shadow-2xs">
+          <div className="flex items-center gap-2 min-h-[38px] px-3.5 py-1.5 bg-slate-50/70 border border-[#E6ECF2] rounded-xl text-xs font-semibold text-slate-700 shadow-2xs">
             <Calendar className="w-3.5 h-3.5 text-[#081A2F]" />
             <span className="font-mono">{formattedDate}</span>
           </div>
@@ -963,56 +849,107 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* Desktop 4 Balanced Radial Gauges (>= 640px) */}
-        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
-          {/* Gauge 1: Student Attendance Rate */}
-          <RadialTelemetryGauge
-            percentage={attendanceRate}
-            label="Attendance"
-            sublabel={
-              markedBatchesCount > 0
-                ? `${presentCount} Present • ${lateCount} Late`
-                : `${unmarkedBatches.length} Batches Pending`
-            }
-            statusBadge="Today's Roster"
-            color="#2563EB"
-            animated={animated}
+        {/* Desktop 4 High-Density Operational KPI Cards (>= 640px) */}
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Card 1: Student Attendance */}
+          <div
             onClick={() => onNavigate('attendance')}
-          />
+            className="p-4 bg-slate-50/80 hover:bg-blue-50/40 border border-slate-200/90 rounded-xl transition-all cursor-pointer group shadow-2xs"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Attendance Today</span>
+              <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center border border-blue-200/60 group-hover:scale-105 transition-transform">
+                <CheckSquare className="w-4 h-4 text-blue-600" />
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold font-mono text-[#0E2A47]">{attendanceRate}%</span>
+              <span className="text-xs font-semibold text-emerald-600">
+                {markedBatchesCount > 0 ? `${presentCount} Present` : 'Pending'}
+              </span>
+            </div>
+            <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500">
+              <span>{markedBatchesCount} / {batches.length || 1} Batches Marked</span>
+              <span className="text-blue-600 font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+                Roster →
+              </span>
+            </div>
+          </div>
 
-          {/* Gauge 2: Fee Realization */}
-          <RadialTelemetryGauge
-            percentage={feeRealizationPct}
-            label="Realization"
-            sublabel={`${money(totalCollected)} of ${money(totalBilled)}`}
-            statusBadge={`${unpaidInvoices.length} Overdue (${money(overdueAmount)})`}
-            color="#D97706"
-            animated={animated}
-            onClick={() => onNavigate('challans')}
-          />
+          {/* Card 2: Fee Realization */}
+          <div
+            onClick={() => onNavigate('voucher')}
+            className="p-4 bg-slate-50/80 hover:bg-amber-50/40 border border-slate-200/90 rounded-xl transition-all cursor-pointer group shadow-2xs"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Fee Realization</span>
+              <span className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/60 group-hover:scale-105 transition-transform">
+                <CreditCard className="w-4 h-4 text-amber-600" />
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold font-mono text-[#0E2A47]">
+                {totalCollected > 0 ? money(totalCollected) : 'PKR 0'}
+              </span>
+              <span className="text-xs font-semibold text-amber-700">
+                {feeRealizationPct}% Realized
+              </span>
+            </div>
+            <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500">
+              <span className="truncate">{unpaidInvoices.length} Overdue ({money(overdueAmount)})</span>
+              <span className="text-amber-700 font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5 shrink-0">
+                Ledger →
+              </span>
+            </div>
+          </div>
 
-          {/* Gauge 3: Campus Seat Capacity */}
-          <RadialTelemetryGauge
-            percentage={capacityPct}
-            label="Capacity"
-            sublabel={`${activeStudents} / ${totalCapacity} Total Seats`}
-            statusBadge={`${batches.length} Active Batches`}
-            color="#0284C7"
-            animated={animated}
-            onClick={() => onNavigate('classes')}
-          />
+          {/* Card 3: Enrolled Students */}
+          <div
+            onClick={() => onNavigate('enrollment')}
+            className="p-4 bg-slate-50/80 hover:bg-sky-50/40 border border-slate-200/90 rounded-xl transition-all cursor-pointer group shadow-2xs"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Active Enrollment</span>
+              <span className="w-8 h-8 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200/60 group-hover:scale-105 transition-transform">
+                <Users className="w-4 h-4 text-sky-600" />
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold font-mono text-[#0E2A47]">{students.length}</span>
+              <span className="text-xs font-semibold text-slate-600">
+                / {totalCapacity} Capacity ({capacityPct}%)
+              </span>
+            </div>
+            <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500">
+              <span>{batches.length} Active Batches</span>
+              <span className="text-sky-600 font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+                Students →
+              </span>
+            </div>
+          </div>
 
-          {/* Gauge 4: Faculty & Staff On Duty */}
-          <RadialTelemetryGauge
-            percentage={100}
-            valueText={`${staffCount}/${staffCount}`}
-            label="On Duty"
-            sublabel={`${staffCount} Teaching Staff Present`}
-            statusBadge="Geofenced & Verified"
-            color="#059669"
-            animated={animated}
+          {/* Card 4: Faculty & Staff */}
+          <div
             onClick={() => onNavigate('geofence')}
-          />
+            className="p-4 bg-slate-50/80 hover:bg-emerald-50/40 border border-slate-200/90 rounded-xl transition-all cursor-pointer group shadow-2xs"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Faculty On Duty</span>
+              <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/60 group-hover:scale-105 transition-transform">
+                <GraduationCap className="w-4 h-4 text-emerald-600" />
+              </span>
+            </div>
+            <div className="mt-2 flex items-baseline gap-2">
+              <span className="text-2xl font-bold font-mono text-[#0E2A47]">{staffCount} / {staffCount}</span>
+              <span className="text-xs font-semibold text-emerald-600">100% Present</span>
+            </div>
+            <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500">
+              <span>Geofenced & Verified</span>
+              <span className="text-emerald-600 font-semibold group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+                Staff Desk →
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 

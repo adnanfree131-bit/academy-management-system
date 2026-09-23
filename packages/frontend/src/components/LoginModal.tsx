@@ -6,7 +6,6 @@ import {
   Eye,
   EyeOff,
   ArrowRight, 
-  RefreshCw, 
   ShieldCheck, 
   ShieldAlert,
   ArrowLeft,
@@ -649,9 +648,8 @@ export const LoginModal: React.FC = () => {
                       type="text"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Staff email or Father/Guardian CNIC"
                       required
-                      autoFocus
+                      aria-label="Email or Father/Guardian CNIC"
                       className="w-full pl-10 pr-3.5 py-2.5 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
                     />
                   </div>
@@ -682,6 +680,7 @@ export const LoginModal: React.FC = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
+                      aria-label="Password"
                       className="w-full pl-10 pr-10 py-2.5 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
                     />
                     <button
@@ -699,11 +698,11 @@ export const LoginModal: React.FC = () => {
                   id="login-submit-btn"
                   type="submit"
                   disabled={loading}
-                  className="w-full h-12 min-h-[48px] py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  className="w-full h-10 min-h-[40px] py-2 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       <span>Signing in...</span>
                     </>
                   ) : (
@@ -765,7 +764,7 @@ export const LoginModal: React.FC = () => {
                     </label>
                     {slugAvailability.status === 'checking' && (
                       <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1.5">
-                        <RefreshCw className="w-3 h-3 animate-spin text-slate-400" />
+                        <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin inline-block" />
                         Verifying...
                       </span>
                     )}
@@ -829,7 +828,7 @@ export const LoginModal: React.FC = () => {
                   )}
                   {slugAvailability.status === 'checking' && (
                     <p className="mt-1 text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
-                      <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
+                      <div className="w-3 h-3 border-2 border-slate-400 border-t-transparent rounded-full animate-spin shrink-0 inline-block" />
                       <span>Checking <strong className="font-mono text-slate-600">{slugAvailability.domain}</strong>...</span>
                     </p>
                   )}
@@ -1021,11 +1020,11 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || !regName.trim() || !regSlug.trim() || !regEmail.trim() || !regPassword || slugAvailability.status !== 'available'}
-                  className="w-full h-12 min-h-[48px] py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  className="w-full h-10 min-h-[40px] py-2 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       <span>Provisioning Domain & Dispatching Code...</span>
                     </>
                   ) : (
@@ -1073,11 +1072,11 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== 6}
-                  className="w-full h-12 min-h-[48px] py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                  className="w-full h-10 min-h-[40px] py-2 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       <span>Verifying Passcode...</span>
                     </>
                   ) : (
@@ -1281,11 +1280,11 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || !email.trim()}
-                  className="w-full h-12 min-h-[48px] py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
+                  className="w-full h-10 min-h-[40px] py-2 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {loading ? (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       <span>Sending Reset Code...</span>
                     </>
                   ) : (
@@ -1372,11 +1371,11 @@ export const LoginModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading || otp.length !== 6 || !resetNewPassword}
-                  className="w-full h-12 min-h-[48px] py-3 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
+                  className="w-full h-10 min-h-[40px] py-2 px-4 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {loading ? (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       <span>Updating Password...</span>
                     </>
                   ) : (

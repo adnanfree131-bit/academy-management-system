@@ -13,7 +13,6 @@ import {
   X, 
   Phone, 
   UserCheck,
-  RefreshCw,
   Plus,
   DollarSign,
   BookOpen,
@@ -40,7 +39,8 @@ import {
   MobileFilterSheet, 
   FilterPillButton, 
   FilterChipGroup, 
-  FilterChip 
+  FilterChip,
+  GlanceableKpiStrip
 } from '../components/mobile';
 import { useMobileOverlay } from '../lib/mobileOverlay';
 import { 
@@ -291,12 +291,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     const q = siblingSearchQuery.toLowerCase().trim();
     return students
       .filter(s => s.status !== 'archived')
-      .filter(s =>
-        s.full_name.toLowerCase().includes(q) ||
-        (s.admission_number && s.admission_number.toLowerCase().includes(q)) ||
-        (s.guardian_phone && s.guardian_phone.includes(q)) ||
-        (s.father_cnic && s.father_cnic.includes(q))
-      )
+      .filter(s => {
+        const name = String(s.full_name || '').toLowerCase();
+        const adm = String(s.admission_number || '').toLowerCase();
+        const phone = String(s.guardian_phone || '');
+        const cnic = String(s.father_cnic || '');
+        return name.includes(q) || adm.includes(q) || phone.includes(q) || cnic.includes(q);
+      })
       .slice(0, 8);
   }, [students, siblingSearchQuery]);
 
@@ -550,56 +551,61 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const prevProgIdRef = useRef(enrollForm.program_id);
   const prevElectiveGroupIdRef = useRef(enrollForm.elective_group_id);
 
-  const cleanPhoneForWhatsApp = (p?: string | null) => {
+  const cleanPhoneForWhatsApp = (p?: string | number | null) => {
     if (!p) return '';
-    let cleaned = p.replace(/[^0-9]/g, '');
+    const str = String(p);
+    let cleaned = str.replace(/[^0-9]/g, '');
     if (cleaned.startsWith('03')) {
       cleaned = '92' + cleaned.slice(1);
     }
     return cleaned;
   };
 
-  // Load all initial academic and SIS data
+  // Load all initial academic and SIS data with robust timeout and fallback
   const fetchData = async () => {
-    if (!token) return;
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     setError(null);
 
     const headers = { Authorization: `Bearer ${token}` };
 
-    try {
-      const [progRes, batchRes, subRes, groupRes, fieldRes, studRes, inqRes, headsRes] = await Promise.all([
-        fetch('/api/v1/academic/programs', { headers }),
-        fetch('/api/v1/academic/batches', { headers }),
-        fetch('/api/v1/academic/subjects', { headers }),
-        fetch('/api/v1/academic/groups', { headers }),
-        fetch('/api/v1/academic/custom-fields?entity_type=student', { headers }),
-        fetch('/api/v1/sis/students', { headers }),
-        fetch('/api/v1/sis/inquiries', { headers }),
-        fetch('/api/v1/finance/heads', { headers }).catch(() => null),
-      ]);
-
-      const [progs, bts, subs, grps, fields, studs, inqs] = await Promise.all([
-        progRes.json(),
-        batchRes.json(),
-        subRes.json(),
-        groupRes.json(),
-        fieldRes.json(),
-        studRes.json(),
-        inqRes.json(),
-      ]);
-
-      if (progs.success) setPrograms(progs.data);
-      if (bts.success) setBatches(bts.data);
-      if (subs.success) setSubjects(subs.data);
-      if (grps.success) setSubjectGroups(grps.data);
-      if (fields.success) setCustomFields(fields.data);
-      if (studs.success) setStudents(studs.data);
-      if (inqs.success) setInquiries(inqs.data);
-      if (headsRes && headsRes.ok) {
-        const headsData = await headsRes.json();
-        if (headsData.success) setFeeHeads(headsData.data || []);
+    const safeFetchJson = async (url: string) => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const res = await fetch(url, { headers, signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!res.ok) return null;
+        return await res.json();
+      } catch (e) {
+        console.warn(`Fetch timed out or failed for ${url}:`, e);
+        return null;
       }
+    };
+
+    try {
+      const [progs, bts, subs, grps, fields, studs, inqs, headsData] = await Promise.all([
+        safeFetchJson('/api/v1/academic/programs'),
+        safeFetchJson('/api/v1/academic/batches'),
+        safeFetchJson('/api/v1/academic/subjects'),
+        safeFetchJson('/api/v1/academic/groups'),
+        safeFetchJson('/api/v1/academic/custom-fields?entity_type=student'),
+        safeFetchJson('/api/v1/sis/students'),
+        safeFetchJson('/api/v1/sis/inquiries'),
+        safeFetchJson('/api/v1/finance/heads'),
+      ]);
+
+      if (progs?.success && Array.isArray(progs.data)) setPrograms(progs.data);
+      if (bts?.success && Array.isArray(bts.data)) setBatches(bts.data);
+      if (subs?.success && Array.isArray(subs.data)) setSubjects(subs.data);
+      if (grps?.success && Array.isArray(grps.data)) setSubjectGroups(grps.data);
+      if (fields?.success && Array.isArray(fields.data)) setCustomFields(fields.data);
+      if (studs?.success && Array.isArray(studs.data)) setStudents(studs.data);
+      if (inqs?.success && Array.isArray(inqs.data)) setInquiries(inqs.data);
+      if (headsData?.success && Array.isArray(headsData.data)) setFeeHeads(headsData.data);
     } catch (err: any) {
       console.error('Error fetching academic data:', err);
       setError('Failed to synchronize academic hierarchy from server.');
@@ -609,17 +615,21 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   };
 
   useEffect(() => {
-    fetchData();
+    if (token) {
+      fetchData();
+    } else {
+      setIsLoading(false);
+    }
   }, [token]);
 
   // Filtered Students
   const filteredStudents = useMemo(() => {
+    const q = (searchQuery || '').toLowerCase().trim();
     return students.filter(s => {
-      const q = searchQuery.toLowerCase();
-      const matchesSearch = 
-        s.full_name.toLowerCase().includes(q) ||
-        s.admission_number.toLowerCase().includes(q) ||
-        (s.phone && s.phone.includes(searchQuery));
+      const name = String(s.full_name || '').toLowerCase();
+      const adm = String(s.admission_number || '').toLowerCase();
+      const ph = String(s.phone || '');
+      const matchesSearch = !q || name.includes(q) || adm.includes(q) || ph.includes(q);
       
       const matchesProgram = selectedProgramFilter === 'all' || s.program_id === selectedProgramFilter;
       const matchesBatch = selectedBatchFilter === 'all' || s.batch_id === selectedBatchFilter;
@@ -1566,15 +1576,20 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   };
 
   // Helper resolvers
-  const getProgramName = (progId?: string | null) => (progId ? programs.find(p => p.id === progId)?.name || 'General Academic' : 'General Academic');
+  const getProgramName = (progId?: string | null) => {
+    if (!progId) return 'General Academic';
+    const p = programs.find(x => x.id === progId);
+    return (p && p.name) ? String(p.name) : 'General Academic';
+  };
   const getBatchName = (batchId?: string | null) => {
     if (!batchId) return 'Unassigned Batch';
     const b = batches.find(x => x.id === batchId);
-    if (!b) return 'Unassigned Batch';
-    if (b.shift && !b.name.toLowerCase().includes(b.shift.toLowerCase())) {
-      return `${b.name} (${b.shift.charAt(0).toUpperCase() + b.shift.slice(1).toLowerCase()})`;
+    if (!b || !b.name) return 'Unassigned Batch';
+    const bName = String(b.name);
+    if (b.shift && typeof b.shift === 'string' && !bName.toLowerCase().includes(b.shift.toLowerCase())) {
+      return `${bName} (${b.shift.charAt(0).toUpperCase() + b.shift.slice(1).toLowerCase()})`;
     }
-    return b.name;
+    return bName;
   };
   const getSubjectNames = (subIds: string[]) => {
     return subIds.map(id => subjects.find(s => s.id === id)?.name || id).filter(Boolean);
@@ -1795,8 +1810,117 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         </div>
       </div>
 
-      {/* 5-Card Metric Summary Strip (Responsive: 2 columns on mobile, 5 on desktop) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
+      {/* Mobile: 1-Line Glanceable KPI Strip & Insights Bottom Sheet */}
+      <GlanceableKpiStrip
+        items={[
+          { label: 'Students', value: students.length },
+          { label: 'Active', value: students.filter(s => s.status === 'active').length, color: 'text-emerald-700' },
+          { label: 'Inquiries', value: inquiries.length, color: 'text-amber-700' },
+        ]}
+        insightsTitle="Students & Admissions Overview"
+        insightsSubtitle="Live roster, active enrollment, and inquiries summary"
+        actionLabel="Insights"
+      >
+        <div className="grid grid-cols-2 gap-2.5">
+          <div className="bg-slate-50 border border-slate-200 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3 py-2.5 flex items-center justify-between">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Total Students
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                  {students.length}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  Roster
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0">
+              <Users className="w-3.5 h-3.5 text-indigo-700" />
+            </span>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3 py-2.5 flex items-center justify-between">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Active Enrolled
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                  {students.filter(s => s.status === 'active').length}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  Attending
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0">
+              <UserCheck className="w-3.5 h-3.5 text-emerald-700" />
+            </span>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 border-l-[3.5px] border-l-amber-600 rounded-xl px-3 py-2.5 flex items-center justify-between">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Inquiries
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                  {inquiries.length}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  Leads
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0">
+              <HelpCircle className="w-3.5 h-3.5 text-amber-700" />
+            </span>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 border-l-[3.5px] border-l-rose-600 rounded-xl px-3 py-2.5 flex items-center justify-between">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Fee Defaulters
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                  {students.filter(s => s.fee_clearance_status === 'defaulter' || (Boolean(s.unpaid_balance) && s.unpaid_balance! > 0 && s.status === 'active')).length}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  Overdue
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-700" />
+            </span>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 border-l-[3.5px] border-l-slate-600 rounded-xl px-3 py-2.5 flex items-center justify-between col-span-2">
+            <div className="min-w-0">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Inactive / Departed
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                  {students.filter(s => s.status !== 'active').length}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  Archived
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center border border-slate-200/70 shrink-0">
+              <Archive className="w-3.5 h-3.5 text-slate-700" />
+            </span>
+          </div>
+        </div>
+      </GlanceableKpiStrip>
+
+      {/* Desktop 5-Card Metric Summary Strip (>= 640px) */}
+      <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
         {/* Card 1: Total Students */}
         <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
           <div className="min-w-0">
@@ -2010,7 +2134,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             onClick={fetchData} 
             className="px-2.5 py-1 bg-rose-600 text-white rounded font-medium hover:bg-rose-700 flex items-center gap-1"
           >
-            <RefreshCw className="w-3 h-3" /> Retry Sync
+            Retry
           </button>
         </div>
       )}
@@ -2051,7 +2175,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search students..."
+                placeholder=""
+                aria-label="Search students by name, admission number, or contact"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors font-sans text-slate-900"
@@ -2064,7 +2189,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Search students..."
+                  placeholder=""
+                  aria-label="Search students"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors font-sans text-slate-900"

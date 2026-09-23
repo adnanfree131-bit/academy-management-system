@@ -25,7 +25,6 @@ import {
   Trash2,
   Users,
   Calendar,
-  RefreshCw,
   ArrowRight,
   Phone
 } from 'lucide-react';
@@ -37,7 +36,8 @@ import {
   MobileFilterSheet, 
   FilterPillButton, 
   FilterChipGroup, 
-  FilterChip 
+  FilterChip,
+  GlanceableKpiStrip
 } from '../components/mobile';
 import { useMobileOverlay } from '../lib/mobileOverlay';
 import {
@@ -2313,7 +2313,8 @@ export const FeeDeskView: React.FC = () => {
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search by student name, admission #, phone, or CNIC..."
+                  placeholder=""
+                  aria-label="Search by student name, admission number, phone, or CNIC"
                   value={cashierSearch}
                   onChange={e => {
                     const next = e.target.value;
@@ -2361,8 +2362,92 @@ export const FeeDeskView: React.FC = () => {
           {/* When No Student Selected: Active Dues Register */}
           {!selectedStudent && (
             <div className="space-y-2.5 sm:space-y-3">
-              {/* 4-Card Financial Summary Strip (Responsive: 2 columns on mobile, 4 on desktop) */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
+              {/* Mobile: 1-Line Glanceable KPI Strip & Insights Bottom Sheet */}
+              <GlanceableKpiStrip
+                items={[
+                  { label: 'Collected', value: `PKR ${duesSummary.totalCollected.toLocaleString()}`, color: 'text-emerald-700' },
+                  { label: 'Defaulters', value: duesSummary.allCount, color: 'text-amber-700' },
+                ]}
+                insightsTitle="Fee Collection & Dues Overview"
+                insightsSubtitle="Invoiced amounts, collections, and overdue receivables"
+                actionLabel="Insights"
+              >
+                <div className="grid grid-cols-2 gap-2.5">
+                  {/* Card 1: Total Invoiced */}
+                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                        Total Invoiced
+                      </span>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                          PKR {duesSummary.totalInvoiced.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
+                      <CreditCard className="w-3.5 h-3.5 text-indigo-700" />
+                    </span>
+                  </div>
+
+                  {/* Card 2: Realized Collections */}
+                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                        Realized Collections
+                      </span>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
+                          PKR {duesSummary.totalCollected.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+                    </span>
+                  </div>
+
+                  {/* Card 3: Overdue Receivables */}
+                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                        Overdue Receivables
+                      </span>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="font-mono font-bold text-rose-600 text-sm leading-none">
+                          PKR {duesSummary.allAmount.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
+                      <AlertCircle className="w-3.5 h-3.5 text-rose-700" />
+                    </span>
+                  </div>
+
+                  {/* Card 4: Defaulter Students */}
+                  <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                        Defaulters
+                      </span>
+                      <div className="flex items-baseline gap-1 mt-0.5">
+                        <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                          {duesSummary.allCount}
+                        </span>
+                        <span className="text-xs font-medium text-slate-500 leading-none">
+                          Students
+                        </span>
+                      </div>
+                    </div>
+                    <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
+                      <Users className="w-3.5 h-3.5 text-amber-700" />
+                    </span>
+                  </div>
+                </div>
+              </GlanceableKpiStrip>
+
+              {/* Desktop 4-Card Financial Summary Strip (>= 640px) */}
+              <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
                 {/* Card 1: Total Invoiced */}
                 <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
                   <div className="min-w-0">
@@ -3865,7 +3950,7 @@ export const FeeDeskView: React.FC = () => {
             </div>
             {isGeneratingPdf && (
               <span className="text-xs font-semibold text-indigo-600 flex items-center gap-1.5 self-start sm:self-auto bg-indigo-50 px-3 py-1.5 rounded-xl">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <div className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin shrink-0" />
                 Rendering PDF document...
               </span>
             )}
@@ -4274,9 +4359,8 @@ export const FeeDeskView: React.FC = () => {
                         value={collectionAmount}
                         onChange={e => handleAmountChange(e.target.value === '' ? '' : Number(e.target.value))}
                         className="w-full pl-12 pr-3 py-2 text-base font-mono font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 text-slate-900 tabular-nums"
-                        placeholder="e.g. 1500"
                         required
-                        autoFocus
+                        aria-label="Amount Received"
                       />
                     </div>
                   </div>
@@ -4317,7 +4401,6 @@ export const FeeDeskView: React.FC = () => {
                         <label className="block text-[10px] text-slate-500 font-semibold mb-0.5">Bank Name</label>
                         <input
                           type="text"
-                          placeholder="e.g. Meezan Bank"
                           value={paymentBankName}
                           onChange={e => setPaymentBankName(e.target.value)}
                           className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800"
@@ -4329,7 +4412,6 @@ export const FeeDeskView: React.FC = () => {
                         </label>
                         <input
                           type="text"
-                          placeholder={paymentMethod === 'cheque' ? 'e.g. CHQ-991248' : 'e.g. TRX-881290'}
                           value={paymentChequeNumber}
                           onChange={e => setPaymentChequeNumber(e.target.value)}
                           className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800"
@@ -4538,7 +4620,7 @@ export const FeeDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowCashierDrawer(false)}
-                className="min-h-[44px] px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer"
+                className="h-10 min-h-[40px] px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -4546,7 +4628,7 @@ export const FeeDeskView: React.FC = () => {
                 type="submit"
                 form="cashierDrawerForm"
                 disabled={isCommittingPayment || (Number(collectionAmount) || 0) <= 0}
-                className="min-h-[48px] px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+                className="h-10 min-h-[40px] px-5 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-2 transition-all cursor-pointer"
               >
                 {isCommittingPayment ? (
                   <>

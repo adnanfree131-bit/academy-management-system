@@ -7,7 +7,6 @@ import {
   Calendar,
   Send,
   Plus,
-  RefreshCw,
   Zap,
   ChevronRight,
   ChevronLeft,
@@ -161,24 +160,6 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
     fetchData();
   }, [selectedDate, selectedBatchId, selectedStatusFilter, token]);
 
-  // Sync Daily Attendance
-  const handleSyncAttendance = async () => {
-    if (!token) return;
-    try {
-      const res = await fetch('/api/v1/absentee/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
-        body: JSON.stringify({ date: selectedDate })
-      });
-      if (res.ok) {
-        setActionSuccessMsg(`Daily absentee roster synced for ${selectedDate}`);
-        fetchData();
-        setTimeout(() => setActionSuccessMsg(''), 4000);
-      }
-    } catch (err) {
-      console.error('Failed syncing attendance:', err);
-    }
-  };
 
   // Build dynamic message for student
   const buildDynamicMessage = (templateBody: string, item: AbsenteeFollowupItem) => {
@@ -396,13 +377,6 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         >
           <Zap className="w-3.5 h-3.5" />
           <span>Start Follow-Up</span>
-        </button>
-        <button
-          onClick={handleSyncAttendance}
-          className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-lg border border-slate-200 shadow-xs flex items-center gap-1.5 transition-all"
-        >
-          <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
-          <span>Sync Today</span>
         </button>
       </PageHeading>
 
