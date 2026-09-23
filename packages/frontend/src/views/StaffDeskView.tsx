@@ -43,7 +43,8 @@ import {
   MoreVertical,
   Phone,
   MessageSquare,
-  ChevronRight,
+  ChevronDown,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
@@ -136,6 +137,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
 
   const [deleteTarget, setDeleteTarget] = useState<StaffMemberRecord | null>(null);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
+  const [showOverviewFilters, setShowOverviewFilters] = useState<boolean>(false);
 
   useMobileOverlay(
     'sheet',
@@ -687,114 +689,52 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
         </div>
       )}
 
-      {/* 4 Metric Summary Cards (Finalized Enterprise Design) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-        {/* Card 1: Total Staff */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Total Staff
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                {totalStaffCount}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                {activeStaffCount} Active
-              </span>
-            </div>
-          </div>
-          <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
-            <Users className="w-3.5 h-3.5 text-indigo-700" />
+      {/* Standalone Search Bar & Desktop Filter Tabs / Mobile Toggle */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search staff by name, code, designation, phone..."
+            className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-slate-900 shadow-2xs font-normal"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Mobile Single Button for Filters & Overview */}
+        <button
+          type="button"
+          onClick={() => setShowOverviewFilters(!showOverviewFilters)}
+          className="md:hidden flex items-center justify-between px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+        >
+          <span className="flex items-center gap-1.5">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+            <span>Filters & Overview</span>
+            {selectedFilterTab !== 'all' && (
+              <span className="w-2 h-2 rounded-full bg-amber-600" />
+            )}
           </span>
-        </div>
+          <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showOverviewFilters ? 'rotate-180' : ''}`} />
+        </button>
 
-        {/* Card 2: Teaching Faculty */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Teaching Faculty
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
-                {activeFacultyCount}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Teachers
-              </span>
-            </div>
-          </div>
-          <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-            <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
-          </span>
-        </div>
-
-        {/* Card 3: Clocked-In Today */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Clocked-In Today
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-amber-700 text-sm leading-none">
-                {presentTodayCount}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Attended
-              </span>
-            </div>
-          </div>
-          <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
-          </span>
-        </div>
-
-        {/* Card 4: Monthly Payroll */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-slate-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Monthly Payroll
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                PKR {monthlyPayrollTotal.toLocaleString()}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Billed
-              </span>
-            </div>
-          </div>
-          <span className="w-7 h-7 rounded-lg bg-slate-50 text-slate-700 flex items-center justify-center border border-slate-200/70 shrink-0 shadow-2xs">
-            <CreditCard className="w-3.5 h-3.5 text-slate-700" />
-          </span>
-        </div>
-      </div>
-
-      {/* High-Density Filtering Strip */}
-      <div className="bg-white border border-slate-200/80 rounded-xl p-2 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2 shadow-2xs">
-        {/* Mobile Filter Selector (Eliminates horizontal scrolling hurdle) */}
-        <div className="sm:hidden w-full">
-          <select
-            value={selectedFilterTab}
-            onChange={e => setSelectedFilterTab(e.target.value as any)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 shadow-xs focus:outline-none focus:ring-1 focus:ring-slate-900"
-          >
-            <option value="all">All Staff</option>
-            <option value="faculty">Faculty</option>
-            <option value="admin_accounts">Admin & Accounts</option>
-            <option value="support">Support</option>
-            <option value="archived">Archived</option>
-          </select>
-        </div>
-
-        {/* Desktop/Tablet Unnumbered Navigation Tabs */}
-        <div className="hidden sm:flex items-center gap-1 bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs">
+        {/* Desktop Filter Tabs */}
+        <div className="hidden md:flex items-center gap-1 bg-white p-0.5 rounded-xl border border-slate-200 shadow-2xs">
           <button
             type="button"
             onClick={() => setSelectedFilterTab('all')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
               selectedFilterTab === 'all'
-                ? 'bg-amber-600 text-white font-bold shadow-xs'
+                ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
@@ -805,7 +745,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
             onClick={() => setSelectedFilterTab('faculty')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
               selectedFilterTab === 'faculty'
-                ? 'bg-amber-600 text-white font-bold shadow-xs'
+                ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
@@ -816,7 +756,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
             onClick={() => setSelectedFilterTab('admin_accounts')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
               selectedFilterTab === 'admin_accounts'
-                ? 'bg-amber-600 text-white font-bold shadow-xs'
+                ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
@@ -827,7 +767,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
             onClick={() => setSelectedFilterTab('support')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
               selectedFilterTab === 'support'
-                ? 'bg-amber-600 text-white font-bold shadow-xs'
+                ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
@@ -838,23 +778,116 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
             onClick={() => setSelectedFilterTab('archived')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
               selectedFilterTab === 'archived'
-                ? 'bg-rose-700 text-white font-bold shadow-xs'
+                ? 'bg-rose-700 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             Archived
           </button>
         </div>
+      </div>
 
-        {/* Search Field */}
-        <div className="relative min-w-[240px] md:w-72">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-900 focus:bg-white transition-all"
-          />
+      {/* Overview & Mobile Filters Panel (Collapsed on Mobile, Open on Desktop) */}
+      <div className={`${showOverviewFilters ? 'block' : 'hidden'} md:block space-y-2.5`}>
+        {/* Mobile Filter Pill Selector */}
+        <div className="md:hidden flex flex-wrap gap-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+          {(['all', 'faculty', 'admin_accounts', 'support', 'archived'] as const).map(tab => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setSelectedFilterTab(tab)}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+                selectedFilterTab === tab
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white text-slate-600 border border-slate-200'
+              }`}
+            >
+              {tab === 'all' ? 'All Staff' : tab === 'admin_accounts' ? 'Admin & Accounts' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* 4 Metric Summary Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+          {/* Card 1: Total Staff */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Total Staff
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-semibold text-slate-900 text-sm leading-none">
+                  {totalStaffCount}
+                </span>
+                <span className="text-xs font-normal text-slate-500 leading-none">
+                  {activeStaffCount} Active
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
+              <Users className="w-3.5 h-3.5 text-indigo-700" />
+            </span>
+          </div>
+
+          {/* Card 2: Teaching Faculty */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Teaching Faculty
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-semibold text-emerald-700 text-sm leading-none">
+                  {activeFacultyCount}
+                </span>
+                <span className="text-xs font-normal text-slate-500 leading-none">
+                  Teachers
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
+              <BookOpen className="w-3.5 h-3.5 text-emerald-700" />
+            </span>
+          </div>
+
+          {/* Card 3: Clocked-In Today */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Clocked-In Today
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-semibold text-amber-700 text-sm leading-none">
+                  {presentTodayCount}
+                </span>
+                <span className="text-xs font-normal text-slate-500 leading-none">
+                  Attended
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+            </span>
+          </div>
+
+          {/* Card 4: Monthly Payroll */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-slate-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Monthly Payroll
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-semibold text-slate-900 text-sm leading-none">
+                  PKR {monthlyPayrollTotal.toLocaleString()}
+                </span>
+                <span className="text-xs font-normal text-slate-500 leading-none">
+                  Billed
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-slate-50 text-slate-700 flex items-center justify-center border border-slate-200/70 shrink-0 shadow-2xs">
+              <CreditCard className="w-3.5 h-3.5 text-slate-700" />
+            </span>
+          </div>
         </div>
       </div>
 
@@ -1163,17 +1196,18 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
         </div>
 
         {/* Mobile Native Staff Cards (< 768px) */}
+        {/* Mobile Native Staff Cards (< 768px) - Flat & Sleek Icons */}
         <div className="md:hidden divide-y divide-slate-100 bg-white">
           {filteredRows.map(row => (
             <div
               key={row.id}
               onClick={() => openEditModal(row)}
-              className="p-3.5 active:bg-slate-50 transition-colors flex flex-col gap-2.5 cursor-pointer touch-press"
+              className="p-3 active:bg-slate-50 transition-colors flex flex-col gap-2 cursor-pointer touch-press"
             >
               {/* Top: Photo + Code + Name + Status */}
               <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-12 rounded bg-slate-100 border border-slate-300 overflow-hidden flex items-center justify-center shrink-0 font-bold text-slate-700 text-xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-11 rounded bg-slate-100 border border-slate-300 overflow-hidden flex items-center justify-center shrink-0 font-semibold text-slate-700 text-xs">
                     {row.avatar_url ? (
                       <img src={row.avatar_url} alt="" className="w-full h-full object-cover" />
                     ) : (
@@ -1182,18 +1216,18 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                      <span className="font-mono text-[10px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
                         {row.employee_code}
                       </span>
-                      <h4 className="font-bold text-slate-900 text-sm truncate">{row.full_name}</h4>
+                      <h4 className="font-semibold text-slate-900 text-sm truncate">{row.full_name}</h4>
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5 truncate">
-                      {row.designation} • <span className="text-indigo-600 font-semibold">{row.department}</span>
+                    <p className="text-xs text-slate-500 mt-0.5 truncate font-normal">
+                      {row.designation} • <span className="text-indigo-600 font-medium">{row.department}</span>
                     </p>
                   </div>
                 </div>
 
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize shrink-0 ${
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border capitalize shrink-0 ${
                   row.status === 'active'
                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                     : row.status === 'on_leave'
@@ -1204,17 +1238,17 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 </span>
               </div>
 
-              {/* Contact & Actions Row */}
+              {/* Contact & Actions Row - Sleek 32px Icon Buttons */}
               <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   {row.phone && (
                     <a
                       href={`tel:${row.phone}`}
                       onClick={e => e.stopPropagation()}
-                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-semibold flex items-center gap-1"
+                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
+                      title="Call staff"
                     >
-                      <Phone className="w-3 h-3 text-slate-500" />
-                      <span>Call</span>
+                      <Phone className="w-3.5 h-3.5 text-slate-600" />
                     </a>
                   )}
                   {row.whatsapp && (
@@ -1223,22 +1257,38 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                       target="_blank"
                       rel="noreferrer"
                       onClick={e => e.stopPropagation()}
-                      className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[11px] font-semibold flex items-center gap-1 border border-emerald-200"
+                      className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors"
+                      title="WhatsApp"
                     >
-                      <MessageSquare className="w-3 h-3" />
-                      <span>WhatsApp</span>
+                      <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
                     </a>
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => openEditModal(row)}
-                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded text-[11px] font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  <span>Dossier</span>
-                  <ChevronRight className="w-3 h-3" />
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEditModal(row);
+                    }}
+                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                    title="Edit Dossier"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 text-slate-600" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveActionMenuId(activeActionMenuId === row.id ? null : row.id);
+                    }}
+                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                    title="More Options"
+                  >
+                    <MoreVertical className="w-3.5 h-3.5 text-slate-600" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}

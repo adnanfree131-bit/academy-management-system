@@ -13,7 +13,9 @@ import {
   FileText,
   Users,
   Receipt,
-  X
+  X,
+  ChevronDown,
+  Sliders
 } from 'lucide-react';
 import {
   StaffSalaryProfile,
@@ -38,6 +40,7 @@ export const PayrollDeskView: React.FC = () => {
     new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
   );
   const [loading, setLoading] = useState<boolean>(true);
+  const [showKpis, setShowKpis] = useState<boolean>(false);
 
   // Active Processing Form State
   const [earnings, setEarnings] = useState<PayrollEarningHead[]>([]);
@@ -250,101 +253,118 @@ export const PayrollDeskView: React.FC = () => {
         </div>
       </PageHeading>
 
-      {/* KPI Cards (Finalized Enterprise Design) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-        {/* Card 1: Total Month Payroll */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Total Month Payroll
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                PKR {totalPayrollBilled.toLocaleString()}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                {payslips.length} Slips
-              </span>
-            </div>
-          </div>
-          <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
-            <Receipt className="w-3.5 h-3.5 text-indigo-700" />
+      {/* KPI Cards Strip with Mobile Toggle */}
+      <div className="space-y-2">
+        <div className="flex sm:hidden items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setShowKpis(!showKpis)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 shadow-2xs cursor-pointer"
+          >
+            <Sliders className="w-3.5 h-3.5 text-slate-500" />
+            <span>Summary & Metrics</span>
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showKpis ? 'rotate-180' : ''}`} />
+          </button>
+          <span className="text-xs font-mono text-slate-500">
+            {payslips.length} slips processed
           </span>
         </div>
 
-        {/* Card 2: Disbursed / Paid */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Disbursed / Paid
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
-                PKR {totalPayrollPaid.toLocaleString()}
+        <div className={showKpis ? 'grid grid-cols-2 lg:grid-cols-4 gap-2.5' : 'hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-2.5'}>
+          {/* Card 1: Total Month Payroll */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Total Month Payroll
               </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                {payslips.filter(p => p.status === 'paid').length} Cleared
-              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-semibold text-slate-900 text-sm leading-none">
+                  PKR {totalPayrollBilled.toLocaleString()}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  {payslips.length} Slips
+                </span>
+              </div>
             </div>
+            <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
+              <Receipt className="w-3.5 h-3.5 text-indigo-700" />
+            </span>
           </div>
-          <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
-          </span>
-        </div>
 
-        {/* Card 3: Pending Disbursement */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Pending Disbursement
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-amber-700 text-sm leading-none">
-                PKR {(totalPayrollBilled - totalPayrollPaid).toLocaleString()}
+          {/* Card 2: Disbursed / Paid */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Disbursed / Paid
               </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                {payslips.filter(p => p.status === 'processed').length} Pending
-              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-semibold text-emerald-700 text-sm leading-none">
+                  PKR {totalPayrollPaid.toLocaleString()}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  {payslips.filter(p => p.status === 'paid').length} Cleared
+                </span>
+              </div>
             </div>
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+            </span>
           </div>
-          <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-            <Clock className="w-3.5 h-3.5 text-amber-700" />
-          </span>
-        </div>
 
-        {/* Card 4: Active Staff Contracts */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-slate-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Active Staff Contracts
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                {profiles.length}
+          {/* Card 3: Pending Disbursement */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Pending Disbursement
               </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Profiles
-              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-semibold text-amber-700 text-sm leading-none">
+                  PKR {(totalPayrollBilled - totalPayrollPaid).toLocaleString()}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  {payslips.filter(p => p.status === 'processed').length} Pending
+                </span>
+              </div>
             </div>
+            <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
+              <Clock className="w-3.5 h-3.5 text-amber-700" />
+            </span>
           </div>
-          <span className="w-7 h-7 rounded-lg bg-slate-50 text-slate-700 flex items-center justify-center border border-slate-200/70 shrink-0 shadow-2xs">
-            <Users className="w-3.5 h-3.5 text-slate-700" />
-          </span>
+
+          {/* Card 4: Active Staff Contracts */}
+          <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-slate-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-2xs">
+            <div className="min-w-0">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                Active Staff Contracts
+              </span>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="font-mono font-semibold text-slate-900 text-sm leading-none">
+                  {profiles.length}
+                </span>
+                <span className="text-xs font-medium text-slate-500 leading-none">
+                  Profiles
+                </span>
+              </div>
+            </div>
+            <span className="w-7 h-7 rounded-lg bg-slate-50 text-slate-700 flex items-center justify-center border border-slate-200/70 shrink-0 shadow-2xs">
+              <Users className="w-3.5 h-3.5 text-slate-700" />
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Main Side-by-Side Processing Desk */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Left 4 Cols: Attendance Summary & Staff Selector */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3">
-            <h2 className="text-xs font-mono uppercase text-slate-500 font-bold tracking-wider">
-              Staff
+        <div className="lg:col-span-4 space-y-3">
+          <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs space-y-2.5">
+            <h2 className="text-xs font-mono uppercase text-slate-500 font-semibold tracking-wider">
+              Staff Member
             </h2>
             <select
               value={selectedStaffId}
               onChange={e => setSelectedStaffId(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600 font-medium text-slate-800"
+              className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-medium text-slate-800"
             >
               <option value="">Select staff</option>
               {profiles.map(p => (
@@ -355,7 +375,7 @@ export const PayrollDeskView: React.FC = () => {
             </select>
           </div>
 
-          {/* Module 13 Attendance Summary Box */}
+          {/* Module 13 Attendance Summary Box - Clean Flat Surface */}
           {(() => {
             const staffAtt = attSummaries.find(s => s.staff_id === selectedStaffId);
             const workingDays = staffAtt ? staffAtt.total_working_days : 26;
@@ -370,46 +390,47 @@ export const PayrollDeskView: React.FC = () => {
               : null;
 
             return (
-              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3">
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs space-y-3">
                 <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                  <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-indigo-600" />
-                    Attendance & Geofence Summary
+                  <h3 className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                    Attendance Summary
                   </h3>
-                  <span className="text-[10px] font-mono text-slate-400">Month: {selectedMonth}</span>
+                  <span className="text-[10px] font-mono text-slate-400">{selectedMonth}</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
+                {/* Flat Stats Grid - Zero Card within Card */}
+                <div className="grid grid-cols-2 gap-2.5 text-xs">
+                  <div>
                     <span className="text-[10px] text-slate-400 block font-mono">Working Days</span>
-                    <span className="text-sm font-bold text-slate-800 font-mono">{workingDays} Days</span>
+                    <span className="text-sm font-semibold text-slate-800 font-mono">{workingDays} Days</span>
                   </div>
-                  <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-100">
+                  <div>
                     <span className="text-[10px] text-emerald-600 block font-mono">Present Days</span>
-                    <span className="text-sm font-bold text-emerald-700 font-mono">{presentDays} Days</span>
+                    <span className="text-sm font-semibold text-emerald-700 font-mono">{presentDays} Days</span>
                   </div>
-                  <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-100">
+                  <div>
                     <span className="text-[10px] text-amber-600 block font-mono">Late Arrivals</span>
-                    <span className="text-sm font-bold text-amber-700 font-mono">{lateDays} Arrivals</span>
+                    <span className="text-sm font-semibold text-amber-700 font-mono">{lateDays} Arrivals</span>
                   </div>
-                  <div className="p-2.5 rounded-lg bg-blue-50 border border-blue-100">
+                  <div>
                     <span className="text-[10px] text-blue-600 block font-mono">Approved Leaves</span>
-                    <span className="text-sm font-bold text-blue-700 font-mono">{leaveDays} Leaves</span>
+                    <span className="text-sm font-semibold text-blue-700 font-mono">{leaveDays} Leaves</span>
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-lg text-xs space-y-1">
+                <div className="pt-2 border-t border-slate-100 text-xs space-y-1">
                   <div className="flex justify-between">
                     <span className="text-slate-500">Unexcused Absents:</span>
-                    <span className="font-bold text-slate-700 font-mono">{absentDays} Days</span>
+                    <span className="font-semibold text-slate-700 font-mono">{absentDays} Days</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">Half-Day Shifts:</span>
-                    <span className="font-bold text-amber-700 font-mono">{halfDays} Shifts</span>
+                    <span className="font-semibold text-amber-700 font-mono">{halfDays} Shifts</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-500">GPS verified punches:</span>
-                    <span className="font-bold text-slate-700 font-mono">{geofencePct === null ? '—' : `${geofencePct}%`}</span>
+                    <span className="font-semibold text-slate-700 font-mono">{geofencePct === null ? '—' : `${geofencePct}%`}</span>
                   </div>
                 </div>
               </div>
@@ -661,9 +682,11 @@ export const PayrollDeskView: React.FC = () => {
                               setActivePayslip(slip);
                               setShowDisburseModal(true);
                             }}
-                            className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[11px] rounded transition-colors"
+                            className="w-7 h-7 flex items-center justify-center bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded transition-colors"
+                            title="Disburse Salary"
+                            aria-label="Disburse Salary"
                           >
-                            Disburse
+                            <CheckCircle2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                         <button
@@ -671,8 +694,9 @@ export const PayrollDeskView: React.FC = () => {
                             setPrintPayslip(slip);
                             setShowPrintModal(true);
                           }}
-                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] rounded transition-colors"
+                          className="w-7 h-7 flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition-colors"
                           title="Print Official Payslip"
+                          aria-label="Print Official Payslip"
                         >
                           <Printer className="w-3.5 h-3.5" />
                         </button>
@@ -685,7 +709,7 @@ export const PayrollDeskView: React.FC = () => {
           </table>
         </div>
 
-        {/* Mobile Native Payslip Cards (< 768px) */}
+        {/* Mobile Native Payslip Cards (< 768px) - Flat, zero card-in-card */}
         <div className="md:hidden divide-y divide-slate-100">
           {loading ? (
             <div className="py-6 text-center text-slate-400 text-xs font-mono">Loading payroll records...</div>
@@ -696,8 +720,8 @@ export const PayrollDeskView: React.FC = () => {
               <div key={slip.id} className="p-3.5 space-y-2.5 active:bg-slate-50 transition-colors">
                 {/* Header: Slip # + Status Pill */}
                 <div className="flex items-center justify-between">
-                  <span className="font-mono font-bold text-xs text-indigo-700">{slip.slip_number}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase ${
+                  <span className="font-mono font-medium text-xs text-indigo-700">{slip.slip_number}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium font-mono uppercase ${
                     slip.status === 'paid'
                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       : 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -708,43 +732,45 @@ export const PayrollDeskView: React.FC = () => {
 
                 {/* Staff Name & Role */}
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">{slip.staff_name}</h4>
+                  <h4 className="font-semibold text-slate-900 text-sm">{slip.staff_name}</h4>
                   <p className="text-xs text-slate-500">{slip.designation}</p>
                 </div>
 
-                {/* Financial 3-Pillar Breakdown */}
-                <div className="grid grid-cols-3 gap-2 p-2 bg-slate-50 rounded-xl border border-slate-100 text-center font-mono">
+                {/* Financial 3-Pillar Breakdown - Flat divider lines, no nested card */}
+                <div className="grid grid-cols-3 gap-2 py-2 border-y border-slate-100 text-center font-mono">
                   <div>
                     <span className="text-[10px] text-slate-400 block">Base</span>
-                    <span className="text-xs font-bold text-slate-700">{slip.base_salary.toLocaleString()}</span>
+                    <span className="text-xs font-medium text-slate-700">{slip.base_salary.toLocaleString()}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-emerald-600 block">+Add</span>
-                    <span className="text-xs font-bold text-emerald-700">+{slip.total_earnings.toLocaleString()}</span>
+                    <span className="text-[10px] text-emerald-600 block">+Earnings</span>
+                    <span className="text-xs font-medium text-emerald-700">+{slip.total_earnings.toLocaleString()}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-rose-600 block">-Ded</span>
-                    <span className="text-xs font-bold text-rose-700">-{slip.total_deductions.toLocaleString()}</span>
+                    <span className="text-[10px] text-rose-600 block">-Deductions</span>
+                    <span className="text-xs font-medium text-rose-700">-{slip.total_deductions.toLocaleString()}</span>
                   </div>
                 </div>
 
-                {/* Net Amount & Action Buttons */}
-                <div className="flex items-center justify-between pt-1">
+                {/* Net Amount & Sleek Icon Actions */}
+                <div className="flex items-center justify-between pt-0.5">
                   <div>
                     <span className="text-[10px] text-slate-400 block font-mono">Net Payable</span>
-                    <span className="text-sm font-bold font-mono text-slate-900">{slip.net_salary.toLocaleString()} PKR</span>
+                    <span className="text-sm font-semibold font-mono text-slate-900">{slip.net_salary.toLocaleString()} PKR</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {slip.status !== 'paid' && (
                       <button
                         onClick={() => {
                           setActivePayslip(slip);
                           setShowDisburseModal(true);
                         }}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-colors shadow-2xs"
+                        className="w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition-colors shadow-2xs"
+                        title="Disburse Salary"
+                        aria-label="Disburse Salary"
                       >
-                        Disburse
+                        <CheckCircle2 className="w-4 h-4" />
                       </button>
                     )}
                     <button
@@ -752,11 +778,11 @@ export const PayrollDeskView: React.FC = () => {
                         setPrintPayslip(slip);
                         setShowPrintModal(true);
                       }}
-                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-200"
+                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center border border-slate-200 transition-colors"
                       title="Print Official Payslip"
+                      aria-label="Print Official Payslip"
                     >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>Slip</span>
+                      <Printer className="w-4 h-4" />
                     </button>
                   </div>
                 </div>

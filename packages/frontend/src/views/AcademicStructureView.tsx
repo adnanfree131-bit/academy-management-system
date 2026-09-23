@@ -18,7 +18,9 @@ import {
   Pencil,
   ArrowRightLeft,
   GripVertical,
-  DollarSign
+  DollarSign,
+  ChevronDown,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { AcademicProgram, Batch, Subject, SubjectGroup, Student, FeeHead } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
@@ -52,6 +54,7 @@ export const AcademicStructureView: React.FC = () => {
   const [filterBatchShift, setFilterBatchShift] = useState('all');
   const [filterBatchBillingMode, setFilterBatchBillingMode] = useState('all');
   const [filterBatchStatus, setFilterBatchStatus] = useState<'all' | 'active' | 'archived'>('all');
+  const [showBatchFilters, setShowBatchFilters] = useState(false);
 
   // Modals
   const [showProgramModal, setShowProgramModal] = useState(false);
@@ -1428,38 +1431,38 @@ export const AcademicStructureView: React.FC = () => {
                               const inchargeName = sec.class_teacher_name || inchargeTeacher?.full_name || 'Unassigned';
 
                               return (
-                                <div key={sec.id} className="p-3 bg-slate-50/80 border border-slate-200/80 rounded-xl space-y-2">
+                                <div key={sec.id} className="p-3 bg-white border border-slate-200 rounded-xl space-y-2">
                                   <div className="flex items-start justify-between gap-2">
                                     <div>
-                                      <p className="font-bold text-slate-900 text-xs">{sec.name}</p>
-                                      <p className="text-[10px] text-slate-500 font-medium capitalize mt-0.5">
+                                      <p className="font-semibold text-slate-900 text-xs">{sec.name}</p>
+                                      <p className="text-[10px] text-slate-500 font-normal capitalize mt-0.5">
                                         {sec.shift} Shift • Room: {sec.room_number || 'Unassigned'}
                                       </p>
                                     </div>
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1.5">
                                       <button
                                         type="button"
                                         onClick={() => openEditSectionModal(sec)}
-                                        className="p-1.5 text-slate-600 hover:text-slate-900 bg-white rounded-lg border border-slate-200"
+                                        className="w-7 h-7 rounded-lg text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
                                         title="Edit Section"
                                       >
-                                        <Pencil className="w-3 h-3" />
+                                        <Pencil className="w-3.5 h-3.5" />
                                       </button>
                                       <button
                                         type="button"
                                         onClick={() => initiateDeleteBatch(sec)}
-                                        className="p-1.5 text-rose-500 hover:text-rose-700 bg-white rounded-lg border border-slate-200"
+                                        className="w-7 h-7 rounded-lg text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 flex items-center justify-center transition-colors"
                                         title="Delete Section"
                                       >
-                                        <Trash2 className="w-3 h-3" />
+                                        <Trash2 className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
                                   </div>
-                                  <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs">
-                                    <span className="text-[11px] text-slate-600">Incharge: <strong className="text-slate-800">{inchargeName}</strong></span>
+                                  <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-xs">
+                                    <span className="text-[11px] text-slate-600">Incharge: <span className="font-medium text-slate-800">{inchargeName}</span></span>
                                     <div className="flex items-center gap-1.5">
-                                      <span className="text-[11px] font-mono font-bold text-slate-900">{enrolledCount}/{maxCap}</span>
-                                      <div className="w-12 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                                      <span className="text-[11px] font-mono font-medium text-slate-800">{enrolledCount}/{maxCap}</span>
+                                      <div className="w-12 bg-slate-100 rounded-full h-1.5 overflow-hidden">
                                         <div
                                           className={`h-1.5 rounded-full ${percent >= 90 ? 'bg-rose-500' : percent >= 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
                                           style={{ width: `${percent}%` }}
@@ -1829,20 +1832,46 @@ export const AcademicStructureView: React.FC = () => {
             </div>
           </div>
 
-          {/* High-Density Filters Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5 bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs">
-            {/* Search */}
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+          {/* Standalone Search Bar & Single Button Filter Toggle */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 value={searchBatchQuery}
                 onChange={e => setSearchBatchQuery(e.target.value)}
                 placeholder="Search batch, room, incharge..."
-                className="w-full pl-8 pr-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400 font-medium"
+                className="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-slate-900 shadow-2xs font-normal"
               />
+              {searchBatchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchBatchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
+            <button
+              type="button"
+              onClick={() => setShowBatchFilters(!showBatchFilters)}
+              className="sm:hidden flex items-center justify-between px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+            >
+              <span className="flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                <span>Filters</span>
+                {(filterBatchShift !== 'all' || filterBatchBillingMode !== 'all' || filterBatchStatus !== 'all') && (
+                  <span className="w-2 h-2 rounded-full bg-amber-600" />
+                )}
+              </span>
+              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showBatchFilters ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+
+          {/* Secondary Filter Dropdowns (Collapsed on Mobile, 3 cols on Desktop) */}
+          <div className={`${showBatchFilters ? 'grid' : 'hidden'} sm:grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs`}>
             {/* Shift Filter */}
             <select
               value={filterBatchShift}
@@ -1881,8 +1910,84 @@ export const AcademicStructureView: React.FC = () => {
             </select>
           </div>
 
-          {/* High-Density Batches Register Table */}
-          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+          {/* Mobile Native Batches Cards (< 640px) */}
+          <div className="sm:hidden divide-y divide-slate-100 bg-white border border-slate-200 rounded-xl overflow-hidden">
+            {filteredBatches.length === 0 ? (
+              <div className="py-8 text-center text-slate-400 text-xs">
+                No batches match your filters.
+              </div>
+            ) : (
+              filteredBatches.map(b => {
+                const batchStudents = students.filter(s => s.batch_id === b.id);
+                const enrolledCount = batchStudents.length || b.current_enrollment || 0;
+                const maxCap = b.max_capacity || 40;
+                const percent = Math.min(100, Math.round((enrolledCount / maxCap) * 100));
+
+                return (
+                  <div key={b.id} className="p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-semibold text-slate-900 text-xs">{b.name}</h4>
+                        <p className="text-[10px] text-slate-500 font-normal capitalize mt-0.5">
+                          {b.shift} Shift • Room: {b.room_number || 'Unassigned'} • {b.academic_session}
+                        </p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                        b.status === 'archived'
+                          ? 'bg-slate-100 text-slate-600 border border-slate-200'
+                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      }`}>
+                        {b.status === 'archived' ? 'Archived' : 'Active'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-600">
+                      <span className="text-[11px]">Teacher: <span className="font-medium text-slate-800">{b.class_teacher_name || 'Unassigned'}</span></span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] font-mono font-medium text-slate-800">{enrolledCount}/{maxCap}</span>
+                        <div className="w-12 bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className={`h-1.5 rounded-full ${percent >= 100 ? 'bg-rose-500' : percent > 85 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={() => openPromoteModal(b.id)}
+                        className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
+                        title="Promote or Transfer Students"
+                      >
+                        <Split className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openEditBatchModal(b)}
+                        className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
+                        title="Edit Batch"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => initiateDeleteBatch(b)}
+                        className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-700 flex items-center justify-center transition-colors"
+                        title="Delete Batch"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* High-Density Batches Register Table (>= 640px) */}
+          <div className="hidden sm:block overflow-x-auto border border-slate-200 rounded-xl">
             <table className="w-full text-xs text-left">
               <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 select-none">
                 <tr>

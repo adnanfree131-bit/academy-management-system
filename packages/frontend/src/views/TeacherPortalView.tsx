@@ -13,7 +13,8 @@ import {
   LogIn,
   LogOut,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown
 } from 'lucide-react';
 
 interface TeacherPortalProps {
@@ -24,6 +25,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
   const { user, token, tenant } = useAuth();
   const [overview, setOverview] = useState<TeacherPortalOverview | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [showMetrics, setShowMetrics] = useState(false);
 
   // Live Geofence Attendance for Logged-in Faculty
   const todayStr = new Date().toISOString().split('T')[0];
@@ -277,30 +279,42 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
           </div>
         )}
 
-        {/* 4 Metric Cards */}
-        <div className="mt-5 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+        {/* Mobile Metric Toggle */}
+        <div className="sm:hidden pt-3 border-t border-slate-100 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setShowMetrics(!showMetrics)}
+            className="px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 flex items-center gap-1.5 transition-colors"
+          >
+            <span>Overview & Metrics</span>
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${showMetrics ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+
+        {/* 4 Metric Cards (Always visible on sm+, collapsible on mobile) */}
+        <div className={`${showMetrics ? 'grid' : 'hidden'} sm:grid mt-4 pt-4 border-t border-slate-100 grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs`}>
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Today's Lectures</span>
-            <span className="text-base sm:text-lg font-bold font-mono text-slate-900 mt-0.5 block">{schedule.length} Classes</span>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Today's Lectures</span>
+            <span className="text-base sm:text-lg font-semibold font-mono text-slate-900 mt-0.5 block">{schedule.length} Classes</span>
             <span className="text-[10px] text-slate-500">Academic Tracks</span>
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Assigned Batches</span>
-            <span className="text-base sm:text-lg font-bold font-mono text-slate-900 mt-0.5 block">{batches.length} Batches</span>
-            <span className="text-[10px] text-slate-500">92 Enrolled Students</span>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Assigned Batches</span>
+            <span className="text-base sm:text-lg font-semibold font-mono text-slate-900 mt-0.5 block">{batches.length} Batches</span>
+            <span className="text-[10px] text-slate-500">Enrolled Students</span>
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pending Attendance</span>
-            <span className="text-base sm:text-lg font-bold font-mono text-slate-900 mt-0.5 block">{pendingAttendance.length} Batch</span>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Pending Attendance</span>
+            <span className="text-base sm:text-lg font-semibold font-mono text-slate-900 mt-0.5 block">{pendingAttendance.length} Batch</span>
             <span className="text-[10px] text-slate-500">Attendance Pending</span>
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Exams to Grade</span>
-            <span className="text-base sm:text-lg font-bold font-mono text-slate-900 mt-0.5 block">{pendingGrading.length} Exams</span>
-            <span className="text-[10px] text-slate-500">Mid-Term Assessments</span>
+            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Exams to Grade</span>
+            <span className="text-base sm:text-lg font-semibold font-mono text-slate-900 mt-0.5 block">{pendingGrading.length} Exams</span>
+            <span className="text-[10px] text-slate-500">Assessments</span>
           </div>
         </div>
       </div>
@@ -433,16 +447,16 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
               </span>
             </div>
 
-            <div className="space-y-2.5">
+            <div className="divide-y divide-slate-100">
               {pendingGrading.map(exam => (
-                <div key={exam.id} className="p-3 bg-slate-50/70 rounded-xl border border-slate-200 space-y-2">
+                <div key={exam.id} className="py-2.5 space-y-2">
                   <div>
-                    <h5 className="font-bold text-slate-900 text-xs">{exam.title}</h5>
+                    <h5 className="font-semibold text-slate-900 text-xs">{exam.title}</h5>
                     <p className="text-[10px] text-slate-500 font-mono">Date: {exam.exam_date} • Total: {exam.total_marks} Marks</p>
                   </div>
                   <button
                     onClick={() => onNavigate('exams')}
-                    className="w-full h-8.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
+                    className="w-full h-8 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center justify-center gap-1 transition-all cursor-pointer"
                   >
                     <span>Enter Marks & Remarks</span>
                     <ArrowRight className="w-3 h-3" />

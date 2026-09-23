@@ -20,7 +20,10 @@ import {
   BarChart2,
   CalendarDays,
   Check,
-  Printer
+  Printer,
+  ChevronDown,
+  ChevronUp,
+  SlidersHorizontal
 } from 'lucide-react';
 import { 
   Batch, 
@@ -77,6 +80,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
   // Roster Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'present' | 'absent' | 'late' | 'excused' | 'unmarked'>('ALL');
+  const [showOverviewFilters, setShowOverviewFilters] = useState(false);
 
   // UI Status
   const [isLoading, setIsLoading] = useState(true);
@@ -1038,46 +1042,90 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
           </div>
 
           {/* Search & Status Filter Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5">
-            <div className="relative flex-1 min-w-[200px] max-w-md">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search student by name, admission number, or guardian..."
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
-              />
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search student by name, admission #, guardian..."
+                  className="w-full pl-8 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-amber-600 font-medium"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Single Toggle Button on Mobile for Status & Overview */}
+              <button
+                type="button"
+                onClick={() => setShowOverviewFilters(prev => !prev)}
+                className={`sm:hidden h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
+                  showOverviewFilters || statusFilter !== 'ALL'
+                    ? 'bg-amber-50 border-amber-300 text-amber-900'
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Filters</span>
+                {statusFilter !== 'ALL' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                )}
+                {showOverviewFilters ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}
+              </button>
             </div>
 
-            <div className="flex items-center gap-1 text-xs overflow-x-auto no-scrollbar max-w-full pb-0.5">
-              <span className="text-slate-400 mr-1 text-[11px] font-medium">Filter:</span>
-              {(['ALL', 'present', 'absent', 'late', 'excused', 'unmarked'] as const).map(s => {
-                if (s === 'unmarked' && stats.unmarked === 0) return null;
-                const isSel = statusFilter === s;
-                let label = s.toUpperCase();
-                if (s === 'ALL') label = `ALL (${stats.total})`;
-                else if (s === 'present') label = `P (${stats.present})`;
-                else if (s === 'absent') label = `A (${stats.absent})`;
-                else if (s === 'late') label = `L (${stats.late})`;
-                else if (s === 'excused') label = `E (${stats.excused})`;
-                else if (s === 'unmarked') label = `U (${stats.unmarked})`;
+            {/* Collapsible Panel on Mobile (Desktop always shown) */}
+            <div className={`${showOverviewFilters ? 'block' : 'hidden'} sm:block space-y-2`}>
+              {/* High-density summary strip on mobile when expanded */}
+              <div className="sm:hidden bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-mono">
+                  <span className="text-slate-600 font-medium">Total: <strong className="text-slate-900">{stats.total}</strong></span>
+                  <span className="text-emerald-700">Present: <strong>{stats.present}</strong></span>
+                  <span className="text-amber-700">Late: <strong>{stats.late}</strong></span>
+                  <span className="text-rose-700">Absent: <strong>{stats.absent}</strong></span>
+                  <span className="text-indigo-700">Excused: <strong>{stats.excused}</strong></span>
+                </div>
+              </div>
 
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setStatusFilter(s)}
-                    className={`px-2 py-1 rounded text-[11px] font-bold transition-all ${
-                      isSel
-                        ? 'bg-amber-600 text-white font-bold shadow-xs' 
-                        : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+              {/* Status Filter Pills */}
+              <div className="flex items-center gap-1 text-xs overflow-x-auto no-scrollbar max-w-full pb-0.5">
+                <span className="text-slate-400 mr-1 text-[11px] font-medium shrink-0">Filter:</span>
+                {(['ALL', 'present', 'absent', 'late', 'excused', 'unmarked'] as const).map(s => {
+                  if (s === 'unmarked' && stats.unmarked === 0) return null;
+                  const isSel = statusFilter === s;
+                  let label = s.toUpperCase();
+                  if (s === 'ALL') label = `ALL (${stats.total})`;
+                  else if (s === 'present') label = `P (${stats.present})`;
+                  else if (s === 'absent') label = `A (${stats.absent})`;
+                  else if (s === 'late') label = `L (${stats.late})`;
+                  else if (s === 'excused') label = `E (${stats.excused})`;
+                  else if (s === 'unmarked') label = `U (${stats.unmarked})`;
+
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setStatusFilter(s)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] transition-all shrink-0 cursor-pointer ${
+                        isSel
+                          ? 'bg-amber-600 text-white font-semibold shadow-2xs' 
+                          : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

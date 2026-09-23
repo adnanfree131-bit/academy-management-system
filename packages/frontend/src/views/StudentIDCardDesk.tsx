@@ -5,7 +5,10 @@ import {
   Search, 
   CheckSquare, 
   Square,
-  CreditCard
+  CreditCard,
+  Sliders,
+  X,
+  ChevronDown
 } from 'lucide-react';
 import { Student, Batch, AcademicProgram } from '@apex/shared-types';
 import { SectionInfo } from '../components/SectionInfo';
@@ -41,6 +44,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBatchId, setSelectedBatchId] = useState<string>('all');
   const [selectedProgramId, setSelectedProgramId] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
   const [selectedStudentIds, setSelectedStudentIds] = useState<Set<string>>(
     new Set(initialSelectedIds || [])
   );
@@ -246,7 +250,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
               type="button"
               onClick={handlePrint}
               disabled={activeSelectedStudents.length === 0 || isExporting}
-              className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-300 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-300 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>{isExporting ? 'Preparing official cards…' : `Download ${activeSelectedStudents.length} official ID cards`}</span>
@@ -254,25 +258,56 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
           </div>
         </div>
 
-        {/* Filter Controls Row */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            {/* Search */}
-            <div className="relative w-full sm:w-64">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white font-sans"
-              />
-            </div>
+        {/* Standalone Search Bar & Mobile Filter Toggle */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+          <div className="relative flex-1">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search by student name or admission #..."
+              className="w-full pl-8 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900 focus:bg-white font-sans"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 rounded-full"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
 
+          {/* Mobile Filter Toggle */}
+          <button
+            type="button"
+            onClick={() => setShowFilters(!showFilters)}
+            className="sm:hidden px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-700 flex items-center justify-between gap-1.5 transition-colors"
+          >
+            <div className="flex items-center gap-1.5">
+              <Sliders className="w-3.5 h-3.5 text-slate-500" />
+              <span>Filters & Layout</span>
+              {((selectedProgramId !== 'all' ? 1 : 0) + (selectedBatchId !== 'all' ? 1 : 0) + (printLayout !== 'a4-duplex-8' ? 1 : 0)) > 0 && (
+                <span className="w-4 h-4 rounded-full bg-slate-900 text-white text-[10px] font-mono flex items-center justify-center">
+                  {(selectedProgramId !== 'all' ? 1 : 0) + (selectedBatchId !== 'all' ? 1 : 0) + (printLayout !== 'a4-duplex-8' ? 1 : 0)}
+                </span>
+              )}
+            </div>
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+
+        {/* Filter Controls Row (Always on sm+, collapsible on mobile) */}
+        <div className={`${showFilters ? 'flex' : 'hidden'} sm:flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1 border-t border-slate-100 sm:border-t-0`}>
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {/* Program Filter */}
             <select
               value={selectedProgramId}
               onChange={e => setSelectedProgramId(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-slate-900"
+              className="flex-1 sm:flex-initial px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-slate-900"
             >
               <option value="all">All Academic Programs</option>
               {programs.map(p => (
@@ -284,7 +319,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
             <select
               value={selectedBatchId}
               onChange={e => setSelectedBatchId(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-slate-900"
+              className="flex-1 sm:flex-initial px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-slate-900"
             >
               <option value="all">All Sections / Batches</option>
               {batches.map(b => (
@@ -298,38 +333,38 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
             <button
               type="button"
               onClick={() => setPrintLayout('a4-duplex-8')}
-              className={`px-2.5 py-1 rounded font-semibold transition-all ${
+              className={`flex-1 sm:flex-initial px-2.5 py-1 rounded font-medium text-[11px] transition-all ${
                 printLayout === 'a4-duplex-8' 
-                  ? 'bg-white text-slate-900 font-bold shadow-xs' 
+                  ? 'bg-white text-slate-900 font-semibold shadow-xs' 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
               title="8 cards per A4 sheet (Fronts on Page 1, Inverted Backs on Page 2 for double-sided flip)"
             >
-              8 Cards/A4 (Duplex)
+              8 Cards/A4
             </button>
             <button
               type="button"
               onClick={() => setPrintLayout('a4-foldable-4')}
-              className={`px-2.5 py-1 rounded font-semibold transition-all ${
+              className={`flex-1 sm:flex-initial px-2.5 py-1 rounded font-medium text-[11px] transition-all ${
                 printLayout === 'a4-foldable-4' 
-                  ? 'bg-white text-slate-900 font-bold shadow-xs' 
+                  ? 'bg-white text-slate-900 font-semibold shadow-xs' 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
               title="4 pairs per A4 sheet with Front & Back side-by-side to fold in half"
             >
-              4 Pairs/A4 (Foldable)
+              4 Pairs/A4
             </button>
             <button
               type="button"
               onClick={() => setPrintLayout('thermal-pvc')}
-              className={`px-2.5 py-1 rounded font-semibold transition-all ${
+              className={`flex-1 sm:flex-initial px-2.5 py-1 rounded font-medium text-[11px] transition-all ${
                 printLayout === 'thermal-pvc' 
-                  ? 'bg-white text-slate-900 font-bold shadow-xs' 
+                  ? 'bg-white text-slate-900 font-semibold shadow-xs' 
                   : 'text-slate-600 hover:text-slate-900'
               }`}
               title="Single card per page for PVC card printers"
             >
-              Single PVC Card
+              PVC Card
             </button>
           </div>
         </div>
@@ -340,7 +375,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
             <button
               type="button"
               onClick={selectAllFiltered}
-              className="text-slate-800 hover:underline font-bold flex items-center gap-1.5"
+              className="text-slate-800 hover:underline font-semibold flex items-center gap-1.5"
             >
               <CheckSquare className="w-3.5 h-3.5" />
               <span>Select All Filtered ({filteredStudents.length})</span>
@@ -349,14 +384,14 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
             <button
               type="button"
               onClick={deselectAll}
-              className="text-slate-500 hover:text-slate-800 hover:underline"
+              className="text-slate-500 hover:text-slate-800 hover:underline font-medium"
             >
               Clear Selection
             </button>
           </div>
 
           <div className="font-mono text-slate-600 text-xs">
-            <strong>{activeSelectedStudents.length}</strong> of {students.length} students selected
+            <span className="font-semibold text-slate-900">{activeSelectedStudents.length}</span> of {students.length} students selected
           </div>
         </div>
       </div>
@@ -365,7 +400,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 no-print">
         {/* Left Column: Student Roster Checklist (5 cols) */}
         <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2 max-h-[620px] overflow-y-auto">
-          <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider px-1 pb-1 border-b border-slate-100 flex justify-between">
+          <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-1 pb-1 border-b border-slate-100 flex justify-between">
             <span>Student Roster ({filteredStudents.length})</span>
             <span>Status</span>
           </div>
@@ -402,12 +437,12 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
                         {isSelected ? <CheckSquare className="w-4 h-4 text-slate-900" /> : <Square className="w-4 h-4 text-slate-300" />}
                       </button>
 
-                      <div className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center font-bold text-[10px] shrink-0">
+                      <div className="w-7 h-7 rounded-md bg-slate-900 text-white flex items-center justify-center font-medium text-[10px] shrink-0">
                         {student.full_name.slice(0, 2).toUpperCase()}
                       </div>
 
                       <div className="min-w-0">
-                        <h4 className="font-bold text-xs text-slate-900 truncate">{student.full_name}</h4>
+                        <h4 className="font-semibold text-xs text-slate-900 truncate">{student.full_name}</h4>
                         <div className="text-[10.5px] text-slate-500 font-mono flex items-center gap-1.5 truncate">
                           <span>Adm: {student.admission_number}</span>
                           <span>•</span>
@@ -418,12 +453,12 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
 
                     <div className="flex items-center gap-1.5 shrink-0">
                       {student.id_card_reprint_required && (
-                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-amber-50 text-amber-800 border border-amber-300">
+                        <span className="px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-amber-50 text-amber-800 border border-amber-300">
                           Reprint Needed
                         </span>
                       )}
                       {student.blood_group ? (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200">
                           {student.blood_group}
                         </span>
                       ) : null}

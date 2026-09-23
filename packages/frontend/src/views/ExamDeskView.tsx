@@ -16,7 +16,10 @@ import {
   FolderTree,
   PenTool,
   MessageSquare,
-  AlertCircle
+  AlertCircle,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import {
   Exam,
@@ -55,6 +58,8 @@ export const ExamDeskView: React.FC = () => {
   const [selectedChapterId, setSelectedChapterId] = useState<string>('all');
   const [questionTypeFilter, setQuestionTypeFilter] = useState<'ALL' | ExamQuestionType>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [examSearchQuery, setExamSearchQuery] = useState('');
+  const [showOverviewMetrics, setShowOverviewMetrics] = useState(false);
 
   // Modals
   const [showCreateExamModal, setShowCreateExamModal] = useState(false);
@@ -470,8 +475,19 @@ export const ExamDeskView: React.FC = () => {
     return true;
   });
 
+  // Filtered exams based on examSearchQuery
+  const filteredExams = useMemo(() => {
+    const q = examSearchQuery.toLowerCase().trim();
+    if (!q) return exams;
+    return exams.filter(e =>
+      e.title.toLowerCase().includes(q) ||
+      (e.subject_name && e.subject_name.toLowerCase().includes(q)) ||
+      (e.batch_name && e.batch_name.toLowerCase().includes(q))
+    );
+  }, [exams, examSearchQuery]);
+
   return (
-    <div className="space-y-2.5 sm:space-y-3">
+    <div className="space-y-3 sm:space-y-3.5">
       {/* Top Header & Fast Navigation */}
       <PageHeading
         title="Examinations"
@@ -485,20 +501,78 @@ export const ExamDeskView: React.FC = () => {
         )}
         <button
           onClick={() => setShowCreateExamModal(true)}
-          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold rounded-xl shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center gap-1.5 active:scale-95 transition-all"
+          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold rounded-xl shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" /> New Exam
         </button>
         <button
           onClick={() => setShowExcelImportModal(true)}
-          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 flex items-center gap-1.5 transition-all"
+          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
         >
           <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Excel Upload
         </button>
       </PageHeading>
 
-      {/* 4-Card Metric Summary Strip (Finalized Enterprise Design) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      {/* Main Tabs Navigation */}
+      <div className="grid grid-cols-3 bg-white p-0.5 rounded-xl border border-slate-200 gap-1 text-xs font-semibold shadow-2xs">
+        <button
+          onClick={() => setActiveTab('exams')}
+          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
+            activeTab === 'exams'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <FileCheck2 className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'exams' ? 'text-white' : 'text-slate-500'}`} />
+          <span className="truncate">Exams</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('bank')}
+          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
+            activeTab === 'bank'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <BookOpen className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'bank' ? 'text-white' : 'text-slate-500'}`} />
+          <span className="truncate">Bank</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('evaluate')}
+          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
+            activeTab === 'evaluate'
+              ? 'bg-amber-600 text-white shadow-xs font-bold'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <PenTool className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'evaluate' ? 'text-white' : 'text-slate-500'}`} />
+          <span className="truncate">Grading</span>
+        </button>
+      </div>
+
+      {/* Mobile Toggle Button for Metrics */}
+      <div className="sm:hidden">
+        <button
+          type="button"
+          onClick={() => setShowOverviewMetrics(prev => !prev)}
+          className={`w-full py-1.5 px-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all cursor-pointer ${
+            showOverviewMetrics
+              ? 'bg-amber-50 border-amber-300 text-amber-900'
+              : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+          }`}
+        >
+          <span className="flex items-center gap-1.5">
+            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+            <span>Summary & Metrics ({exams.length} Exams · {bankQuestions.length} Questions)</span>
+          </span>
+          {showOverviewMetrics ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+
+      {/* 4-Card Metric Summary Strip (Collapsible on mobile, always visible on tablet/desktop) */}
+      <div className={`${showOverviewMetrics ? 'grid' : 'hidden'} sm:grid grid-cols-2 lg:grid-cols-4 gap-2.5`}>
         {/* Card 1: Scheduled Exams */}
         <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
           <div className="min-w-0">
@@ -580,50 +654,32 @@ export const ExamDeskView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Tabs Navigation - Segmented Control matching Image 1 */}
-      <div className="grid grid-cols-3 bg-white p-0.5 rounded-xl border border-slate-200 gap-1 text-xs font-semibold shadow-2xs">
-        <button
-          onClick={() => setActiveTab('exams')}
-          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
-            activeTab === 'exams'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <FileCheck2 className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'exams' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="truncate">Exams</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('bank')}
-          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
-            activeTab === 'bank'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <BookOpen className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'bank' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="truncate">Bank</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('evaluate')}
-          className={`py-1.5 px-2 sm:px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 touch-press text-center truncate cursor-pointer ${
-            activeTab === 'evaluate'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <PenTool className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'evaluate' ? 'text-white' : 'text-slate-500'}`} />
-          <span className="truncate">Grading</span>
-        </button>
-      </div>
-
       {/* TAB 1: SCHEDULED EXAMS & PRINTABLE PAPERS */}
       {activeTab === 'exams' && (
         <div className="bg-white p-3 sm:p-4 rounded-b-xl border-x border-b border-slate-200/80 shadow-2xs space-y-3">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
             <SectionInfo title="Scheduled Exams" description="View upcoming exams, syllabus breakdown, and printable test papers." />
+          </div>
+
+          {/* Standalone Search Bar */}
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={examSearchQuery}
+              onChange={e => setExamSearchQuery(e.target.value)}
+              placeholder="Search exams by title, subject, or batch..."
+              className="w-full pl-8 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-amber-600 font-medium"
+            />
+            {examSearchQuery && (
+              <button
+                type="button"
+                onClick={() => setExamSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Desktop Table (>= 768px) */}
@@ -642,9 +698,9 @@ export const ExamDeskView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {exams.map(exam => (
+                {filteredExams.map(exam => (
                   <tr key={exam.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-2 px-3 font-bold text-slate-900">
+                    <td className="py-2 px-3 font-semibold text-slate-900">
                       {exam.title}
                       <span className="block text-[10px] font-mono text-slate-400 font-normal">ID: {exam.id}</span>
                     </td>
@@ -665,7 +721,7 @@ export const ExamDeskView: React.FC = () => {
                         Long: {exam.long_total_marks}
                       </span>
                     </td>
-                    <td className="py-2 px-3 text-right font-bold text-slate-900">{exam.total_marks} Marks</td>
+                    <td className="py-2 px-3 text-right font-semibold font-mono text-slate-900">{exam.total_marks} Marks</td>
                     <td className="py-2 px-3 text-center">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                         exam.status === 'GRADED' ? 'bg-emerald-100 text-emerald-800' :
@@ -680,7 +736,7 @@ export const ExamDeskView: React.FC = () => {
                           setSelectedExamForPaper(exam);
                           setShowPrintPaperModal(true);
                         }}
-                        className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded text-[11px] inline-flex items-center gap-1"
+                        className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded text-[11px] inline-flex items-center gap-1 cursor-pointer"
                         title="Print Exam Test Paper"
                       >
                         <Printer className="w-3.5 h-3.5 text-slate-600" /> Print Paper
@@ -690,7 +746,7 @@ export const ExamDeskView: React.FC = () => {
                           setEvalSelectedExamId(exam.id);
                           setActiveTab('evaluate');
                         }}
-                        className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold rounded text-[11px] inline-flex items-center gap-1 border border-amber-200/60 transition-colors"
+                        className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold rounded text-[11px] inline-flex items-center gap-1 border border-amber-200/60 transition-colors cursor-pointer"
                       >
                         <PenTool className="w-3.5 h-3.5" /> Grade
                       </button>
@@ -703,19 +759,19 @@ export const ExamDeskView: React.FC = () => {
 
           {/* Mobile Native Exam Cards (< 768px) */}
           <div className="md:hidden divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
-            {exams.length === 0 ? (
+            {filteredExams.length === 0 ? (
               <div className="p-8 text-center text-slate-400 text-xs">No scheduled exams found.</div>
             ) : (
-              exams.map(exam => (
-                <div key={exam.id} className="p-3.5 space-y-2.5 active:bg-slate-50 transition-colors">
+              filteredExams.map(exam => (
+                <div key={exam.id} className="p-3.5 space-y-2 active:bg-slate-50 transition-colors">
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h4 className="font-bold text-slate-900 text-sm">{exam.title}</h4>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    <div className="min-w-0">
+                      <h4 className="font-semibold text-slate-800 text-sm truncate">{exam.title}</h4>
+                      <p className="text-xs text-slate-400 font-medium mt-0.5 truncate">
                         <span className="text-indigo-700 font-semibold">{exam.subject_name || 'General'}</span> • {exam.batch_name || 'Batch'}
                       </p>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold font-mono uppercase shrink-0 ${
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold font-mono uppercase shrink-0 ${
                       exam.status === 'GRADED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
                       exam.status === 'PUBLISHED' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
                       'bg-slate-100 text-slate-700 border border-slate-200'
@@ -724,13 +780,14 @@ export const ExamDeskView: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg border border-slate-100">
-                    <span className="font-mono text-slate-600">{exam.exam_date} • {exam.duration_minutes}m</span>
-                    <span className="font-mono font-bold text-slate-900">{exam.total_marks} Marks</span>
+                  {/* Metadata Row - Flat, NO box-in-box! */}
+                  <div className="flex items-center justify-between text-xs py-0.5">
+                    <span className="font-mono text-slate-500">{exam.exam_date} • {exam.duration_minutes}m</span>
+                    <span className="font-mono font-semibold text-slate-800">{exam.total_marks} Marks</span>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-100">
-                    <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500">
+                  <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
+                    <div className="flex items-center gap-1 text-[10px] font-mono text-slate-400">
                       <span>M:{exam.mcq_total_marks || (exam.mcq_count * exam.mcq_marks_per_q)}</span>
                       <span>•</span>
                       <span>S:{exam.short_total_marks}</span>
@@ -738,26 +795,28 @@ export const ExamDeskView: React.FC = () => {
                       <span>L:{exam.long_total_marks}</span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <button
+                        type="button"
                         onClick={() => {
                           setSelectedExamForPaper(exam);
                           setShowPrintPaperModal(true);
                         }}
-                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1 border border-slate-200"
+                        className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
                         title="Print Exam Test Paper"
+                        aria-label="Print Paper"
                       >
-                        <Printer className="w-3 h-3" />
-                        <span>Paper</span>
+                        <Printer className="w-3.5 h-3.5" />
                       </button>
                       <button
+                        type="button"
                         onClick={() => {
                           setEvalSelectedExamId(exam.id);
                           setActiveTab('evaluate');
                         }}
-                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-2xs"
+                        className="h-8 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
                       >
-                        <PenTool className="w-3 h-3" />
+                        <PenTool className="w-3.5 h-3.5" />
                         <span>Grade</span>
                       </button>
                     </div>

@@ -6,7 +6,11 @@ import {
   RefreshCw, 
   CheckCircle2, 
   User,
-  X
+  X,
+  Search,
+  Sliders,
+  ChevronDown,
+  Eye
 } from 'lucide-react';
 import { 
   ComplaintTicket, 
@@ -24,8 +28,10 @@ export const ComplaintsDeskView: React.FC = () => {
   // State
   const [tickets, setTickets] = useState<ComplaintTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
 
   // New Ticket Modal
   const [showNewModal, setShowNewModal] = useState(false);
@@ -136,13 +142,20 @@ export const ComplaintsDeskView: React.FC = () => {
 
   // Filter tickets
   const filteredTickets = tickets.filter(t => {
+    const q = searchQuery.toLowerCase().trim();
+    const matchSearch = !q ||
+      t.subject.toLowerCase().includes(q) ||
+      (t.user_name || '').toLowerCase().includes(q) ||
+      (t.description || '').toLowerCase().includes(q);
     const matchCat = categoryFilter === 'all' || t.category === categoryFilter;
     const matchStat = statusFilter === 'all' || t.status === statusFilter;
-    return matchCat && matchStat;
+    return matchSearch && matchCat && matchStat;
   });
 
+  const hasActiveFilters = categoryFilter !== 'all' || statusFilter !== 'all';
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header */}
       <PageHeading
         title="Complaints"
@@ -151,22 +164,64 @@ export const ComplaintsDeskView: React.FC = () => {
       >
         <button
           onClick={() => setShowNewModal(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs transition-all"
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>New Ticket</span>
         </button>
       </PageHeading>
 
-      {/* Control Bar: Filters */}
-      <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-3">
+      {/* Standalone Search Bar & Filters Strip */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search tickets by subject, complainant, description..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-9 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 text-slate-900 transition-colors placeholder:text-slate-400 shadow-2xs"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+          >
+            <Sliders className="w-3.5 h-3.5 text-slate-500" />
+            <span>Filters</span>
+            {hasActiveFilters && (
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+            )}
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+          </button>
+
+          <span className="text-xs font-mono text-slate-500 px-2.5 py-1.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+            <strong className="text-slate-900">{filteredTickets.length}</strong> / {tickets.length}
+          </span>
+        </div>
+      </div>
+
+      {/* Collapsible Filters Container */}
+      <div className={showFilters ? 'block' : 'hidden sm:block'}>
+        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">Category:</span>
+            <span className="text-xs font-semibold text-slate-700">Category:</span>
             <select
               value={categoryFilter}
               onChange={e => setCategoryFilter(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 font-medium text-slate-800 focus:outline-none"
+              className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none"
             >
               <option value="all">All Categories</option>
               <option value="facility">Campus Facilities</option>
@@ -178,11 +233,11 @@ export const ComplaintsDeskView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-700">Status:</span>
+            <span className="text-xs font-semibold text-slate-700">Status:</span>
             <select
               value={statusFilter}
               onChange={e => setStatusFilter(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 font-medium text-slate-800 focus:outline-none"
+              className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none"
             >
               <option value="all">All Statuses</option>
               <option value="open">Open</option>
@@ -191,39 +246,48 @@ export const ComplaintsDeskView: React.FC = () => {
               <option value="resolved">Resolved</option>
             </select>
           </div>
-        </div>
 
-        <span className="text-xs font-mono text-slate-400">
-          Showing {filteredTickets.length} of {tickets.length} tickets
-        </span>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setCategoryFilter('all');
+                setStatusFilter('all');
+              }}
+              className="text-xs text-rose-600 hover:text-rose-700 font-semibold ml-auto cursor-pointer"
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Tickets List */}
       {isLoading ? (
-        <div className="p-12 text-center text-slate-400 bg-white border border-slate-200 rounded-2xl">
-          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
+        <div className="p-12 text-center text-slate-400 bg-white border border-slate-200 rounded-xl shadow-2xs">
+          <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-500" />
           <p className="text-xs font-mono">Loading feedback tickets...</p>
         </div>
       ) : filteredTickets.length === 0 ? (
-        <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl">
-          <MessageSquare className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-          <p className="text-sm font-bold text-slate-700">No complaints matching filter</p>
-          <p className="text-xs text-slate-400 mt-1">Submit feedback tickets above to initiate service resolution.</p>
+        <div className="p-12 text-center bg-white border border-slate-200 rounded-xl shadow-2xs">
+          <MessageSquare className="w-7 h-7 text-slate-300 mx-auto mb-2" />
+          <p className="text-xs font-semibold text-slate-700">No complaints matching filter</p>
+          <p className="text-[11px] text-slate-400 mt-1">Submit feedback tickets above to initiate service resolution.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {filteredTickets.map(ticket => (
             <div
               key={ticket.id}
-              className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-all space-y-4"
+              className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition-all space-y-3"
             >
               <div>
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 font-bold uppercase text-slate-700">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 font-semibold uppercase text-slate-700">
                     {ticket.category.replace('_', ' ')}
                   </span>
                   <div className="flex items-center gap-1.5">
-                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md uppercase ${
+                    <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md uppercase ${
                       ticket.priority === 'urgent'
                         ? 'bg-rose-50 text-rose-700 border border-rose-200'
                         : ticket.priority === 'high'
@@ -232,7 +296,7 @@ export const ComplaintsDeskView: React.FC = () => {
                     }`}>
                       {ticket.priority}
                     </span>
-                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md uppercase ${
+                    <span className={`text-[10px] font-mono font-semibold px-2 py-0.5 rounded-md uppercase ${
                       ticket.status === 'resolved'
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                         : ticket.status === 'action_taken'
@@ -246,10 +310,10 @@ export const ComplaintsDeskView: React.FC = () => {
                   </div>
                 </div>
 
-                <h3 className="text-sm font-bold text-slate-900">{ticket.subject}</h3>
+                <h3 className="text-xs sm:text-sm font-semibold text-slate-900">{ticket.subject}</h3>
                 <p className="text-xs text-slate-600 mt-1 leading-relaxed">{ticket.description}</p>
 
-                <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-mono">
                   <span className="flex items-center gap-1">
                     <User className="w-3.5 h-3.5 text-slate-400" />
                     {ticket.user_name || 'Complainant'}
@@ -257,20 +321,21 @@ export const ComplaintsDeskView: React.FC = () => {
                   <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
                 </div>
 
+                {/* Flat Callout - Zero Card-in-Card */}
                 {ticket.resolution_reply && (
-                  <div className="mt-3 p-3 bg-emerald-50/60 border border-emerald-200/70 rounded-xl text-xs space-y-1">
-                    <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-800">
+                  <div className="mt-2.5 pl-3 border-l-2 border-emerald-500 py-0.5 text-xs space-y-0.5">
+                    <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-800">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Official Resolution Reply:</span>
+                      <span>Resolution Reply:</span>
                     </div>
-                    <p className="text-emerald-900 text-[11px] leading-relaxed">
+                    <p className="text-slate-700 text-[11px] leading-relaxed">
                       {ticket.resolution_reply}
                     </p>
                   </div>
                 )}
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-end">
                 <button
                   type="button"
                   onClick={() => {
@@ -279,9 +344,14 @@ export const ComplaintsDeskView: React.FC = () => {
                     setResolutionReply(ticket.resolution_reply || '');
                     setInternalNotes(ticket.internal_notes || '');
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold transition-all cursor-pointer shadow-xs"
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
                 >
-                  {isStaff ? (ticket.status === 'resolved' ? 'View Resolution' : 'Update & Resolve') : (ticket.status === 'resolved' ? 'View Resolution' : 'View Ticket')}
+                  {ticket.status === 'resolved' ? (
+                    <Eye className="w-3.5 h-3.5" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isStaff ? (ticket.status === 'resolved' ? 'Resolution' : 'Update & Resolve') : (ticket.status === 'resolved' ? 'Resolution' : 'View Ticket')}</span>
                 </button>
               </div>
             </div>

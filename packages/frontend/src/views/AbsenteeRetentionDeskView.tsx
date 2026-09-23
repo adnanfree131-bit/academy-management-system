@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   PhoneForwarded,
   MessageCircle,
@@ -19,7 +19,11 @@ import {
   PhoneCall,
   PhoneMissed,
   Clock,
-  ShieldCheck
+  ShieldCheck,
+  Search,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -61,7 +65,21 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [selectedBatchId, setSelectedBatchId] = useState('ALL');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showOverviewFilters, setShowOverviewFilters] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Filtered followups based on search query
+  const filteredFollowups = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return followups;
+    return followups.filter(f =>
+      f.student_name.toLowerCase().includes(q) ||
+      (f.admission_number && f.admission_number.toLowerCase().includes(q)) ||
+      (f.guardian_name && f.guardian_name.toLowerCase().includes(q)) ||
+      (f.guardian_phone && f.guardian_phone.includes(q))
+    );
+  }, [followups, searchQuery]);
 
   // Phone selection mapping for followups: id -> 'PRIMARY' | 'BACKUP'
   const [phoneSelectionMap, setPhoneSelectionMap] = useState<Record<string, 'PRIMARY' | 'BACKUP'>>({});
@@ -380,134 +398,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         </button>
       </PageHeading>
 
-      {/* Mobile Native 3-Stat Compact Strip (< 640px) */}
-      <div className="sm:hidden bg-white border border-slate-200 rounded-2xl p-3 shadow-xs grid grid-cols-3 divide-x divide-slate-100 text-center">
-        <div className="px-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Absentees</span>
-          <span className="text-sm font-bold font-mono text-slate-900 truncate block mt-0.5">{kpi.total_absentees}</span>
-        </div>
-        <div className="px-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Contacted</span>
-          <span className="text-sm font-bold font-mono text-emerald-600 truncate block mt-0.5">{kpi.contacted_percentage}%</span>
-        </div>
-        <div className="px-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pending</span>
-          <span className="text-sm font-bold font-mono text-blue-600 truncate block mt-0.5">{kpi.pending_count}</span>
-        </div>
-      </div>
-
-      {/* 5-Card Metric Summary Strip (Finalized Enterprise Design) */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-        {/* Card 1: Total Absentees */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Total Absentees
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-slate-900 text-sm leading-none">
-                {kpi.total_absentees}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Recorded
-              </span>
-            </div>
-          </div>
-          <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
-            <UserX className="w-3.5 h-3.5 text-rose-700" />
-          </span>
-        </div>
-
-        {/* Card 2: Contacted Rate */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Contacted Rate
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
-                {kpi.contacted_percentage}%
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                ({kpi.contacted_count}/{kpi.total_absentees})
-              </span>
-            </div>
-          </div>
-          <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-            <PhoneCall className="w-3.5 h-3.5 text-emerald-700" />
-          </span>
-        </div>
-
-        {/* Card 3: Unreachable / Rings */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Unreachable
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-amber-700 text-sm leading-none">
-                {kpi.unreachable_count}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Retry
-              </span>
-            </div>
-          </div>
-          <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-            <PhoneMissed className="w-3.5 h-3.5 text-amber-700" />
-          </span>
-        </div>
-
-        {/* Card 4: Pending Calls */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-sky-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Pending Calls
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-sky-700 text-sm leading-none">
-                {kpi.pending_count}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Awaiting
-              </span>
-            </div>
-          </div>
-          <span className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200/70 shrink-0 shadow-2xs">
-            <Clock className="w-3.5 h-3.5 text-sky-700" />
-          </span>
-        </div>
-
-        {/* Card 5: Medical Leaves */}
-        <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-purple-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all col-span-2 sm:col-span-1">
-          <div className="min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-              Excused Leaves
-            </span>
-            <div className="flex items-baseline gap-1.5 mt-0.5">
-              <span className="font-mono font-bold text-purple-700 text-sm leading-none">
-                {kpi.excused_count}
-              </span>
-              <span className="text-xs font-medium text-slate-500 leading-none">
-                Sanctioned
-              </span>
-            </div>
-          </div>
-          <span className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-200/70 shrink-0 shadow-2xs">
-            <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
-          </span>
-        </div>
-      </div>
-
-      {/* Global Action Success Banner */}
-      {actionSuccessMsg && (
-        <div className="p-2.5 bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{actionSuccessMsg}</span>
-        </div>
-      )}
-
-      {/* Tabs Navigation - Segmented Grid matching Image 1 */}
+      {/* Tabs Navigation */}
       <div className="grid grid-cols-3 bg-white p-0.5 rounded-xl border border-slate-200 gap-1 text-xs font-semibold shadow-2xs">
         <button
           onClick={() => setActiveTab('roster')}
@@ -546,57 +437,214 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         </button>
       </div>
 
+      {/* Global Action Success Banner */}
+      {actionSuccessMsg && (
+        <div className="p-2.5 bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold rounded-xl flex items-center gap-2 shadow-xs">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>{actionSuccessMsg}</span>
+        </div>
+      )}
+
       {/* =====================================================================
           TAB 1: DAILY MORNING ABSENTEE DESK
           ===================================================================== */}
       {activeTab === 'roster' && (
-        <div className="space-y-4">
-          {/* Filters Bar */}
-          <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                <span className="font-semibold text-slate-700">Date:</span>
+        <div className="space-y-3.5 sm:space-y-4">
+          {/* Standalone Search Bar & Single Overview/Filter Toggle */}
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={e => setSelectedDate(e.target.value)}
-                  className="px-2.5 py-1 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono"
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search absent student by name, admission #, guardian..."
+                  className="w-full pl-8 pr-8 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-amber-600 font-medium"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-slate-700">Batch:</span>
-                <select
-                  value={selectedBatchId}
-                  onChange={e => setSelectedBatchId(e.target.value)}
-                  className="px-2.5 py-1 bg-slate-50 border border-slate-300 rounded-lg text-xs"
-                >
-                  <option value="ALL">All Batches</option>
-                  {batches.map(b => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-slate-700">Status:</span>
-                <select
-                  value={selectedStatusFilter}
-                  onChange={e => setSelectedStatusFilter(e.target.value)}
-                  className="px-2.5 py-1 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium"
-                >
-                  <option value="ALL">All Statuses</option>
-                  <option value="PENDING">Pending Calls</option>
-                  <option value="CONTACTED">Contacted</option>
-                  <option value="UNREACHABLE">Unreachable / Rings</option>
-                  <option value="RESOLVED_EXCUSED">Excused / Medical Leave</option>
-                </select>
-              </div>
+              {/* Single Toggle Button on Mobile for Filters & Overview */}
+              <button
+                type="button"
+                onClick={() => setShowOverviewFilters(prev => !prev)}
+                className={`sm:hidden h-9 px-3 rounded-xl border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
+                  showOverviewFilters || selectedBatchId !== 'ALL' || selectedStatusFilter !== 'ALL'
+                    ? 'bg-amber-50 border-amber-300 text-amber-900'
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span>Filters & Overview</span>
+                {(selectedBatchId !== 'ALL' || selectedStatusFilter !== 'ALL') && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                )}
+                {showOverviewFilters ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}
+              </button>
             </div>
 
-            <div className="text-slate-400 font-mono text-[11px]">
-              Showing {followups.length} Absent Students
+            {/* Collapsible Panel on Mobile (Desktop always shown) */}
+            <div className={`${showOverviewFilters ? 'block' : 'hidden'} sm:block space-y-3`}>
+              {/* 5-Card Metric Summary Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                {/* Card 1: Total Absentees */}
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                      Total Absentees
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mt-0.5">
+                      <span className="font-mono font-bold text-slate-900 text-sm leading-none">
+                        {kpi.total_absentees}
+                      </span>
+                      <span className="text-xs font-medium text-slate-500 leading-none">
+                        Recorded
+                      </span>
+                    </div>
+                  </div>
+                  <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
+                    <UserX className="w-3.5 h-3.5 text-rose-700" />
+                  </span>
+                </div>
+
+                {/* Card 2: Contacted Rate */}
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                      Contacted Rate
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mt-0.5">
+                      <span className="font-mono font-bold text-emerald-700 text-sm leading-none">
+                        {kpi.contacted_percentage}%
+                      </span>
+                      <span className="text-xs font-medium text-slate-500 leading-none">
+                        ({kpi.contacted_count}/{kpi.total_absentees})
+                      </span>
+                    </div>
+                  </div>
+                  <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
+                    <PhoneCall className="w-3.5 h-3.5 text-emerald-700" />
+                  </span>
+                </div>
+
+                {/* Card 3: Unreachable / Rings */}
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                      Unreachable
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mt-0.5">
+                      <span className="font-mono font-bold text-amber-700 text-sm leading-none">
+                        {kpi.unreachable_count}
+                      </span>
+                      <span className="text-xs font-medium text-slate-500 leading-none">
+                        Retry
+                      </span>
+                    </div>
+                  </div>
+                  <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
+                    <PhoneMissed className="w-3.5 h-3.5 text-amber-700" />
+                  </span>
+                </div>
+
+                {/* Card 4: Pending Calls */}
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-sky-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                      Pending Calls
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mt-0.5">
+                      <span className="font-mono font-bold text-sky-700 text-sm leading-none">
+                        {kpi.pending_count}
+                      </span>
+                      <span className="text-xs font-medium text-slate-500 leading-none">
+                        Awaiting
+                      </span>
+                    </div>
+                  </div>
+                  <span className="w-7 h-7 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-200/70 shrink-0 shadow-2xs">
+                    <Clock className="w-3.5 h-3.5 text-sky-700" />
+                  </span>
+                </div>
+
+                {/* Card 5: Medical Leaves */}
+                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-purple-600 rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_4px_14px_rgba(15,23,42,0.07)] hover:shadow-[0_6px_18px_rgba(15,23,42,0.10)] transition-all col-span-2 sm:col-span-1">
+                  <div className="min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
+                      Excused Leaves
+                    </span>
+                    <div className="flex items-baseline gap-1.5 mt-0.5">
+                      <span className="font-mono font-bold text-purple-700 text-sm leading-none">
+                        {kpi.excused_count}
+                      </span>
+                      <span className="text-xs font-medium text-slate-500 leading-none">
+                        Sanctioned
+                      </span>
+                    </div>
+                  </div>
+                  <span className="w-7 h-7 rounded-lg bg-purple-50 text-purple-700 flex items-center justify-center border border-purple-200/70 shrink-0 shadow-2xs">
+                    <ShieldCheck className="w-3.5 h-3.5 text-purple-700" />
+                  </span>
+                </div>
+              </div>
+
+              {/* Filters Bar */}
+              <div className="bg-white p-3 rounded-xl border border-slate-200/90 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="font-semibold text-slate-700">Date:</span>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={e => setSelectedDate(e.target.value)}
+                      className="px-2.5 py-1 bg-slate-50 border border-slate-300 rounded-lg text-xs font-mono"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-slate-700">Batch:</span>
+                    <select
+                      value={selectedBatchId}
+                      onChange={e => setSelectedBatchId(e.target.value)}
+                      className="px-2.5 py-1 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium"
+                    >
+                      <option value="ALL">All Batches</option>
+                      {batches.map(b => (
+                        <option key={b.id} value={b.id}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-slate-700">Status:</span>
+                    <select
+                      value={selectedStatusFilter}
+                      onChange={e => setSelectedStatusFilter(e.target.value)}
+                      className="px-2.5 py-1 bg-slate-50 border border-slate-300 rounded-lg text-xs font-medium"
+                    >
+                      <option value="ALL">All Statuses</option>
+                      <option value="PENDING">Pending Calls</option>
+                      <option value="CONTACTED">Contacted</option>
+                      <option value="UNREACHABLE">Unreachable / Rings</option>
+                      <option value="RESOLVED_EXCUSED">Excused / Medical Leave</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="text-slate-400 font-mono text-[11px]">
+                  Showing {followups.length} absentees
+                </div>
+              </div>
             </div>
           </div>
 
@@ -786,85 +834,106 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
             {/* Mobile Native Absentee Follow-Up Cards (< 768px) */}
             <div className="md:hidden divide-y divide-slate-100 bg-white">
-              {followups.map(item => {
-                const currentPhoneChoice = phoneSelectionMap[item.id] || 'PRIMARY';
-                const hasBackup = !!item.backup_phone;
-                const activePhone = currentPhoneChoice === 'BACKUP' && hasBackup ? item.backup_phone : item.guardian_phone;
+              {filteredFollowups.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 text-xs">
+                  No absent students found matching criteria.
+                </div>
+              ) : (
+                filteredFollowups.map(item => {
+                  const currentPhoneChoice = phoneSelectionMap[item.id] || 'PRIMARY';
+                  const hasBackup = !!item.backup_phone;
+                  const activePhone = currentPhoneChoice === 'BACKUP' && hasBackup ? item.backup_phone : item.guardian_phone;
 
-                return (
-                  <div key={item.id} className="p-3.5 flex flex-col gap-2.5">
-                    {/* Top: Student & Consecutive Days */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="font-bold text-slate-900 text-sm leading-tight">{item.student_name}</h4>
-                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                          Adm: {item.admission_number || item.roll_number || '—'} • {item.batch_name}
-                        </p>
+                  return (
+                    <div key={item.id} className="p-3.5 flex flex-col gap-2">
+                      {/* Top: Student & Consecutive Days */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="font-semibold text-slate-800 text-sm leading-tight truncate">{item.student_name}</h4>
+                          <p className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">
+                            Adm: {item.admission_number || item.roll_number || '—'} • {item.batch_name}
+                          </p>
+                        </div>
+                        {item.consecutive_days >= 3 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse shrink-0">
+                            <AlertTriangle className="w-3 h-3 text-rose-600" />
+                            Day {item.consecutive_days} (Critical)
+                          </span>
+                        ) : item.consecutive_days === 2 ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                            Day 2 Absent
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                            Day 1 Absent
+                          </span>
+                        )}
                       </div>
-                      {item.consecutive_days >= 3 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
-                          <AlertTriangle className="w-3 h-3 text-rose-600" />
-                          Day {item.consecutive_days} (Critical)
-                        </span>
-                      ) : item.consecutive_days === 2 ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                          Day 2 Absent
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                          Day 1 Absent
-                        </span>
+
+                      {/* Guardian & Contact - Flat line, NO box-in-box! */}
+                      <div className="flex items-center justify-between text-xs py-0.5">
+                        <div className="min-w-0 flex-1 truncate">
+                          <span className="text-[11px] text-slate-400 font-normal">Guardian: </span>
+                          <span className="font-medium text-slate-700">{item.guardian_name || 'Parent'}</span>
+                          <span className="text-[11px] font-mono text-slate-400 ml-1.5">{activePhone || 'No Phone'}</span>
+                        </div>
+                        {hasBackup && (
+                          <select
+                            value={currentPhoneChoice}
+                            onChange={e => setPhoneSelectionMap(prev => ({ ...prev, [item.id]: e.target.value as 'PRIMARY' | 'BACKUP' }))}
+                            className="text-[10px] bg-slate-50 border border-slate-200 rounded-md px-1.5 py-0.5 text-slate-700 font-medium shrink-0 ml-2"
+                          >
+                            <option value="PRIMARY">Primary</option>
+                            <option value="BACKUP">Backup</option>
+                          </select>
+                        )}
+                      </div>
+
+                      {/* Status Outcome if any */}
+                      {item.status && item.status !== 'PENDING' && (
+                        <div className="text-[11px] text-slate-500 font-medium">
+                          Status: <span className="font-semibold text-slate-700">{item.status.replace('_', ' ')}</span>
+                          {item.call_outcome && ` (${item.call_outcome})`}
+                          {item.reason_category && ` • ${item.reason_category}`}
+                        </div>
                       )}
-                    </div>
 
-                    {/* Guardian Contact Info */}
-                    <div className="bg-slate-50/80 p-2.5 rounded-lg border border-slate-100 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="text-[10px] text-slate-400 font-semibold uppercase block">Guardian</span>
-                        <span className="font-semibold text-slate-800">{item.guardian_name || 'Parent / Guardian'}</span>
-                        <span className="text-[11px] font-mono text-slate-500 block">{activePhone || 'No Phone'}</span>
-                      </div>
-                      {hasBackup && (
-                        <select
-                          value={currentPhoneChoice}
-                          onChange={e => setPhoneSelectionMap(prev => ({ ...prev, [item.id]: e.target.value as 'PRIMARY' | 'BACKUP' }))}
-                          className="text-[10px] bg-white border border-slate-200 rounded px-1.5 py-1 text-slate-700"
+                      {/* Action Triggers: Sleek Icons */}
+                      <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenWhatsAppModal(item)}
+                            className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 flex items-center justify-center transition-colors cursor-pointer"
+                            title="WhatsApp Notification"
+                            aria-label="WhatsApp"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                          </button>
+                          <a
+                            href={`tel:${activePhone}`}
+                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 flex items-center justify-center transition-colors"
+                            title={`Call: ${activePhone}`}
+                            aria-label="Call"
+                          >
+                            <Phone className="w-4 h-4" />
+                          </a>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleOpenLogModal(item)}
+                          className="h-8 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                          title="Log Call Response / Medical Leave"
                         >
-                          <option value="PRIMARY">Primary</option>
-                          <option value="BACKUP">Backup</option>
-                        </select>
-                      )}
+                          <FileCheck className="w-3.5 h-3.5" />
+                          <span>Log Call</span>
+                        </button>
+                      </div>
                     </div>
-
-                    {/* Action Triggers: 1-Tap WhatsApp, 1-Tap Call, Log Outcome */}
-                    <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenWhatsAppModal(item)}
-                        className="h-8 py-1 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>WhatsApp</span>
-                      </button>
-                      <a
-                        href={`tel:${activePhone}`}
-                        className="h-8 py-1 px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>Call</span>
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => handleOpenLogModal(item)}
-                        className="h-8 py-1 px-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs"
-                      >
-                        <FileCheck className="w-3.5 h-3.5" />
-                        <span>Log</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

@@ -8,11 +8,12 @@ import {
   AlertTriangle,
   X,
   CheckCircle2,
-  RefreshCw,
   AlertCircle,
   Filter,
   History,
-  MessageSquare
+  MessageSquare,
+  Sliders,
+  ChevronDown
 } from 'lucide-react';
 import { StudentInvoice, FeePayment } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
@@ -31,7 +32,7 @@ export const FeeReversalsView: React.FC = () => {
   const [invoices, setInvoices] = useState<StudentInvoice[]>([]);
   const [payments, setPayments] = useState<FeePayment[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [_isLoading, setIsLoading] = useState<boolean>(true);
 
   // Primary Operational Filters (Default month is current month)
   const currentMonthName = useMemo(() => {
@@ -45,6 +46,7 @@ export const FeeReversalsView: React.FC = () => {
   const [selectedBatchId, setSelectedBatchId] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all'); // 'all' | 'paid' | 'partially_paid' | 'unpaid' | 'reversed'
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all'); // 'all' | 'cash' | 'bank_transfer' | 'easypaisa' | 'jazzcash' | 'cheque'
+  const [showFilters, setShowFilters] = useState<boolean>(false);
 
   // Search & Selection State
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -552,64 +554,9 @@ export const FeeReversalsView: React.FC = () => {
       {/* SECTION 1: FULL-WIDTH FEE REVERSALS DESK */}
       {/* ========================================================================= */}
       {activeSection === 'desk' && (
-        <div className="space-y-4">
-          {/* High-Density Metric Strip at Top of Desk */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block font-mono">
-                Total Invoiced
-              </span>
-              <span className="text-base font-mono font-bold text-slate-900 mt-1 block">
-                PKR {totalInvoiced.toLocaleString()}
-              </span>
-              <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
-                {isSameBillingMonth(selectedMonth, currentMonthName) ? 'Current Month' : selectedMonth === 'all' ? 'All Months' : selectedMonth}
-              </span>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block font-mono">
-                Total Collected
-              </span>
-              <span className="text-base font-mono font-bold text-emerald-700 mt-1 block">
-                PKR {totalCollected.toLocaleString()}
-              </span>
-              <span className="text-[10px] text-emerald-600/80 mt-0.5 block truncate">
-                Realized Receipts
-              </span>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block font-mono">
-                Outstanding Balance
-              </span>
-              <span
-                className={`text-base font-mono font-bold mt-1 block ${
-                  totalDue > 0 ? 'text-rose-600' : 'text-emerald-700'
-                }`}
-              >
-                PKR {totalDue.toLocaleString()}
-              </span>
-              <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
-                Unpaid Dues
-              </span>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-2xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block font-mono">
-                Active Receipts
-              </span>
-              <span className="text-base font-mono font-bold text-slate-800 mt-1 block">
-                {displayedPayments.length} Receipt{displayedPayments.length !== 1 ? 's' : ''}
-              </span>
-              <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
-                Eligible for Reversal
-              </span>
-            </div>
-          </div>
-
+        <div className="space-y-3">
           {/* Unified Full-Width Financial Register Card */}
-          <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
             {/* Header & Fast Search Bar */}
             <div className="p-3.5 sm:p-4 border-b border-slate-100 bg-white space-y-3">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
@@ -705,139 +652,46 @@ export const FeeReversalsView: React.FC = () => {
                   )}
                 </div>
 
-                {/* Reset Filters & Matching Count */}
-                <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
-                  {isLoading && (
-                    <span className="flex items-center gap-1.5 text-xs text-indigo-600 font-medium">
-                      <RefreshCw className="w-3 h-3 animate-spin" />
-                      Syncing...
-                    </span>
-                  )}
-                  <span className="text-xs font-mono text-slate-500 px-2 py-1 bg-slate-50 rounded border border-slate-200">
-                    <strong className="text-slate-900">{displayedInvoices.length}</strong> record{displayedInvoices.length !== 1 ? 's' : ''}
+                {/* Collapsible Overview & Filters Toggle Button */}
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs cursor-pointer"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Filters & Overview</span>
+                    {hasActiveFilters && (
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    )}
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  <span className="text-xs font-mono text-slate-500 px-2 py-1.5 bg-slate-50 rounded-xl border border-slate-200">
+                    <strong className="text-slate-900">{displayedInvoices.length}</strong>
                   </span>
+
                   {hasActiveFilters && (
                     <button
                       type="button"
                       onClick={handleResetFilters}
-                      className="px-2.5 py-1 text-xs text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-md font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                      className="px-2.5 py-1.5 text-xs text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                      title="Reset all filters"
                     >
                       <RotateCcw className="w-3 h-3" />
-                      Reset Filters
+                      <span className="hidden sm:inline">Reset</span>
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* 5-Column Filter Controls Row */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 pt-2 border-t border-slate-100">
-                {/* 1. Billing Month (Defaults to Current Month) */}
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1 mb-1 font-mono">
-                    <Filter className="w-3 h-3 text-slate-400" />
-                    Billing Month
-                  </label>
-                  <select
-                    value={selectedMonth}
-                    onChange={e => setSelectedMonth(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800 font-medium focus:outline-none focus:border-indigo-600 cursor-pointer"
-                  >
-                    {availableMonths.map(m => (
-                      <option key={m} value={m}>
-                        {m} {isSameBillingMonth(m, currentMonthName) ? '(Current Month)' : ''}
-                      </option>
-                    ))}
-                    <option value="all">All Months</option>
-                  </select>
-                </div>
-
-                {/* 2. Class / Program */}
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1 font-mono">
-                    Class / Program
-                  </label>
-                  <select
-                    value={selectedProgramId}
-                    onChange={e => {
-                      setSelectedProgramId(e.target.value);
-                      setSelectedBatchId('all');
-                    }}
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800 font-medium focus:outline-none focus:border-indigo-600 cursor-pointer"
-                  >
-                    <option value="all">All Classes</option>
-                    {programs.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 3. Section / Batch */}
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1 font-mono">
-                    Section / Batch
-                  </label>
-                  <select
-                    value={selectedBatchId}
-                    onChange={e => setSelectedBatchId(e.target.value)}
-                    disabled={filteredBatches.length === 0}
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800 font-medium focus:outline-none focus:border-indigo-600 disabled:opacity-50 cursor-pointer"
-                  >
-                    <option value="all">All Sections</option>
-                    {filteredBatches.map(b => (
-                      <option key={b.id} value={b.id}>
-                        Section {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 4. Status / Actionability */}
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1 font-mono">
-                    Fee Status
-                  </label>
-                  <select
-                    value={selectedStatus}
-                    onChange={e => setSelectedStatus(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800 font-medium focus:outline-none focus:border-indigo-600 cursor-pointer"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="paid">Paid (Reversible Receipts)</option>
-                    <option value="partially_paid">Partially Paid</option>
-                    <option value="unpaid">Unpaid (Deletable Challans)</option>
-                    <option value="reversed">Reversed Receipts</option>
-                  </select>
-                </div>
-
-                {/* 5. Payment Method */}
-                <div className="col-span-2 sm:col-span-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1 font-mono">
-                    Payment Method
-                  </label>
-                  <select
-                    value={selectedPaymentMethod}
-                    onChange={e => setSelectedPaymentMethod(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-md text-slate-800 font-medium focus:outline-none focus:border-indigo-600 cursor-pointer"
-                  >
-                    <option value="all">All Methods</option>
-                    <option value="cash">Cash</option>
-                    <option value="bank_transfer">Bank Transfer (IBFT)</option>
-                    <option value="easypaisa">EasyPaisa</option>
-                    <option value="jazzcash">JazzCash</option>
-                    <option value="cheque">Cheque</option>
-                  </select>
-                </div>
-              </div>
-
               {/* Active Single-Student Focused Filter Banner */}
               {selectedStudent && (
-                <div className="flex items-center justify-between p-2.5 bg-indigo-50/70 border border-indigo-200 rounded-md text-xs">
+                <div className="flex items-center justify-between p-2.5 bg-indigo-50/70 border border-indigo-200 rounded-xl text-xs">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-indigo-900 text-[11px] font-semibold">Filtered to student:</span>
                     <strong className="text-slate-900">{selectedStudent.full_name}</strong>
-                    <span className="px-1.5 py-0.2 rounded bg-white text-slate-800 font-mono font-bold text-[10px] border border-indigo-200">
+                    <span className="px-1.5 py-0.2 rounded bg-white text-slate-800 font-mono font-semibold text-[10px] border border-indigo-200">
                       Adm #{selectedStudent.admission_number || selectedStudent.roll_number || '—'}
                     </span>
                     <span className="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 font-semibold text-[10px]">
@@ -848,13 +702,173 @@ export const FeeReversalsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setSelectedStudentId(null)}
-                    className="px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded border border-slate-200 flex items-center gap-1 shrink-0 cursor-pointer"
+                    className="px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 flex items-center gap-1 shrink-0 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                     Show All Students
                   </button>
                 </div>
               )}
+
+              {/* Collapsible Overview & Secondary Filters Container */}
+              <div className={showFilters ? 'block space-y-3 pt-2 border-t border-slate-100' : 'hidden sm:block sm:space-y-3 sm:pt-2 sm:border-t sm:border-slate-100'}>
+                {/* Metric Strip */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 shadow-2xs">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block font-mono">
+                      Total Invoiced
+                    </span>
+                    <span className="text-sm sm:text-base font-mono font-semibold text-slate-900 mt-0.5 block">
+                      PKR {totalInvoiced.toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
+                      {isSameBillingMonth(selectedMonth, currentMonthName) ? 'Current Month' : selectedMonth === 'all' ? 'All Months' : selectedMonth}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 shadow-2xs">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block font-mono">
+                      Total Collected
+                    </span>
+                    <span className="text-sm sm:text-base font-mono font-semibold text-emerald-700 mt-0.5 block">
+                      PKR {totalCollected.toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-emerald-600/80 mt-0.5 block truncate">
+                      Realized Receipts
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 shadow-2xs">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block font-mono">
+                      Outstanding Balance
+                    </span>
+                    <span
+                      className={`text-sm sm:text-base font-mono font-semibold mt-0.5 block ${
+                        totalDue > 0 ? 'text-rose-600' : 'text-emerald-700'
+                      }`}
+                    >
+                      PKR {totalDue.toLocaleString()}
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
+                      Unpaid Dues
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3 shadow-2xs">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block font-mono">
+                      Active Receipts
+                    </span>
+                    <span className="text-sm sm:text-base font-mono font-semibold text-slate-800 mt-0.5 block">
+                      {displayedPayments.length} Receipt{displayedPayments.length !== 1 ? 's' : ''}
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
+                      Eligible for Reversal
+                    </span>
+                  </div>
+                </div>
+
+                {/* 5-Column Filter Controls Row */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                  {/* 1. Billing Month */}
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1 mb-1 font-mono">
+                      <Filter className="w-3 h-3 text-slate-400" />
+                      Billing Month
+                    </label>
+                    <select
+                      value={selectedMonth}
+                      onChange={e => setSelectedMonth(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-medium focus:outline-none focus:border-indigo-600 cursor-pointer"
+                    >
+                      {availableMonths.map(m => (
+                        <option key={m} value={m}>
+                          {m} {isSameBillingMonth(m, currentMonthName) ? '(Current Month)' : ''}
+                        </option>
+                      ))}
+                      <option value="all">All Months</option>
+                    </select>
+                  </div>
+
+                  {/* 2. Class / Program */}
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block mb-1 font-mono">
+                      Class / Program
+                    </label>
+                    <select
+                      value={selectedProgramId}
+                      onChange={e => {
+                        setSelectedProgramId(e.target.value);
+                        setSelectedBatchId('all');
+                      }}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-medium focus:outline-none focus:border-indigo-600 cursor-pointer"
+                    >
+                      <option value="all">All Classes</option>
+                      {programs.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 3. Section / Batch */}
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block mb-1 font-mono">
+                      Section / Batch
+                    </label>
+                    <select
+                      value={selectedBatchId}
+                      onChange={e => setSelectedBatchId(e.target.value)}
+                      disabled={filteredBatches.length === 0}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-medium focus:outline-none focus:border-indigo-600 disabled:opacity-50 cursor-pointer"
+                    >
+                      <option value="all">All Sections</option>
+                      {filteredBatches.map(b => (
+                        <option key={b.id} value={b.id}>
+                          Section {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* 4. Fee Status */}
+                  <div>
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block mb-1 font-mono">
+                      Fee Status
+                    </label>
+                    <select
+                      value={selectedStatus}
+                      onChange={e => setSelectedStatus(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-medium focus:outline-none focus:border-indigo-600 cursor-pointer"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="paid">Paid (Reversible Receipts)</option>
+                      <option value="partially_paid">Partially Paid</option>
+                      <option value="unpaid">Unpaid (Deletable Challans)</option>
+                      <option value="reversed">Reversed Receipts</option>
+                    </select>
+                  </div>
+
+                  {/* 5. Payment Method */}
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block mb-1 font-mono">
+                      Payment Method
+                    </label>
+                    <select
+                      value={selectedPaymentMethod}
+                      onChange={e => setSelectedPaymentMethod(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-medium focus:outline-none focus:border-indigo-600 cursor-pointer"
+                    >
+                      <option value="all">All Methods</option>
+                      <option value="cash">Cash</option>
+                      <option value="bank_transfer">Bank Transfer (IBFT)</option>
+                      <option value="easypaisa">EasyPaisa</option>
+                      <option value="jazzcash">JazzCash</option>
+                      <option value="cheque">Cheque</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Register Data Table */}
@@ -876,158 +890,260 @@ export const FeeReversalsView: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-700">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase tracking-wider font-mono">
-                    <tr>
-                      <th className="py-2.5 px-3">Student</th>
-                      <th className="py-2.5 px-3">Challan #</th>
-                      <th className="py-2.5 px-3">Receipt #</th>
-                      <th className="py-2.5 px-3">Date</th>
-                      <th className="py-2.5 px-3">Method</th>
-                      <th className="py-2.5 px-3 text-right">Net Amount</th>
-                      <th className="py-2.5 px-3 text-right">Paid Amount</th>
-                      <th className="py-2.5 px-3 text-right">Balance Due</th>
-                      <th className="py-2.5 px-3 text-center">Status</th>
-                      <th className="py-2.5 px-3 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
-                    {displayedInvoices.map(inv => {
-                      const student = students.find(s => s.id === inv.student_id);
-                      const linkedPayments = payments.filter(p => p.invoice_id === inv.id);
-                      const activePayment = linkedPayments.find(p => p.status !== 'voided');
-                      const voidedPayments = linkedPayments.filter(p => p.status === 'voided');
+              <>
+                {/* Desktop 10-Column Master Register (>= 768px) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-700">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-[10px] font-semibold text-slate-600 uppercase tracking-wider font-mono">
+                      <tr>
+                        <th className="py-2.5 px-3">Student</th>
+                        <th className="py-2.5 px-3">Challan #</th>
+                        <th className="py-2.5 px-3">Receipt #</th>
+                        <th className="py-2.5 px-3">Date</th>
+                        <th className="py-2.5 px-3">Method</th>
+                        <th className="py-2.5 px-3 text-right">Net Amount</th>
+                        <th className="py-2.5 px-3 text-right">Paid Amount</th>
+                        <th className="py-2.5 px-3 text-right">Balance Due</th>
+                        <th className="py-2.5 px-3 text-center">Status</th>
+                        <th className="py-2.5 px-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                      {displayedInvoices.map(inv => {
+                        const student = students.find(s => s.id === inv.student_id);
+                        const linkedPayments = payments.filter(p => p.invoice_id === inv.id);
+                        const activePayment = linkedPayments.find(p => p.status !== 'voided');
+                        const voidedPayments = linkedPayments.filter(p => p.status === 'voided');
 
-                      return (
-                        <tr key={inv.id} className="hover:bg-slate-50/70 transition-colors">
-                          {/* Student */}
-                          <td className="py-2.5 px-3 font-sans whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-xs shrink-0 uppercase">
-                                {student?.full_name?.charAt(0) || inv.student_name?.charAt(0) || 'S'}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => setSelectedStudentId(inv.student_id)}
-                                    className="font-bold text-slate-900 hover:text-indigo-600 transition-colors text-left cursor-pointer"
-                                    title="Click to focus on this student"
-                                  >
-                                    {student?.full_name || inv.student_name}
-                                  </button>
-                                  <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[10px] font-mono font-semibold">
-                                    Adm #{inv.admission_number || student?.admission_number || inv.roll_number || student?.roll_number || '—'}
-                                  </span>
+                        return (
+                          <tr key={inv.id} className="hover:bg-slate-50/70 transition-colors">
+                            {/* Student */}
+                            <td className="py-2.5 px-3 font-sans whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded bg-slate-100 border border-slate-200 flex items-center justify-center font-semibold text-slate-700 text-xs shrink-0 uppercase">
+                                  {student?.full_name?.charAt(0) || inv.student_name?.charAt(0) || 'S'}
                                 </div>
-                                <p className="text-[10px] text-slate-500 mt-0.5">
-                                  {getProgramName(inv.program_id || student?.program_id)}
-                                  {getBatchName(inv.batch_id || student?.batch_id) ? ` • ${getBatchName(inv.batch_id || student?.batch_id)}` : ''}
-                                </p>
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedStudentId(inv.student_id)}
+                                      className="font-semibold text-slate-900 hover:text-indigo-600 transition-colors text-left cursor-pointer"
+                                      title="Click to focus on this student"
+                                    >
+                                      {student?.full_name || inv.student_name}
+                                    </button>
+                                    <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 text-[10px] font-mono">
+                                      Adm #{inv.admission_number || student?.admission_number || inv.roll_number || student?.roll_number || '—'}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-500 mt-0.5">
+                                    {getProgramName(inv.program_id || student?.program_id)}
+                                    {getBatchName(inv.batch_id || student?.batch_id) ? ` • ${getBatchName(inv.batch_id || student?.batch_id)}` : ''}
+                                  </p>
+                                </div>
                               </div>
-                            </div>
-                          </td>
+                            </td>
 
-                          {/* Challan # */}
-                          <td className="py-2.5 px-3 whitespace-nowrap">
-                            <span className="font-bold text-slate-900 block">{inv.invoice_number}</span>
-                            <span className="text-[10px] text-slate-500 font-sans block">{inv.billing_month}</span>
-                          </td>
+                            {/* Challan # */}
+                            <td className="py-2.5 px-3 whitespace-nowrap">
+                              <span className="font-semibold text-slate-900 block">{inv.invoice_number}</span>
+                              <span className="text-[10px] text-slate-500 font-sans block">{inv.billing_month}</span>
+                            </td>
 
-                          {/* Receipt # */}
-                          <td className="py-2.5 px-3 font-bold text-slate-800 whitespace-nowrap">
-                            {activePayment?.receipt_number || (voidedPayments.length > 0 ? `${voidedPayments[0].receipt_number} (Reversed)` : '—')}
-                          </td>
+                            {/* Receipt # */}
+                            <td className="py-2.5 px-3 font-semibold text-slate-800 whitespace-nowrap">
+                              {activePayment?.receipt_number || (voidedPayments.length > 0 ? `${voidedPayments[0].receipt_number} (Rev)` : '—')}
+                            </td>
 
-                          {/* Date */}
-                          <td className="py-2.5 px-3 text-slate-600 font-sans whitespace-nowrap">
-                            {activePayment?.payment_date || inv.issue_date || inv.due_date || '—'}
-                          </td>
+                            {/* Date */}
+                            <td className="py-2.5 px-3 text-slate-600 font-sans whitespace-nowrap">
+                              {activePayment?.payment_date || inv.issue_date || inv.due_date || '—'}
+                            </td>
 
-                          {/* Method */}
-                          <td className="py-2.5 px-3 capitalize font-sans text-slate-600 whitespace-nowrap">
-                            {activePayment ? activePayment.payment_method?.replace('_', ' ') : '—'}
-                          </td>
+                            {/* Method */}
+                            <td className="py-2.5 px-3 capitalize font-sans text-slate-600 whitespace-nowrap">
+                              {activePayment ? activePayment.payment_method?.replace('_', ' ') : '—'}
+                            </td>
 
-                          {/* Net */}
-                          <td className="py-2.5 px-3 text-right font-bold text-slate-900 whitespace-nowrap">
-                            PKR {inv.net_amount.toLocaleString()}
-                          </td>
+                            {/* Net */}
+                            <td className="py-2.5 px-3 text-right font-semibold text-slate-900 whitespace-nowrap">
+                              PKR {inv.net_amount.toLocaleString()}
+                            </td>
 
-                          {/* Paid */}
-                          <td className="py-2.5 px-3 text-right font-bold text-emerald-700 whitespace-nowrap">
-                            PKR {(inv.paid_amount || 0).toLocaleString()}
-                          </td>
+                            {/* Paid */}
+                            <td className="py-2.5 px-3 text-right font-semibold text-emerald-700 whitespace-nowrap">
+                              PKR {(inv.paid_amount || 0).toLocaleString()}
+                            </td>
 
-                          {/* Balance */}
-                          <td
-                            className={`py-2.5 px-3 text-right font-bold whitespace-nowrap ${
-                              inv.balance_amount > 0 ? 'text-rose-600' : 'text-emerald-600'
-                            }`}
-                          >
-                            PKR {inv.balance_amount.toLocaleString()}
-                          </td>
-
-                          {/* Status */}
-                          <td className="py-2.5 px-3 text-center font-sans whitespace-nowrap">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
-                                inv.status === 'paid'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : inv.status === 'partially_paid'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : voidedPayments.length > 0
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : 'bg-rose-100 text-rose-800'
+                            {/* Balance */}
+                            <td
+                              className={`py-2.5 px-3 text-right font-semibold whitespace-nowrap ${
+                                inv.balance_amount > 0 ? 'text-rose-600' : 'text-emerald-600'
                               }`}
                             >
-                              {inv.status === 'unpaid' && voidedPayments.length > 0
-                                ? 'Reversed'
-                                : inv.status.replace('_', ' ')}
-                            </span>
-                          </td>
+                              PKR {inv.balance_amount.toLocaleString()}
+                            </td>
 
-                          {/* Actions */}
-                          <td className="py-2.5 px-3 text-right font-sans whitespace-nowrap">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {/* Reverse Button */}
-                              {activePayment && (
+                            {/* Status */}
+                            <td className="py-2.5 px-3 text-center font-sans whitespace-nowrap">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase ${
+                                  inv.status === 'paid'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : inv.status === 'partially_paid'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : voidedPayments.length > 0
+                                    ? 'bg-purple-100 text-purple-800'
+                                    : 'bg-rose-100 text-rose-800'
+                                }`}
+                              >
+                                {inv.status === 'unpaid' && voidedPayments.length > 0
+                                  ? 'Reversed'
+                                  : inv.status.replace('_', ' ')}
+                              </span>
+                            </td>
+
+                            {/* Actions: Sleek Icon Buttons */}
+                            <td className="py-2.5 px-3 text-right font-sans whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {activePayment && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setReverseTargetPayment(activePayment);
+                                      setReversalReason('');
+                                    }}
+                                    className="w-7 h-7 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center transition-colors cursor-pointer"
+                                    title="Reverse received payment"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                                  </button>
+                                )}
+
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setReverseTargetPayment(activePayment);
-                                    setReversalReason('');
+                                    setDeleteTargetChallan(inv);
+                                    setDeleteChallanReason('');
                                   }}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 text-xs font-bold rounded-lg transition-colors cursor-pointer"
-                                  title="Reverse received payment and restore dues to challan"
+                                  className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center transition-colors cursor-pointer"
+                                  title="Permanently delete this fee challan"
                                 >
-                                  <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
-                                  <span>Reverse</span>
+                                  <Trash2 className="w-3.5 h-3.5" />
                                 </button>
-                              )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
 
-                              {/* Delete Button */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDeleteTargetChallan(inv);
-                                  setDeleteChallanReason('');
-                                }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-lg transition-colors cursor-pointer"
-                                title="Permanently delete this fee challan and payment"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span>Delete</span>
-                              </button>
+                {/* Mobile Flat Record Cards (< 768px) - Zero Card within Card */}
+                <div className="md:hidden divide-y divide-slate-100">
+                  {displayedInvoices.map(inv => {
+                    const student = students.find(s => s.id === inv.student_id);
+                    const linkedPayments = payments.filter(p => p.invoice_id === inv.id);
+                    const activePayment = linkedPayments.find(p => p.status !== 'voided');
+                    const voidedPayments = linkedPayments.filter(p => p.status === 'voided');
+
+                    return (
+                      <div key={inv.id} className="p-3.5 space-y-2">
+                        {/* Top: Student & Status */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-7 h-7 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center font-semibold text-slate-700 text-xs shrink-0 uppercase">
+                              {student?.full_name?.charAt(0) || inv.student_name?.charAt(0) || 'S'}
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-semibold text-xs text-slate-900 truncate">
+                                  {student?.full_name || inv.student_name}
+                                </span>
+                                <span className="text-[10px] font-mono text-slate-400">
+                                  #{inv.admission_number || student?.admission_number || '—'}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-500 truncate">
+                                {getProgramName(inv.program_id || student?.program_id)}
+                                {getBatchName(inv.batch_id || student?.batch_id) ? ` • ${getBatchName(inv.batch_id || student?.batch_id)}` : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase shrink-0 ${
+                              inv.status === 'paid'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : inv.status === 'partially_paid'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : voidedPayments.length > 0
+                                ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            }`}
+                          >
+                            {inv.status === 'unpaid' && voidedPayments.length > 0
+                              ? 'Reversed'
+                              : inv.status.replace('_', ' ')}
+                          </span>
+                        </div>
+
+                        {/* Challan & Receipt Info */}
+                        <div className="text-[11px] text-slate-600 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                          <span>Challan: <strong className="font-mono text-slate-800">{inv.invoice_number}</strong> ({inv.billing_month})</span>
+                          {activePayment && (
+                            <span>Receipt: <strong className="font-mono text-slate-800">{activePayment.receipt_number}</strong> ({activePayment.payment_method?.replace('_', ' ')})</span>
+                          )}
+                        </div>
+
+                        {/* Financial Strip */}
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-100 font-mono">
+                          <div>
+                            <span className="text-[10px] text-slate-400 block font-sans">Net / Paid</span>
+                            <span className="font-semibold text-slate-800">PKR {inv.net_amount.toLocaleString()}</span>
+                            <span className="text-emerald-600 ml-1">({(inv.paid_amount || 0).toLocaleString()})</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-slate-400 block font-sans">Balance Due</span>
+                            <span className={`font-semibold ${inv.balance_amount > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                              PKR {inv.balance_amount.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Actions: Sleek 32px Icon Buttons */}
+                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                          {activePayment && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setReverseTargetPayment(activePayment);
+                                setReversalReason('');
+                              }}
+                              className="w-8 h-8 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center transition-colors cursor-pointer"
+                              title="Reverse received payment"
+                            >
+                              <RotateCcw className="w-4 h-4 text-amber-700" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteTargetChallan(inv);
+                              setDeleteChallanReason('');
+                            }}
+                            className="w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center transition-colors cursor-pointer"
+                            title="Delete fee challan"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
         </div>

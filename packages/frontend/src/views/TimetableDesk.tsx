@@ -447,21 +447,21 @@ export const TimetableDesk: React.FC = () => {
                   );
                 })()}
 
-                {/* Teacher & Substitute Status */}
-                <div className="mt-3 p-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs space-y-1">
+                {/* Teacher & Substitute Status - Flat divider, no card-in-card */}
+                <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Assigned Teacher:</span>
-                    <span className={`font-bold ${slot.substitute_teacher_id ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                    <span className={`font-semibold ${slot.substitute_teacher_id ? 'line-through text-slate-400' : 'text-slate-800'}`}>
                       {slot.teacher_name || 'Faculty Member'}
                     </span>
                   </div>
 
                   {slot.substitute_teacher_id && (
-                    <div className="flex items-center justify-between text-amber-700 pt-1 border-t border-amber-100 font-medium">
-                      <span className="flex items-center gap-1 text-[11px] font-bold">
+                    <div className="flex items-center justify-between text-amber-700 pt-1 border-t border-amber-100/70 font-medium">
+                      <span className="flex items-center gap-1 text-[11px] font-semibold">
                         <UserCheck className="w-3.5 h-3.5" /> Substitute:
                       </span>
-                      <span className="font-bold text-xs">{slot.substitute_teacher_name || 'Substitute'}</span>
+                      <span className="font-semibold text-xs">{slot.substitute_teacher_name || 'Substitute'}</span>
                     </div>
                   )}
 
@@ -470,7 +470,7 @@ export const TimetableDesk: React.FC = () => {
                       <span className="flex items-center gap-1">
                         <Building2 className="w-3 h-3 text-slate-400" /> Physical Venue:
                       </span>
-                      <span className="font-semibold text-slate-700">{slot.room_name}</span>
+                      <span className="font-medium text-slate-700">{slot.room_name}</span>
                     </div>
                   )}
                 </div>

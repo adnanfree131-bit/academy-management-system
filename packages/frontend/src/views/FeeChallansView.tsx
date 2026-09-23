@@ -709,15 +709,15 @@ export const FeeChallansView: React.FC = () => {
                   </div>
 
                   {matchedSingleStudent ? (
-                    <div className="p-3 bg-indigo-50/50 border border-indigo-200 rounded-xl text-xs space-y-1.5">
+                    <div className="py-2.5 px-3 border-l-2 border-indigo-500 bg-indigo-50/30 rounded-r-lg text-xs space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">{matchedSingleStudent.full_name}</span>
-                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-mono font-bold text-[10px]">
+                        <span className="font-semibold text-slate-900">{matchedSingleStudent.full_name}</span>
+                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-mono font-medium text-[10px]">
                           Adm #{matchedSingleStudent.admission_number}
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-600">
-                        Class: <strong>{getProgramName(matchedSingleStudent.program_id)}</strong>
+                        Class: <span className="font-semibold">{getProgramName(matchedSingleStudent.program_id)}</span>
                         {matchedSingleStudent.batch_id ? ` • ${getBatchName(matchedSingleStudent.batch_id)}` : ''}
                         {' • '}Father: {matchedSingleStudent.father_name || matchedSingleStudent.guardian_name || '—'}
                       </p>
@@ -731,7 +731,7 @@ export const FeeChallansView: React.FC = () => {
                         ) : null;
                       })()}
                       {singleStudentDuplicateChallan && (
-                        <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-[11px] flex items-center gap-1.5">
+                        <div className="pt-1 text-rose-700 text-[11px] flex items-center gap-1.5 font-medium">
                           <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
                           <span>
                             Duplicate Shield: Challan #{singleStudentDuplicateChallan.invoice_number} already exists for {genMonth}.
@@ -847,12 +847,12 @@ export const FeeChallansView: React.FC = () => {
                   </div>
 
                   {additionalHeadsToAdd.length > 0 && (
-                    <div className="bg-slate-50 border border-slate-200 rounded-lg divide-y divide-slate-200 overflow-hidden">
+                    <div className="border-y border-slate-100 divide-y divide-slate-100 py-1">
                       {additionalHeadsToAdd.map(item => {
                         const head = feeHeads.find(h => h.id === item.fee_head_id);
                         return (
-                          <div key={item.fee_head_id} className="p-2 flex items-center justify-between text-xs">
-                            <span className="font-semibold text-slate-800">{head?.name || 'Fee Head'}</span>
+                          <div key={item.fee_head_id} className="py-2 px-1 flex items-center justify-between text-xs">
+                            <span className="font-medium text-slate-800">{head?.name || 'Fee Head'}</span>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] text-slate-500 font-mono">PKR</span>
                               <input
@@ -865,12 +865,12 @@ export const FeeChallansView: React.FC = () => {
                                   const val = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
                                   setAdditionalHeadsToAdd(prev => prev.map(a => a.fee_head_id === item.fee_head_id ? { ...a, amount: val } : a));
                                 }}
-                                className="w-20 px-2 py-0.5 text-right font-mono font-bold text-xs bg-white border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
+                                className="w-20 px-2 py-0.5 text-right font-mono font-medium text-xs bg-white border border-slate-200 rounded focus:outline-none focus:border-slate-800"
                               />
                               <button
                                 type="button"
                                 onClick={() => setAdditionalHeadsToAdd(prev => prev.filter(a => a.fee_head_id !== item.fee_head_id))}
-                                className="p-1 text-slate-400 hover:text-rose-600 rounded"
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
                               >
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -997,8 +997,8 @@ export const FeeChallansView: React.FC = () => {
 
             {matchedEditStudent && (
               <div className="space-y-4">
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs">
-                  <p className="font-bold text-slate-900">{matchedEditStudent.full_name}</p>
+                <div className="py-2 border-b border-slate-100 text-xs">
+                  <p className="font-semibold text-slate-900">{matchedEditStudent.full_name}</p>
                   <p className="text-slate-500 font-mono mt-0.5">
                     Adm #{matchedEditStudent.admission_number}
                   </p>
@@ -1022,7 +1022,7 @@ export const FeeChallansView: React.FC = () => {
                 ) : (
                   <>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1.5">Billing month</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1.5">Billing month</label>
                       <div className="flex flex-wrap gap-1.5">
                         {editStudentInvoices.map(inv => (
                           <button
@@ -1043,9 +1043,9 @@ export const FeeChallansView: React.FC = () => {
                     </div>
 
                     {editingInvoice && editingInvoice.student_id === matchedEditStudent.id && (
-                      <div className="space-y-3 text-xs border border-slate-200 rounded-lg p-4">
+                      <div className="space-y-3 text-xs pt-3 border-t border-slate-100">
                         <div className="flex justify-between items-center">
-                          <p className="font-bold text-slate-900">Challan {editingInvoice.invoice_number}</p>
+                          <p className="font-semibold text-slate-900">Challan {editingInvoice.invoice_number}</p>
                           <button
                             type="button"
                             onClick={() => void handlePreviewAndPrint([editingInvoice])}
@@ -1166,11 +1166,11 @@ export const FeeChallansView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Fee Heads Breakdown</label>
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 divide-y divide-slate-200 space-y-1.5">
+                <label className="block text-slate-700 font-semibold mb-1">Fee Heads Breakdown</label>
+                <div className="border border-slate-200 rounded-xl p-2.5 divide-y divide-slate-100 space-y-1.5 bg-white">
                   {editItems.map((item, idx) => (
                     <div key={idx} className="pt-1.5 first:pt-0 flex items-center justify-between gap-2">
-                      <span className="font-semibold text-slate-800">{item.head_name}</span>
+                      <span className="font-medium text-slate-800">{item.head_name}</span>
                       <div className="flex items-center gap-1.5">
                         <span className="font-mono text-slate-400 text-[10px]">PKR</span>
                         <input
@@ -1181,7 +1181,7 @@ export const FeeChallansView: React.FC = () => {
                             const val = Number(e.target.value) || 0;
                             setEditItems(prev => prev.map((it, i) => i === idx ? { ...it, amount: val } : it));
                           }}
-                          className="w-24 px-2 py-1 text-right font-mono font-bold bg-white border border-slate-300 rounded"
+                          className="w-24 px-2 py-1 text-right font-mono font-medium bg-slate-50 border border-slate-200 rounded"
                         />
                       </div>
                     </div>
@@ -1190,7 +1190,7 @@ export const FeeChallansView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-bold mb-1">Notes / Remarks</label>
+                <label className="block text-slate-700 font-semibold mb-1">Notes / Remarks</label>
                 <input
                   type="text"
                   value={editNotes}

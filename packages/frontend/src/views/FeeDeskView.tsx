@@ -27,18 +27,16 @@ import {
   Users,
   Calendar,
   ArrowRight,
-  Phone
+  Phone,
+  ChevronDown,
+  SlidersHorizontal,
+  User,
+  RotateCcw
 } from 'lucide-react';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import { buildTabularFeeReportPdfBytes } from '../lib/feeReportsPdf';
 import { InPortalPdfViewerModal } from '../components/InPortalPdfViewerModal';
 import { ModernSelect } from '../components/ModernSelect';
-import { 
-  MobileFilterSheet, 
-  FilterPillButton, 
-  FilterChipGroup, 
-  FilterChip
-} from '../components/mobile';
 import { useMobileOverlay } from '../lib/mobileOverlay';
 import {
   FeeHead,
@@ -83,7 +81,8 @@ export const FeeDeskView: React.FC = () => {
   const [unpaidMonthsFilter, setUnpaidMonthsFilter] = useState<'any' | '1' | '2' | '3+'>('any');
   const [selectedDefaulterHead, setSelectedDefaulterHead] = useState<string>('all');
   const [selectedDefaulterModal, setSelectedDefaulterModal] = useState<any | null>(null);
-  const [showMobileDefaulterFilterSheet, setShowMobileDefaulterFilterSheet] = useState<boolean>(false);
+  const [showCashierSummaryAndFilter, setShowCashierSummaryAndFilter] = useState<boolean>(false);
+  const [showDefaulterSummaryAndFilter, setShowDefaulterSummaryAndFilter] = useState<boolean>(false);
 
   const activeDefaulterFilterCount = useMemo(() => {
     let count = 0;
@@ -645,11 +644,11 @@ export const FeeDeskView: React.FC = () => {
         if (searchQuery) {
           const q = searchQuery.toLowerCase();
           const hit =
-            def.student_name.toLowerCase().includes(q) ||
-            (def.admission_number && def.admission_number.toLowerCase().includes(q)) ||
-            def.father_name.toLowerCase().includes(q) ||
-            def.guardian_phone.toLowerCase().includes(q) ||
-            def.unpaid_months.some(m => m.toLowerCase().includes(q));
+            (def.student_name?.toLowerCase().includes(q) ?? false) ||
+            (def.admission_number?.toLowerCase().includes(q) ?? false) ||
+            (def.father_name?.toLowerCase().includes(q) ?? false) ||
+            (def.guardian_phone?.toLowerCase().includes(q) ?? false) ||
+            def.unpaid_months.some(m => m?.toLowerCase().includes(q));
           if (!hit) return false;
         }
         const monthCount = def.unpaid_months.length;
@@ -1262,7 +1261,7 @@ export const FeeDeskView: React.FC = () => {
       } else if (reportType === 'month_wise') {
         title = `Monthly Fee Billing Summary: ${reportMonth}`;
         filename = `Monthly_Fee_Summary_${reportMonth.replace(/\s+/g, '_')}.pdf`;
-        const monthInvoices = invoices.filter(i => i.billing_month.toLowerCase() === reportMonth.toLowerCase());
+        const monthInvoices = invoices.filter(i => (i.billing_month || '').toLowerCase() === (reportMonth || '').toLowerCase());
         const billed = monthInvoices.reduce((s, i) => s + i.net_amount, 0);
         const collected = monthInvoices.reduce((s, i) => s + i.paid_amount, 0);
         const pending = monthInvoices.reduce((s, i) => s + i.balance_amount, 0);
@@ -2323,150 +2322,139 @@ export const FeeDeskView: React.FC = () => {
       {/* TAB: FEES RECEIVING (Hero Search, Popup Selector & 3-Section Dossier) */}
       {activeTab === 'cashier' && (
         <div className="space-y-2.5 sm:space-y-3">
-          {/* Hero Search & Action Bar */}
-          <div className="bg-white border border-slate-200 rounded-xl p-2 sm:p-2.5 shadow-2xs">
-            <form
-              onSubmit={e => {
-                e.preventDefault();
-                setShowSearchPopup(true);
-              }}
-              className="flex flex-col sm:flex-row gap-2"
-            >
-              <div className="flex items-center gap-2 flex-1">
-                <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Search student, Roll #, Phone, CNIC..."
-                    aria-label="Search by student name, admission number, phone, or CNIC"
-                    value={cashierSearch}
-                    onChange={e => {
-                      const next = e.target.value;
-                      setCashierSearch(next);
-                      if (next.trim()) setShowSearchPopup(true);
-                      else setShowSearchPopup(false);
-                    }}
-                    className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50/70 border border-slate-200 rounded-lg focus:outline-none focus:border-amber-600 focus:bg-white text-slate-900 transition-colors"
-                  />
-                  {cashierSearch && (
+          {/* Controls Toolbar: Standalone Search Bar + Single Expand Button for Summary & Filter */}
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  setShowSearchPopup(true);
+                }}
+                className="relative flex-1"
+              >
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search student by name, Roll #, Phone, CNIC..."
+                  aria-label="Search by student name, admission number, phone, or CNIC"
+                  value={cashierSearch}
+                  onChange={e => {
+                    const next = e.target.value;
+                    setCashierSearch(next);
+                    if (next.trim()) setShowSearchPopup(true);
+                    else setShowSearchPopup(false);
+                  }}
+                  className="w-full pl-8 pr-7 py-2 sm:py-1.5 text-xs bg-slate-50/70 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-amber-600 text-slate-900 transition-colors font-sans"
+                />
+                {cashierSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setCashierSearch('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </form>
+
+              {/* Single Button to Expand Summary & Class Filter */}
+              <button
+                type="button"
+                onClick={() => setShowCashierSummaryAndFilter(prev => !prev)}
+                className={`h-9 sm:h-8 px-3 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
+                  showCashierSummaryAndFilter || cashierClassFilter !== 'all'
+                    ? 'bg-amber-50 text-amber-900 border-amber-300'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+                title="Toggle Summary & Filter"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden xs:inline">Summary & Filter</span>
+                <span className="xs:hidden">Summary</span>
+                {cashierClassFilter !== 'all' && (
+                  <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
+                    1
+                  </span>
+                )}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showCashierSummaryAndFilter ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+
+            {/* Expandable Section: 4 Summary Cards + Class Filter (Collapsed by default on mobile) */}
+            {showCashierSummaryAndFilter && (
+              <div className="mt-3 pt-3 border-t border-slate-100 space-y-3 animate-in fade-in duration-150">
+                {/* 4 Financial Summary Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Total Invoiced</span>
+                      <span className="font-mono font-semibold text-slate-800 text-xs sm:text-sm">
+                        PKR {duesSummary.totalInvoiced.toLocaleString()}
+                      </span>
+                    </div>
+                    <CreditCard className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Collections</span>
+                      <span className="font-mono font-semibold text-emerald-700 text-xs sm:text-sm">
+                        PKR {duesSummary.totalCollected.toLocaleString()}
+                      </span>
+                    </div>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Overdue Receivables</span>
+                      <span className="font-mono font-semibold text-rose-600 text-xs sm:text-sm">
+                        PKR {duesSummary.allAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-2 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-medium text-slate-400 block">Defaulters</span>
+                      <span className="font-mono font-semibold text-slate-800 text-xs sm:text-sm">
+                        {duesSummary.allCount} Students
+                      </span>
+                    </div>
+                    <Users className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  </div>
+                </div>
+
+                {/* Class Filter Row */}
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="w-full sm:w-60">
+                    <ModernSelect
+                      value={cashierClassFilter}
+                      onChange={val => setCashierClassFilter(val)}
+                      buttonClassName="bg-white border-slate-200 text-xs py-1.5"
+                    >
+                      <option value="all">All Classes ({programs.length})</option>
+                      {programs.map(p => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </ModernSelect>
+                  </div>
+                  {cashierClassFilter !== 'all' && (
                     <button
                       type="button"
-                      onClick={() => setCashierSearch('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                      onClick={() => setCashierClassFilter('all')}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer shrink-0"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Reset</span>
                     </button>
                   )}
                 </div>
-
-                <button
-                  type="submit"
-                  className="sm:hidden h-8.5 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-                >
-                  <Search className="w-3.5 h-3.5" />
-                </button>
               </div>
-
-              {/* Class Filter */}
-              <div className="w-full sm:w-48 shrink-0">
-                <ModernSelect
-                  value={cashierClassFilter}
-                  onChange={val => setCashierClassFilter(val)}
-                  buttonClassName="bg-slate-50/70 border-slate-200 text-xs py-1.5"
-                >
-                  <option value="all">All Classes ({programs.length})</option>
-                  {programs.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </ModernSelect>
-              </div>
-
-              <button
-                type="submit"
-                className="hidden sm:flex h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white font-semibold text-xs rounded-lg shadow-xs transition-all items-center justify-center gap-1.5 cursor-pointer shrink-0"
-              >
-                <Search className="w-3.5 h-3.5" />
-                <span>Search</span>
-              </button>
-            </form>
+            )}
           </div>
 
           {/* When No Student Selected: Active Dues Register */}
           {!selectedStudent && (
             <div className="space-y-2.5 sm:space-y-3">
-              {/* 4-Card Financial Summary Strip */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5">
-                {/* Card 1: Total Invoiced */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-indigo-600 rounded-xl px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center justify-between shadow-2xs">
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                      Total Invoiced
-                    </span>
-                    <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm leading-none">
-                        PKR {duesSummary.totalInvoiced.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-indigo-50 text-indigo-700 flex items-center justify-center border border-indigo-200/70 shrink-0 shadow-2xs">
-                    <CreditCard className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-700" />
-                  </span>
-                </div>
-
-                {/* Card 2: Realized Collections */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-emerald-600 rounded-xl px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center justify-between shadow-2xs">
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                      Realized Collections
-                    </span>
-                    <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-mono font-bold text-emerald-700 text-xs sm:text-sm leading-none">
-                        PKR {duesSummary.totalCollected.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200/70 shrink-0 shadow-2xs">
-                    <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-700" />
-                  </span>
-                </div>
-
-                {/* Card 3: Overdue Receivables */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-rose-600 rounded-xl px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center justify-between shadow-2xs">
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                      Overdue Receivables
-                    </span>
-                    <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-mono font-bold text-rose-600 text-xs sm:text-sm leading-none">
-                        PKR {duesSummary.allAmount.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center border border-rose-200/70 shrink-0 shadow-2xs">
-                    <AlertCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-rose-700" />
-                  </span>
-                </div>
-
-                {/* Card 4: Defaulter Students */}
-                <div className="bg-white border border-slate-200/85 border-l-[3.5px] border-l-amber-600 rounded-xl px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center justify-between shadow-2xs">
-                  <div className="min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
-                      Defaulters
-                    </span>
-                    <div className="flex items-baseline gap-1 mt-0.5">
-                      <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm leading-none">
-                        {duesSummary.allCount}
-                      </span>
-                      <span className="text-[11px] font-medium text-slate-500 leading-none">
-                        Students
-                      </span>
-                    </div>
-                  </div>
-                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200/70 shrink-0 shadow-2xs">
-                    <Users className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-700" />
-                  </span>
-                </div>
-              </div>
 
               {/* Active Dues Table */}
               <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
@@ -3553,311 +3541,193 @@ export const FeeDeskView: React.FC = () => {
 
       {/* TAB 2: DEFAULTERS LIST (Overdue Accounts & Follow-ups) */}
       {activeTab === 'defaulters' && (
-        <div className="space-y-3.5">
-          {/* Top Header & Summary Bar */}
-          <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-rose-600" />
-                    Fee Defaulters & Outstanding Dues
-                  </h3>
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                    {defaultersList.length} Active Records
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Track overdue fees, view unpaid challans, and issue payment notices.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-                {/* Summary Metrics */}
-                <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                  <div>
-                    <span className="text-[10px] font-mono uppercase text-slate-500 block font-semibold">
-                      Filtered Students
-                    </span>
-                    <span className="text-sm font-bold font-mono text-slate-900">
-                      {totalDefaultersCount} Students
-                    </span>
-                  </div>
-                  <div className="h-7 w-px bg-slate-200" />
-                  <div>
-                    <span className="text-[10px] font-mono uppercase text-rose-600 block font-semibold">
-                      Outstanding Amount
-                    </span>
-                    <span className="text-sm font-bold font-mono text-rose-600">
-                      PKR {totalDefaultersAmount.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* PDF Report Export Button */}
-                <button
-                  type="button"
-                  onClick={() => handleOpenReportPdf('defaulters')}
-                  disabled={isGeneratingPdf || defaultersList.length === 0}
-                  className="px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
-                  title="Generate printable PDF of currently filtered defaulters"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>{isGeneratingPdf ? 'Rendering PDF...' : 'Export Defaulters PDF'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Defaulters Table & Controls Card */}
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-            {/* Integrated Toolbar */}
-            <div className="p-3 bg-slate-50/50 border-b border-slate-200 flex flex-col xl:flex-row xl:items-center justify-between gap-2.5">
-              {/* Left: Segmented View Selector */}
-              <div className="flex p-0.5 bg-slate-200/70 rounded-lg border border-slate-200 text-xs font-semibold shrink-0 self-start xl:self-auto">
-                <button
-                  type="button"
-                  onClick={() => setDuesView('all')}
-                  className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                    duesView === 'all'
-                      ? 'bg-white text-slate-900 shadow-xs font-bold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <span>All Outstanding</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
-                    duesView === 'all' ? 'bg-slate-100 text-slate-800' : 'bg-slate-200/80 text-slate-600'
-                  }`}>
-                    {duesSummary.allCount}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDuesView('overdue')}
-                  className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                    duesView === 'overdue'
-                      ? 'bg-white text-rose-700 shadow-xs font-bold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <AlertCircle className="w-3 h-3 text-rose-600" />
-                  <span>Overdue Only</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
-                    duesView === 'overdue' ? 'bg-rose-100 text-rose-800' : 'bg-slate-200/80 text-slate-600'
-                  }`}>
-                    {duesSummary.overdueCount}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDuesView('current')}
-                  className={`px-3 py-1.5 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
-                    duesView === 'current'
-                      ? 'bg-white text-slate-900 shadow-xs font-bold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <span>Current Month</span>
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
-                    duesView === 'current' ? 'bg-slate-100 text-slate-800' : 'bg-slate-200/80 text-slate-600'
-                  }`}>
-                    {duesSummary.currentCount}
-                  </span>
-                </button>
-              </div>
-
-              {/* Mobile Filter Toolbar (< 640px) */}
-              <div className="flex sm:hidden items-center gap-2 w-full">
-                <div className="relative flex-1">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Search student, admission #..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-7 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-slate-400 text-slate-900 shadow-2xs"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-                <FilterPillButton
-                  activeCount={activeDefaulterFilterCount}
-                  onClick={() => setShowMobileDefaulterFilterSheet(true)}
-                  testId="defaulter-filter-pill-button"
+        <div className="space-y-3">
+          {/* Controls Toolbar: Standalone Search Bar + Single Expand Button for Overview & Filters */}
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search defaulters by name, admission #..."
+                  aria-label="Search defaulters by name or admission number"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-7 py-2 sm:py-1.5 text-xs bg-slate-50/70 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-amber-600 text-slate-900 transition-colors font-sans"
                 />
-              </div>
-
-              {/* Mobile Filter Bottom Sheet */}
-              <MobileFilterSheet
-                isOpen={showMobileDefaulterFilterSheet}
-                onClose={() => setShowMobileDefaulterFilterSheet(false)}
-                title="Filter Defaulters"
-                subtitle="Filter by class/batch, overdue period, and fee head"
-                activeFilterCount={activeDefaulterFilterCount}
-                totalResultsCount={defaultersList.length}
-                resultsLabel="Defaulters"
-                testId="defaulter-mobile-filter-sheet"
-                onReset={() => {
-                  setSelectedBatch('all');
-                  setUnpaidMonthsFilter('any');
-                  setSelectedDefaulterHead('all');
-                }}
-              >
-                <FilterChipGroup label="Class / Batch" countBadge={batches.length}>
-                  <FilterChip
-                    selected={selectedBatch === 'all'}
-                    onClick={() => setSelectedBatch('all')}
-                    label="All Classes"
-                    count={batches.length}
-                  />
-                  {batches.map(b => (
-                    <FilterChip
-                      key={b.id}
-                      selected={selectedBatch === b.id}
-                      onClick={() => setSelectedBatch(b.id)}
-                      label={`${getProgramName(b.program_id) ? `${getProgramName(b.program_id)} • ` : ''}${b.name}`}
-                    />
-                  ))}
-                </FilterChipGroup>
-
-                <FilterChipGroup label="Overdue Period">
-                  <FilterChip
-                    selected={unpaidMonthsFilter === 'any'}
-                    onClick={() => setUnpaidMonthsFilter('any')}
-                    label="All Periods"
-                  />
-                  <FilterChip
-                    selected={unpaidMonthsFilter === '1'}
-                    onClick={() => setUnpaidMonthsFilter('1')}
-                    label="1 Month Due"
-                  />
-                  <FilterChip
-                    selected={unpaidMonthsFilter === '2'}
-                    onClick={() => setUnpaidMonthsFilter('2')}
-                    label="2 Months Due"
-                  />
-                  <FilterChip
-                    selected={unpaidMonthsFilter === '3+'}
-                    onClick={() => setUnpaidMonthsFilter('3+')}
-                    label="3+ Months Overdue"
-                  />
-                </FilterChipGroup>
-
-                <FilterChipGroup label="Fee Head" countBadge={feeHeads.filter(h => h.code !== 'ARREARS').length}>
-                  <FilterChip
-                    selected={selectedDefaulterHead === 'all'}
-                    onClick={() => setSelectedDefaulterHead('all')}
-                    label="All Fee Heads"
-                  />
-                  {feeHeads.filter(h => h.code !== 'ARREARS').map(h => (
-                    <FilterChip
-                      key={h.id}
-                      selected={selectedDefaulterHead === h.id}
-                      onClick={() => setSelectedDefaulterHead(h.id)}
-                      label={h.name}
-                    />
-                  ))}
-                </FilterChipGroup>
-              </MobileFilterSheet>
-
-              {/* Desktop: Inline Dropdown Filters & Search (>= 640px) */}
-              <div className="hidden sm:flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                {/* Class & Batch Filter */}
-                <div className="w-48 shrink-0">
-                  <ModernSelect
-                    value={selectedBatch}
-                    onChange={val => setSelectedBatch(val)}
-                    buttonClassName="bg-white border-slate-200"
-                  >
-                    <option value="all">All Classes</option>
-                    {batches.map(b => (
-                      <option key={b.id} value={b.id}>
-                        {getProgramName(b.program_id) ? `${getProgramName(b.program_id)} • ` : ''}{b.name}
-                      </option>
-                    ))}
-                  </ModernSelect>
-                </div>
-
-                {/* Duration Filter */}
-                <div className="w-36 shrink-0">
-                  <ModernSelect
-                    value={unpaidMonthsFilter}
-                    onChange={val => setUnpaidMonthsFilter(val as any)}
-                    buttonClassName="bg-white border-slate-200"
-                  >
-                    <option value="any">All Periods</option>
-                    <option value="1">1 Month</option>
-                    <option value="2">2 Months</option>
-                    <option value="3+">3+ Months</option>
-                  </ModernSelect>
-                </div>
-
-                {/* Fee Head Filter */}
-                <div className="w-40 shrink-0">
-                  <ModernSelect
-                    value={selectedDefaulterHead}
-                    onChange={val => setSelectedDefaulterHead(val)}
-                    buttonClassName="bg-white border-slate-200"
-                  >
-                    <option value="all">All Fee Heads</option>
-                    {feeHeads.filter(h => h.code !== 'ARREARS').map(h => (
-                      <option key={h.id} value={h.id}>
-                        {h.name}
-                      </option>
-                    ))}
-                  </ModernSelect>
-                </div>
-
-                {/* Search Box */}
-                <div className="relative min-w-[180px] sm:w-56 flex-1 sm:flex-none">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search student, admission #..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-7 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500 font-medium placeholder:text-slate-400 shadow-2xs"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs p-0.5"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-
-                {/* Clear Active Filters */}
-                {(selectedBatch !== 'all' || unpaidMonthsFilter !== 'any' || selectedDefaulterHead !== 'all' || searchQuery) && (
+                {searchQuery && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedBatch('all');
-                      setUnpaidMonthsFilter('any');
-                      setSelectedDefaulterHead('all');
-                      setSearchQuery('');
-                    }}
-                    className="px-2 py-1.5 text-rose-600 hover:text-rose-800 hover:bg-rose-50 rounded-lg transition-colors font-semibold text-xs cursor-pointer shrink-0"
-                    title="Reset all filters"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                   >
-                    Reset
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 )}
               </div>
+
+              {/* Single Button to Expand All Overview & Filters */}
+              <button
+                type="button"
+                onClick={() => setShowDefaulterSummaryAndFilter(prev => !prev)}
+                className={`h-9 sm:h-8 px-3 rounded-lg text-xs font-medium border flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 ${
+                  showDefaulterSummaryAndFilter || activeDefaulterFilterCount > 0 || duesView !== 'all'
+                    ? 'bg-amber-50 text-amber-900 border-amber-300'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+                title="Toggle Overview & Filters"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden xs:inline">Filters & Overview</span>
+                <span className="xs:hidden">Filters</span>
+                {(activeDefaulterFilterCount > 0 || duesView !== 'all') && (
+                  <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
+                    {activeDefaulterFilterCount + (duesView !== 'all' ? 1 : 0)}
+                  </span>
+                )}
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showDefaulterSummaryAndFilter ? 'rotate-180' : ''}`} />
+              </button>
             </div>
 
-            {/* Mobile Native High-Density Defaulter Box Cards (< 640px) */}
+            {/* Expandable Section: Overview Metrics, Dues View Tabs & Dropdown Filters (Collapsed by default on mobile) */}
+            {showDefaulterSummaryAndFilter && (
+              <div className="mt-3 pt-3 border-t border-slate-100 space-y-3 animate-in fade-in duration-150">
+                {/* Summary Metrics & PDF Export */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="bg-slate-50 border border-slate-200/80 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
+                      <span className="text-[10px] uppercase font-medium text-slate-400">Filtered:</span>
+                      <span className="font-mono font-semibold text-slate-800 text-xs">{totalDefaultersCount} Students</span>
+                    </div>
+                    <div className="bg-rose-50 border border-rose-200/80 rounded-lg px-2.5 py-1.5 flex items-center gap-2">
+                      <span className="text-[10px] uppercase font-medium text-rose-500">Total Dues:</span>
+                      <span className="font-mono font-semibold text-rose-700 text-xs">PKR {totalDefaultersAmount.toLocaleString()}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleOpenReportPdf('defaulters')}
+                    disabled={isGeneratingPdf || defaultersList.length === 0}
+                    className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-medium text-xs rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto shrink-0 shadow-2xs"
+                    title="Generate printable PDF of currently filtered defaulters"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>{isGeneratingPdf ? 'Rendering PDF...' : 'Export Defaulters PDF'}</span>
+                  </button>
+                </div>
+
+                {/* Dues View Segmented Tabs */}
+                <div className="flex p-0.5 bg-slate-100 rounded-lg border border-slate-200 text-xs font-medium shrink-0 self-start">
+                  <button
+                    type="button"
+                    onClick={() => setDuesView('all')}
+                    className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                      duesView === 'all'
+                        ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>All Outstanding</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-200/80 text-slate-700">{duesSummary.allCount}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDuesView('overdue')}
+                    className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                      duesView === 'overdue'
+                        ? 'bg-white text-rose-700 shadow-2xs font-semibold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <AlertCircle className="w-3 h-3 text-rose-600" />
+                    <span>Overdue</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-rose-100 text-rose-700">{duesSummary.overdueCount}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDuesView('current')}
+                    className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                      duesView === 'current'
+                        ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>Current Month</span>
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-200/80 text-slate-700">{duesSummary.currentCount}</span>
+                  </button>
+                </div>
+
+                {/* Dropdown Filters: Class, Overdue Period, Fee Head */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <div className="w-full sm:w-48">
+                    <ModernSelect
+                      value={selectedBatch}
+                      onChange={val => setSelectedBatch(val)}
+                      buttonClassName="bg-slate-50 border-slate-200 text-xs py-1.5"
+                    >
+                      <option value="all">All Classes</option>
+                      {batches.map(b => (
+                        <option key={b.id} value={b.id}>
+                          {getProgramName(b.program_id) ? `${getProgramName(b.program_id)} • ` : ''}{b.name}
+                        </option>
+                      ))}
+                    </ModernSelect>
+                  </div>
+
+                  <div className="w-full sm:w-36">
+                    <ModernSelect
+                      value={unpaidMonthsFilter}
+                      onChange={val => setUnpaidMonthsFilter(val as any)}
+                      buttonClassName="bg-slate-50 border-slate-200 text-xs py-1.5"
+                    >
+                      <option value="any">All Periods</option>
+                      <option value="1">1 Month</option>
+                      <option value="2">2 Months</option>
+                      <option value="3+">3+ Months</option>
+                    </ModernSelect>
+                  </div>
+
+                  <div className="w-full sm:w-40">
+                    <ModernSelect
+                      value={selectedDefaulterHead}
+                      onChange={val => setSelectedDefaulterHead(val)}
+                      buttonClassName="bg-slate-50 border-slate-200 text-xs py-1.5"
+                    >
+                      <option value="all">All Fee Heads</option>
+                      {feeHeads.filter(h => h.code !== 'ARREARS').map(h => (
+                        <option key={h.id} value={h.id}>
+                          {h.name}
+                        </option>
+                      ))}
+                    </ModernSelect>
+                  </div>
+
+                  {(selectedBatch !== 'all' || unpaidMonthsFilter !== 'any' || selectedDefaulterHead !== 'all' || duesView !== 'all') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedBatch('all');
+                        setUnpaidMonthsFilter('any');
+                        setSelectedDefaulterHead('all');
+                        setDuesView('all');
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Reset</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Defaulters Table & List Container */}
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+            {/* Mobile Native Defaulter Cards (< 640px) */}
             {defaultersList.length > 0 && (
-              <div className="sm:hidden p-3 space-y-3 bg-slate-50/60" data-testid="mobile-defaulters-list">
+              <div className="sm:hidden p-3 space-y-2.5 bg-slate-50/60" data-testid="mobile-defaulters-list">
                 {defaultersList.map(def => {
                   const stud = students.find(s => s.id === def.student_id);
                   const guardianPhone = def.guardian_phone || stud?.guardian_phone || stud?.father_phone || stud?.student_whatsapp || stud?.phone;
@@ -3867,14 +3737,14 @@ export const FeeDeskView: React.FC = () => {
                     <div
                       key={def.student_id}
                       data-testid="defaulter-roster-cell"
-                      className="bg-white rounded-xl border border-slate-200 shadow-2xs p-3.5 space-y-3 transition-all"
+                      className="bg-white rounded-xl border border-slate-200/80 shadow-2xs p-3 space-y-2.5 transition-all"
                     >
                       {/* Top Row: Avatar + Full Student Name + Admission # + Challan Count Badge */}
                       <div className="flex items-start justify-between gap-2.5">
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <div
                             onClick={() => setSelectedDefaulterModal(def)}
-                            className="w-10 h-10 min-w-[40px] min-h-[40px] rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center font-bold text-slate-700 text-sm shrink-0 font-mono shadow-2xs cursor-pointer touch-press"
+                            className="w-9 h-9 min-w-[36px] min-h-[36px] rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center font-semibold text-slate-700 text-xs shrink-0 font-mono shadow-2xs cursor-pointer touch-press"
                             title="View Defaulter Dossier"
                           >
                             {def.student_name?.charAt(0) || 'S'}
@@ -3883,64 +3753,57 @@ export const FeeDeskView: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => setSelectedDefaulterModal(def)}
-                              className="font-bold text-[14.5px] text-slate-900 leading-snug text-left block hover:text-amber-800 break-words cursor-pointer"
+                              className="font-semibold text-sm text-slate-800 leading-snug text-left block hover:text-amber-700 break-words cursor-pointer"
                             >
                               {def.student_name}
                             </button>
-                            <div className="text-xs font-mono font-semibold text-slate-500 mt-0.5">
+                            <div className="text-[11px] font-mono text-slate-400 mt-0.5">
                               Adm #{def.admission_number || '—'}
                             </div>
                           </div>
                         </div>
 
-                        <span className="px-2.5 py-1 rounded-full text-[10.5px] font-bold font-mono bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium font-mono bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
                           {def.overdue_invoices_count} Challan{def.overdue_invoices_count > 1 ? 's' : ''}
                         </span>
                       </div>
 
-                      {/* Middle Separated Due Amount Box: Class/Batch + Father + Bold Amount with ZERO text collisions */}
-                      <div className="bg-rose-50/50 border border-rose-100 rounded-xl p-3 space-y-2">
-                        <div className="flex items-center justify-between gap-2 text-xs">
-                          <span className="text-slate-500 font-medium">Class & Batch:</span>
-                          <span className="font-semibold text-slate-800 text-right">
+                      {/* Middle Details: Flat single surface - ZERO nested inner card */}
+                      <div className="text-xs text-slate-600 space-y-1 pt-0.5">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-slate-400 font-normal">Class:</span>
+                          <span className="font-medium text-slate-700 text-right">
                             {def.program_name} {def.batch_name ? `• ${def.batch_name}` : ''}
                           </span>
                         </div>
                         {def.father_name && (
-                          <div className="flex items-center justify-between gap-2 text-xs">
-                            <span className="text-slate-500 font-medium">Father / Guardian:</span>
-                            <span className="font-medium text-slate-700 text-right">
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-slate-400 font-normal">Guardian:</span>
+                            <span className="text-slate-700 text-right">
                               {def.father_name}
                             </span>
                           </div>
                         )}
-                        <div className="pt-2 border-t border-rose-100/80 flex items-center justify-between gap-2">
-                          <div>
-                            <span className="text-[10.5px] font-bold uppercase tracking-wider text-rose-700 block">
-                              Total Balance Due
-                            </span>
-                            <span className="text-[11px] text-slate-500 font-mono">
-                              {def.max_overdue_days > 0 ? `${def.max_overdue_days} Days Overdue` : 'Current Billing Cycle'}
-                            </span>
-                          </div>
-                          <div className="text-right">
-                            <span className="font-mono font-bold text-rose-700 text-base leading-none block">
-                              PKR {def.total_balance.toLocaleString()}
-                            </span>
-                          </div>
+                        <div className="flex items-baseline justify-between gap-2 pt-0.5">
+                          <span className="text-[11px] text-slate-400 font-normal">
+                            {def.max_overdue_days > 0 ? `${def.max_overdue_days}d overdue` : 'Current billing cycle'}
+                          </span>
+                          <span className="font-mono font-semibold text-rose-600 text-sm">
+                            PKR {def.total_balance.toLocaleString()}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Bottom Action Strip: Call + WhatsApp Reminder + Prominent 1-Tap Receive */}
-                      <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                      {/* Bottom Action Strip: Sleek Icon Buttons + Compact Receive Button */}
+                      <div className="flex items-center justify-end gap-1.5 pt-1.5 border-t border-slate-100">
                         {guardianPhone ? (
                           <a
                             href={`tel:${guardianPhone}`}
-                            className="min-h-[38px] px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
                             title="Call Guardian"
+                            aria-label="Call Guardian"
                           >
-                            <Phone className="w-3.5 h-3.5 text-slate-600" />
-                            <span>Call</span>
+                            <Phone className="w-3.5 h-3.5" />
                           </a>
                         ) : null}
 
@@ -3948,13 +3811,23 @@ export const FeeDeskView: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleDispatchWhatsAppSlip(targetInvoice, guardianPhone)}
-                            className="min-h-[38px] px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-600 border border-emerald-200/80 flex items-center justify-center transition-colors cursor-pointer"
                             title="WhatsApp Fee Slip"
+                            aria-label="WhatsApp Fee Slip"
                           >
-                            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>WhatsApp</span>
+                            <MessageSquare className="w-3.5 h-3.5" />
                           </button>
                         ) : null}
+
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDefaulterModal(def)}
+                          className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-slate-500 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                          title="Defaulter Dossier"
+                          aria-label="Defaulter Dossier"
+                        >
+                          <User className="w-3.5 h-3.5" />
+                        </button>
 
                         <button
                           type="button"
@@ -3965,9 +3838,9 @@ export const FeeDeskView: React.FC = () => {
                               handleViewStudentInDesk(def.student_id);
                             }
                           }}
-                          className="flex-1 min-h-[38px] px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer touch-press"
+                          className="h-8 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs shrink-0"
                         >
-                          <CreditCard className="w-4 h-4" />
+                          <CreditCard className="w-3.5 h-3.5" />
                           <span>Receive</span>
                         </button>
                       </div>
