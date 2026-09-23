@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Menu, Search, ChevronDown, LogOut, Shield, Settings, Users, Bell, UserPlus } from 'lucide-react';
+import { Menu, Search, ChevronDown, LogOut, Shield, Settings, Users, Bell } from 'lucide-react';
 import { hapticLight } from '../lib/haptics';
 import { canOpenScreen } from '../lib/portalAccess';
 
@@ -8,7 +8,6 @@ interface HeaderProps {
   section?: string;
   currentScreenTitle?: string;
   onOpenSidebar: () => void;
-  onNewAdmission?: () => void;
   onSwitchScreen?: (screen: string) => void;
   onOpenSearch?: () => void;
 }
@@ -17,7 +16,6 @@ export const Header: React.FC<HeaderProps> = ({
   currentScreenTitle,
   onOpenSidebar,
   onOpenSearch,
-  onNewAdmission,
   onSwitchScreen,
 }) => {
   const { user, tenant, token, logout } = useAuth();
@@ -130,24 +128,6 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </button>
 
-        {/* Desktop New Admission Button */}
-        {canOpenScreen(user?.role, user?.permissions, 'new_admission', user?.access) && (
-          <button
-            type="button"
-            onClick={() => {
-              if (onNewAdmission) {
-                onNewAdmission();
-              } else if (onSwitchScreen) {
-                onSwitchScreen('new_admission');
-              }
-            }}
-            className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 h-9 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-xs"
-            title="Register New Student Admission"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>New Admission</span>
-          </button>
-        )}
 
         {/* Academic Session Pill */}
         <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 h-9 rounded-xl text-[11px] font-medium text-slate-600 bg-slate-50 border border-[#E6ECF2]">

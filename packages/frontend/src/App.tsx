@@ -359,7 +359,6 @@ const MainLayout: React.FC = () => {
           onOpenSidebar={() => setSidebarOpen(true)}
           onSwitchScreen={handleSwitchScreen}
           onOpenSearch={() => setSearchOpen(true)}
-          onNewAdmission={() => handleSwitchScreen('new_admission')}
         />
 
         <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-none px-3 sm:px-5 lg:px-6 py-3 md:pb-6 pb-[calc(4.25rem+env(safe-area-inset-bottom))]">

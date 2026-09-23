@@ -31,7 +31,8 @@ import {
   SlidersHorizontal,
   User,
   RotateCcw,
-  MoreHorizontal
+  LayoutGrid,
+  ArrowLeft
 } from 'lucide-react';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import { buildTabularFeeReportPdfBytes } from '../lib/feeReportsPdf';
@@ -2254,30 +2255,49 @@ export const FeeDeskView: React.FC = () => {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header & Single Consolidated Icon Menu */}
       <div className="flex items-center justify-between gap-2.5">
-        <div>
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
-            Fee Ledger & Collections
+        <div className="min-w-0 flex-1">
+          {activeTab !== 'cashier' && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('cashier')}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 text-xs font-semibold mb-1 cursor-pointer transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Receiving Desk</span>
+            </button>
+          )}
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 truncate">
+            {activeTab === 'cashier'
+              ? 'Fee Ledger & Collections'
+              : activeTab === 'defaulters'
+              ? 'Fee Defaulters'
+              : 'Finance Reports'}
           </h1>
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            Student fee invoicing, cashier collection desk, payment allocations, and ledger records.
+          <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+            {activeTab === 'cashier'
+              ? 'Student fee invoicing, cashier collection desk, payment allocations, and ledger records.'
+              : activeTab === 'defaulters'
+              ? 'Track overdue fee receivables, outstanding balance aging, and recovery dispatches.'
+              : 'Financial statements, revenue summaries, fee head audits, and running ledgers.'}
           </p>
         </div>
 
+        {/* ONE Icon Place to open all financial desks & configuration tools */}
         <div className="relative self-start sm:self-auto shrink-0">
           <button
             type="button"
             onClick={() => setShowFeeModuleMenu(prev => !prev)}
-            className={`w-8.5 h-8.5 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shadow-2xs ${
+            className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shadow-2xs ${
               showFeeModuleMenu
-                ? 'bg-amber-50 border-amber-300 text-amber-900'
+                ? 'bg-slate-900 border-slate-900 text-white'
                 : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
             }`}
-            title="Fee Desks & Tools"
-            aria-label="Fee Desks & Tools"
+            title="Fee Desks & Options"
+            aria-label="Fee Desks & Options"
           >
-            <MoreHorizontal className="w-4 h-4 text-slate-600" />
+            <LayoutGrid className="w-4 h-4" />
           </button>
 
           {showFeeModuleMenu && (
@@ -2295,12 +2315,14 @@ export const FeeDeskView: React.FC = () => {
                     setActiveTab('cashier');
                     setShowFeeModuleMenu(false);
                   }}
-                  className={`w-full px-3 py-1.5 text-xs flex items-center gap-2 transition-colors cursor-pointer ${
-                    activeTab === 'cashier' ? 'bg-amber-50 text-amber-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                  className={`w-full px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'cashier' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  <Receipt className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Fees Receiving Desk</span>
+                  <div className="flex items-center gap-2">
+                    <Receipt className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Fees Receiving Desk</span>
+                  </div>
                 </button>
 
                 <button
@@ -2309,8 +2331,8 @@ export const FeeDeskView: React.FC = () => {
                     setActiveTab('defaulters');
                     setShowFeeModuleMenu(false);
                   }}
-                  className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                    activeTab === 'defaulters' ? 'bg-amber-50 text-amber-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                  className={`w-full px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'defaulters' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -2328,12 +2350,14 @@ export const FeeDeskView: React.FC = () => {
                     setActiveTab('reports');
                     setShowFeeModuleMenu(false);
                   }}
-                  className={`w-full px-3 py-1.5 text-xs flex items-center gap-2 transition-colors cursor-pointer ${
-                    activeTab === 'reports' ? 'bg-amber-50 text-amber-900 font-semibold' : 'text-slate-700 hover:bg-slate-50'
+                  className={`w-full px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'reports' ? 'bg-slate-100 text-slate-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  <BarChart2 className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Finance Reports</span>
+                  <div className="flex items-center gap-2">
+                    <BarChart2 className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Finance Reports</span>
+                  </div>
                 </button>
               </div>
 
@@ -2347,7 +2371,7 @@ export const FeeDeskView: React.FC = () => {
                     setShowFeeModuleMenu(false);
                     setShowFeeHeadsModal(true);
                   }}
-                  className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                  className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
                 >
                   <DollarSign className="w-3.5 h-3.5 text-slate-500" />
                   <span>Fee Heads & Priority</span>
@@ -2359,7 +2383,7 @@ export const FeeDeskView: React.FC = () => {
                     setShowFeeModuleMenu(false);
                     setShowBulkRevisionModal(true);
                   }}
-                  className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                  className="w-full px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
                 >
                   <TrendingUp className="w-3.5 h-3.5 text-slate-500" />
                   <span>Bulk Fee Revision</span>
@@ -2368,52 +2392,6 @@ export const FeeDeskView: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Main Tab Navigation - Segmented Control */}
-      <div className="flex items-center max-w-full bg-white p-1 rounded-xl border border-slate-200 text-xs font-semibold shadow-2xs">
-        <button
-          onClick={() => setActiveTab('cashier')}
-          className={`flex-1 min-w-0 h-8.5 py-1 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 text-xs transition-all cursor-pointer ${
-            activeTab === 'cashier'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <Receipt className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'cashier' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Receiving</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('defaulters')}
-          className={`flex-1 min-w-0 h-8.5 py-1 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 text-xs transition-all cursor-pointer ${
-            activeTab === 'defaulters'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <AlertCircle className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'defaulters' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Defaulters</span>
-          {duesSummary.allCount > 0 && (
-            <span className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono ${
-              activeTab === 'defaulters' ? 'bg-white text-amber-700' : 'bg-rose-50 text-rose-700 border border-rose-200'
-            }`}>
-              {duesSummary.allCount}
-            </span>
-          )}
-        </button>
-
-        <button
-          onClick={() => setActiveTab('reports')}
-          className={`flex-1 min-w-0 h-8.5 py-1 px-2 sm:px-3 rounded-lg flex items-center justify-center gap-1.5 text-xs transition-all cursor-pointer ${
-            activeTab === 'reports'
-              ? 'bg-amber-600 text-white shadow-xs font-bold'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-          }`}
-        >
-          <BarChart2 className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'reports' ? 'text-white' : 'text-slate-500'}`} />
-          <span>Reports</span>
-        </button>
       </div>
 
       {/* TAB: FEES RECEIVING (Hero Search, Popup Selector & 3-Section Dossier) */}
@@ -2594,7 +2572,7 @@ export const FeeDeskView: React.FC = () => {
                               </div>
                             </div>
 
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold font-mono bg-slate-100 text-rose-700 border border-slate-200 shrink-0">
                               {def.overdue_invoices_count || 1} Due
                             </span>
                           </div>
@@ -3852,7 +3830,7 @@ export const FeeDeskView: React.FC = () => {
                           </div>
                         </div>
 
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-medium font-mono bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium font-mono bg-slate-100 text-rose-700 border border-slate-200 shrink-0">
                           {def.overdue_invoices_count} Challan{def.overdue_invoices_count > 1 ? 's' : ''}
                         </span>
                       </div>

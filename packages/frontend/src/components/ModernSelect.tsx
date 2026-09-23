@@ -108,11 +108,9 @@ export const ModernSelect: React.FC<ModernSelectProps> = ({
     return resolvedOptions.find(opt => opt.value === value);
   }, [resolvedOptions, value]);
 
-  // Determine if searchable (auto-enabled if >= 7 options unless explicitly disabled)
-  const isSearchable = useMemo(() => {
-    if (typeof searchable === 'boolean') return searchable;
-    return resolvedOptions.length >= 7;
-  }, [searchable, resolvedOptions.length]);
+  // Only searchable if explicitly enabled via searchable={true} prop
+  // NEVER auto-enable search to avoid mobile virtual keyboard popup and violent screen jerk
+  const isSearchable = Boolean(searchable);
 
   // Filtered options based on search query
   const filteredOptions = useMemo(() => {

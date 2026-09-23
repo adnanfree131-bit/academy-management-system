@@ -734,6 +734,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 </button>
                 <input
                   type="date"
+                  inputMode="none"
                   value={selectedDate}
                   onChange={e => setSelectedDate(e.target.value)}
                   className="text-xs bg-transparent border-0 font-mono font-bold text-slate-900 focus:outline-none px-1 text-center w-[124px]"
@@ -832,6 +833,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 </button>
                 <input
                   type="date"
+                  inputMode="none"
                   value={selectedDate}
                   onChange={e => setSelectedDate(e.target.value)}
                   className="text-xs bg-transparent border-0 font-mono font-semibold text-slate-800 focus:outline-none px-1"
