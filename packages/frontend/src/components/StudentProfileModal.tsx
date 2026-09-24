@@ -1330,7 +1330,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       )}
 
       {/* Main Container / Bottom Sheet on Mobile */}
-      <div className="bg-white rounded-t-3xl sm:rounded-xl w-full max-w-7xl xl:max-w-[1360px] shadow-2xl border-t sm:border border-slate-300/90 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[94vh] sm:zoom-in-95 duration-200 mobile-sheet-card">
+      <div className="bg-white rounded-t-3xl sm:rounded-xl w-full max-w-5xl shadow-2xl border-t sm:border border-slate-300/90 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[94vh] sm:zoom-in-95 duration-200 mobile-sheet-card">
         {/* Institutional Student Profile Header */}
         <div className="bg-white border-b border-slate-200 px-3.5 sm:px-6 py-3 shrink-0 relative">
           {/* Dedicated Close Button for Mobile (Top-Right) */}
@@ -1489,17 +1489,17 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         </div>
 
         {/* Clean Institutional Navigation Tabs */}
-        <div className="flex items-center overflow-x-auto lg:overflow-x-visible no-scrollbar border-b border-slate-200 px-3 sm:px-6 bg-slate-50/70 text-xs font-medium gap-1 whitespace-nowrap shrink-0">
+        <div className="flex items-center overflow-x-auto lg:overflow-x-visible no-scrollbar border-b border-slate-200 px-3 sm:px-4 bg-slate-50/70 text-xs font-medium gap-1 whitespace-nowrap shrink-0">
           <button
             onClick={() => setActiveTab('academic')}
             aria-label="Academic Placement"
-            className={`py-1.5 px-3 sm:px-3.5 h-8.5 border-b-2 flex items-center gap-2 text-xs transition-all cursor-pointer ${
+            className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'academic'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <GraduationCap className={`w-4 h-4 ${activeTab === 'academic' ? 'text-slate-800' : 'text-slate-400'}`} />
+            <GraduationCap className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'academic' ? 'text-slate-800' : 'text-slate-400'}`} />
             <span><span className="hidden sm:inline">Academic Placement</span><span className="sm:hidden">Academic</span></span>
             {enrollments.length > 1 && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-medium bg-slate-200 text-slate-700">
@@ -1510,15 +1510,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
           <button
             onClick={() => setActiveTab('finance')}
-            aria-label="Fee Ledger & Invoices"
-            className={`py-1.5 px-3 sm:px-3.5 h-8.5 border-b-2 flex items-center gap-2 text-xs transition-all cursor-pointer ${
+            aria-label="Fee Ledger"
+            className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'finance'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <DollarSign className={`w-4 h-4 ${activeTab === 'finance' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span><span className="hidden sm:inline">Fee Ledger & Invoices</span><span className="sm:hidden">Fees</span></span>
+            <DollarSign className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'finance' ? 'text-slate-800' : 'text-slate-400'}`} />
+            <span><span className="hidden sm:inline">Fee Ledger</span><span className="sm:hidden">Fees</span></span>
             {totalOutstanding > 0 && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-50 text-rose-700 border border-rose-200">
                 PKR {totalOutstanding.toLocaleString()}
@@ -1529,39 +1529,39 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           <button
             onClick={() => setActiveTab('attendance')}
             aria-label="Attendance History"
-            className={`py-1.5 px-3 sm:px-3.5 h-8.5 border-b-2 flex items-center gap-2 text-xs transition-all cursor-pointer ${
+            className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'attendance'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <Clock className={`w-4 h-4 ${activeTab === 'attendance' ? 'text-slate-800' : 'text-slate-400'}`} />
+            <Clock className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'attendance' ? 'text-slate-800' : 'text-slate-400'}`} />
             <span><span className="hidden sm:inline">Attendance History</span><span className="sm:hidden">Attendance</span></span>
           </button>
 
           <button
             onClick={() => setActiveTab('exams')}
-            aria-label="Examination Results"
-            className={`py-1.5 px-3 sm:px-3.5 h-8.5 border-b-2 flex items-center gap-2 text-xs transition-all cursor-pointer ${
+            aria-label="Exam Results"
+            className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'exams'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <TrendingUp className={`w-4 h-4 ${activeTab === 'exams' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span><span className="hidden sm:inline">Examination Results</span><span className="sm:hidden">Exams</span></span>
+            <TrendingUp className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'exams' ? 'text-slate-800' : 'text-slate-400'}`} />
+            <span><span className="hidden sm:inline">Exam Results</span><span className="sm:hidden">Exams</span></span>
           </button>
 
           <button
             onClick={() => setActiveTab('notebook')}
             aria-label="Notebook Checking"
-            className={`py-1.5 px-3 sm:px-3.5 h-8.5 border-b-2 flex items-center gap-2 text-xs transition-all cursor-pointer ${
+            className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'notebook'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <BookOpen className={`w-4 h-4 ${activeTab === 'notebook' ? 'text-slate-800' : 'text-slate-400'}`} />
+            <BookOpen className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'notebook' ? 'text-slate-800' : 'text-slate-400'}`} />
             <span><span className="hidden sm:inline">Notebook Checking</span><span className="sm:hidden">Notebook</span></span>
           </button>
 
@@ -1571,13 +1571,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               setStatusTarget(currentStudent.status || 'active');
             }}
             aria-label="Status & Standing"
-            className={`py-1.5 px-3 sm:px-3.5 h-8.5 border-b-2 flex items-center gap-2 text-xs transition-all cursor-pointer ${
+            className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'status'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <ShieldAlert className={`w-4 h-4 ${activeTab === 'status' ? 'text-slate-800' : 'text-slate-400'}`} />
+            <ShieldAlert className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'status' ? 'text-slate-800' : 'text-slate-400'}`} />
             <span><span className="hidden sm:inline">Status & Standing</span><span className="sm:hidden">Status</span></span>
             {currentStudent.status !== 'active' && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-200 text-slate-700 capitalize">
