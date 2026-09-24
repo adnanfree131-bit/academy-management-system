@@ -31,7 +31,8 @@ import {
   AlertTriangle,
   FileCheck,
   Plus,
-  ArrowRightLeft
+  ArrowRightLeft,
+  ArrowRight
 } from 'lucide-react';
 import { 
   Student, 
@@ -1329,14 +1330,25 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       )}
 
       {/* Main Container / Bottom Sheet on Mobile */}
-      <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-5xl w-full shadow-2xl border-t sm:border border-slate-300/90 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[94vh] sm:zoom-in-95 duration-200 mobile-sheet-card">
+      <div className="bg-white rounded-t-3xl sm:rounded-xl w-full max-w-7xl xl:max-w-[1360px] shadow-2xl border-t sm:border border-slate-300/90 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[94vh] sm:zoom-in-95 duration-200 mobile-sheet-card">
         {/* Institutional Student Profile Header */}
-        <div className="bg-white border-b border-slate-200 px-3.5 sm:px-6 py-3 shrink-0">
+        <div className="bg-white border-b border-slate-200 px-3.5 sm:px-6 py-3 shrink-0 relative">
+          {/* Dedicated Close Button for Mobile (Top-Right) */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="sm:hidden absolute top-3 right-3 w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors cursor-pointer z-10"
+            title="Close Profile"
+            aria-label="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             {/* Identity Block */}
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-3 min-w-0 pr-8 sm:pr-0">
               {/* 3:4 Passport Portrait Frame */}
-              <div className="w-11 h-14 sm:w-13 sm:h-16 rounded-md border border-slate-200 bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
+              <div className="w-12 h-15 sm:w-13 sm:h-16 rounded-md border border-slate-200 bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
                 {currentStudent.photo_url ? (
                   <img 
                     src={currentStudent.photo_url} 
@@ -1426,14 +1438,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             </div>
 
             {/* Primary Action Buttons Right */}
-            <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
               <button
                 type="button"
                 onClick={() => {
                   setActiveTab('finance');
                   setIsCashierOpen(true);
                 }}
-                className="h-8 px-2.5 sm:px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                className="flex-1 sm:flex-none h-8.5 px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                 title="Receive Student Fee"
               >
                 <CreditCard className="w-3.5 h-3.5" />
@@ -1443,11 +1455,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowEditParticularsModal(true)}
-                className="h-8 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                className="h-8.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                 title="Edit Student Particulars & Photo"
               >
                 <Edit3 className="w-3.5 h-3.5 text-slate-600" />
-                <span className="hidden sm:inline">Edit</span>
+                <span>Edit</span>
               </button>
 
               <button
@@ -1456,17 +1468,17 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   setSelectedIdCardEnrollmentId(undefined);
                   setShowIdCardModal(true);
                 }}
-                className="h-8 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                className="h-8.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                 title="Print Student ID Card"
               >
                 <CreditCard className="w-3.5 h-3.5 text-slate-600" />
-                <span className="hidden sm:inline">ID Card</span>
+                <span>ID Card</span>
               </button>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
+                className="hidden sm:flex h-8.5 w-8.5 items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
                 title="Close Profile"
                 aria-label="Close"
               >
@@ -1477,7 +1489,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         </div>
 
         {/* Clean Institutional Navigation Tabs */}
-        <div className="flex items-center overflow-x-auto no-scrollbar border-b border-slate-200 px-3 sm:px-6 bg-slate-50/70 text-xs font-medium gap-1 whitespace-nowrap shrink-0">
+        <div className="flex items-center overflow-x-auto lg:overflow-x-visible no-scrollbar border-b border-slate-200 px-3 sm:px-6 bg-slate-50/70 text-xs font-medium gap-1 whitespace-nowrap shrink-0">
           <button
             onClick={() => setActiveTab('academic')}
             aria-label="Academic Placement"
@@ -1598,56 +1610,54 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </span>
                   </div>
 
-                  <table className="w-full text-xs text-left border-collapse">
-                    <tbody className="divide-y divide-slate-100">
-                      <tr>
-                        <td className="py-2 text-slate-500 w-2/5 font-medium">Program / Class</td>
-                        <td className="py-2 font-bold text-slate-900">{activeProgram?.name || 'Academic Class'}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">{isBatchSection ? 'Section' : 'Batch'}</td>
-                        <td className="py-2 font-semibold text-slate-900">{activeBatch?.name || '—'}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">Shift & Timings</td>
-                        <td className="py-2 font-mono text-slate-800">
-                          {activeBatch?.shift ? activeBatch.shift.toUpperCase() : 'MORNING'} {activeBatch?.start_time && activeBatch?.end_time ? `• ${activeBatch.start_time} – ${activeBatch.end_time}` : ''}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">Admission Date</td>
-                        <td className="py-2 font-mono text-slate-800">{student.admission_date}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">Roll / Admission #</td>
-                        <td className="py-2 font-mono font-bold text-slate-900">{currentStudent.admission_number}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">Monthly Tuition Fee</td>
-                        <td className="py-2 font-mono font-bold text-slate-900">
-                          PKR {Number(currentStudent.fee_structure?.base_tuition || activeBatch?.fee_amount || 0).toLocaleString()}
-                          <span className="text-[10px] text-slate-400 font-sans font-normal ml-1">/month</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">Academic Standing</td>
-                        <td className="py-2">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border capitalize ${
-                            currentStudent.status === 'active'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : currentStudent.status === 'withdrawn'
-                              ? 'bg-rose-50 text-rose-700 border-rose-200'
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
-                          }`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${
-                              currentStudent.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'
-                            }`} />
-                            {currentStudent.status || 'Active'}
-                          </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div className="divide-y divide-slate-100 text-xs">
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Program / Class</span>
+                      <span className="font-bold text-slate-900 text-right truncate">{activeProgram?.name || 'Academic Class'}</span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">{isBatchSection ? 'Section' : 'Batch'}</span>
+                      <span className="font-semibold text-slate-900 text-right truncate">{activeBatch?.name || '—'}</span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Shift & Timings</span>
+                      <span className="font-mono text-slate-800 text-right text-[11px] truncate">
+                        {activeBatch?.shift ? activeBatch.shift.toUpperCase() : 'MORNING'} {activeBatch?.start_time && activeBatch?.end_time ? `• ${activeBatch.start_time} – ${activeBatch.end_time}` : ''}
+                      </span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Admission Date</span>
+                      <span className="font-mono text-slate-800 text-right">{student.admission_date}</span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Roll / Admission #</span>
+                      <span className="font-mono font-bold text-slate-900 text-right">{currentStudent.admission_number}</span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Monthly Tuition Fee</span>
+                      <span className="font-mono font-bold text-slate-900 text-right">
+                        PKR {Number(currentStudent.fee_structure?.base_tuition || activeBatch?.fee_amount || 0).toLocaleString()}
+                        <span className="text-[10px] text-slate-400 font-sans font-normal ml-1">/mo</span>
+                      </span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Academic Standing</span>
+                      <span className="text-right">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border capitalize ${
+                          currentStudent.status === 'active'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : currentStudent.status === 'withdrawn'
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            currentStudent.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'
+                          }`} />
+                          {currentStudent.status || 'Active'}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
 
                   {/* Transfer / Change Class Action Button */}
                   <div className="pt-2 border-t border-slate-100 flex items-center gap-2 flex-wrap">
@@ -1690,74 +1700,70 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </span>
                   </div>
 
-                  <table className="w-full text-xs text-left border-collapse">
-                    <tbody className="divide-y divide-slate-100">
-                      <tr>
-                        <td className="py-2 text-slate-500 w-2/5 font-medium">Primary Guardian</td>
-                        <td className="py-2 font-bold text-slate-900">{student.guardian_name}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">Guardian Mobile</td>
-                        <td className="py-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono font-bold text-slate-900">{student.guardian_phone}</span>
-                            {student.guardian_phone && (
-                              <div className="inline-flex items-center gap-1">
-                                <a
-                                  href={`tel:${student.guardian_phone.replace(/[^0-9+]/g, '')}`}
-                                  className="w-5.5 h-5.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
-                                  title={`Call Guardian: ${student.guardian_phone}`}
-                                >
-                                  <Phone className="w-3 h-3 text-slate-600" />
-                                </a>
-                                <a
-                                  href={`https://wa.me/${(student.guardian_whatsapp || student.guardian_phone).replace(/[^0-9]/g, '')}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="w-5.5 h-5.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors cursor-pointer"
-                                  title="WhatsApp Guardian"
-                                >
-                                  <MessageSquare className="w-3 h-3 text-emerald-700" />
-                                </a>
-                              </div>
-                            )}
+                  <div className="divide-y divide-slate-100 text-xs">
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Primary Guardian</span>
+                      <span className="font-bold text-slate-900 text-right truncate">{student.guardian_name}</span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Guardian Mobile</span>
+                      <div className="flex items-center gap-2 justify-end">
+                        <span className="font-mono font-bold text-slate-900 text-right">{student.guardian_phone}</span>
+                        {student.guardian_phone && (
+                          <div className="inline-flex items-center gap-1 shrink-0">
+                            <a
+                              href={`tel:${student.guardian_phone.replace(/[^0-9+]/g, '')}`}
+                              className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                              title={`Call Guardian: ${student.guardian_phone}`}
+                            >
+                              <Phone className="w-3 h-3 text-slate-600" />
+                            </a>
+                            <a
+                              href={`https://wa.me/${(student.guardian_whatsapp || student.guardian_phone).replace(/[^0-9]/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="w-6 h-6 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors cursor-pointer"
+                              title="WhatsApp Guardian"
+                            >
+                              <MessageSquare className="w-3 h-3 text-emerald-700" />
+                            </a>
                           </div>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">Guardian CNIC</td>
-                        <td className="py-2 font-mono font-bold text-slate-900">
-                          {student.guardian_id_card || <span className="text-slate-400 font-sans font-normal italic text-[11px]">Not assigned</span>}
-                        </td>
-                      </tr>
-                      {student.father_name && (
-                        <tr>
-                          <td className="py-2 text-slate-500 font-medium">Father</td>
-                          <td className="py-2 text-slate-900">
-                            <span className="font-semibold">{student.father_name}</span>
-                            {student.father_cnic && <span className="text-[10px] font-mono text-slate-500 ml-1.5">({student.father_cnic})</span>}
-                          </td>
-                        </tr>
-                      )}
-                      {student.mother_name && (
-                        <tr>
-                          <td className="py-2 text-slate-500 font-medium">Mother</td>
-                          <td className="py-2 text-slate-900">
-                            <span className="font-semibold">{student.mother_name}</span>
-                            {student.mother_cnic && <span className="text-[10px] font-mono text-slate-500 ml-1.5">({student.mother_cnic})</span>}
-                          </td>
-                        </tr>
-                      )}
-                      {(student.residential_address || student.city) && (
-                        <tr>
-                          <td className="py-2 text-slate-500 font-medium">Residential Address</td>
-                          <td className="py-2 text-slate-800">
-                            {student.residential_address}{student.city ? `, ${student.city}` : ''}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                        )}
+                      </div>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Guardian CNIC</span>
+                      <span className="font-mono font-bold text-slate-900 text-right">
+                        {student.guardian_id_card || <span className="text-slate-400 font-sans font-normal italic text-[11px]">Not assigned</span>}
+                      </span>
+                    </div>
+                    {student.father_name && (
+                      <div className="py-2 flex items-center justify-between gap-2">
+                        <span className="text-slate-500 font-medium shrink-0">Father</span>
+                        <span className="text-slate-900 text-right truncate">
+                          <span className="font-semibold">{student.father_name}</span>
+                          {student.father_cnic && <span className="text-[10px] font-mono text-slate-500 ml-1.5">({student.father_cnic})</span>}
+                        </span>
+                      </div>
+                    )}
+                    {student.mother_name && (
+                      <div className="py-2 flex items-center justify-between gap-2">
+                        <span className="text-slate-500 font-medium shrink-0">Mother</span>
+                        <span className="text-slate-900 text-right truncate">
+                          <span className="font-semibold">{student.mother_name}</span>
+                          {student.mother_cnic && <span className="text-[10px] font-mono text-slate-500 ml-1.5">({student.mother_cnic})</span>}
+                        </span>
+                      </div>
+                    )}
+                    {(student.residential_address || student.city) && (
+                      <div className="py-2 flex items-start justify-between gap-2">
+                        <span className="text-slate-500 font-medium shrink-0">Residential Address</span>
+                        <span className="text-slate-800 text-right text-[11px] max-w-[65%] break-words">
+                          {student.residential_address}{student.city ? `, ${student.city}` : ''}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* CARD 3: Portal Access & Credentials */}
@@ -1877,38 +1883,36 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     )}
                   </div>
 
-                  <table className="w-full text-xs text-left border-collapse">
-                    <tbody className="divide-y divide-slate-100">
-                      <tr>
-                        <td className="py-2 text-slate-500 w-2/5 font-medium">Date of Birth</td>
-                        <td className="py-2 font-mono text-slate-800">{student.date_of_birth || '—'}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">Gender</td>
-                        <td className="py-2 capitalize text-slate-800">{student.gender || '—'}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">B-Form / CRC #</td>
-                        <td className="py-2 font-mono text-slate-800">{student.student_b_form || '—'}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">Religion</td>
-                        <td className="py-2 text-slate-800 font-medium">{student.religion || '—'}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">Previous School</td>
-                        <td className="py-2 text-slate-800">{student.previous_school || '—'}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">Direct Phone</td>
-                        <td className="py-2 font-mono text-slate-800">{student.phone || '—'}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500 font-medium">Direct Email</td>
-                        <td className="py-2 font-mono text-slate-800">{student.email || '—'}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div className="divide-y divide-slate-100 text-xs">
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Date of Birth</span>
+                      <span className="font-mono text-slate-800 text-right">{student.date_of_birth || '—'}</span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Gender</span>
+                      <span className="capitalize text-slate-800 text-right font-medium">{student.gender || '—'}</span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">B-Form / CRC #</span>
+                      <span className="font-mono text-slate-800 text-right">{student.student_b_form || '—'}</span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Religion</span>
+                      <span className="text-slate-800 text-right font-medium">{student.religion || '—'}</span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Previous School</span>
+                      <span className="text-slate-800 text-right truncate max-w-[65%]">{student.previous_school || '—'}</span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Direct Phone</span>
+                      <span className="font-mono text-slate-800 text-right">{student.phone || '—'}</span>
+                    </div>
+                    <div className="py-2 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Direct Email</span>
+                      <span className="font-mono text-slate-800 text-right truncate max-w-[65%]">{student.email || '—'}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1999,7 +2003,30 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       {currentStudent.transfer_history.length} {currentStudent.transfer_history.length === 1 ? 'Record' : 'Records'}
                     </span>
                   </div>
-                  <div className="overflow-x-auto">
+                  {/* Mobile Timeline Cards */}
+                  <div className="divide-y divide-slate-100 sm:hidden">
+                    {currentStudent.transfer_history.map((t, idx) => {
+                      const fromB = batches.find(b => b.id === t.from_batch_id)?.name || t.from_batch_id;
+                      const toB = batches.find(b => b.id === t.to_batch_id)?.name || t.to_batch_id;
+                      return (
+                        <div key={(t as any).id || idx} className="py-2.5 space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-mono text-slate-500">{t.effective_date}</span>
+                            <span className="font-mono text-[10px] text-slate-400">{t.changed_by || 'Administration'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 font-semibold">
+                            <span className="text-rose-700">{fromB}</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="text-emerald-700">{toB}</span>
+                          </div>
+                          {t.reason && <p className="text-slate-600 text-[11px] italic">{t.reason}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-xs text-left">
                       <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
                         <tr>
@@ -2168,7 +2195,58 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       )}
                     </div>
 
-                    <div className="overflow-x-auto">
+                    {/* Mobile Checklist View */}
+                    <div className="divide-y divide-slate-100 sm:hidden">
+                      {availableClassSubjectIds.length === 0 ? (
+                        <div className="py-6 text-center text-slate-400 text-xs italic">
+                          No subjects configured for this class program.
+                        </div>
+                      ) : (
+                        availableClassSubjectIds.map(subId => {
+                          const isEnrolled = editSubjectIds.includes(subId);
+                          const isCore = activeCompulsoryGroup?.subject_ids.includes(subId) ?? true;
+                          const name = getSubjectName(subId);
+                          const code = getSubjectCode(subId);
+
+                          return (
+                            <div
+                              key={subId}
+                              onClick={() => handleToggleSubject(subId)}
+                              className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                                isEnrolled ? 'bg-indigo-50/30' : 'hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <input
+                                  type="checkbox"
+                                  checked={isEnrolled}
+                                  onChange={() => handleToggleSubject(subId)}
+                                  className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-4 h-4 cursor-pointer shrink-0"
+                                />
+                                <div className="min-w-0">
+                                  <span className="font-semibold text-slate-900 text-xs block truncate">{name}</span>
+                                  <div className="flex items-center gap-1.5 mt-0.5">
+                                    <span className="font-mono text-[10px] text-slate-500">{code}</span>
+                                    <span className="text-slate-300">•</span>
+                                    <span className={`px-1.5 py-0.2 rounded text-[9px] font-semibold ${
+                                      isCore ? 'bg-slate-100 text-slate-700' : 'bg-indigo-50 text-indigo-700'
+                                    }`}>
+                                      {isCore ? 'Core' : 'Elective'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              <span className={`text-[11px] font-medium shrink-0 ${isEnrolled ? 'text-emerald-700' : 'text-slate-400'}`}>
+                                {isEnrolled ? 'Enrolled' : 'Not Enrolled'}
+                              </span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    {/* Desktop Table View */}
+                    <div className="hidden sm:block overflow-x-auto">
                       <table className="w-full text-xs text-left border-collapse">
                         <thead>
                           <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
@@ -2364,24 +2442,24 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 text-left">
-                  <div className="border-r border-slate-100 pr-4">
-                    <span className="text-slate-500 text-[11px] font-medium block">Total Invoiced</span>
-                    <div className="text-lg font-bold text-slate-900 font-mono mt-0.5">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-3 text-left">
+                  <div className="sm:border-r border-slate-100 sm:pr-4">
+                    <span className="text-slate-500 text-[10px] sm:text-[11px] font-medium block">Total Invoiced</span>
+                    <div className="text-sm sm:text-lg font-bold text-slate-900 font-mono mt-0.5">
                       PKR {totalBilled.toLocaleString()}
                     </div>
                   </div>
 
-                  <div className="border-r border-slate-100 pr-4">
-                    <span className="text-slate-500 text-[11px] font-medium block">Total Paid</span>
-                    <div className="text-lg font-bold text-emerald-700 font-mono mt-0.5">
+                  <div className="sm:border-r border-slate-100 sm:pr-4">
+                    <span className="text-slate-500 text-[10px] sm:text-[11px] font-medium block">Total Paid</span>
+                    <div className="text-sm sm:text-lg font-bold text-emerald-700 font-mono mt-0.5">
                       PKR {totalPaid.toLocaleString()}
                     </div>
                   </div>
 
                   <div>
-                    <span className="text-slate-500 text-[11px] font-medium block">Balance Due</span>
-                    <div className={`text-lg font-bold font-mono mt-0.5 ${
+                    <span className="text-slate-500 text-[10px] sm:text-[11px] font-medium block">Balance Due</span>
+                    <div className={`text-sm sm:text-lg font-bold font-mono mt-0.5 ${
                       totalOutstanding > 0 ? 'text-rose-700' : 'text-slate-800'
                     }`}>
                       PKR {totalOutstanding.toLocaleString()}
@@ -2427,7 +2505,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
               {/* Payment Counter Drawer */}
               {isCashierOpen && (
-                <div className="bg-white border border-slate-300 rounded-lg p-5 space-y-4 shadow-2xs">
+                <div className="bg-white border border-slate-300 rounded-lg p-4 sm:p-5 space-y-4 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                     <div>
                       <h4 className="font-bold text-xs uppercase tracking-wider text-slate-900 flex items-center gap-2">
@@ -2578,7 +2656,84 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   </span>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Mobile Challan Card List */}
+                <div className="divide-y divide-slate-100 sm:hidden">
+                  {invoices.map(inv => {
+                    const netPayable = inv.net_total ?? inv.net_amount ?? 0;
+                    const balanceDue = inv.balance_due ?? inv.balance_amount ?? 0;
+                    const isPaid = inv.status === 'PAID' || (inv.status as string) === 'paid';
+                    const isPartial = inv.status === 'PARTIAL' || (inv.status as string) === 'partially_paid';
+
+                    return (
+                      <div key={inv.id} className="p-3.5 space-y-2.5 bg-white">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-mono font-bold text-slate-900 text-xs">{inv.invoice_number}</span>
+                            <span className="text-slate-500 text-[11px] block font-medium">{inv.billing_month}</span>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                            isPaid
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : isPartial
+                              ? 'bg-amber-50 text-amber-800 border-amber-300'
+                              : 'bg-rose-50 text-rose-800 border-rose-300'
+                          }`}>
+                            {inv.status}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 py-2 px-2.5 bg-slate-50 rounded-lg text-center text-xs border border-slate-100">
+                          <div>
+                            <span className="text-slate-400 text-[10px] block font-medium">Billed</span>
+                            <span className="font-mono font-semibold text-slate-800">PKR {netPayable.toLocaleString()}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 text-[10px] block font-medium">Paid</span>
+                            <span className="font-mono font-semibold text-emerald-700">PKR {inv.paid_amount.toLocaleString()}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 text-[10px] block font-medium">Balance</span>
+                            <span className={`font-mono font-bold ${balanceDue > 0 ? 'text-rose-700' : 'text-slate-500'}`}>
+                              PKR {balanceDue.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+                          <span>Due: <strong className="font-mono text-slate-700">{inv.due_date}</strong></span>
+                          <div className="flex items-center gap-1.5">
+                            {!isPaid && (
+                              <button
+                                type="button"
+                                onClick={() => openCashierForInvoice(inv)}
+                                className="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded text-xs font-semibold cursor-pointer shadow-2xs"
+                              >
+                                Collect
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setChallanInvoice(inv)}
+                              className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-medium inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                            >
+                              <Printer className="w-3 h-3 text-slate-500" />
+                              <span>Print</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {invoices.length === 0 && !isLoadingFinance && (
+                    <div className="py-8 text-center text-xs text-slate-400">
+                      No challans generated yet for this student.
+                    </div>
+                  )}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-xs text-left border-collapse">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
@@ -2686,32 +2841,32 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   </span>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-6 gap-4 pt-3 text-left">
-                  <div>
-                    <span className="text-slate-500 text-[11px] block">Overall Attendance</span>
-                    <div className={`text-lg font-bold ${attendanceMetrics.isEligible ? 'text-emerald-700' : 'text-rose-700'} font-mono mt-0.5`}>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5 sm:gap-4 pt-3 text-left">
+                  <div className="p-2 sm:p-0 bg-slate-50 sm:bg-transparent rounded-lg sm:rounded-none">
+                    <span className="text-slate-500 text-[10px] sm:text-[11px] block">Overall Attendance</span>
+                    <div className={`text-base sm:text-lg font-bold ${attendanceMetrics.isEligible ? 'text-emerald-700' : 'text-rose-700'} font-mono mt-0.5`}>
                       {attendanceMetrics.total === 0 ? '—' : `${attendanceMetrics.percentage}%`}
                     </div>
                   </div>
-                  <div>
-                    <span className="text-slate-500 text-[11px] block">Working Days</span>
-                    <div className="text-lg font-bold text-slate-900 font-mono mt-0.5">{attendanceMetrics.total} Days</div>
+                  <div className="p-2 sm:p-0 bg-slate-50 sm:bg-transparent rounded-lg sm:rounded-none">
+                    <span className="text-slate-500 text-[10px] sm:text-[11px] block">Working Days</span>
+                    <div className="text-base sm:text-lg font-bold text-slate-900 font-mono mt-0.5">{attendanceMetrics.total} <span className="text-xs font-sans font-normal text-slate-500">Days</span></div>
                   </div>
-                  <div>
-                    <span className="text-slate-500 text-[11px] block">Present</span>
-                    <div className="text-lg font-bold text-slate-900 font-mono mt-0.5">{attendanceMetrics.present} Days</div>
+                  <div className="p-2 sm:p-0 bg-slate-50 sm:bg-transparent rounded-lg sm:rounded-none">
+                    <span className="text-slate-500 text-[10px] sm:text-[11px] block">Present</span>
+                    <div className="text-base sm:text-lg font-bold text-slate-900 font-mono mt-0.5">{attendanceMetrics.present} <span className="text-xs font-sans font-normal text-slate-500">Days</span></div>
                   </div>
-                  <div>
-                    <span className="text-slate-500 text-[11px] block">Late</span>
-                    <div className="text-lg font-bold text-amber-700 font-mono mt-0.5">{attendanceMetrics.late} Days</div>
+                  <div className="p-2 sm:p-0 bg-slate-50 sm:bg-transparent rounded-lg sm:rounded-none">
+                    <span className="text-slate-500 text-[10px] sm:text-[11px] block">Late</span>
+                    <div className="text-base sm:text-lg font-bold text-amber-700 font-mono mt-0.5">{attendanceMetrics.late} <span className="text-xs font-sans font-normal text-slate-500">Days</span></div>
                   </div>
-                  <div>
-                    <span className="text-slate-500 text-[11px] block">Excused</span>
-                    <div className="text-lg font-bold text-indigo-700 font-mono mt-0.5">{attendanceMetrics.excused} Days</div>
+                  <div className="p-2 sm:p-0 bg-slate-50 sm:bg-transparent rounded-lg sm:rounded-none">
+                    <span className="text-slate-500 text-[10px] sm:text-[11px] block">Excused</span>
+                    <div className="text-base sm:text-lg font-bold text-indigo-700 font-mono mt-0.5">{attendanceMetrics.excused} <span className="text-xs font-sans font-normal text-slate-500">Days</span></div>
                   </div>
-                  <div>
-                    <span className="text-slate-500 text-[11px] block">Absences</span>
-                    <div className="text-lg font-bold text-rose-700 font-mono mt-0.5">{attendanceMetrics.absent} Days</div>
+                  <div className="p-2 sm:p-0 bg-slate-50 sm:bg-transparent rounded-lg sm:rounded-none">
+                    <span className="text-slate-500 text-[10px] sm:text-[11px] block">Absences</span>
+                    <div className="text-base sm:text-lg font-bold text-rose-700 font-mono mt-0.5">{attendanceMetrics.absent} <span className="text-xs font-sans font-normal text-slate-500">Days</span></div>
                   </div>
                 </div>
               </div>
@@ -2738,48 +2893,79 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <p className="text-[11px] text-slate-400 mt-0.5">Attendance records marked in the Attendance Desk will appear here.</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-                          <th className="py-2.5 px-4">Date</th>
-                          <th className="py-2.5 px-4">Status</th>
-                          <th className="py-2.5 px-4">Check-In</th>
-                          <th className="py-2.5 px-4">Marked By</th>
-                          <th className="py-2.5 px-4">Remarks</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {attendanceLogs.map(log => {
-                          let badgeStyle = 'bg-slate-100 text-slate-700 border-slate-200';
-                          if (log.status === 'present') badgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-200';
-                          if (log.status === 'absent') badgeStyle = 'bg-rose-50 text-rose-800 border-rose-200';
-                          if (log.status === 'late') badgeStyle = 'bg-amber-50 text-amber-800 border-amber-200';
-                          if (log.status === 'excused') badgeStyle = 'bg-indigo-50 text-indigo-800 border-indigo-200';
+                  <>
+                    {/* Mobile Attendance Logs List */}
+                    <div className="divide-y divide-slate-100 sm:hidden">
+                      {attendanceLogs.map(log => {
+                        let badgeStyle = 'bg-slate-100 text-slate-700 border-slate-200';
+                        if (log.status === 'present') badgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                        if (log.status === 'absent') badgeStyle = 'bg-rose-50 text-rose-800 border-rose-200';
+                        if (log.status === 'late') badgeStyle = 'bg-amber-50 text-amber-800 border-amber-200';
+                        if (log.status === 'excused') badgeStyle = 'bg-indigo-50 text-indigo-800 border-indigo-200';
 
-                          return (
-                            <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                              <td className="py-2.5 px-4 font-mono font-medium text-slate-900">{log.date}</td>
-                              <td className="py-2.5 px-4">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize border ${badgeStyle}`}>
-                                  {log.status}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-4 font-mono text-slate-600">
-                                {log.check_in_time ? new Date(log.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
-                              </td>
-                              <td className="py-2.5 px-4 text-slate-600">
-                                {log.marked_by || 'Staff'}
-                              </td>
-                              <td className="py-2.5 px-4 text-slate-600">
-                                {log.remarks || '—'}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                        return (
+                          <div key={log.id} className="py-2.5 px-3.5 flex items-center justify-between text-xs hover:bg-slate-50">
+                            <div>
+                              <div className="font-mono font-medium text-slate-900">{log.date}</div>
+                              <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                                <span>{log.check_in_time ? new Date(log.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'No check-in'}</span>
+                                <span>•</span>
+                                <span>{log.marked_by || 'Staff'}</span>
+                              </div>
+                              {log.remarks && <p className="text-[10px] text-slate-500 italic mt-0.5">{log.remarks}</p>}
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize border ${badgeStyle} shrink-0`}>
+                              {log.status}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Desktop Table View */}
+                    <div className="hidden sm:block overflow-x-auto">
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                            <th className="py-2.5 px-4">Date</th>
+                            <th className="py-2.5 px-4">Status</th>
+                            <th className="py-2.5 px-4">Check-In</th>
+                            <th className="py-2.5 px-4">Marked By</th>
+                            <th className="py-2.5 px-4">Remarks</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {attendanceLogs.map(log => {
+                            let badgeStyle = 'bg-slate-100 text-slate-700 border-slate-200';
+                            if (log.status === 'present') badgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                            if (log.status === 'absent') badgeStyle = 'bg-rose-50 text-rose-800 border-rose-200';
+                            if (log.status === 'late') badgeStyle = 'bg-amber-50 text-amber-800 border-amber-200';
+                            if (log.status === 'excused') badgeStyle = 'bg-indigo-50 text-indigo-800 border-indigo-200';
+
+                            return (
+                              <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                                <td className="py-2.5 px-4 font-mono font-medium text-slate-900">{log.date}</td>
+                                <td className="py-2.5 px-4">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize border ${badgeStyle}`}>
+                                    {log.status}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-4 font-mono text-slate-600">
+                                  {log.check_in_time ? new Date(log.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+                                </td>
+                                <td className="py-2.5 px-4 text-slate-600">
+                                  {log.marked_by || 'Staff'}
+                                </td>
+                                <td className="py-2.5 px-4 text-slate-600">
+                                  {log.remarks || '—'}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -2805,7 +2991,35 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Mobile Examination Results List */}
+                <div className="divide-y divide-slate-100 sm:hidden">
+                  {examRows.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-400">
+                      No graded examinations for this student yet.
+                    </div>
+                  ) : (
+                    examRows.map(row => (
+                      <div key={row.title + row.date} className="p-3.5 space-y-2 bg-white">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="font-semibold text-slate-900 text-xs block">{row.title}</span>
+                            <span className="font-mono text-[11px] text-slate-500">{row.date}</span>
+                          </div>
+                          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 shrink-0">
+                            {row.grade}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-50">
+                          <span className="text-slate-500">Marks: <strong className="font-mono text-slate-900">{row.obtained}</strong> / {row.total}</span>
+                          {row.remarks && <span className="text-slate-500 italic text-[11px] truncate max-w-[55%]">{row.remarks}</span>}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-xs text-left border-collapse">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
@@ -2857,7 +3071,38 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   </span>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Mobile Notebook Checks List */}
+                <div className="divide-y divide-slate-100 sm:hidden">
+                  {notebookRows.length === 0 ? (
+                    <div className="py-8 text-center text-xs text-slate-400">
+                      No notebook checks recorded for this student yet.
+                    </div>
+                  ) : (
+                    notebookRows.map(row => (
+                      <div key={row.title + row.date} className="p-3.5 space-y-1.5 bg-white text-xs">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-semibold text-slate-900 block">{row.title}</span>
+                          <span className="font-mono text-[11px] text-slate-500 shrink-0">{String(row.date).slice(0, 10)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px] pt-0.5">
+                          <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold capitalize ${
+                            row.status === 'complete' || row.status === 'checked'
+                              ? 'bg-emerald-50 text-emerald-800'
+                              : row.status === 'incomplete'
+                              ? 'bg-rose-50 text-rose-800'
+                              : 'bg-amber-50 text-amber-800'
+                          }`}>
+                            {row.status}
+                          </span>
+                          {row.remarks && <span className="text-slate-500 italic truncate max-w-[65%]">{row.remarks}</span>}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-xs text-left border-collapse">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
@@ -3012,7 +3257,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <button
                       type="submit"
                       disabled={isUpdatingStatus || !statusReason.trim()}
-                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 disabled:opacity-50 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      className="w-full sm:w-auto justify-center px-4 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 disabled:opacity-50 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                     >
                       <ShieldAlert className="w-3.5 h-3.5" />
                       <span>{isUpdatingStatus ? 'Updating Status...' : 'Apply Status Transition'}</span>
@@ -3035,7 +3280,44 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <History className="w-4 h-4 text-slate-400" />
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Mobile Status History List */}
+                <div className="divide-y divide-slate-100 sm:hidden">
+                  {(!currentStudent.status_change_history || currentStudent.status_change_history.length === 0) ? (
+                    <div className="py-6 px-4 text-center text-slate-500 text-xs">
+                      No status transitions recorded. Student remains in initial admission standing ({currentStudent.status || 'active'}).
+                    </div>
+                  ) : (
+                    currentStudent.status_change_history.map((h, idx) => (
+                      <div key={idx} className="p-3.5 space-y-2 bg-white text-xs">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-mono text-slate-500">{new Date(h.changed_at).toLocaleString()}</span>
+                          <span className="font-mono text-slate-400 text-[10px]">{h.changed_by}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 uppercase">
+                            {h.previous_status}
+                          </span>
+                          <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold uppercase border ${
+                            h.new_status === 'active'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : h.new_status === 'withdrawn'
+                              ? 'bg-rose-50 text-rose-800 border-rose-300'
+                              : 'bg-amber-50 text-amber-800 border-amber-300'
+                          }`}>
+                            {h.new_status}
+                          </span>
+                        </div>
+                        {h.reason && (
+                          <p className="text-slate-700 font-medium text-[11px] pt-0.5">{h.reason}</p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-xs text-left border-collapse">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
@@ -3224,27 +3506,27 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       {/* FEE CHALLAN PRINT MODAL */}
       {challanInvoice && (
         <div className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto m-0 no-sheet-overlay">
-          <div className="bg-white rounded-lg max-w-5xl w-full p-6 shadow-2xl border border-slate-300 space-y-4 my-auto print:border-none print:shadow-none print:p-0">
+          <div className="bg-white rounded-lg max-w-5xl w-full p-4 sm:p-6 shadow-2xl border border-slate-300 space-y-4 my-auto print:border-none print:shadow-none print:p-0">
             {/* Modal Toolbar */}
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3 no-print">
-              <div className="flex items-center gap-2">
-                <Printer className="w-5 h-5 text-slate-700" />
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3 no-print gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Printer className="w-5 h-5 text-slate-700 shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="font-bold text-slate-900 text-sm truncate">
                     Fee Challan — {challanInvoice.invoice_number}
                   </h3>
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] text-slate-500 block truncate">
                     Month: {challanInvoice.billing_month} • Due Date: {challanInvoice.due_date}
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => window.print()}
-                  className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
+                  className="px-3 sm:px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Print Challan (A4 Landscape)</span>
+                  <span><span className="hidden sm:inline">Print Challan (A4 Landscape)</span><span className="sm:hidden">Print</span></span>
                 </button>
                 <button
                   onClick={() => setChallanInvoice(null)}
