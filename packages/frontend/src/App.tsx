@@ -143,8 +143,9 @@ const parseScreenFromHash = (): { screen: string; studentId?: string } | null =>
     const raw = window.location.hash.replace(/^#\/?/, '').trim();
     if (!raw) return null;
     const [screenPart, queryPart] = raw.split('?');
-    const screen = screenPart.split('/')[0].trim();
-    if (!screen) return null;
+    const rawScreen = screenPart.split('/')[0].trim();
+    if (!rawScreen) return null;
+    const screen = rawScreen === 'fees' ? 'voucher' : rawScreen;
     let studentId: string | undefined;
     if (queryPart) {
       const params = new URLSearchParams(queryPart);

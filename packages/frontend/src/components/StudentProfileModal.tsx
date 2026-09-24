@@ -12,10 +12,7 @@ import {
   Phone, 
   MessageSquare, 
   Printer, 
-  TrendingUp,
   Clock,
-  ChevronDown,
-  ChevronUp,
   User,
   ShieldAlert,
   AlertCircle,
@@ -263,7 +260,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     return `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
   };
 
-  const [activeTab, setActiveTab] = useState<'academic' | 'finance' | 'attendance' | 'exams' | 'notebook' | 'status'>('academic');
+  const [activeTab, setActiveTab] = useState<'academic' | 'finance' | 'attendance' | 'status'>('academic');
 
   // Student Status & Exit Management
   const [statusTarget, setStatusTarget] = useState<StudentStatus>(student.status || 'active');
@@ -638,15 +635,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [selectedIdCardEnrollmentId, setSelectedIdCardEnrollmentId] = useState<string | undefined>(undefined);
   const [challanInvoice, setChallanInvoice] = useState<StudentInvoice | null>(null);
 
-  // Cashier Drawer State
-  const [isCashierOpen, setIsCashierOpen] = useState(false);
-  const [collectInvoiceId, setCollectInvoiceId] = useState<string>('');
-  const [collectAmount, setCollectAmount] = useState<number>(0);
-  const [collectMethod, setCollectMethod] = useState<'cash' | 'bank_transfer' | 'easypaisa' | 'jazzcash' | 'cheque'>('cash');
-  const [collectReference, setCollectReference] = useState('');
-  const [collectNotes, setCollectNotes] = useState('');
-  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
-  const [paymentSuccessMsg, setPaymentSuccessMsg] = useState<string | null>(null);
 
   // Resolution
   const activeProgram = useMemo(() => programs.find(p => p.id === currentStudent.program_id), [programs, currentStudent]);
@@ -775,20 +763,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       if (res.ok && data.success) {
         const invList: StudentInvoice[] = data.data || [];
         setInvoices(invList);
-        if (invList.length > 0) {
-          const unpaid = invList.find(i => {
-            const st = String(i.status || '').toLowerCase();
-            const bal = i.balance_due ?? i.balance_amount ?? 0;
-            return bal > 0 && st !== 'paid' && st !== 'cancelled' && st !== 'voided' && st !== 'rolled_over';
-          });
-          if (unpaid) {
-            setCollectInvoiceId(unpaid.id);
-            setCollectAmount(unpaid.balance_due ?? unpaid.balance_amount ?? 0);
-          } else {
-            setCollectInvoiceId('');
-            setCollectAmount(0);
-          }
-        }
       }
     } catch (err) {
       console.error('Error loading invoices:', err);
@@ -1139,49 +1113,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const totalPaid = useMemo(() => invoices.reduce((acc, i) => acc + (i.paid_amount || 0), 0), [invoices]);
   const totalOutstanding = useMemo(() => invoices.reduce((acc, i) => acc + (i.balance_due ?? i.balance_amount ?? 0), 0), [invoices]);
 
-  // Collect Fee
-  const handleCollectFee = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !collectInvoiceId || collectAmount <= 0) return;
-
-    setIsSubmittingPayment(true);
-    setPaymentSuccessMsg(null);
-
-    try {
-      const res = await fetch('/api/v1/finance/payments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          invoice_id: collectInvoiceId,
-          amount_paid: Number(collectAmount),
-          payment_method: collectMethod,
-          reference_number: collectReference || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setPaymentSuccessMsg(`Payment of PKR ${collectAmount.toLocaleString()} recorded. Receipt #${data.data?.payment?.receipt_number || data.data?.payment?.id?.slice(0, 8) || 'RC-POSTED'}`);
-        fetchInvoices();
-        if (onStudentUpdated) onStudentUpdated();
-      } else {
-        alert(data?.error?.message || 'Payment collection failed');
-      }
-    } catch (err: any) {
-      alert(err.message || 'Error collecting payment');
-    } finally {
-      setIsSubmittingPayment(false);
-    }
-  };
-
-  const openCashierForInvoice = (inv: StudentInvoice) => {
-    setActiveTab('finance');
-    setIsCashierOpen(true);
-    setCollectInvoiceId(inv.id);
-    setCollectAmount(inv.balance_due ?? inv.balance_amount ?? 0);
-  };
 
   const getSubjectObj = (subId: string) => {
     return subjects.find(s => s.id === subId || s.name.toLowerCase() === subId.toLowerCase() || (s.code && s.code.toLowerCase() === subId.toLowerCase()));
@@ -1206,7 +1137,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     'Guardian';
 
   const [examRows, setExamRows] = useState<{ title: string; date: string; obtained: number; total: number; grade: string; remarks: string }[]>([]);
-  const [notebookRows, setNotebookRows] = useState<{ date: string; title: string; status: string; remarks: string }[]>([]);
+  const examStats = useMemo(() => {
+    if (examRows.length === 0) {
+      return { count: 0, totalMarks: 0, obtainedMarks: 0, percentage: '0' };
+    }
+    const totalMarks = examRows.reduce((acc, r) => acc + (Number(r.total) || 0), 0);
+    const obtainedMarks = examRows.reduce((acc, r) => acc + (Number(r.obtained) || 0), 0);
+    const percentage = totalMarks > 0 ? ((obtainedMarks / totalMarks) * 100).toFixed(1) : '0';
+    return { count: examRows.length, totalMarks, obtainedMarks, percentage };
+  }, [examRows]);
   const [attendanceLogs, setAttendanceLogs] = useState<StudentAttendanceRecord[]>([]);
   const [isLoadingAttendance, setIsLoadingAttendance] = useState(false);
 
@@ -1279,21 +1218,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               remarks: e.remarks || '—',
             }));
           setExamRows(rowsExams);
-
-          const hwData = body.data.homework || [];
-          const rowsNotebook: typeof notebookRows = hwData.map((h: any) => ({
-            date: h.due_date,
-            title: `${h.subject_name ? h.subject_name + ': ' : ''}${h.title}`,
-            status: h.submission_status || 'pending',
-            remarks: h.remarks || '—',
-          }));
-          setNotebookRows(rowsNotebook);
         }
       })
       .catch(err => {
         console.error('Error loading student academic summary:', err);
         setExamRows([]);
-        setNotebookRows([]);
       });
   }, [token, currentStudent.id]);
 
@@ -1441,25 +1370,12 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
               <button
                 type="button"
-                onClick={() => {
-                  setActiveTab('finance');
-                  setIsCashierOpen(true);
-                }}
-                className="flex-1 sm:flex-none h-8.5 px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                title="Receive Student Fee"
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>Receive Fee</span>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => setShowEditParticularsModal(true)}
-                className="h-8.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                className="flex-1 sm:flex-none h-8.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                 title="Edit Student Particulars & Photo"
               >
                 <Edit3 className="w-3.5 h-3.5 text-slate-600" />
-                <span>Edit</span>
+                <span>Edit Particulars</span>
               </button>
 
               <button
@@ -1468,7 +1384,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   setSelectedIdCardEnrollmentId(undefined);
                   setShowIdCardModal(true);
                 }}
-                className="h-8.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                className="flex-1 sm:flex-none h-8.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
                 title="Print Student ID Card"
               >
                 <CreditCard className="w-3.5 h-3.5 text-slate-600" />
@@ -1488,11 +1404,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           </div>
         </div>
 
-        {/* Clean Institutional Navigation Tabs */}
-        <div className="flex items-center overflow-x-auto lg:overflow-x-visible no-scrollbar border-b border-slate-200 px-3 sm:px-4 bg-slate-50/70 text-xs font-medium gap-1 whitespace-nowrap shrink-0">
+        {/* Clean Institutional Navigation Tabs (4 Authoritative Tabs) */}
+        <div className="flex items-center overflow-x-auto md:overflow-x-visible no-scrollbar border-b border-slate-200 px-3 sm:px-4 bg-slate-50/70 text-xs font-medium gap-1 whitespace-nowrap shrink-0">
           <button
             onClick={() => setActiveTab('academic')}
-            aria-label="Academic Placement"
+            aria-label="Academic & Particulars"
             className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'academic'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
@@ -1500,7 +1416,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             }`}
           >
             <GraduationCap className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'academic' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span><span className="hidden sm:inline">Academic Placement</span><span className="sm:hidden">Academic</span></span>
+            <span><span className="hidden sm:inline">Academic & Particulars</span><span className="sm:hidden">Academic</span></span>
             {enrollments.length > 1 && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-medium bg-slate-200 text-slate-700">
                 {enrollments.length}
@@ -1510,7 +1426,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
           <button
             onClick={() => setActiveTab('finance')}
-            aria-label="Fee Ledger"
+            aria-label="Fee Ledger & Challans"
             className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'finance'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
@@ -1518,7 +1434,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             }`}
           >
             <DollarSign className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'finance' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span><span className="hidden sm:inline">Fee Ledger</span><span className="sm:hidden">Fees</span></span>
+            <span><span className="hidden sm:inline">Fee Ledger & Challans</span><span className="sm:hidden">Fees</span></span>
             {totalOutstanding > 0 && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-50 text-rose-700 border border-rose-200">
                 PKR {totalOutstanding.toLocaleString()}
@@ -1528,7 +1444,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
           <button
             onClick={() => setActiveTab('attendance')}
-            aria-label="Attendance History"
+            aria-label="Attendance & Performance"
             className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'attendance'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
@@ -1536,33 +1452,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             }`}
           >
             <Clock className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'attendance' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span><span className="hidden sm:inline">Attendance History</span><span className="sm:hidden">Attendance</span></span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('exams')}
-            aria-label="Exam Results"
-            className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
-              activeTab === 'exams'
-                ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
-            }`}
-          >
-            <TrendingUp className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'exams' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span><span className="hidden sm:inline">Exam Results</span><span className="sm:hidden">Exams</span></span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('notebook')}
-            aria-label="Notebook Checking"
-            className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
-              activeTab === 'notebook'
-                ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
-            }`}
-          >
-            <BookOpen className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'notebook' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span><span className="hidden sm:inline">Notebook Checking</span><span className="sm:hidden">Notebook</span></span>
+            <span><span className="hidden sm:inline">Attendance & Performance</span><span className="sm:hidden">Attendance</span></span>
+            {attendanceMetrics.total > 0 && (
+              <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-medium ${
+                attendanceMetrics.isEligible ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+              }`}>
+                {attendanceMetrics.percentage}%
+              </span>
+            )}
           </button>
 
           <button
@@ -1570,7 +1467,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               setActiveTab('status');
               setStatusTarget(currentStudent.status || 'active');
             }}
-            aria-label="Status & Standing"
+            aria-label="Status & Administrative Records"
             className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'status'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
@@ -1578,7 +1475,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             }`}
           >
             <ShieldAlert className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'status' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span><span className="hidden sm:inline">Status & Standing</span><span className="sm:hidden">Status</span></span>
+            <span><span className="hidden sm:inline">Status & Administrative Records</span><span className="sm:hidden">Status</span></span>
             {currentStudent.status !== 'active' && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-200 text-slate-700 capitalize">
                 {currentStudent.status}
@@ -2428,16 +2325,16 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setIsCashierOpen(!isCashierOpen)}
-                      className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                        isCashierOpen 
-                          ? 'bg-slate-200 text-slate-800 hover:bg-slate-300' 
-                          : 'bg-emerald-700 text-white hover:bg-emerald-800'
-                      }`}
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        window.location.hash = '#fees';
+                      }}
+                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                      title="Route to Fee Desk for fee collection and cashier operations"
                     >
-                      <CreditCard className="w-3.5 h-3.5" />
-                      <span>{isCashierOpen ? 'Hide Payment Form' : 'Receive Payment'}</span>
-                      {isCashierOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      <span>Go to Fee Desk</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -2503,142 +2400,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               )}
 
-              {/* Payment Counter Drawer */}
-              {isCashierOpen && (
-                <div className="bg-white border border-slate-300 rounded-lg p-4 sm:p-5 space-y-4 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                    <div>
-                      <h4 className="font-bold text-xs uppercase tracking-wider text-slate-900 flex items-center gap-2">
-                        <CreditCard className="w-4 h-4 text-emerald-700" />
-                        Receive Fee Payment
-                      </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Record fee collection against student invoice/challan.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsCashierOpen(false)}
-                      className="text-slate-400 hover:text-slate-700 p-1"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {paymentSuccessMsg && (
-                    <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 p-3 rounded text-xs flex items-center gap-2 font-medium">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
-                      <span>{paymentSuccessMsg}</span>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleCollectFee} className="space-y-4 text-xs">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-slate-700 font-semibold mb-1">Challan / Invoice</label>
-                        <select
-                          value={collectInvoiceId}
-                          onChange={e => {
-                            const id = e.target.value;
-                            setCollectInvoiceId(id);
-                            const sel = invoices.find(i => i.id === id);
-                            if (sel) setCollectAmount(sel.balance_due ?? sel.balance_amount ?? 0);
-                          }}
-                          required
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900"
-                        >
-                          {invoices.map(inv => (
-                            <option key={inv.id} value={inv.id}>
-                              {inv.invoice_number} ({inv.billing_month}) — Balance: PKR {(inv.balance_due ?? inv.balance_amount ?? 0).toLocaleString()} [{inv.status}]
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="block text-slate-700 font-semibold">Amount (PKR)</label>
-                          {collectInvoiceId && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const sel = invoices.find(i => i.id === collectInvoiceId);
-                                if (sel) setCollectAmount(sel.balance_due ?? sel.balance_amount ?? 0);
-                              }}
-                              className="text-[11px] text-emerald-800 font-semibold hover:underline"
-                            >
-                              Fill Full Balance
-                            </button>
-                          )}
-                        </div>
-                        <input
-                          type="number"
-                          min={1}
-                          required
-                          value={collectAmount}
-                          onChange={e => setCollectAmount(Number(e.target.value) || 0)}
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-slate-800 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-slate-900"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-slate-700 font-semibold mb-1">Payment Method</label>
-                        <select
-                          value={collectMethod}
-                          onChange={e => setCollectMethod(e.target.value as any)}
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-slate-800 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900"
-                        >
-                          <option value="cash">Cash at Counter</option>
-                          <option value="bank_transfer">Bank Transfer / Online</option>
-                          <option value="easypaisa">EasyPaisa</option>
-                          <option value="jazzcash">JazzCash</option>
-                          <option value="cheque">Bank Cheque / Pay Order</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-semibold mb-1">Reference / Cheque # (Optional)</label>
-                        <input
-                          type="text"
-                          value={collectReference}
-                          onChange={e => setCollectReference(e.target.value)}
-                          className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-900"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-700 font-semibold mb-1">Remarks (Optional)</label>
-                      <input
-                        type="text"
-                        value={collectNotes}
-                        onChange={e => setCollectNotes(e.target.value)}
-                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-900"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => setIsCashierOpen(false)}
-                        className="px-4 py-2 border border-slate-300 text-slate-700 hover:bg-slate-50 rounded font-medium text-xs transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isSubmittingPayment || collectAmount <= 0}
-                        className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        <CreditCard className="w-3.5 h-3.5" />
-                        <span>{isSubmittingPayment ? 'Processing...' : `Receive PKR ${collectAmount.toLocaleString()}`}</span>
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              )}
 
               {/* Invoices List */}
               <div className="bg-white border border-slate-200 rounded overflow-hidden">
@@ -2702,22 +2463,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
                           <span>Due: <strong className="font-mono text-slate-700">{inv.due_date}</strong></span>
                           <div className="flex items-center gap-1.5">
-                            {!isPaid && (
-                              <button
-                                type="button"
-                                onClick={() => openCashierForInvoice(inv)}
-                                className="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded text-xs font-semibold cursor-pointer shadow-2xs"
-                              >
-                                Collect
-                              </button>
-                            )}
                             <button
                               type="button"
                               onClick={() => setChallanInvoice(inv)}
                               className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-medium inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                              title="Print A4 3-Part Bank Challan"
                             >
-                              <Printer className="w-3 h-3 text-slate-500" />
-                              <span>Print</span>
+                              <Printer className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Print Challan</span>
                             </button>
                           </div>
                         </div>
@@ -2783,22 +2536,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                                 {inv.status}
                               </span>
                             </td>
-                            <td className="py-2.5 px-4 text-right space-x-2">
-                              {!isPaid && (
-                                <button
-                                  onClick={() => openCashierForInvoice(inv)}
-                                  className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded text-[11px] font-semibold transition-colors"
-                                >
-                                  Collect
-                                </button>
-                              )}
-
+                            <td className="py-2.5 px-4 text-right">
                               <button
+                                type="button"
                                 onClick={() => setChallanInvoice(inv)}
-                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 hover:text-slate-900 border border-slate-300 rounded text-[11px] font-medium inline-flex items-center gap-1 transition-colors cursor-pointer"
+                                className="px-2.5 py-1 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-300 rounded text-[11px] font-medium inline-flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                                title="Print A4 3-Part Bank Challan"
                               >
-                                <Printer className="w-3 h-3 text-slate-500" />
-                                <span>Challan</span>
+                                <Printer className="w-3.5 h-3.5 text-slate-500" />
+                                <span>Print Challan</span>
                               </button>
                             </td>
                           </tr>
@@ -2968,26 +2714,27 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   </>
                 )}
               </div>
-            </div>
-          )}
 
-          {/* TAB 4: EXAMINATION RESULTS */}
-          {activeTab === 'exams' && (
-            <div className="space-y-6">
+              {/* Examination Transcript */}
               <div className="bg-white border border-slate-200 rounded overflow-hidden">
                 <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                      Examination results
+                      Examination Transcript
                     </h3>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Published marks for this student. Empty until exams are graded.
+                      Published marks and official grades from term, monthly, and midterm assessments.
                     </p>
                   </div>
-                  <div className="flex items-center gap-3 font-mono text-xs">
+                  <div className="flex items-center gap-2 font-mono text-xs">
                     <span className="px-2 py-1 bg-white border border-slate-200 rounded text-slate-800 font-bold">
-                      {examRows.length} published result{examRows.length === 1 ? '' : 's'}
+                      {examStats.count} published result{examStats.count === 1 ? '' : 's'}
                     </span>
+                    {examStats.count > 0 && examStats.totalMarks > 0 && (
+                      <span className="px-2 py-1 bg-emerald-50 border border-emerald-200 rounded text-emerald-800 font-bold">
+                        {examStats.obtainedMarks}/{examStats.totalMarks} ({examStats.percentage}%)
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -3037,92 +2784,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           <td colSpan={6} className="py-8 text-center text-slate-500">No graded examinations for this student yet.</td>
                         </tr>
                       ) : examRows.map(row => (
-                      <tr key={row.title + row.date} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-2.5 px-4 font-semibold text-slate-900">{row.title}</td>
-                        <td className="py-2.5 px-4 font-mono text-slate-700">{row.date}</td>
-                        <td className="py-2.5 px-4 text-center font-mono font-bold text-slate-900">{row.obtained}</td>
-                        <td className="py-2.5 px-4 text-center font-mono text-slate-800">{row.total}</td>
-                        <td className="py-2.5 px-4 text-center font-mono font-bold text-emerald-700">{row.grade}</td>
-                        <td className="py-2.5 px-4 text-slate-600 text-[11px]">{row.remarks}</td>
-                      </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: NOTEBOOK CHECKING */}
-          {activeTab === 'notebook' && (
-            <div className="space-y-6">
-              <div className="bg-white border border-slate-200 rounded overflow-hidden">
-                <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                      Notebook & Homework Checks
-                    </h3>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Teacher checks for classwork and homework completion.
-                    </p>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-50 text-slate-700 border border-slate-200">
-                    {notebookRows.length} checks
-                  </span>
-                </div>
-
-                {/* Mobile Notebook Checks List */}
-                <div className="divide-y divide-slate-100 sm:hidden">
-                  {notebookRows.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-slate-400">
-                      No notebook checks recorded for this student yet.
-                    </div>
-                  ) : (
-                    notebookRows.map(row => (
-                      <div key={row.title + row.date} className="p-3.5 space-y-1.5 bg-white text-xs">
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="font-semibold text-slate-900 block">{row.title}</span>
-                          <span className="font-mono text-[11px] text-slate-500 shrink-0">{String(row.date).slice(0, 10)}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] pt-0.5">
-                          <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold capitalize ${
-                            row.status === 'complete' || row.status === 'checked'
-                              ? 'bg-emerald-50 text-emerald-800'
-                              : row.status === 'incomplete'
-                              ? 'bg-rose-50 text-rose-800'
-                              : 'bg-amber-50 text-amber-800'
-                          }`}>
-                            {row.status}
-                          </span>
-                          {row.remarks && <span className="text-slate-500 italic truncate max-w-[65%]">{row.remarks}</span>}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Desktop Table View */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-                        <th className="py-2.5 px-4">Date</th>
-                        <th className="py-2.5 px-4">Assignment</th>
-                        <th className="py-2.5 px-4">Status</th>
-                        <th className="py-2.5 px-4">Remarks</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {notebookRows.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="py-8 text-center text-slate-500">No notebook checks recorded for this student yet.</td>
-                        </tr>
-                      ) : notebookRows.map(row => (
-                        <tr key={row.title + row.date} className="hover:bg-slate-50/80">
-                          <td className="py-2.5 px-4 font-mono text-slate-800">{String(row.date).slice(0, 10)}</td>
+                        <tr key={row.title + row.date} className="hover:bg-slate-50/80 transition-colors">
                           <td className="py-2.5 px-4 font-semibold text-slate-900">{row.title}</td>
-                          <td className="py-2.5 px-4 font-semibold text-slate-800 capitalize">{row.status}</td>
-                          <td className="py-2.5 px-4 text-slate-600">{row.remarks}</td>
+                          <td className="py-2.5 px-4 font-mono text-slate-700">{row.date}</td>
+                          <td className="py-2.5 px-4 text-center font-mono font-bold text-slate-900">{row.obtained}</td>
+                          <td className="py-2.5 px-4 text-center font-mono text-slate-800">{row.total}</td>
+                          <td className="py-2.5 px-4 text-center font-mono font-bold text-emerald-700">{row.grade}</td>
+                          <td className="py-2.5 px-4 text-slate-600 text-[11px]">{row.remarks}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -3132,7 +2800,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             </div>
           )}
 
-          {/* TAB 6: ADMINISTRATIVE STATUS & EXIT REGULARIZATION */}
+          {/* TAB 4: ADMINISTRATIVE STATUS & RECORDS */}
           {activeTab === 'status' && (
             <div className="space-y-6">
               {/* Top Banner / Standing */}
@@ -3371,6 +3039,72 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               </div>
 
+              {/* Class & Section Transfer History */}
+              {currentStudent.transfer_history && currentStudent.transfer_history.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                      <ArrowRightLeft className="w-4 h-4 text-blue-600" />
+                      <span>Class & Section Transfer History</span>
+                    </h3>
+                    <span className="text-[11px] font-mono text-slate-500">
+                      {currentStudent.transfer_history.length} {currentStudent.transfer_history.length === 1 ? 'Record' : 'Records'}
+                    </span>
+                  </div>
+                  {/* Mobile Timeline Cards */}
+                  <div className="divide-y divide-slate-100 sm:hidden">
+                    {currentStudent.transfer_history.map((t, idx) => {
+                      const fromB = batches.find(b => b.id === t.from_batch_id)?.name || t.from_batch_id;
+                      const toB = batches.find(b => b.id === t.to_batch_id)?.name || t.to_batch_id;
+                      return (
+                        <div key={(t as any).id || idx} className="py-2.5 space-y-1.5 text-xs">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-mono text-slate-500">{t.effective_date}</span>
+                            <span className="font-mono text-[10px] text-slate-400">{t.changed_by || 'Administration'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 font-semibold">
+                            <span className="text-rose-700">{fromB}</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="text-emerald-700">{toB}</span>
+                          </div>
+                          {t.reason && <p className="text-slate-600 text-[11px] italic">{t.reason}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="hidden sm:block overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                        <tr>
+                          <th className="py-2 px-3">Effective Date</th>
+                          <th className="py-2 px-3">From Section</th>
+                          <th className="py-2 px-3">To Section</th>
+                          <th className="py-2 px-3">Reason</th>
+                          <th className="py-2 px-3">Authorized By</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
+                        {currentStudent.transfer_history.map((t, idx) => {
+                          const fromB = batches.find(b => b.id === t.from_batch_id)?.name || t.from_batch_id;
+                          const toB = batches.find(b => b.id === t.to_batch_id)?.name || t.to_batch_id;
+                          return (
+                            <tr key={(t as any).id || idx} className="hover:bg-slate-50/60">
+                              <td className="py-2 px-3 font-mono text-slate-600">{t.effective_date}</td>
+                              <td className="py-2 px-3 text-rose-700 font-medium">{fromB}</td>
+                              <td className="py-2 px-3 text-emerald-700 font-medium">{toB}</td>
+                              <td className="py-2 px-3 text-slate-600">{t.reason || '—'}</td>
+                              <td className="py-2 px-3 font-mono text-slate-500 text-[11px]">{t.changed_by || 'Administration'}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* Administrative Record Controls & Danger Zone */}
               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                 <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
@@ -3388,7 +3122,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
 
                 <div className="p-4 sm:p-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {/* View Audit Trail */}
                     <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
                       <div>
@@ -3407,6 +3141,27 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       >
                         <History className="w-3.5 h-3.5 text-slate-500" />
                         <span>View Audit Trail</span>
+                      </button>
+                    </div>
+
+                    {/* Student Identity Card */}
+                    <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">Student Identity Card</span>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Print institutional student card with barcode, QR code, and academic particulars.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedIdCardEnrollmentId(undefined);
+                          setShowIdCardModal(true);
+                        }}
+                        className="py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Print ID Card</span>
                       </button>
                     </div>
 
