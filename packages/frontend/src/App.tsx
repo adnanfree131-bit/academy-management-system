@@ -149,7 +149,7 @@ const parseScreenFromHash = (): { screen: string; studentId?: string } | null =>
     let studentId: string | undefined;
     if (queryPart) {
       const params = new URLSearchParams(queryPart);
-      studentId = params.get('student_id') || undefined;
+      studentId = params.get('student_id') || params.get('studentId') || undefined;
     }
     return { screen, studentId };
   } catch {
@@ -220,7 +220,7 @@ const MainLayout: React.FC = () => {
 
     if (targetStudentId !== null) {
       setPreviewStudentId(targetStudentId);
-    } else if (targetScreen !== 'student_portal') {
+    } else if (targetScreen !== 'student_portal' && targetScreen !== 'voucher') {
       setPreviewStudentId(null);
     }
 
@@ -230,7 +230,7 @@ const MainLayout: React.FC = () => {
     setCurrentScreen(targetScreen);
     try {
       localStorage.setItem('apex_active_screen', targetScreen);
-      const newHash = targetStudentId && targetScreen === 'student_portal'
+      const newHash = targetStudentId && (targetScreen === 'student_portal' || targetScreen === 'voucher')
         ? `#${targetScreen}?student_id=${encodeURIComponent(targetStudentId)}`
         : '#' + targetScreen;
       if (window.location.hash !== newHash) {
@@ -456,7 +456,7 @@ const MainLayout: React.FC = () => {
               ) : currentScreen === 'exams' ? (
                 <ExamDeskView />
               ) : currentScreen === 'voucher' ? (
-                <FeeDeskView />
+                <FeeDeskView initialStudentId={previewStudentId || undefined} />
               ) : currentScreen === 'challans' ? (
                 <FeeChallansView />
               ) : currentScreen === 'fee_reversals' ? (

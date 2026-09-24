@@ -1888,72 +1888,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               )}
 
-              {/* Class & Section Transfer History */}
-              {currentStudent.transfer_history && currentStudent.transfer_history.length > 0 && (
-                <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                      <ArrowRightLeft className="w-4 h-4 text-blue-600" />
-                      <span>Class & Section Transfer History</span>
-                    </h3>
-                    <span className="text-[11px] font-mono text-slate-500">
-                      {currentStudent.transfer_history.length} {currentStudent.transfer_history.length === 1 ? 'Record' : 'Records'}
-                    </span>
-                  </div>
-                  {/* Mobile Timeline Cards */}
-                  <div className="divide-y divide-slate-100 sm:hidden">
-                    {currentStudent.transfer_history.map((t, idx) => {
-                      const fromB = batches.find(b => b.id === t.from_batch_id)?.name || t.from_batch_id;
-                      const toB = batches.find(b => b.id === t.to_batch_id)?.name || t.to_batch_id;
-                      return (
-                        <div key={(t as any).id || idx} className="py-2.5 space-y-1.5 text-xs">
-                          <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-mono text-slate-500">{t.effective_date}</span>
-                            <span className="font-mono text-[10px] text-slate-400">{t.changed_by || 'Administration'}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 font-semibold">
-                            <span className="text-rose-700">{fromB}</span>
-                            <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span className="text-emerald-700">{toB}</span>
-                          </div>
-                          {t.reason && <p className="text-slate-600 text-[11px] italic">{t.reason}</p>}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Desktop Table View */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="w-full text-xs text-left">
-                      <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
-                        <tr>
-                          <th className="py-2 px-3">Effective Date</th>
-                          <th className="py-2 px-3">From Section</th>
-                          <th className="py-2 px-3">To Section</th>
-                          <th className="py-2 px-3">Reason</th>
-                          <th className="py-2 px-3">Authorized By</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-medium text-slate-800">
-                        {currentStudent.transfer_history.map((t, idx) => {
-                          const fromB = batches.find(b => b.id === t.from_batch_id)?.name || t.from_batch_id;
-                          const toB = batches.find(b => b.id === t.to_batch_id)?.name || t.to_batch_id;
-                          return (
-                            <tr key={(t as any).id || idx} className="hover:bg-slate-50/60">
-                              <td className="py-2 px-3 font-mono text-slate-600">{t.effective_date}</td>
-                              <td className="py-2 px-3 text-rose-700 font-medium">{fromB}</td>
-                              <td className="py-2 px-3 text-emerald-700 font-medium">{toB}</td>
-                              <td className="py-2 px-3 text-slate-600">{t.reason || '—'}</td>
-                              <td className="py-2 px-3 font-mono text-slate-500 text-[11px]">{t.changed_by || 'Administration'}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
               {/* Enrolled Subjects Card */}
               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                 <div className="px-4 sm:px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -2328,7 +2262,12 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="button"
                       onClick={() => {
                         onClose();
-                        window.location.hash = '#fees';
+                        const targetHash = `#fees?student_id=${encodeURIComponent(currentStudent.id)}`;
+                        if (window.location.hash === targetHash) {
+                          window.dispatchEvent(new HashChangeEvent('hashchange'));
+                        } else {
+                          window.location.hash = targetHash;
+                        }
                       }}
                       className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
                       title="Route to Fee Desk for fee collection and cashier operations"

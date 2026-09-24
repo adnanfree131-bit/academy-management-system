@@ -60,7 +60,11 @@ import {
   renderFeeSlipCanvas
 } from '../lib/feeSlipPicture';
 
-export const FeeDeskView: React.FC = () => {
+export interface FeeDeskViewProps {
+  initialStudentId?: string;
+}
+
+export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) => {
   const { token, tenant } = useAuth();
   const [activeTab, setActiveTab] = useState<'cashier' | 'defaulters' | 'reports'>('cashier');
 
@@ -141,6 +145,48 @@ export const FeeDeskView: React.FC = () => {
       document.removeEventListener('mousedown', handleOutsideClick);
     };
   }, [showFeeModuleMenu]);
+
+  useEffect(() => {
+    const parseTargetStudentId = (): string | null => {
+      if (initialStudentId) return initialStudentId;
+      try {
+        const hash = window.location.hash || '';
+        if (hash.includes('?')) {
+          const params = new URLSearchParams(hash.split('?')[1]);
+          return params.get('student_id') || params.get('studentId') || null;
+        }
+      } catch {}
+      return null;
+    };
+
+    const targetId = parseTargetStudentId();
+    if (targetId) {
+      setSelectedCashierStudentId(targetId);
+      setLedgerStudentId(targetId);
+      setStudentDeskTab('challans');
+      setActiveTab('cashier');
+    }
+  }, [initialStudentId]);
+
+  useEffect(() => {
+    const onHashChange = () => {
+      try {
+        const hash = window.location.hash || '';
+        if (hash.includes('?')) {
+          const params = new URLSearchParams(hash.split('?')[1]);
+          const targetId = params.get('student_id') || params.get('studentId');
+          if (targetId) {
+            setSelectedCashierStudentId(targetId);
+            setLedgerStudentId(targetId);
+            setStudentDeskTab('challans');
+            setActiveTab('cashier');
+          }
+        }
+      } catch {}
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   // Unified Concessions Report Modal State
   const [showConcessionReportModal, setShowConcessionReportModal] = useState<boolean>(false);
