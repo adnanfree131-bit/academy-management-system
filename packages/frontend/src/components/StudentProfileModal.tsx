@@ -1367,14 +1367,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             </div>
 
             {/* Primary Action Buttons Right */}
-            <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
+            <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0 pt-1 sm:pt-0">
               <button
                 type="button"
                 onClick={() => setShowEditParticularsModal(true)}
-                className="flex-1 sm:flex-none h-8.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                className="flex-1 sm:flex-none h-9 sm:h-10 px-3.5 sm:px-4.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg text-xs sm:text-[13px] font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
                 title="Edit Student Profile & Photo"
               >
-                <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                <Edit3 className="w-4 h-4 text-slate-300" />
                 <span>Edit Profile</span>
               </button>
 
@@ -1384,21 +1384,21 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   setSelectedIdCardEnrollmentId(undefined);
                   setShowIdCardModal(true);
                 }}
-                className="flex-1 sm:flex-none h-8.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                className="flex-1 sm:flex-none h-9 sm:h-10 px-3.5 sm:px-4.5 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-800 border border-slate-300 rounded-lg text-xs sm:text-[13px] font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
                 title="Print Student ID Card"
               >
-                <CreditCard className="w-3.5 h-3.5 text-slate-600" />
+                <CreditCard className="w-4 h-4 text-slate-600" />
                 <span>ID Card</span>
               </button>
 
               <button
                 type="button"
                 onClick={onClose}
-                className="hidden sm:flex h-8.5 w-8.5 items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
+                className="hidden sm:flex h-9 sm:h-10 w-9 sm:w-10 items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors cursor-pointer shrink-0"
                 title="Close Profile"
                 aria-label="Close"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4.5 h-4.5" />
               </button>
             </div>
           </div>
