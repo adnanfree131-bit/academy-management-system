@@ -1376,11 +1376,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowEditParticularsModal(true)}
-                className="flex-1 sm:flex-none h-9 sm:h-10 px-3.5 sm:px-4.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg text-xs sm:text-[13px] font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+                className="flex-1 sm:flex-none h-9 sm:h-10 px-3.5 sm:px-4.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg text-xs sm:text-[13px] font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer whitespace-nowrap"
                 title="Edit Student Profile & Photo"
               >
-                <Edit3 className="w-4 h-4 text-slate-300" />
-                <span>Edit Profile</span>
+                <Edit3 className="w-4 h-4 text-slate-300 shrink-0" />
+                <span className="whitespace-nowrap">Edit Profile</span>
               </button>
 
               <button
@@ -1389,11 +1389,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   setSelectedIdCardEnrollmentId(undefined);
                   setShowIdCardModal(true);
                 }}
-                className="flex-1 sm:flex-none h-9 sm:h-10 px-3.5 sm:px-4.5 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-800 border border-slate-300 rounded-lg text-xs sm:text-[13px] font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+                className="flex-1 sm:flex-none h-9 sm:h-10 px-3.5 sm:px-4.5 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-800 border border-slate-300 rounded-lg text-xs sm:text-[13px] font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer whitespace-nowrap"
                 title="Print Student ID Card"
               >
-                <CreditCard className="w-4 h-4 text-slate-600" />
-                <span>ID Card</span>
+                <CreditCard className="w-4 h-4 text-slate-600 shrink-0" />
+                <span className="whitespace-nowrap">ID Card</span>
               </button>
 
               <button
@@ -1900,9 +1900,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <BookOpen className="w-4 h-4 text-slate-700" />
                     <div>
                       <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                        <span>Enrolled Curriculum Subjects</span>
+                        <span>Curriculum Subjects</span>
                         <span className="px-2 py-0.2 rounded text-[10px] font-mono font-bold bg-slate-200 text-slate-800">
-                          {editSubjectIds.length} of {availableClassSubjectIds.length} Enrolled
+                          {editSubjectIds.length} Subjects
                         </span>
                       </h3>
                       <p className="text-[11px] text-slate-500 mt-0.5">
@@ -1916,13 +1916,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsManagingSubjects(true)}
-                        className="px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                        className="px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs whitespace-nowrap"
                       >
                         <Edit3 className="w-3.5 h-3.5 text-slate-500" />
                         <span>Edit Subjects</span>
                       </button>
                     ) : (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={handleDiscardSubjectChanges}
@@ -1958,32 +1958,36 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   </div>
                 )}
 
-                {/* Compact Institutional View Mode */}
+                {/* Compact Multi-Column Grid View */}
                 {!isManagingSubjects ? (
                   <div className="p-4">
                     {editSubjectIds.length === 0 ? (
                       <div className="p-4 text-center text-slate-400 text-xs">
                         <BookOpen className="w-6 h-6 mx-auto mb-1.5 text-slate-300" />
-                        <p className="font-semibold text-slate-700">No subjects currently enrolled</p>
+                        <p className="font-semibold text-slate-700">No subjects assigned</p>
                         <p className="text-[11px] text-slate-400 mt-0.5">Click &ldquo;Edit Subjects&rdquo; to assign course subjects to this student.</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
                         {editSubjectIds.map(subId => {
                           const isCore = activeCompulsoryGroup?.subject_ids.includes(subId) ?? true;
                           const name = getSubjectName(subId);
                           const code = getSubjectCode(subId);
                           return (
-                            <div key={subId} className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+                            <div key={subId} className="p-2.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50/80 transition-colors shadow-2xs flex flex-col justify-between">
                               <div className="min-w-0">
-                                <span className="font-semibold text-slate-900 text-xs block truncate">{name}</span>
-                                <span className="font-mono text-[10px] text-slate-500 block">{code}</span>
+                                <span className="font-bold text-slate-900 text-xs block truncate" title={name}>{name}</span>
+                                {code && code !== '—' && (
+                                  <span className="font-mono text-[10px] text-slate-500 block mt-0.5 truncate">{code}</span>
+                                )}
                               </div>
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 ${
-                                isCore ? 'bg-slate-200/70 text-slate-700' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                              }`}>
-                                {isCore ? 'Core' : 'Elective'}
-                              </span>
+                              <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between">
+                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-semibold ${
+                                  isCore ? 'bg-slate-100 text-slate-700' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                }`}>
+                                  {isCore ? 'Core' : 'Elective'}
+                                </span>
+                              </div>
                             </div>
                           );
                         })}
@@ -3245,19 +3249,19 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             {currentStudent.guardian_phone ? (
               <a
                 href={`tel:${currentStudent.guardian_phone.replace(/[^0-9+]/g, '')}`}
-                className="h-9 px-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                className="h-9 px-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
                 title="Call Guardian"
               >
-                <Phone className="w-3.5 h-3.5 text-slate-700" />
-                <span>Call</span>
+                <Phone className="w-3.5 h-3.5 text-slate-700 shrink-0" />
+                <span className="whitespace-nowrap">Call</span>
               </a>
             ) : (
               <button
                 disabled
-                className="h-9 px-2 bg-slate-100 text-slate-400 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed"
+                className="h-9 px-1.5 bg-slate-100 text-slate-400 rounded-xl text-xs font-medium flex items-center justify-center gap-1 opacity-50 cursor-not-allowed whitespace-nowrap"
               >
-                <Phone className="w-3.5 h-3.5" />
-                <span>Call</span>
+                <Phone className="w-3.5 h-3.5 shrink-0" />
+                <span className="whitespace-nowrap">Call</span>
               </button>
             )}
 
@@ -3266,19 +3270,19 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 href={`https://wa.me/${(currentStudent.guardian_whatsapp || currentStudent.guardian_phone).replace(/[^0-9]/g, '')}`}
                 target="_blank"
                 rel="noreferrer"
-                className="h-9 px-2 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200/80 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                className="h-9 px-1.5 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200/80 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
                 title="WhatsApp Guardian"
               >
-                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Chat</span>
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="whitespace-nowrap">Chat</span>
               </a>
             ) : (
               <button
                 disabled
-                className="h-9 px-2 bg-slate-100 text-slate-400 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed"
+                className="h-9 px-1.5 bg-slate-100 text-slate-400 rounded-xl text-xs font-medium flex items-center justify-center gap-1 opacity-50 cursor-not-allowed whitespace-nowrap"
               >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>Chat</span>
+                <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+                <span className="whitespace-nowrap">Chat</span>
               </button>
             )}
 
@@ -3288,21 +3292,21 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 setSelectedIdCardEnrollmentId(undefined);
                 setShowIdCardModal(true);
               }}
-              className="h-9 px-2 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              className="h-9 px-1 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-2xs whitespace-nowrap"
               title="View/Print Student ID Card"
             >
-              <CreditCard className="w-3.5 h-3.5 text-slate-600" />
-              <span>ID Card</span>
+              <CreditCard className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+              <span className="whitespace-nowrap">ID Card</span>
             </button>
 
             <button
               type="button"
               onClick={() => setShowEditParticularsModal(true)}
-              className="h-9 px-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              className="h-9 px-1.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-colors cursor-pointer shadow-2xs whitespace-nowrap"
               title="Edit Student Particulars"
             >
-              <Edit3 className="w-3.5 h-3.5 text-slate-300" />
-              <span>Edit</span>
+              <Edit3 className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+              <span className="whitespace-nowrap">Edit</span>
             </button>
           </div>
         </div>
@@ -3739,7 +3743,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                       <span>Curriculum Subjects</span>
                       <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-slate-200 text-slate-800">
-                        {editSubjectIds.length}/{availableClassSubjectIds.length}
+                        {editSubjectIds.length} Subjects
                       </span>
                     </h3>
                     <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[200px]">
@@ -3751,7 +3755,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsManagingSubjects(true)}
-                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs whitespace-nowrap"
                     >
                       <Edit3 className="w-3.5 h-3.5 text-slate-500" />
                       <span>Edit</span>
@@ -3791,76 +3795,113 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   </div>
                 )}
 
-                <div className="divide-y divide-slate-100">
-                  {availableClassSubjectIds.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-slate-400">
-                      No subjects configured for this class program.
-                    </div>
-                  ) : (
-                    availableClassSubjectIds.map(subId => {
-                      const isEnrolled = editSubjectIds.includes(subId);
-                      const isCore = activeCompulsoryGroup?.subject_ids.includes(subId) ?? true;
-                      const name = getSubjectName(subId);
-                      const code = getSubjectCode(subId);
-
-                      if (!isManagingSubjects) {
-                        return (
-                          <div key={subId} className="px-3.5 py-2 flex items-center justify-between text-xs">
-                            <div className="min-w-0 pr-2">
-                              <span className="font-semibold text-slate-900 block truncate">{name}</span>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="font-mono text-[10px] text-slate-500">{code}</span>
-                                <span className="text-slate-300">•</span>
-                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-semibold ${
-                                  isCore ? 'bg-slate-100 text-slate-700' : 'bg-indigo-50 text-indigo-700'
-                                }`}>
+                {/* View Mode: Compact 3-Column Grid */}
+                {!isManagingSubjects ? (
+                  <div className="p-2.5">
+                    {editSubjectIds.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400">
+                        <BookOpen className="w-5 h-5 mx-auto mb-1 text-slate-300" />
+                        <p className="font-semibold text-slate-700">No subjects assigned</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">Tap &ldquo;Edit&rdquo; to assign course subjects.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {editSubjectIds.map(subId => {
+                          const isCore = activeCompulsoryGroup?.subject_ids.includes(subId) ?? true;
+                          const name = getSubjectName(subId);
+                          const code = getSubjectCode(subId);
+                          return (
+                            <div
+                              key={subId}
+                              className="p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors shadow-2xs flex flex-col justify-between min-h-[62px]"
+                            >
+                              <div className="min-w-0">
+                                <span
+                                  className="font-bold text-slate-900 text-[11px] leading-tight block line-clamp-2"
+                                  title={name}
+                                >
+                                  {name}
+                                </span>
+                                {code && code !== '—' && (
+                                  <span className="font-mono text-[9px] text-slate-400 block mt-0.5 truncate">
+                                    {code}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-1.5 pt-1 border-t border-slate-100 flex items-center justify-between">
+                                <span
+                                  className={`px-1 py-0.2 rounded text-[8.5px] font-semibold tracking-tight ${
+                                    isCore
+                                      ? 'bg-slate-100 text-slate-700'
+                                      : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                  }`}
+                                >
                                   {isCore ? 'Core' : 'Elective'}
                                 </span>
                               </div>
                             </div>
-                            <span className={`text-[11px] font-medium shrink-0 ${isEnrolled ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
-                              {isEnrolled ? 'Enrolled' : 'Not Enrolled'}
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Edit Checklist Mode */
+                  <div className="divide-y divide-slate-100">
+                    {availableClassSubjectIds.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400">
+                        No subjects configured for this class program.
+                      </div>
+                    ) : (
+                      availableClassSubjectIds.map(subId => {
+                        const isEnrolled = editSubjectIds.includes(subId);
+                        const isCore = activeCompulsoryGroup?.subject_ids.includes(subId) ?? true;
+                        const name = getSubjectName(subId);
+                        const code = getSubjectCode(subId);
+
+                        return (
+                          <div
+                            key={subId}
+                            onClick={() => handleToggleSubject(subId)}
+                            className={`px-3.5 py-2.5 flex items-center justify-between text-xs cursor-pointer transition-colors ${
+                              isEnrolled ? 'bg-indigo-50/20' : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={isEnrolled}
+                                onChange={() => handleToggleSubject(subId)}
+                                className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-4 h-4 cursor-pointer shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <span className="font-semibold text-slate-900 block truncate">{name}</span>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  {code && code !== '—' && (
+                                    <>
+                                      <span className="font-mono text-[10px] text-slate-500">{code}</span>
+                                      <span className="text-slate-300">•</span>
+                                    </>
+                                  )}
+                                  <span className={`px-1.5 py-0.2 rounded text-[9px] font-semibold ${
+                                    isCore ? 'bg-slate-100 text-slate-700' : 'bg-indigo-50 text-indigo-700'
+                                  }`}>
+                                    {isCore ? 'Core' : 'Elective'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <span className={`text-[10px] font-semibold shrink-0 px-2 py-0.5 rounded ${
+                              isEnrolled ? 'bg-emerald-50 text-emerald-700' : 'text-slate-400'
+                            }`}>
+                              {isEnrolled ? 'Selected' : 'Unselected'}
                             </span>
                           </div>
                         );
-                      }
-
-                      return (
-                        <div
-                          key={subId}
-                          onClick={() => handleToggleSubject(subId)}
-                          className={`px-3.5 py-2.5 flex items-center justify-between text-xs cursor-pointer transition-colors ${
-                            isEnrolled ? 'bg-indigo-50/20' : 'hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <input
-                              type="checkbox"
-                              checked={isEnrolled}
-                              onChange={() => handleToggleSubject(subId)}
-                              className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-4 h-4 cursor-pointer shrink-0"
-                            />
-                            <div className="min-w-0">
-                              <span className="font-semibold text-slate-900 block truncate">{name}</span>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="font-mono text-[10px] text-slate-500">{code}</span>
-                                <span className="text-slate-300">•</span>
-                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-semibold ${
-                                  isCore ? 'bg-slate-100 text-slate-700' : 'bg-indigo-50 text-indigo-700'
-                                }`}>
-                                  {isCore ? 'Core' : 'Elective'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          <span className={`text-[11px] font-medium shrink-0 ${isEnrolled ? 'text-emerald-700' : 'text-slate-400'}`}>
-                            {isEnrolled ? 'Enrolled' : 'Not Enrolled'}
-                          </span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+                      })
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Document Checklist */}
