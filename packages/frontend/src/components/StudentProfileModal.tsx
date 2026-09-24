@@ -896,7 +896,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     if (!token || !currentStudent.id || !leaveClassEnrollment) return;
     setIsLeavingClass(true);
     setLeaveClassError(null);
-    const effectiveReason = leaveClassReason.trim() || 'Class exit regularization';
+    const effectiveReason = leaveClassReason.trim() || 'Left class';
     try {
       const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/enrollments/${leaveClassEnrollment.id}/status`, {
         method: 'POST',
@@ -1372,10 +1372,10 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 type="button"
                 onClick={() => setShowEditParticularsModal(true)}
                 className="flex-1 sm:flex-none h-8.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
-                title="Edit Student Particulars & Photo"
+                title="Edit Student Profile & Photo"
               >
                 <Edit3 className="w-3.5 h-3.5 text-slate-600" />
-                <span>Edit Particulars</span>
+                <span>Edit Profile</span>
               </button>
 
               <button
@@ -1404,11 +1404,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           </div>
         </div>
 
-        {/* Clean Institutional Navigation Tabs (4 Authoritative Tabs) */}
+        {/* Clean Navigation Tabs (4 Standard Tabs) */}
         <div className="flex items-center overflow-x-auto md:overflow-x-visible no-scrollbar border-b border-slate-200 px-3 sm:px-4 bg-slate-50/70 text-xs font-medium gap-1 whitespace-nowrap shrink-0">
           <button
             onClick={() => setActiveTab('academic')}
-            aria-label="Academic & Particulars"
+            aria-label="Academic Details"
             className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'academic'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
@@ -1416,7 +1416,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             }`}
           >
             <GraduationCap className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'academic' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span><span className="hidden sm:inline">Academic & Particulars</span><span className="sm:hidden">Academic</span></span>
+            <span><span className="hidden sm:inline">Academic Details</span><span className="sm:hidden">Academic</span></span>
             {enrollments.length > 1 && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-medium bg-slate-200 text-slate-700">
                 {enrollments.length}
@@ -1426,7 +1426,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
           <button
             onClick={() => setActiveTab('finance')}
-            aria-label="Fee Ledger & Challans"
+            aria-label="Fee Ledger"
             className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'finance'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
@@ -1434,7 +1434,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             }`}
           >
             <DollarSign className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'finance' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span><span className="hidden sm:inline">Fee Ledger & Challans</span><span className="sm:hidden">Fees</span></span>
+            <span><span className="hidden sm:inline">Fee Ledger</span><span className="sm:hidden">Fees</span></span>
             {totalOutstanding > 0 && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-rose-50 text-rose-700 border border-rose-200">
                 PKR {totalOutstanding.toLocaleString()}
@@ -1444,7 +1444,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
           <button
             onClick={() => setActiveTab('attendance')}
-            aria-label="Attendance & Performance"
+            aria-label="Attendance & Results"
             className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'attendance'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
@@ -1452,7 +1452,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             }`}
           >
             <Clock className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'attendance' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span><span className="hidden sm:inline">Attendance & Performance</span><span className="sm:hidden">Attendance</span></span>
+            <span><span className="hidden sm:inline">Attendance & Results</span><span className="sm:hidden">Attendance</span></span>
             {attendanceMetrics.total > 0 && (
               <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono font-medium ${
                 attendanceMetrics.isEligible ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
@@ -1467,15 +1467,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               setActiveTab('status');
               setStatusTarget(currentStudent.status || 'active');
             }}
-            aria-label="Status & Administrative Records"
+            aria-label="Status & Records"
             className={`py-1.5 px-2.5 sm:px-3 h-8.5 border-b-2 flex items-center gap-1.5 text-xs transition-all cursor-pointer ${
               activeTab === 'status'
                 ? 'border-slate-900 text-slate-900 font-semibold bg-white -mb-px'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 font-medium'
             }`}
           >
-            <ShieldAlert className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'status' ? 'text-slate-800' : 'text-slate-400'}`} />
-            <span><span className="hidden sm:inline">Status & Administrative Records</span><span className="sm:hidden">Status</span></span>
+            <History className={`w-3.5 h-3.5 shrink-0 ${activeTab === 'status' ? 'text-slate-800' : 'text-slate-400'}`} />
+            <span><span className="hidden sm:inline">Status & Records</span><span className="sm:hidden">Status</span></span>
             {currentStudent.status !== 'active' && (
               <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-200 text-slate-700 capitalize">
                 {currentStudent.status}
@@ -1589,7 +1589,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <div className="flex items-center gap-2">
                       <Phone className="w-4 h-4 text-slate-700" />
                       <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                        Family & Guardian Particulars
+                        Guardian Particulars
                       </h3>
                     </div>
                     <span className="text-[11px] text-slate-500 font-mono">
@@ -1670,7 +1670,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       <div className="flex items-center gap-2">
                         <Key className="w-4 h-4 text-slate-700" />
                         <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                          Portal Access & Credentials
+                          Portal Credentials
                         </h3>
                       </div>
                       <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
@@ -1682,8 +1682,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       {/* Username */}
                       <div>
                         <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium mb-1">
-                          <span>Login Identifier (Guardian CNIC)</span>
-                          <span className="text-[10px] text-slate-400 font-sans">Username</span>
+                          <span>Username (Guardian CNIC)</span>
+                          <span className="text-[10px] text-slate-400 font-sans">Login ID</span>
                         </div>
                         {currentStudent.guardian_id_card ? (
                           <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
@@ -1770,7 +1770,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <div className="flex items-center gap-2">
                       <User className="w-4 h-4 text-slate-700" />
                       <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                        Personal Particulars & Identity
+                        Personal Details
                       </h3>
                     </div>
                     {student.blood_group && (
@@ -2154,18 +2154,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 )}
               </div>
 
-              {/* Physical Document Verification Status */}
+              {/* Document Checklist */}
               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
                 <div className="px-4 sm:px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                      <FileCheck className="w-4 h-4 text-slate-600" />
-                      Physical Document Verification Status
-                    </h3>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Physical verification of paper certificates, CNIC copies, and photographs on file.
-                    </p>
-                  </div>
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                    <FileCheck className="w-4 h-4 text-slate-600" />
+                    <span>Document Checklist</span>
+                  </h3>
                 </div>
 
                 {studentDocHeads.length === 0 ? (
@@ -2739,109 +2734,93 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             </div>
           )}
 
-          {/* TAB 4: ADMINISTRATIVE STATUS & RECORDS */}
+          {/* TAB 4: STATUS & RECORDS */}
           {activeTab === 'status' && (
-            <div className="space-y-6">
-              {/* Top Banner / Standing */}
-              <div className="bg-white border border-slate-200 rounded p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Current Standing:</span>
-                    <span className={`px-2.5 py-0.5 rounded text-xs font-bold border uppercase tracking-wider ${
-                      currentStudent.status === 'active'
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                        : currentStudent.status === 'withdrawn'
-                        ? 'bg-rose-50 text-rose-800 border-rose-300'
-                        : currentStudent.status === 'suspended'
-                        ? 'bg-red-50 text-red-800 border-red-300'
-                        : 'bg-amber-50 text-amber-800 border-amber-300'
-                    }`}>
-                      {currentStudent.status || 'active'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    {currentStudent.status_reason ? (
-                      <span><strong>Reason on File:</strong> {currentStudent.status_reason}</span>
-                    ) : (
-                      <span>Student is enrolled in standard academic standing.</span>
-                    )}
-                  </p>
+            <div className="space-y-4 sm:space-y-6">
+              {/* Top Banner / Current Status */}
+              <div className="bg-white border border-slate-200 rounded-lg p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Status:</span>
+                  <span className={`px-2.5 py-0.5 rounded text-xs font-bold border uppercase tracking-wider ${
+                    currentStudent.status === 'active'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : currentStudent.status === 'withdrawn'
+                      ? 'bg-rose-50 text-rose-800 border-rose-300'
+                      : currentStudent.status === 'suspended'
+                      ? 'bg-red-50 text-red-800 border-red-300'
+                      : 'bg-amber-50 text-amber-800 border-amber-300'
+                  }`}>
+                    {currentStudent.status || 'Active'}
+                  </span>
+                  {currentStudent.status_reason && (
+                    <span className="text-xs text-slate-500 italic">({currentStudent.status_reason})</span>
+                  )}
                 </div>
-                <div className="text-xs text-slate-500 text-left md:text-right">
-                  <div>Admission Date: <strong className="font-mono text-slate-700">{currentStudent.admission_date || '—'}</strong></div>
-                  <div>Last Updated: <strong className="font-mono text-slate-700">{currentStudent.updated_at ? new Date(currentStudent.updated_at).toLocaleDateString() : '—'}</strong></div>
+                <div className="text-xs text-slate-500 flex items-center gap-3">
+                  <span>Admission: <strong className="font-mono text-slate-700">{currentStudent.admission_date || '—'}</strong></span>
+                  {currentStudent.updated_at && (
+                    <span>Updated: <strong className="font-mono text-slate-700">{new Date(currentStudent.updated_at).toLocaleDateString()}</strong></span>
+                  )}
                 </div>
               </div>
 
-              {/* Status Regularization Action Card */}
-              <div className="bg-white border border-slate-200 rounded overflow-hidden">
-                <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                      Administrative Status Regularization
-                    </h3>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Change enrollment standing, issue withdrawal clearance, or manage disciplinary suspension.
-                    </p>
-                  </div>
-                  <ShieldAlert className="w-4 h-4 text-slate-400" />
+              {/* Status Update Card */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="px-4 sm:px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                    Update Student Status
+                  </h3>
                 </div>
 
-                <form onSubmit={handleUpdateStatus} className="p-5 space-y-4">
+                <form onSubmit={handleUpdateStatus} className="p-4 sm:p-5 space-y-3.5">
                   {statusSuccessMsg && (
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-800 flex items-center gap-2">
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                       <span>{statusSuccessMsg}</span>
                     </div>
                   )}
 
                   {statusErrorMsg && (
-                    <div className="p-3 bg-rose-50 border border-rose-200 rounded text-xs text-rose-800 flex items-center gap-2">
+                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 flex items-center gap-2">
                       <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                       <span>{statusErrorMsg}</span>
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        New Standing / Target Status <span className="text-rose-500">*</span>
+                        New Status <span className="text-rose-500">*</span>
                       </label>
                       <select
                         value={statusTarget}
                         onChange={(e) => setStatusTarget(e.target.value as StudentStatus)}
-                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded bg-white text-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 font-medium"
+                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 font-medium"
                       >
-                        <option value="active">Active (Regular Enrollment)</option>
-                        <option value="waitlisted">Waitlisted (Capacity Exceeded / Pending Seat)</option>
-                        <option value="on_leave">On Leave (Approved Absence)</option>
-                        <option value="suspended">Suspended (Disciplinary / Admin Hold)</option>
-                        <option value="alumni">Alumni (Course Completed / Graduated)</option>
-                        <option value="withdrawn">Withdrawn (Formal Clearance Issued)</option>
-                        <option value="archived">Archived (Archived Record / Inactive Roster)</option>
+                        <option value="active">Active</option>
+                        <option value="on_leave">On Leave</option>
+                        <option value="suspended">Suspended</option>
+                        <option value="withdrawn">Withdrawn</option>
+                        <option value="alumni">Alumni / Graduated</option>
+                        <option value="waitlisted">Waitlisted</option>
+                        <option value="archived">Archived</option>
                       </select>
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        Withdrawn and suspended students are excluded from daily attendance registers.
-                      </p>
                     </div>
 
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Administrative Billing Action
+                        Billing Option
                       </label>
-                      <div className="mt-1 p-2.5 bg-slate-50 border border-slate-200 rounded">
-                        <label className="flex items-start gap-2 cursor-pointer">
+                      <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                        <label className="flex items-center gap-2 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={cancelUnpaidInvoices}
                             onChange={(e) => setCancelUnpaidInvoices(e.target.checked)}
-                            className="mt-0.5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                            className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer"
                           />
-                          <span className="text-xs text-slate-700 font-medium leading-relaxed">
-                            Cancel outstanding unpaid & partially paid invoices for this student
-                            <span className="block text-[11px] text-slate-500 font-normal">
-                              Zeroes outstanding ledger balances and writes audit cancellation remarks.
-                            </span>
+                          <span className="text-xs text-slate-700 font-medium">
+                            Cancel unpaid invoices on withdrawal
                           </span>
                         </label>
                       </div>
@@ -2850,54 +2829,49 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Reason for Status Change <span className="text-rose-500">*</span>
+                      Reason <span className="text-rose-500">*</span>
                     </label>
-                    <textarea
-                      rows={2}
+                    <input
+                      type="text"
                       value={statusReason}
                       onChange={(e) => setStatusReason(e.target.value)}
-                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded bg-white text-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 font-sans"
+                      placeholder="e.g. Relocated to another city, fee default, completed course"
+                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 focus:outline-hidden focus:ring-1 focus:ring-slate-900 font-sans"
                     />
                   </div>
 
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
                     <button
                       type="submit"
                       disabled={isUpdatingStatus || !statusReason.trim()}
-                      className="w-full sm:w-auto justify-center px-4 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 disabled:opacity-50 text-white rounded text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      className="w-full sm:w-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                     >
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      <span>{isUpdatingStatus ? 'Updating Status...' : 'Apply Status Transition'}</span>
+                      <span>{isUpdatingStatus ? 'Saving...' : 'Update Status'}</span>
                     </button>
                   </div>
                 </form>
               </div>
 
-              {/* Status Audit Log */}
-              <div className="bg-white border border-slate-200 rounded overflow-hidden">
-                <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                      Status Change History & Audit Trail
-                    </h3>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Immutable institutional record of transitions and authorized signatories.
-                    </p>
-                  </div>
+              {/* Status Change History */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="px-4 sm:px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                    Status History
+                  </h3>
                   <History className="w-4 h-4 text-slate-400" />
                 </div>
 
                 {/* Mobile Status History List */}
                 <div className="divide-y divide-slate-100 sm:hidden">
                   {(!currentStudent.status_change_history || currentStudent.status_change_history.length === 0) ? (
-                    <div className="py-6 px-4 text-center text-slate-500 text-xs">
-                      No status transitions recorded. Student remains in initial admission standing ({currentStudent.status || 'active'}).
+                    <div className="py-6 px-4 text-center text-slate-400 text-xs">
+                      No status changes recorded.
                     </div>
                   ) : (
                     currentStudent.status_change_history.map((h, idx) => (
-                      <div key={idx} className="p-3.5 space-y-2 bg-white text-xs">
+                      <div key={idx} className="p-3 space-y-1.5 bg-white text-xs">
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-mono text-slate-500">{new Date(h.changed_at).toLocaleString()}</span>
+                          <span className="font-mono text-slate-500">{new Date(h.changed_at).toLocaleDateString()}</span>
                           <span className="font-mono text-slate-400 text-[10px]">{h.changed_by}</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -2916,7 +2890,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           </span>
                         </div>
                         {h.reason && (
-                          <p className="text-slate-700 font-medium text-[11px] pt-0.5">{h.reason}</p>
+                          <p className="text-slate-700 text-[11px]">{h.reason}</p>
                         )}
                       </div>
                     ))
@@ -2928,25 +2902,25 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <table className="w-full text-xs text-left border-collapse">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-                        <th className="py-2.5 px-4">Date & Time</th>
-                        <th className="py-2.5 px-4">Previous Standing</th>
-                        <th className="py-2.5 px-4">New Standing</th>
-                        <th className="py-2.5 px-4">Reason / Remarks</th>
-                        <th className="py-2.5 px-4">Changed By</th>
+                        <th className="py-2.5 px-4">Date</th>
+                        <th className="py-2.5 px-4">Previous Status</th>
+                        <th className="py-2.5 px-4">New Status</th>
+                        <th className="py-2.5 px-4">Reason</th>
+                        <th className="py-2.5 px-4">Updated By</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {(!currentStudent.status_change_history || currentStudent.status_change_history.length === 0) ? (
                         <tr>
-                          <td colSpan={5} className="py-6 text-center text-slate-500 text-xs">
-                            No status transitions recorded. Student remains in initial admission standing ({currentStudent.status || 'active'}).
+                          <td colSpan={5} className="py-6 text-center text-slate-400 text-xs">
+                            No status changes recorded.
                           </td>
                         </tr>
                       ) : (
                         currentStudent.status_change_history.map((h, idx) => (
                           <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                             <td className="py-2.5 px-4 font-mono text-slate-700 whitespace-nowrap">
-                              {new Date(h.changed_at).toLocaleString()}
+                              {new Date(h.changed_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
                             </td>
                             <td className="py-2.5 px-4">
                               <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 uppercase">
@@ -3044,30 +3018,22 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               )}
 
-              {/* Administrative Record Controls & Danger Zone */}
+              {/* Administrative Actions */}
               <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-                <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ShieldAlert className="w-4 h-4 text-slate-700" />
-                    <div>
-                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                        Administrative Records & System Operations
-                      </h3>
-                      <p className="text-[11px] text-slate-500">
-                        Audit logs, archival standing, and administrative records management.
-                      </p>
-                    </div>
-                  </div>
+                <div className="px-4 sm:px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                    Administrative Actions
+                  </h3>
                 </div>
 
                 <div className="p-4 sm:p-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {/* View Audit Trail */}
-                    <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
+                    <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 flex flex-col justify-between gap-2.5">
                       <div>
-                        <span className="text-xs font-bold text-slate-800 block">Complete Audit Logs</span>
+                        <span className="text-xs font-bold text-slate-800 block">Activity Log</span>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          View granular timestamped log of modifications, signatories, and profile edits.
+                          View profile edit history.
                         </p>
                       </div>
                       <button
@@ -3076,19 +3042,19 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           fetchAuditLogs();
                           setShowAuditLogsModal(true);
                         }}
-                        className="py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <History className="w-3.5 h-3.5 text-slate-500" />
-                        <span>View Audit Trail</span>
+                        <span>View Log</span>
                       </button>
                     </div>
 
                     {/* Student Identity Card */}
-                    <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
+                    <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 flex flex-col justify-between gap-2.5">
                       <div>
-                        <span className="text-xs font-bold text-slate-800 block">Student Identity Card</span>
+                        <span className="text-xs font-bold text-slate-800 block">Student ID Card</span>
                         <p className="text-[11px] text-slate-500 mt-0.5">
-                          Print institutional student card with barcode, QR code, and academic particulars.
+                          Print card with photo & QR.
                         </p>
                       </div>
                       <button
@@ -3097,7 +3063,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           setSelectedIdCardEnrollmentId(undefined);
                           setShowIdCardModal(true);
                         }}
-                        className="py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
                         <CreditCard className="w-3.5 h-3.5 text-slate-500" />
                         <span>Print ID Card</span>
@@ -3106,15 +3072,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                     {/* Archive / Restore */}
                     {canManageAcademicStatus && (
-                      <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
+                      <div className="p-3 rounded-lg border border-slate-200 bg-slate-50 flex flex-col justify-between gap-2.5">
                         <div>
                           <span className="text-xs font-bold text-slate-800 block">
-                            {currentStudent.status === 'archived' ? 'Restore Active Standing' : 'Archive Student Record'}
+                            {currentStudent.status === 'archived' ? 'Restore Student' : 'Archive Student'}
                           </span>
                           <p className="text-[11px] text-slate-500 mt-0.5">
                             {currentStudent.status === 'archived'
-                              ? 'Restore this student from archived state back into the active student directory.'
-                              : 'Retains all historical grades and financial ledgers while hiding student from active rosters.'}
+                              ? 'Restore student to active lists.'
+                              : 'Hide from active lists while keeping records.'}
                           </p>
                         </div>
                         {currentStudent.status === 'archived' ? (
@@ -3125,7 +3091,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                             className="py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                           >
                             <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>{isArchivingStudent ? 'Restoring...' : 'Restore to Active'}</span>
+                            <span>{isArchivingStudent ? 'Restoring...' : 'Restore'}</span>
                           </button>
                         ) : (
                           <button
@@ -3142,11 +3108,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                     {/* Delete (Admin Only) */}
                     {isAdmin && (
-                      <div className="p-3.5 rounded-lg border border-rose-200 bg-rose-50/40 flex flex-col justify-between gap-3">
+                      <div className="p-3 rounded-lg border border-rose-200 bg-rose-50/40 flex flex-col justify-between gap-2.5">
                         <div>
-                          <span className="text-xs font-bold text-rose-800 block">Permanently Delete Record</span>
-                          <p className="text-[11px] text-rose-600/90 mt-0.5">
-                            Irreversible deletion of student profile, ledger entries, and historical credentials.
+                          <span className="text-xs font-bold text-rose-800 block">Delete Student</span>
+                          <p className="text-[11px] text-rose-600 mt-0.5">
+                            Permanently delete student record.
                           </p>
                         </div>
                         <button
@@ -4415,10 +4381,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     className="mt-0.5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
                   />
                   <span className="text-xs text-slate-800 font-medium leading-relaxed">
-                    Cancel outstanding unpaid invoices for this student
-                    <span className="block text-[11px] text-slate-500 font-normal mt-0.5">
-                      Sets unpaid/partial balance to zero with an administrative cancellation remark.
-                    </span>
+                    Cancel unpaid invoices on archive
                   </span>
                 </label>
               </div>
@@ -4439,7 +4402,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 className="w-full sm:w-auto h-8.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
               >
                 <Archive className="w-3.5 h-3.5 text-slate-300" />
-                <span>{isArchivingStudent ? 'Archiving...' : 'Confirm Archival'}</span>
+                <span>{isArchivingStudent ? 'Archiving...' : 'Archive Student'}</span>
               </button>
             </div>
           </div>
@@ -4454,7 +4417,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
             <div className="bg-rose-700 text-white px-5 py-3.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Trash2 className="w-4 h-4 text-white" />
-                <h2 className="text-sm font-bold">Permanently Delete Student Record</h2>
+                <h2 className="text-sm font-bold">Delete Student Record</h2>
               </div>
               <button
                 type="button"
@@ -4476,7 +4439,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   Admission No: <strong className="font-mono">{currentStudent.admission_number}</strong>
                 </p>
                 <p className="text-[11px] leading-relaxed text-rose-700">
-                  This action permanently removes the student from the database, deletes associated attendance registers, exam evaluations, and portal credentials.
+                  Permanently deletes student profile, attendance, and exam records.
                 </p>
               </div>
 
@@ -4486,7 +4449,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <div className="space-y-1">
                     <p className="font-semibold">{deleteModalError}</p>
                     <p className="text-[11px] text-rose-700">
-                      Recommendation: Use the <strong>Archive</strong> button instead to preserve institutional fee registers and accounting records.
+                      Recommendation: Archive instead to preserve fee registers and accounting records.
                     </p>
                   </div>
                 </div>
@@ -4502,7 +4465,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       className="mt-0.5 rounded border-amber-400 text-rose-600 focus:ring-rose-500"
                     />
                     <span className="font-semibold leading-relaxed">
-                      Administrative Override: Force delete this student despite recorded financial transactions.
+                      Force delete this student despite recorded financial transactions.
                     </span>
                   </label>
                 </div>
@@ -4537,7 +4500,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 className="w-full sm:w-auto h-8.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>{isDeletingStudent ? 'Deleting...' : 'Confirm Permanent Deletion'}</span>
+                <span>{isDeletingStudent ? 'Deleting...' : 'Delete Student'}</span>
               </button>
             </div>
           </div>
@@ -4722,7 +4685,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <ShieldAlert className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm text-slate-900">Leave Class — Regularization</h3>
+                  <h3 className="font-bold text-sm text-slate-900">Leave Class</h3>
                   <p className="text-[11px] text-slate-500">
                     {batches.find(b => b.id === leaveClassEnrollment.batch_id)?.name || 'Class Batch'}
                   </p>
@@ -4788,9 +4751,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   />
                   <div>
                     <span className="font-semibold text-slate-800 block">Cancel unpaid fee challans for this class</span>
-                    <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
-                      Automatically cancels outstanding dues specifically billed for this batch without affecting other classes.
-                    </span>
                   </div>
                 </label>
               </div>
@@ -4808,8 +4768,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   disabled={isLeavingClass}
                   className="w-full sm:w-auto h-8.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  <span>{isLeavingClass ? 'Processing Exit...' : 'Confirm Class Exit'}</span>
+                  <span>{isLeavingClass ? 'Processing...' : 'Leave Class'}</span>
                 </button>
               </div>
             </form>
