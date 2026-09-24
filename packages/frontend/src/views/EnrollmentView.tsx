@@ -2908,14 +2908,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
-                  Student admission registration, academic placement, family records, and fee allocation.
+                  Student admission registration, academic details, family records, and fee allocation.
                 </p>
               </div>
             </div>
 
             {/* Academic Placement Toggle */}
             <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-              <span className="text-xs font-semibold text-slate-500">Placement:</span>
+              <span className="text-xs font-semibold text-slate-500">Admission Mode:</span>
               <div className="inline-flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs">
                 <button
                   type="button"
@@ -3023,7 +3023,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <GraduationCap className="w-4 h-4 text-indigo-600" />
                     <div>
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                        1. Academic Placement & Course Subjects
+                        Academic Details & Subjects
                       </h3>
                       <p className="text-[11px] text-slate-500">
                         Class, section, admission date, and enrolled subjects.
@@ -3160,14 +3160,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 {electiveGroupsForEnroll.length > 0 && (
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Elective Stream
+                      Elective Group
                     </label>
                     <ModernSelect
                       value={enrollForm.elective_group_id}
                       onChange={val => setEnrollForm(prev => ({ ...prev, elective_group_id: val }))}
-                      placeholder="Select Elective Stream (Optional)"
+                      placeholder="Select Elective Group (Optional)"
                       options={[
-                        { value: '', label: 'Select Elective Stream (Optional)' },
+                        { value: '', label: 'Select Elective Group (Optional)' },
                         ...electiveGroupsForEnroll.map(eg => ({
                           value: eg.id,
                           label: `${eg.name} (${getSubjectNames(eg.subject_ids).join(', ')})`,
@@ -3285,7 +3285,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         <div key={eg.id} className="space-y-1.5">
                           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                            <span>{eg.name} Stream</span>
+                            <span>{eg.name} Group</span>
                           </div>
                           <div className="space-y-1 bg-white p-2.5 rounded-lg border border-slate-200">
                             {eg.subject_ids.map(subId => {
@@ -3335,7 +3335,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <User className="w-4 h-4 text-indigo-600" />
                     <div>
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                        2. Student Identity & Demographics
+                        Personal Details & Identity
                       </h3>
                       <p className="text-[11px] text-slate-500">
                         Student personal details, photograph, contact, and address.
@@ -3597,7 +3597,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <Users className="w-4 h-4 text-indigo-600" />
                     <div>
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                        3. Family & Parent Records
+                        Family & Parent Records
                       </h3>
                       <p className="text-[11px] text-slate-500">
                         Parent or guardian details and emergency contact.
@@ -4299,7 +4299,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <FileText className="w-4 h-4 text-indigo-600" />
                     <div>
                       <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                        4. Physical Document Verification Status
+                        Document Verification Checklist
                       </h3>
                       <p className="text-[11px] text-slate-500">
                         Verification status of physical documents, certificates, and hardcopy records on file (status tracking only, no file uploads).
@@ -4405,7 +4405,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
                   <div className="border-b border-slate-100 pb-3">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                      5. Additional Institutional Fields
+                      Additional Profile Fields
                     </h3>
                     <p className="text-[11px] text-slate-500">Custom registration fields.</p>
                   </div>
@@ -5073,7 +5073,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Elective Track (Optional)</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Elective Group (Optional)</label>
                 <select
                   value={admitElectiveGroupId}
                   onChange={e => setAdmitElectiveGroupId(e.target.value)}

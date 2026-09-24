@@ -1470,7 +1470,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     <div className="flex items-center gap-2">
                       <GraduationCap className="w-4 h-4 text-slate-700" />
                       <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                        Academic Placement
+                        Academic Details
                       </h3>
                     </div>
                     <span className="font-mono text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
@@ -1480,7 +1480,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                   <div className="divide-y divide-slate-100 text-xs">
                     <div className="py-2 flex items-center justify-between gap-2">
-                      <span className="text-slate-500 font-medium shrink-0">Program / Class</span>
+                      <span className="text-slate-500 font-medium shrink-0">Class</span>
                       <span className="font-bold text-slate-900 text-right truncate">{activeProgram?.name || 'Academic Class'}</span>
                     </div>
                     <div className="py-2 flex items-center justify-between gap-2">
@@ -1872,7 +1872,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         </span>
                       </h3>
                       <p className="text-[11px] text-slate-500 mt-0.5">
-                        Track: <strong className="text-slate-700">{activeElectiveGroup?.name || 'General Curriculum Stream'}</strong>
+                        Group: <strong className="text-slate-700">{activeElectiveGroup?.name || 'General'}</strong>
                       </p>
                     </div>
                   </div>
@@ -2077,7 +2077,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                               const isCore = activeCompulsoryGroup?.subject_ids.includes(subId) ?? true;
                               const name = getSubjectName(subId);
                               const code = getSubjectCode(subId);
-                              const groupName = allProgramSubjectGroups.find(g => g.subject_ids.includes(subId))?.name || (isCore ? 'Compulsory Curriculum' : (activeElectiveGroup?.name || 'Elective Stream'));
+                              const groupName = allProgramSubjectGroups.find(g => g.subject_ids.includes(subId))?.name || (isCore ? 'Compulsory' : (activeElectiveGroup?.name || 'Elective Group'));
 
                               return (
                                 <tr
@@ -3341,7 +3341,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   <div className="flex items-center gap-1.5">
                     <GraduationCap className="w-4 h-4 text-slate-700" />
                     <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
-                      Academic Placement
+                      Academic Details
                     </h3>
                   </div>
                   <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
@@ -3351,7 +3351,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                 <div className="divide-y divide-slate-100 text-xs">
                   <div className="py-1.5 flex items-center justify-between gap-2">
-                    <span className="text-slate-500 font-medium">Program / Class</span>
+                    <span className="text-slate-500 font-medium">Class</span>
                     <span className="font-bold text-slate-900 text-right truncate">{activeProgram?.name || 'Academic Class'}</span>
                   </div>
                   <div className="py-1.5 flex items-center justify-between gap-2">
@@ -3713,7 +3713,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       </span>
                     </h3>
                     <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[200px]">
-                      Track: {activeElectiveGroup?.name || 'General Stream'}
+                      Group: {activeElectiveGroup?.name || 'General'}
                     </p>
                   </div>
 
@@ -4796,7 +4796,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 <div className="flex items-center justify-between">
                   <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                     <GraduationCap className="w-3.5 h-3.5 text-slate-600" />
-                    <span>Academic Placement</span>
+                    <span>Academic Details</span>
                   </h4>
                 </div>
 
@@ -4864,7 +4864,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Elective Track Stream
+                      Elective Group
                     </label>
                     <select
                       value={editElectiveGroupId}
@@ -4882,10 +4882,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               </div>
 
-              {/* Student Demographics & Identification */}
-              {/* Student Demographics & Identification */}
+              {/* Student Personal Details & Identification */}
               <div className="space-y-3 pb-3 border-b border-slate-200">
-                <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Demographics</h4>
+                <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Personal Details</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">Date of Birth</label>
@@ -4939,9 +4938,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               </div>
 
-              {/* Residential Location */}
+              {/* Residential Address */}
               <div className="space-y-3 pb-3 border-b border-slate-200">
-                <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Residential Location</h4>
+                <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Residential Address</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">Street Address</label>
@@ -5797,9 +5796,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               </div>
 
-              {/* Elective Stream */}
+              {/* Elective Group */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Elective Stream</label>
+                <label className="block font-semibold text-slate-700 mb-1">Elective Group</label>
                 <select
                   value={addClassElectiveGroupId}
                   onChange={e => setAddClassElectiveGroupId(e.target.value)}
@@ -6055,11 +6054,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               </div>
 
-              {/* Elective Track Stream (if applicable) */}
+              {/* Elective Group (if applicable) */}
               {subjectGroups.some(g => g.program_id === transferTargetProgramId && g.type === 'elective_track') && (
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Target Elective Track Stream
+                    Target Elective Group
                   </label>
                   <select
                     value={transferTargetElectiveGroupId}
