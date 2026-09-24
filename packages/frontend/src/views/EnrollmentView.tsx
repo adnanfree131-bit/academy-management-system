@@ -1831,7 +1831,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       {/* ========================================================================= */}
       {activeTab === 'directory' && (
         <>
-        <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-2xs relative z-20">
           {actionFeedbackMessage && (
             <div className={`p-3 border-b flex items-center justify-between text-xs font-semibold ${
               actionFeedbackMessage.type === 'success'
@@ -1918,7 +1918,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 {/* Dropdown Menu containing all options */}
                 {showModuleMenu && (
                   <div
-                    className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100"
+                    className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-50 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100"
                   >
                     {/* Primary Action */}
                     <div className="p-1.5">

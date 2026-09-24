@@ -317,6 +317,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
   // Enrolled Subjects Management
   const [editSubjectIds, setEditSubjectIds] = useState<string[]>(student.subjects || []);
+  const [isManagingSubjects, setIsManagingSubjects] = useState(false);
   const [isSavingSubjects, setIsSavingSubjects] = useState(false);
   const [editSubjectsSuccess, setEditSubjectsSuccess] = useState<string | null>(null);
   const [editSubjectsError, setEditSubjectsError] = useState<string | null>(null);
@@ -718,6 +719,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setEditSubjectsSuccess(null);
     setEditSubjectsError(null);
     setEditSubjectIds(currentStudent.subjects || []);
+    setIsManagingSubjects(false);
   };
 
   const handleSaveSubjects = async () => {
@@ -743,6 +745,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       if (res.ok && data.success) {
         setCurrentStudent(data.data);
         setEditSubjectIds(data.data.subjects || []);
+        setIsManagingSubjects(false);
         setEditSubjectsSuccess('Enrolled subjects updated successfully.');
         if (onStudentUpdated) onStudentUpdated();
         setTimeout(() => {
@@ -801,7 +804,23 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   // Student Enrollments State & Operations (Multi-Class Support)
   // =========================================================================
   const [enrollments, setEnrollments] = useState<StudentEnrollment[]>([]);
-  const [isLoadingEnrollments, setIsLoadingEnrollments] = useState(false);
+  const [_isLoadingEnrollments, setIsLoadingEnrollments] = useState(false);
+
+  const primaryEnrollment = useMemo(() => {
+    return enrollments.find(e => e.is_primary) || enrollments[0] || (currentStudent.batch_id ? {
+      id: 'primary',
+      student_id: currentStudent.id,
+      program_id: currentStudent.program_id,
+      batch_id: currentStudent.batch_id,
+      is_primary: true,
+      status: (currentStudent.status as any) || 'active',
+    } as StudentEnrollment : null);
+  }, [enrollments, currentStudent]);
+
+  const secondaryEnrollments = useMemo(() => {
+    if (!primaryEnrollment) return [];
+    return enrollments.filter(e => e.id !== primaryEnrollment.id);
+  }, [enrollments, primaryEnrollment]);
 
   // Leave Class Modal State
   const [leaveClassEnrollment, setLeaveClassEnrollment] = useState<StudentEnrollment | null>(null);
@@ -1163,8 +1182,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setCollectAmount(inv.balance_due ?? inv.balance_amount ?? 0);
   };
 
-  const [showContactPopup, setShowContactPopup] = useState(false);
-
   const getSubjectObj = (subId: string) => {
     return subjects.find(s => s.id === subId || s.name.toLowerCase() === subId.toLowerCase() || (s.code && s.code.toLowerCase() === subId.toLowerCase()));
   };
@@ -1314,289 +1331,147 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       {/* Main Container / Bottom Sheet on Mobile */}
       <div className="bg-white rounded-t-3xl sm:rounded-xl max-w-5xl w-full shadow-2xl border-t sm:border border-slate-300/90 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[94vh] sm:zoom-in-95 duration-200 mobile-sheet-card">
         {/* Institutional Student Profile Header */}
-        <div className="bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 shrink-0">
-          <div className="space-y-3">
-            {/* Top Tier: Identity & Primary Actions */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="flex items-center gap-3.5 min-w-0">
-                {/* 3:4 Passport Portrait Frame */}
-                <div className="w-13 h-16 sm:w-14 sm:h-18 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
-                  {currentStudent.photo_url ? (
-                    <img 
-                      src={currentStudent.photo_url} 
-                      alt={currentStudent.full_name} 
-                      className="w-full h-full object-cover" 
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-slate-300">
-                      <User className="w-6 h-6 stroke-1.5" />
-                    </div>
+        <div className="bg-white border-b border-slate-200 px-3.5 sm:px-6 py-3 shrink-0">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Identity Block */}
+            <div className="flex items-center gap-3 min-w-0">
+              {/* 3:4 Passport Portrait Frame */}
+              <div className="w-11 h-14 sm:w-13 sm:h-16 rounded-md border border-slate-200 bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
+                {currentStudent.photo_url ? (
+                  <img 
+                    src={currentStudent.photo_url} 
+                    alt={currentStudent.full_name} 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <User className="w-6 h-6 text-slate-400 stroke-1.5" />
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1">
+                {/* Name & Badges */}
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <h1 className="text-base sm:text-lg font-bold tracking-tight text-slate-900 leading-tight">
+                    {currentStudent.full_name}
+                  </h1>
+
+                  <span className={`px-2 py-0.5 rounded text-[10px] sm:text-[11px] font-semibold border flex items-center gap-1 shrink-0 ${
+                    currentStudent.status === 'active'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : currentStudent.status === 'withdrawn'
+                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                      : 'bg-amber-50 text-amber-700 border-amber-200'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      currentStudent.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'
+                    }`} />
+                    <span className="capitalize">{currentStudent.status === 'active' ? 'Active' : currentStudent.status}</span>
+                  </span>
+
+                  {currentStudent.blood_group && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                      {currentStudent.blood_group}
+                    </span>
+                  )}
+
+                  {currentStudent.id_card_reprint_required && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                      Reprint Card
+                    </span>
                   )}
                 </div>
 
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 leading-tight">
-                      {currentStudent.full_name}
-                    </h1>
-
-                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold border flex items-center gap-1.5 ${
-                      currentStudent.status === 'active'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        currentStudent.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'
-                      }`} />
-                      <span className="capitalize">{currentStudent.status === 'active' ? 'Active' : currentStudent.status}</span>
-                    </span>
-
-                    {currentStudent.blood_group && (
-                      <span className="px-1.5 py-0.5 rounded text-[11px] font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                        {currentStudent.blood_group}
-                      </span>
-                    )}
-
-                    {currentStudent.id_card_reprint_required && (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                        Class Updated — Reprint Card
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-500">
-                    <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 font-mono font-medium border border-slate-200">
-                      Adm: {currentStudent.admission_number}
-                    </span>
-                    <span className="text-slate-300">•</span>
-                    <span className="text-slate-800 font-medium">
-                      {activeProgram?.name || '—'}
-                    </span>
-                    <span className="text-slate-300">•</span>
-                    <span className="text-slate-600">
-                      {isBatchSection ? 'Section:' : 'Batch:'} {activeBatch?.name || '—'} ({activeBatch?.shift || 'Morning'})
-                    </span>
-                  </div>
+                {/* Academic Placement Breadcrumb */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500 mt-0.5">
+                  <span className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-800 font-mono font-medium border border-slate-200 text-[11px]">
+                    Adm: {currentStudent.admission_number}
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-800 font-medium">
+                    {activeProgram?.name || 'Class'}
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-600">
+                    {isBatchSection ? 'Sec:' : 'Batch:'} {activeBatch?.name || '—'} ({activeBatch?.shift || 'Morning'})
+                  </span>
                 </div>
-              </div>
 
-              {/* Primary Action Buttons Right */}
-              <div className="flex items-center gap-1.5 shrink-0 py-1">
-                <button
-                  onClick={() => {
-                    setActiveTab('finance');
-                    setIsCashierOpen(true);
-                  }}
-                  className="h-8 px-2 sm:px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0"
-                  title="Receive Student Fee"
-                >
-                  <CreditCard className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Receive Fee</span>
-                </button>
-
-                <button
-                  onClick={() => setShowEditParticularsModal(true)}
-                  className="w-8 h-8 sm:w-auto sm:px-2.5 sm:py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0"
-                  title="Edit Student Particulars & Photo"
-                >
-                  <Edit3 className="w-3.5 h-3.5 text-slate-600" />
-                  <span className="hidden sm:inline">Edit</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    setSelectedIdCardEnrollmentId(undefined);
-                    setShowIdCardModal(true);
-                  }}
-                  className="w-8 h-8 sm:w-auto sm:px-2.5 sm:py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer shrink-0"
-                  title="Print Student ID Card"
-                >
-                  <CreditCard className="w-3.5 h-3.5 text-slate-600" />
-                  <span className="hidden sm:inline">ID Card</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
-                  title="Close"
-                  aria-label="Close"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                {/* Guardian Quick-Contact line */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600 mt-1">
+                  <span>Guardian: <strong className="text-slate-900 font-semibold">{currentStudent.guardian_name}</strong> <span className="text-slate-400 font-normal">({guardianRelation})</span></span>
+                  {currentStudent.guardian_phone && (
+                    <div className="inline-flex items-center gap-1.5">
+                      <span className="text-slate-300">•</span>
+                      <span className="font-mono font-medium text-slate-800">{currentStudent.guardian_phone}</span>
+                      <a
+                        href={`tel:${currentStudent.guardian_phone.replace(/[^0-9+]/g, '')}`}
+                        className="w-5.5 h-5.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                        title={`Call Guardian: ${currentStudent.guardian_phone}`}
+                      >
+                        <Phone className="w-3 h-3 text-slate-600" />
+                      </a>
+                      <a
+                        href={`https://wa.me/${(currentStudent.guardian_whatsapp || currentStudent.guardian_phone).replace(/[^0-9]/g, '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-5.5 h-5.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors cursor-pointer"
+                        title="WhatsApp Guardian"
+                      >
+                        <MessageSquare className="w-3 h-3 text-emerald-700" />
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Bottom Tier: Guardian Contact Details & Utilities */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100 text-xs">
-              <div className="text-slate-600 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                <span>Guardian: <strong className="text-slate-900 font-semibold">{currentStudent.guardian_name}</strong> <span className="text-slate-400 font-normal">({guardianRelation})</span></span>
-                <span className="text-slate-300">•</span>
-                <span className="font-mono font-medium text-slate-800">{currentStudent.guardian_phone}</span>
-                {currentStudent.guardian_id_card && (
-                  <>
-                    <span className="text-slate-300">•</span>
-                    <span className="text-slate-400 text-[11px]">CNIC:</span>
-                    <span className="font-mono font-semibold text-slate-800">{currentStudent.guardian_id_card}</span>
-                  </>
-                )}
-              </div>
+            {/* Primary Action Buttons Right */}
+            <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('finance');
+                  setIsCashierOpen(true);
+                }}
+                className="h-8 px-2.5 sm:px-3 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                title="Receive Student Fee"
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Receive Fee</span>
+              </button>
 
-              {/* Utility Actions Row - Sleek Icon Buttons */}
-              <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-                {currentStudent.guardian_phone && (
-                  <a
-                    href={`tel:${currentStudent.guardian_phone.replace(/[^0-9+]/g, '')}`}
-                    className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
-                    title={`Call Guardian: ${currentStudent.guardian_phone}`}
-                  >
-                    <Phone className="w-3.5 h-3.5 text-slate-600" />
-                  </a>
-                )}
+              <button
+                type="button"
+                onClick={() => setShowEditParticularsModal(true)}
+                className="h-8 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                title="Edit Student Particulars & Photo"
+              >
+                <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                <span className="hidden sm:inline">Edit</span>
+              </button>
 
-                {(currentStudent.guardian_whatsapp || currentStudent.guardian_phone) && (
-                  <a
-                    href={`https://wa.me/${(currentStudent.guardian_whatsapp || currentStudent.guardian_phone).replace(/[^0-9]/g, '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors"
-                    title="WhatsApp Guardian"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
-                  </a>
-                )}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedIdCardEnrollmentId(undefined);
+                  setShowIdCardModal(true);
+                }}
+                className="h-8 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                title="Print Student ID Card"
+              >
+                <CreditCard className="w-3.5 h-3.5 text-slate-600" />
+                <span className="hidden sm:inline">ID Card</span>
+              </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setResetGuardianCnic(currentStudent.guardian_id_card || '');
-                    setShowResetPasswordModal(true);
-                    setResetSuccessData(null);
-                    setResetErrorMsg(null);
-                  }}
-                  className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
-                  title="Reset Portal Password"
-                >
-                  <Key className="w-3.5 h-3.5 text-slate-600" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    fetchAuditLogs();
-                    setShowAuditLogsModal(true);
-                  }}
-                  className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
-                  title="View Audit Trail"
-                >
-                  <History className="w-3.5 h-3.5 text-slate-600" />
-                </button>
-
-                {/* Additional Contacts Dropdown if multiple contacts exist */}
-                {(student.phone || student.emergency_contact_phone) && (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowContactPopup(!showContactPopup)}
-                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-medium transition-colors cursor-pointer"
-                      title="More Contact Options"
-                    >
-                      <span>More Contacts</span>
-                    </button>
-
-                    {showContactPopup && (
-                      <div className="absolute right-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-50 text-xs space-y-2.5 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                          <span className="font-semibold text-slate-900">Direct Contacts</span>
-                          <button onClick={() => setShowContactPopup(false)} className="text-slate-400 hover:text-slate-600">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                        {student.phone && (
-                          <div className="pt-1">
-                            <p className="font-medium text-slate-900">{student.full_name} <span className="text-[10px] text-slate-500 font-normal">(Student)</span></p>
-                            <p className="font-mono text-[11px] text-slate-600">{student.phone}</p>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <a
-                                href={`tel:${student.phone.replace(/[^0-9+]/g, '')}`}
-                                className="flex-1 py-1 px-2 bg-slate-900 hover:bg-slate-800 text-white rounded text-center text-[10px] font-semibold flex items-center justify-center gap-1"
-                              >
-                                <Phone className="w-3 h-3" />
-                                <span>Call</span>
-                              </a>
-                              <a
-                                href={`https://wa.me/${student.phone.replace(/[^0-9]/g, '')}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex-1 py-1 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-center text-[10px] font-semibold flex items-center justify-center gap-1"
-                              >
-                                <MessageSquare className="w-3 h-3" />
-                                <span>WhatsApp</span>
-                              </a>
-                            </div>
-                          </div>
-                        )}
-
-                        {student.emergency_contact_phone && (
-                          <div className="pt-2 border-t border-slate-100">
-                            <p className="font-medium text-slate-900">{student.emergency_contact_name || 'Emergency'} <span className="text-[10px] text-rose-600 font-normal">({student.emergency_contact_relation || 'Emergency'})</span></p>
-                            <p className="font-mono text-[11px] text-slate-600">{student.emergency_contact_phone}</p>
-                            <a
-                              href={`tel:${student.emergency_contact_phone.replace(/[^0-9+]/g, '')}`}
-                              className="mt-1 w-full py-1 px-2 bg-rose-600 hover:bg-rose-700 text-white rounded text-center text-[10px] font-semibold flex items-center justify-center gap-1"
-                            >
-                              <Phone className="w-3 h-3" />
-                              <span>Call Emergency</span>
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {canManageAcademicStatus && (
-                  <>
-                    {currentStudent.status === 'archived' ? (
-                      <button
-                        type="button"
-                        onClick={handleUnarchiveFromModal}
-                        disabled={isArchivingStudent}
-                        className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center justify-center transition-colors cursor-pointer"
-                        title="Restore Student to Active Standing"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setShowArchiveDialog(true)}
-                        className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
-                        title="Archive Student Record"
-                      >
-                        <Archive className="w-3.5 h-3.5 text-slate-500" />
-                      </button>
-                    )}
-                  </>
-                )}
-
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDeleteModalForce(false);
-                      setDeleteModalRequiresForce(false);
-                      setDeleteModalError(null);
-                      setShowDeleteDialog(true);
-                    }}
-                    className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center transition-colors cursor-pointer"
-                    title="Permanently Delete Student Record"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                  </button>
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0"
+                title="Close Profile"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -1701,274 +1576,163 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         </div>
 
         {/* Tab Content */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6 bg-slate-50/40">
+        <div className="p-3.5 sm:p-5 overflow-y-auto flex-1 space-y-4 sm:space-y-6 bg-slate-50/40">
           
           {/* TAB 1: ACADEMIC DETAILS */}
           {activeTab === 'academic' && (
-            <div className="space-y-6">
-
-              {/* Enrolled Classes & Batches (Multi-Class SIS Structure) */}
-              <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                  <div className="flex items-center gap-2">
-                    <GraduationCap className="w-4 h-4 text-slate-700" />
-                    <div>
-                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                        <span>Enrolled Classes & Batches</span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                          {enrollments.length} {enrollments.length === 1 ? 'Class' : 'Classes'}
-                        </span>
+            <div className="space-y-4 sm:space-y-5">
+              {/* 2-Column Responsive Institutional Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                
+                {/* CARD 1: Academic & Enrollment Placement */}
+                <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 space-y-3.5 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="w-4 h-4 text-slate-700" />
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                        Academic Placement
                       </h3>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Independent class enrollments with distinct seats, fee structures, and challans.
-                      </p>
                     </div>
-                  </div>
-                  {canManageAcademicStatus && (
-                    <button
-                      type="button"
-                      onClick={handleOpenAddClassModal}
-                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors self-start sm:self-center cursor-pointer shadow-2xs"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Class/Batch</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left border-collapse border border-slate-200 rounded">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
-                        <th className="px-3 py-2">Class / Program</th>
-                        <th className="px-3 py-2">Batch / Section</th>
-                        <th className="px-3 py-2">Shift</th>
-                        <th className="px-3 py-2 font-mono">Tuition Fee</th>
-                        <th className="px-3 py-2">Status</th>
-                        <th className="px-3 py-2 font-mono">Class Balance</th>
-                        <th className="px-3 py-2 text-center">Primary</th>
-                        <th className="px-3 py-2 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {enrollments.length === 0 ? (
-                        <tr>
-                          <td colSpan={8} className="py-4 text-center text-slate-400">
-                            {isLoadingEnrollments ? 'Loading enrolled classes...' : 'No enrollments recorded for this student.'}
-                          </td>
-                        </tr>
-                      ) : (
-                        enrollments.map(enr => {
-                          const prog = programs.find(p => p.id === enr.program_id);
-                          const b = batches.find(x => x.id === enr.batch_id);
-                          const bal = getEnrollmentBalance(enr.id, enr.batch_id);
-                          const fee = getEnrollmentFee(enr, b);
-                          const isActiveOrLeave = enr.status === 'active' || enr.status === 'on_leave';
-
-                          return (
-                            <tr key={enr.id} className={enr.is_primary ? 'bg-slate-50/70' : 'hover:bg-slate-50/50'}>
-                              <td className="px-3 py-2.5 font-semibold text-slate-900">
-                                {prog?.name || 'Academic Class'}
-                              </td>
-                              <td className="px-3 py-2.5 text-slate-700">
-                                {b?.name || 'General Batch'}
-                              </td>
-                              <td className="px-3 py-2.5 text-slate-600 capitalize">
-                                {b?.shift || 'Morning'}
-                              </td>
-                              <td className="px-3 py-2.5 font-mono text-slate-900">
-                                PKR {fee.toLocaleString()}
-                                <span className="text-[10px] text-slate-400 font-sans ml-1">/mo</span>
-                              </td>
-                              <td className="px-3 py-2.5">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border capitalize ${
-                                  enr.status === 'active'
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : enr.status === 'on_leave'
-                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                    : enr.status === 'withdrawn'
-                                    ? 'bg-rose-50 text-rose-700 border-rose-200'
-                                    : 'bg-slate-100 text-slate-700 border-slate-200'
-                                }`}>
-                                  {enr.status.replace('_', ' ')}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2.5 font-mono">
-                                {bal > 0 ? (
-                                  <span className="font-bold text-rose-700">PKR {bal.toLocaleString()}</span>
-                                ) : (
-                                  <span className="text-slate-400">PKR 0</span>
-                                )}
-                              </td>
-                              <td className="px-3 py-2.5 text-center">
-                                {enr.is_primary ? (
-                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
-                                    Primary
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400 text-xs">—</span>
-                                )}
-                              </td>
-                              <td className="px-3 py-2.5 text-right">
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    {isActiveOrLeave && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setSelectedIdCardEnrollmentId(enr.id);
-                                          setShowIdCardModal(true);
-                                        }}
-                                        className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
-                                        title="Print Student ID Card for this specific class"
-                                      >
-                                        <CreditCard className="w-3 h-3 text-slate-500" />
-                                        <span>ID Card</span>
-                                      </button>
-                                    )}
-                                  {!enr.is_primary && isActiveOrLeave && canManageAcademicStatus && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleMakePrimary(enr.id)}
-                                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 hover:border-slate-300 rounded text-[11px] font-medium transition-colors cursor-pointer"
-                                      title="Designate this class as the student's primary academic enrollment"
-                                    >
-                                      Make Primary
-                                    </button>
-                                  )}
-                                  {isActiveOrLeave && canManageAcademicStatus && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenTransferModal(enr)}
-                                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-300 rounded text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1.5"
-                                      title="Change this student's class, section, or batch"
-                                    >
-                                      <ArrowRightLeft className="w-3 h-3 text-slate-500" />
-                                      <span>Change Class/Batch</span>
-                                    </button>
-                                  )}
-                                  {isActiveOrLeave && canManageAcademicStatus && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setLeaveClassEnrollment(enr);
-                                        setLeaveClassStatus('withdrawn');
-                                        setLeaveClassReason('');
-                                        setLeaveClassCancelUnpaid(true);
-                                        setLeaveClassError(null);
-                                      }}
-                                      className="px-2 py-1 bg-slate-100 hover:bg-rose-50 text-rose-700 hover:text-rose-800 border border-slate-200 hover:border-rose-200 rounded text-[11px] font-medium transition-colors cursor-pointer"
-                                      title="Exit or withdraw from this specific class"
-                                    >
-                                      Leave Class
-                                    </button>
-                                  )}
-                                  {!isActiveOrLeave && (
-                                    <span className="text-[10px] text-slate-400 italic">
-                                      Exited {enr.ended_at || ''}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Academic Placement */}
-                <div className="bg-white border border-slate-200 rounded p-4 space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                      <GraduationCap className="w-4 h-4 text-slate-500" />
-                      Enrollment Information
-                    </h3>
-                    <span className="font-mono text-[11px] text-slate-500">Session {activeBatch?.academic_session || '2026-2027'}</span>
+                    <span className="font-mono text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      Session {activeBatch?.academic_session || '2026–2027'}
+                    </span>
                   </div>
 
                   <table className="w-full text-xs text-left border-collapse">
                     <tbody className="divide-y divide-slate-100">
                       <tr>
-                        <td className="py-2 text-slate-500 w-2/5">Class</td>
-                        <td className="py-2 font-semibold text-slate-900">{activeProgram?.name || '—'}</td>
+                        <td className="py-2 text-slate-500 w-2/5 font-medium">Program / Class</td>
+                        <td className="py-2 font-bold text-slate-900">{activeProgram?.name || 'Academic Class'}</td>
                       </tr>
                       <tr>
-                        <td className="py-2 text-slate-500">{isBatchSection ? 'Section' : 'Batch'}</td>
+                        <td className="py-2 text-slate-500 font-medium">{isBatchSection ? 'Section' : 'Batch'}</td>
                         <td className="py-2 font-semibold text-slate-900">{activeBatch?.name || '—'}</td>
                       </tr>
                       <tr>
-                        <td className="py-2 text-slate-500">Shift & Timings</td>
+                        <td className="py-2 text-slate-500 font-medium">Shift & Timings</td>
                         <td className="py-2 font-mono text-slate-800">
-                          {activeBatch?.shift ? activeBatch.shift.toUpperCase() : '—'} {activeBatch?.start_time && activeBatch?.end_time ? `• ${activeBatch.start_time} – ${activeBatch.end_time}` : ''}
+                          {activeBatch?.shift ? activeBatch.shift.toUpperCase() : 'MORNING'} {activeBatch?.start_time && activeBatch?.end_time ? `• ${activeBatch.start_time} – ${activeBatch.end_time}` : ''}
                         </td>
                       </tr>
                       <tr>
-                        <td className="py-2 text-slate-500">Admission Date</td>
+                        <td className="py-2 text-slate-500 font-medium">Admission Date</td>
                         <td className="py-2 font-mono text-slate-800">{student.admission_date}</td>
                       </tr>
-                      {student.date_of_birth && (
-                        <tr>
-                          <td className="py-2 text-slate-500">Date of Birth</td>
-                          <td className="py-2 font-mono text-slate-800">{student.date_of_birth}</td>
-                        </tr>
-                      )}
-                      {student.gender && (
-                        <tr>
-                          <td className="py-2 text-slate-500">Gender</td>
-                          <td className="py-2 capitalize text-slate-800">{student.gender}</td>
-                        </tr>
-                      )}
-                      {student.student_b_form && (
-                        <tr>
-                          <td className="py-2 text-slate-500">B-Form / CRC</td>
-                          <td className="py-2 font-mono text-slate-800">{student.student_b_form}</td>
-                        </tr>
-                      )}
-                      {student.religion && (
-                        <tr>
-                          <td className="py-2 text-slate-500">Religion</td>
-                          <td className="py-2 text-slate-800 font-medium">{student.religion}</td>
-                        </tr>
-                      )}
-                      {student.previous_school && (
-                        <tr>
-                          <td className="py-2 text-slate-500">Previous School</td>
-                          <td className="py-2 text-slate-800 font-medium">{student.previous_school}</td>
-                        </tr>
-                      )}
-                      {(student.residential_address || student.city) && (
-                        <tr>
-                          <td className="py-2 text-slate-500">Address</td>
-                          <td className="py-2 text-slate-800">
-                            {student.residential_address}{student.city ? `, ${student.city}` : ''}
-                          </td>
-                        </tr>
-                      )}
                       <tr>
-                        <td className="py-2 text-slate-500">Status</td>
-                        <td className="py-2 capitalize text-slate-800">{student.status}</td>
+                        <td className="py-2 text-slate-500 font-medium">Roll / Admission #</td>
+                        <td className="py-2 font-mono font-bold text-slate-900">{currentStudent.admission_number}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 text-slate-500 font-medium">Monthly Tuition Fee</td>
+                        <td className="py-2 font-mono font-bold text-slate-900">
+                          PKR {Number(currentStudent.fee_structure?.base_tuition || activeBatch?.fee_amount || 0).toLocaleString()}
+                          <span className="text-[10px] text-slate-400 font-sans font-normal ml-1">/month</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 text-slate-500 font-medium">Academic Standing</td>
+                        <td className="py-2">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border capitalize ${
+                            currentStudent.status === 'active'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : currentStudent.status === 'withdrawn'
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              currentStudent.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'
+                            }`} />
+                            {currentStudent.status || 'Active'}
+                          </span>
+                        </td>
                       </tr>
                     </tbody>
                   </table>
+
+                  {/* Transfer / Change Class Action Button */}
+                  <div className="pt-2 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+                    {canManageAcademicStatus && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (primaryEnrollment) handleOpenTransferModal(primaryEnrollment);
+                        }}
+                        className="py-1.5 px-3 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <ArrowRightLeft className="w-3.5 h-3.5" />
+                        <span>Transfer / Change Section</span>
+                      </button>
+                    )}
+                    {canManageAcademicStatus && (
+                      <button
+                        type="button"
+                        onClick={handleOpenAddClassModal}
+                        className="py-1.5 px-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Add Class</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Guardian Info */}
-                <div className="bg-white border border-slate-200 rounded p-4 space-y-3">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                      <Phone className="w-4 h-4 text-slate-500" />
-                      Family & Guardian Particulars
-                    </h3>
-                    <span className="text-[10px] text-slate-500 font-mono">({guardianRelation})</span>
+                {/* CARD 2: Family & Guardian Record */}
+                <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 space-y-3.5 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-4 h-4 text-slate-700" />
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                        Family & Guardian Particulars
+                      </h3>
+                    </div>
+                    <span className="text-[11px] text-slate-500 font-mono">
+                      ({guardianRelation})
+                    </span>
                   </div>
 
                   <table className="w-full text-xs text-left border-collapse">
                     <tbody className="divide-y divide-slate-100">
+                      <tr>
+                        <td className="py-2 text-slate-500 w-2/5 font-medium">Primary Guardian</td>
+                        <td className="py-2 font-bold text-slate-900">{student.guardian_name}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 text-slate-500 font-medium">Guardian Mobile</td>
+                        <td className="py-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono font-bold text-slate-900">{student.guardian_phone}</span>
+                            {student.guardian_phone && (
+                              <div className="inline-flex items-center gap-1">
+                                <a
+                                  href={`tel:${student.guardian_phone.replace(/[^0-9+]/g, '')}`}
+                                  className="w-5.5 h-5.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                                  title={`Call Guardian: ${student.guardian_phone}`}
+                                >
+                                  <Phone className="w-3 h-3 text-slate-600" />
+                                </a>
+                                <a
+                                  href={`https://wa.me/${(student.guardian_whatsapp || student.guardian_phone).replace(/[^0-9]/g, '')}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="w-5.5 h-5.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors cursor-pointer"
+                                  title="WhatsApp Guardian"
+                                >
+                                  <MessageSquare className="w-3 h-3 text-emerald-700" />
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 text-slate-500 font-medium">Guardian CNIC</td>
+                        <td className="py-2 font-mono font-bold text-slate-900">
+                          {student.guardian_id_card || <span className="text-slate-400 font-sans font-normal italic text-[11px]">Not assigned</span>}
+                        </td>
+                      </tr>
                       {student.father_name && (
                         <tr>
-                          <td className="py-2 text-slate-500 w-2/5">Father</td>
+                          <td className="py-2 text-slate-500 font-medium">Father</td>
                           <td className="py-2 text-slate-900">
                             <span className="font-semibold">{student.father_name}</span>
                             {student.father_cnic && <span className="text-[10px] font-mono text-slate-500 ml-1.5">({student.father_cnic})</span>}
@@ -1977,61 +1741,49 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       )}
                       {student.mother_name && (
                         <tr>
-                          <td className="py-2 text-slate-500 w-2/5">Mother</td>
+                          <td className="py-2 text-slate-500 font-medium">Mother</td>
                           <td className="py-2 text-slate-900">
                             <span className="font-semibold">{student.mother_name}</span>
                             {student.mother_cnic && <span className="text-[10px] font-mono text-slate-500 ml-1.5">({student.mother_cnic})</span>}
                           </td>
                         </tr>
                       )}
-                      <tr>
-                        <td className="py-2 text-slate-500 w-2/5">Primary Guardian</td>
-                        <td className="py-2 font-semibold text-slate-900">{student.guardian_name}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500">Guardian Mobile</td>
-                        <td className="py-2 font-mono font-bold text-slate-900">{student.guardian_phone}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500">Guardian CNIC</td>
-                        <td className="py-2 font-mono font-bold text-slate-900">
-                          {student.guardian_id_card || <span className="text-slate-400 font-sans font-normal italic text-[11px]">Not assigned</span>}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500">Student Phone</td>
-                        <td className="py-2 font-mono text-slate-800">{student.phone || 'N/A'}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 text-slate-500">Student Email</td>
-                        <td className="py-2 font-mono text-slate-800">{student.email || 'N/A'}</td>
-                      </tr>
+                      {(student.residential_address || student.city) && (
+                        <tr>
+                          <td className="py-2 text-slate-500 font-medium">Residential Address</td>
+                          <td className="py-2 text-slate-800">
+                            {student.residential_address}{student.city ? `, ${student.city}` : ''}
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
 
-                {/* Student & Guardian Portal Login Credentials */}
-                <div className="bg-white border border-slate-200 rounded p-4 space-y-3 flex flex-col justify-between">
+                {/* CARD 3: Portal Access & Credentials */}
+                <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 space-y-3.5 shadow-2xs flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                      <div className="flex items-center gap-2">
                         <Key className="w-4 h-4 text-slate-700" />
-                        Portal Access & Credentials
-                      </h3>
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                          Portal Access & Credentials
+                        </h3>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
                       </span>
                     </div>
 
-                    <div className="space-y-2.5 pt-2">
+                    <div className="space-y-3 pt-2.5">
                       {/* Username */}
                       <div>
                         <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium mb-1">
-                          <span>Username (Guardian CNIC)</span>
-                          <span className="text-[10px] text-slate-500 font-medium font-sans">Login Identifier</span>
+                          <span>Login Identifier (Guardian CNIC)</span>
+                          <span className="text-[10px] text-slate-400 font-sans">Username</span>
                         </div>
                         {currentStudent.guardian_id_card ? (
-                          <div className="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200">
+                          <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
                             <span className="font-mono font-bold text-slate-900 text-xs">{currentStudent.guardian_id_card}</span>
                             <button
                               type="button"
@@ -2040,35 +1792,36 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                                 setCopiedCredentials(true);
                                 setTimeout(() => setCopiedCredentials(false), 2000);
                               }}
-                              className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer"
+                              className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer flex items-center gap-1 text-xs"
                               title="Copy Login Identifier"
                             >
                               {copiedCredentials ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                              <span className="text-[10px] text-slate-500">{copiedCredentials ? 'Copied' : 'Copy'}</span>
                             </button>
                           </div>
                         ) : (
-                          <div className="p-2 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-700">
-                            <div className="flex items-center gap-1 font-bold">
-                              <AlertCircle className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          <div className="p-2.5 bg-amber-50/60 border border-amber-200 rounded-lg text-[11px] text-amber-800">
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                               <span>No Guardian CNIC Assigned</span>
                             </div>
-                            <span className="text-[10px] text-slate-500">Student cannot log in without Guardian CNIC.</span>
+                            <span className="text-[10px] text-amber-700 mt-0.5 block">Guardian CNIC is required for guardian and student portal login.</span>
                           </div>
                         )}
                       </div>
 
-                      {/* Password Security Status */}
+                      {/* Password */}
                       <div>
                         <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium mb-1">
                           <span>Portal Password</span>
-                          <span className="text-[10px] text-slate-400 font-sans">Security</span>
+                          <span className="text-[10px] text-slate-400 font-sans">Status</span>
                         </div>
-                        <div className="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200">
+                        <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
                           <div className="flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                            <span className="font-mono text-xs text-slate-700">••••••••••••</span>
+                            <span className="font-mono text-xs text-slate-700 tracking-wider">••••••••••••</span>
                           </div>
-                          <span className="text-[10px] text-slate-500 font-medium bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                          <span className="text-[10px] text-slate-600 font-medium bg-white px-2 py-0.5 rounded border border-slate-200">
                             Encrypted
                           </span>
                         </div>
@@ -2077,7 +1830,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   </div>
 
                   {/* Actions */}
-                  <div className="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
+                  <div className="pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row gap-2">
                     {canManageAcademicStatus && (
                       <button
                         type="button"
@@ -2087,7 +1840,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           setResetSuccessData(null);
                           setResetErrorMsg(null);
                         }}
-                        className="w-full py-1.5 px-3 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                        className="flex-1 py-1.5 px-3 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                       >
                         <Key className="w-3.5 h-3.5 text-slate-300" />
                         <span>Reset Password</span>
@@ -2099,19 +1852,144 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         href={getWhatsAppCredentialsUrl(currentStudent.guardian_id_card)}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors text-center"
+                        className="flex-1 py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors text-center cursor-pointer"
                       >
                         <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Share Portal Link (WhatsApp)</span>
+                        <span>Send Login Link</span>
                       </a>
                     )}
                   </div>
                 </div>
+
+                {/* CARD 4: Personal Particulars & Identity */}
+                <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 space-y-3.5 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-slate-700" />
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                        Personal Particulars & Identity
+                      </h3>
+                    </div>
+                    {student.blood_group && (
+                      <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                        Blood: {student.blood_group}
+                      </span>
+                    )}
+                  </div>
+
+                  <table className="w-full text-xs text-left border-collapse">
+                    <tbody className="divide-y divide-slate-100">
+                      <tr>
+                        <td className="py-2 text-slate-500 w-2/5 font-medium">Date of Birth</td>
+                        <td className="py-2 font-mono text-slate-800">{student.date_of_birth || '—'}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 text-slate-500 font-medium">Gender</td>
+                        <td className="py-2 capitalize text-slate-800">{student.gender || '—'}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 text-slate-500 font-medium">B-Form / CRC #</td>
+                        <td className="py-2 font-mono text-slate-800">{student.student_b_form || '—'}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 text-slate-500 font-medium">Religion</td>
+                        <td className="py-2 text-slate-800 font-medium">{student.religion || '—'}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 text-slate-500 font-medium">Previous School</td>
+                        <td className="py-2 text-slate-800">{student.previous_school || '—'}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 text-slate-500 font-medium">Direct Phone</td>
+                        <td className="py-2 font-mono text-slate-800">{student.phone || '—'}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 text-slate-500 font-medium">Direct Email</td>
+                        <td className="py-2 font-mono text-slate-800">{student.email || '—'}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
+
+              {/* Secondary Class Enrollments (Multi-Class Support) */}
+              {secondaryEnrollments.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="w-4 h-4 text-slate-700" />
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                        Additional Enrolled Classes ({secondaryEnrollments.length})
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {secondaryEnrollments.map(enr => {
+                      const prog = programs.find(p => p.id === enr.program_id);
+                      const b = batches.find(x => x.id === enr.batch_id);
+                      const bal = getEnrollmentBalance(enr.id, enr.batch_id);
+                      const fee = getEnrollmentFee(enr, b);
+                      const isActiveOrLeave = enr.status === 'active' || enr.status === 'on_leave';
+
+                      return (
+                        <div key={enr.id} className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <span className="font-bold text-slate-900 block">{prog?.name || 'Academic Class'}</span>
+                              <span className="text-slate-600 text-[11px] block">{b?.name || 'Section'} ({b?.shift || 'Morning'})</span>
+                            </div>
+                            <span className="font-mono font-bold text-slate-900 text-xs">PKR {fee.toLocaleString()}/mo</span>
+                          </div>
+                          {bal > 0 && (
+                            <div className="text-[11px] font-mono font-semibold text-rose-700">
+                              Outstanding Balance: PKR {bal.toLocaleString()}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-200 flex-wrap">
+                            {canManageAcademicStatus && isActiveOrLeave && (
+                              <button
+                                type="button"
+                                onClick={() => handleMakePrimary(enr.id)}
+                                className="px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[11px] font-medium cursor-pointer"
+                              >
+                                Make Primary
+                              </button>
+                            )}
+                            {canManageAcademicStatus && isActiveOrLeave && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenTransferModal(enr)}
+                                className="px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[11px] font-medium cursor-pointer"
+                              >
+                                Transfer
+                              </button>
+                            )}
+                            {canManageAcademicStatus && isActiveOrLeave && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setLeaveClassEnrollment(enr);
+                                  setLeaveClassStatus('withdrawn');
+                                  setLeaveClassReason('');
+                                  setLeaveClassCancelUnpaid(true);
+                                  setLeaveClassError(null);
+                                }}
+                                className="px-2 py-0.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded text-[11px] font-medium cursor-pointer"
+                              >
+                                Leave Class
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Class & Section Transfer History */}
               {currentStudent.transfer_history && currentStudent.transfer_history.length > 0 && (
-                <div className="bg-white border border-slate-200 rounded p-4 space-y-3">
+                <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                     <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-2">
                       <ArrowRightLeft className="w-4 h-4 text-blue-600" />
@@ -2153,209 +2031,239 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               )}
 
               {/* Enrolled Subjects Card */}
-              <div className="bg-white border border-slate-200 rounded overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                      <BookOpen className="w-4 h-4 text-slate-600" />
-                      Enrolled Subjects
-                    </h3>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Class curriculum subjects. Active enrollments govern examination marksheets and attendance.
-                    </p>
-                  </div>
-                  <div className="flex items-center flex-wrap gap-2">
-                    <span className="font-mono text-xs font-semibold px-2 py-1 bg-white border border-slate-200 rounded text-slate-700">
-                      Track: {activeElectiveGroup?.name || 'General Stream'}
-                    </span>
-                    <span className="font-mono text-xs font-bold px-2 py-1 bg-white border border-slate-200 rounded text-slate-800">
-                      {editSubjectIds.length} of {availableClassSubjectIds.length} Enrolled
-                    </span>
-                    {hasSubjectChanges && (
-                      <button
-                        type="button"
-                        onClick={handleDiscardSubjectChanges}
-                        disabled={isSavingSubjects}
-                        className="px-2.5 py-1 text-xs font-medium rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                      >
-                        Discard
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleSaveSubjects}
-                      disabled={isSavingSubjects || !hasSubjectChanges}
-                      className="px-3 py-1 text-xs font-semibold rounded bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                    >
-                      {isSavingSubjects ? 'Saving...' : 'Save Subject Changes'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Quick Selection Toolbar */}
-                <div className="px-5 py-2 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2 text-[11px] text-slate-600">
-                    <span className="font-medium text-slate-500">Quick Selection:</span>
-                    {activeCompulsoryGroup && (
-                      <button
-                        type="button"
-                        onClick={handleSelectCompulsorySubjects}
-                        className="font-medium text-slate-700 hover:text-slate-900 hover:underline cursor-pointer"
-                      >
-                        Compulsory Only
-                      </button>
-                    )}
-                    <span className="text-slate-300">•</span>
-                    <button
-                      type="button"
-                      onClick={handleSelectAllSubjects}
-                      className="font-medium text-slate-700 hover:text-slate-900 hover:underline cursor-pointer"
-                    >
-                      Select All
-                    </button>
-                    <span className="text-slate-300">•</span>
-                    <button
-                      type="button"
-                      onClick={handleClearAllSubjects}
-                      className="text-slate-500 hover:text-slate-800 hover:underline cursor-pointer"
-                    >
-                      Clear All
-                    </button>
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="px-4 sm:px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-slate-700" />
+                    <div>
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                        <span>Enrolled Curriculum Subjects</span>
+                        <span className="px-2 py-0.2 rounded text-[10px] font-mono font-bold bg-slate-200 text-slate-800">
+                          {editSubjectIds.length} of {availableClassSubjectIds.length} Enrolled
+                        </span>
+                      </h3>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Track: <strong className="text-slate-700">{activeElectiveGroup?.name || 'General Curriculum Stream'}</strong>
+                      </p>
+                    </div>
                   </div>
 
-                  {hasSubjectChanges && (
-                    <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      Unsaved enrollment changes
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {!isManagingSubjects ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsManagingSubjects(true)}
+                        className="px-3 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Edit Subjects</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleDiscardSubjectChanges}
+                          disabled={isSavingSubjects}
+                          className="px-2.5 py-1 text-xs font-medium rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                        >
+                          Discard
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveSubjects}
+                          disabled={isSavingSubjects || !hasSubjectChanges}
+                          className="px-3 py-1 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                        >
+                          {isSavingSubjects ? 'Saving...' : 'Save Changes'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Notifications */}
                 {editSubjectsSuccess && (
-                  <div className="px-5 py-2.5 bg-emerald-50 border-b border-emerald-200 text-emerald-900 text-xs flex items-center gap-2 font-medium">
+                  <div className="px-4 py-2 bg-emerald-50 border-b border-emerald-200 text-emerald-900 text-xs flex items-center gap-2 font-medium">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>{editSubjectsSuccess}</span>
                   </div>
                 )}
                 {editSubjectsError && (
-                  <div className="px-5 py-2.5 bg-rose-50 border-b border-rose-200 text-rose-900 text-xs flex items-center gap-2 font-medium">
+                  <div className="px-4 py-2 bg-rose-50 border-b border-rose-200 text-rose-900 text-xs flex items-center gap-2 font-medium">
                     <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                     <span>{editSubjectsError}</span>
                   </div>
                 )}
 
-                {/* Subjects Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
-                        <th className="py-2.5 px-4 w-12 text-center">Enrolled</th>
-                        <th className="py-2.5 px-4">Subject Code</th>
-                        <th className="py-2.5 px-4">Subject Title</th>
-                        <th className="py-2.5 px-4">Type</th>
-                        <th className="py-2.5 px-4">Curriculum Group</th>
-                        <th className="py-2.5 px-4 text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {availableClassSubjectIds.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="py-6 text-center text-slate-400 text-xs italic">
-                            No subjects configured for this class program.
-                          </td>
-                        </tr>
-                      ) : (
-                        availableClassSubjectIds.map(subId => {
-                          const isEnrolled = editSubjectIds.includes(subId);
+                {/* Compact Institutional View Mode */}
+                {!isManagingSubjects ? (
+                  <div className="p-4">
+                    {editSubjectIds.length === 0 ? (
+                      <div className="p-4 text-center text-slate-400 text-xs">
+                        <BookOpen className="w-6 h-6 mx-auto mb-1.5 text-slate-300" />
+                        <p className="font-semibold text-slate-700">No subjects currently enrolled</p>
+                        <p className="text-[11px] text-slate-400 mt-0.5">Click &ldquo;Edit Subjects&rdquo; to assign course subjects to this student.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                        {editSubjectIds.map(subId => {
                           const isCore = activeCompulsoryGroup?.subject_ids.includes(subId) ?? true;
                           const name = getSubjectName(subId);
                           const code = getSubjectCode(subId);
-                          const groupName = allProgramSubjectGroups.find(g => g.subject_ids.includes(subId))?.name || (isCore ? 'Core Curriculum' : (activeElectiveGroup?.name || 'Elective Stream'));
-
                           return (
-                            <tr
-                              key={subId}
-                              onClick={() => handleToggleSubject(subId)}
-                              className={`cursor-pointer transition-colors ${
-                                isEnrolled ? 'bg-indigo-50/20 hover:bg-indigo-50/40' : 'hover:bg-slate-50'
-                              }`}
-                            >
-                              <td className="py-2.5 px-4 text-center" onClick={e => e.stopPropagation()}>
-                                <input
-                                  type="checkbox"
-                                  checked={isEnrolled}
-                                  onChange={() => handleToggleSubject(subId)}
-                                  className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-4 h-4 cursor-pointer"
-                                />
-                              </td>
-                              <td className="py-2.5 px-4 font-mono font-semibold text-slate-700">{code}</td>
-                              <td className="py-2.5 px-4 font-semibold text-slate-900">{name}</td>
-                              <td className="py-2.5 px-4">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                                  isCore 
-                                    ? 'bg-slate-100 text-slate-700 border border-slate-200' 
-                                    : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                }`}>
-                                  {isCore ? 'Core' : 'Elective'}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-4 text-slate-600 font-medium">{groupName}</td>
-                              <td className="py-2.5 px-4 text-right">
-                                {isEnrolled ? (
-                                  <span className="text-emerald-700 font-medium inline-flex items-center gap-1 text-xs">
-                                    <CheckCircle2 className="w-3.5 h-3.5" /> Enrolled
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400 font-medium inline-flex items-center gap-1 text-[11px]">
-                                    Not Enrolled
-                                  </span>
-                                )}
+                            <div key={subId} className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <span className="font-semibold text-slate-900 text-xs block truncate">{name}</span>
+                                <span className="font-mono text-[10px] text-slate-500 block">{code}</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 ${
+                                isCore ? 'bg-slate-200/70 text-slate-700' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                              }`}>
+                                {isCore ? 'Core' : 'Elective'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Edit Matrix Mode */
+                  <div>
+                    {/* Quick Selection Toolbar */}
+                    <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2 text-[11px] text-slate-600">
+                        <span className="font-medium text-slate-500">Quick Selection:</span>
+                        {activeCompulsoryGroup && (
+                          <button
+                            type="button"
+                            onClick={handleSelectCompulsorySubjects}
+                            className="font-medium text-slate-700 hover:text-slate-900 hover:underline cursor-pointer"
+                          >
+                            Compulsory Only
+                          </button>
+                        )}
+                        <span className="text-slate-300">•</span>
+                        <button
+                          type="button"
+                          onClick={handleSelectAllSubjects}
+                          className="font-medium text-slate-700 hover:text-slate-900 hover:underline cursor-pointer"
+                        >
+                          Select All
+                        </button>
+                        <span className="text-slate-300">•</span>
+                        <button
+                          type="button"
+                          onClick={handleClearAllSubjects}
+                          className="text-slate-500 hover:text-slate-800 hover:underline cursor-pointer"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+
+                      {hasSubjectChanges && (
+                        <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          Unsaved changes
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-200 bg-slate-100/60 text-[11px] font-semibold text-slate-600 uppercase tracking-wider">
+                            <th className="py-2.5 px-4 w-12 text-center">Enrolled</th>
+                            <th className="py-2.5 px-4">Subject Code</th>
+                            <th className="py-2.5 px-4">Subject Title</th>
+                            <th className="py-2.5 px-4">Type</th>
+                            <th className="py-2.5 px-4">Curriculum Group</th>
+                            <th className="py-2.5 px-4 text-right">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {availableClassSubjectIds.length === 0 ? (
+                            <tr>
+                              <td colSpan={6} className="py-6 text-center text-slate-400 text-xs italic">
+                                No subjects configured for this class program.
                               </td>
                             </tr>
-                          );
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                          ) : (
+                            availableClassSubjectIds.map(subId => {
+                              const isEnrolled = editSubjectIds.includes(subId);
+                              const isCore = activeCompulsoryGroup?.subject_ids.includes(subId) ?? true;
+                              const name = getSubjectName(subId);
+                              const code = getSubjectCode(subId);
+                              const groupName = allProgramSubjectGroups.find(g => g.subject_ids.includes(subId))?.name || (isCore ? 'Core Curriculum' : (activeElectiveGroup?.name || 'Elective Stream'));
 
-                {/* Card Footer */}
-                <div className="px-5 py-3 bg-slate-50/60 border-t border-slate-200 flex items-center justify-between text-xs">
-                  <span className="text-slate-500 font-medium">
-                    Showing {availableClassSubjectIds.length} subjects available for {activeProgram?.name || 'this class'}.
-                  </span>
-                  {hasSubjectChanges && (
-                    <button
-                      type="button"
-                      onClick={handleSaveSubjects}
-                      disabled={isSavingSubjects}
-                      className="px-3 py-1 text-xs font-semibold rounded bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950 disabled:opacity-40 transition-colors shadow-2xs cursor-pointer"
-                    >
-                      {isSavingSubjects ? 'Saving...' : 'Save Subject Changes'}
-                    </button>
-                  )}
-                </div>
+                              return (
+                                <tr
+                                  key={subId}
+                                  onClick={() => handleToggleSubject(subId)}
+                                  className={`cursor-pointer transition-colors ${
+                                    isEnrolled ? 'bg-indigo-50/20 hover:bg-indigo-50/40' : 'hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <td className="py-2.5 px-4 text-center" onClick={e => e.stopPropagation()}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isEnrolled}
+                                      onChange={() => handleToggleSubject(subId)}
+                                      className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-4 h-4 cursor-pointer"
+                                    />
+                                  </td>
+                                  <td className="py-2.5 px-4 font-mono font-semibold text-slate-700">{code}</td>
+                                  <td className="py-2.5 px-4 font-semibold text-slate-900">{name}</td>
+                                  <td className="py-2.5 px-4">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                      isCore 
+                                        ? 'bg-slate-100 text-slate-700 border border-slate-200' 
+                                        : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                    }`}>
+                                      {isCore ? 'Core' : 'Elective'}
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-4 text-slate-600 font-medium">{groupName}</td>
+                                  <td className="py-2.5 px-4 text-right">
+                                    {isEnrolled ? (
+                                      <span className="text-emerald-700 font-medium inline-flex items-center gap-1 text-xs">
+                                        <CheckCircle2 className="w-3.5 h-3.5" /> Enrolled
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400 font-medium inline-flex items-center gap-1 text-[11px]">
+                                        Not Enrolled
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Document Submission & Verification Status */}
-              <div className="bg-white border border-slate-200 rounded overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+              {/* Physical Document Verification Status */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="px-4 sm:px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-2">
                       <FileCheck className="w-4 h-4 text-slate-600" />
                       Physical Document Verification Status
                     </h3>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Physical verification status of paper certificates, CNIC copies, and photographs on file. Status tracking only (no file uploads).
+                      Physical verification of paper certificates, CNIC copies, and photographs on file.
                     </p>
                   </div>
                 </div>
 
                 {studentDocHeads.length === 0 ? (
-                  <div className="p-8 text-center bg-slate-50 text-slate-500 text-xs">
-                    <FileCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="font-semibold text-slate-700">No document checklist heads defined for this institution.</p>
-                    <p className="text-[11px] text-slate-400 mt-1">Configure required certificates and documents in Academy Settings to track verification status.</p>
+                  <div className="p-6 text-center bg-slate-50 text-slate-500 text-xs">
+                    <FileCheck className="w-7 h-7 text-slate-300 mx-auto mb-1.5" />
+                    <p className="font-semibold text-slate-700">No document checklist heads defined.</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">Configure required certificates in Academy Settings to track verification status.</p>
                   </div>
                 ) : (
                   <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -3178,6 +3086,109 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       )}
                     </tbody>
                   </table>
+                </div>
+              </div>
+
+              {/* Administrative Record Controls & Danger Zone */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="px-5 py-3 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-slate-700" />
+                    <div>
+                      <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                        Administrative Records & System Operations
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Audit logs, archival standing, and administrative records management.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* View Audit Trail */}
+                    <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">Complete Audit Logs</span>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          View granular timestamped log of modifications, signatories, and profile edits.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          fetchAuditLogs();
+                          setShowAuditLogsModal(true);
+                        }}
+                        className="py-1.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <History className="w-3.5 h-3.5 text-slate-500" />
+                        <span>View Audit Trail</span>
+                      </button>
+                    </div>
+
+                    {/* Archive / Restore */}
+                    {canManageAcademicStatus && (
+                      <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50 flex flex-col justify-between gap-3">
+                        <div>
+                          <span className="text-xs font-bold text-slate-800 block">
+                            {currentStudent.status === 'archived' ? 'Restore Active Standing' : 'Archive Student Record'}
+                          </span>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {currentStudent.status === 'archived'
+                              ? 'Restore this student from archived state back into the active student directory.'
+                              : 'Retains all historical grades and financial ledgers while hiding student from active rosters.'}
+                          </p>
+                        </div>
+                        {currentStudent.status === 'archived' ? (
+                          <button
+                            type="button"
+                            onClick={handleUnarchiveFromModal}
+                            disabled={isArchivingStudent}
+                            className="py-1.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>{isArchivingStudent ? 'Restoring...' : 'Restore to Active'}</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowArchiveDialog(true)}
+                            className="py-1.5 px-3 bg-white hover:bg-amber-50 text-amber-800 border border-amber-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Archive className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Archive Student</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Delete (Admin Only) */}
+                    {isAdmin && (
+                      <div className="p-3.5 rounded-lg border border-rose-200 bg-rose-50/40 flex flex-col justify-between gap-3">
+                        <div>
+                          <span className="text-xs font-bold text-rose-800 block">Permanently Delete Record</span>
+                          <p className="text-[11px] text-rose-600/90 mt-0.5">
+                            Irreversible deletion of student profile, ledger entries, and historical credentials.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDeleteModalForce(false);
+                            setDeleteModalRequiresForce(false);
+                            setDeleteModalError(null);
+                            setShowDeleteDialog(true);
+                          }}
+                          className="py-1.5 px-3 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete Student</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
