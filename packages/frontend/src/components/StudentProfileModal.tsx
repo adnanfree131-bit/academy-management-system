@@ -1259,9 +1259,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       )}
 
       {/* Main Container / Bottom Sheet on Mobile */}
-      <div className="bg-white rounded-t-3xl sm:rounded-xl w-full max-w-5xl shadow-2xl border-t sm:border border-slate-300/90 overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[94vh] sm:zoom-in-95 duration-200 mobile-sheet-card">
-        {/* Institutional Student Profile Header */}
-        <div className="bg-white border-b border-slate-200 px-3.5 sm:px-6 py-3 shrink-0 relative">
+      <div className="bg-white rounded-t-3xl sm:rounded-xl w-full max-w-5xl shadow-2xl border-t sm:border border-slate-300/90 overflow-hidden flex flex-col h-[94dvh] sm:h-auto sm:max-h-[94vh] sm:zoom-in-95 duration-200 mobile-sheet-card">
+        {/* ========================================================================= */}
+        {/* DESKTOP EXPERIENCE (>= sm: 640px) — Complete Institutional ERP Dossier    */}
+        {/* Preserved 100% untouched to ensure zero desktop regressions               */}
+        {/* ========================================================================= */}
+        <div className="hidden sm:flex sm:flex-col flex-1 min-h-0 overflow-hidden">
+          {/* Institutional Student Profile Header */}
+          <div className="bg-white border-b border-slate-200 px-3.5 sm:px-6 py-3 shrink-0 relative">
           {/* Dedicated Close Button for Mobile (Top-Right) */}
           <button
             type="button"
@@ -3162,6 +3167,1362 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* NATIVE MOBILE EXPERIENCE (< sm: 640px) — Dedicated Smartphone Layout     */}
+      {/* ========================================================================= */}
+      <div className="sm:hidden flex flex-col h-full overflow-hidden bg-slate-50">
+        {/* Mobile App Bar */}
+        <div className="bg-white px-3.5 py-2.5 border-b border-slate-200 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">Student Profile</span>
+            <span className="font-mono text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 shrink-0">
+              {currentStudent.admission_number}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+            title="Close Profile"
+            aria-label="Close Profile"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Hero Identity Block */}
+        <div className="bg-white px-3.5 py-3 border-b border-slate-200 shrink-0 space-y-3">
+          <div className="flex items-center gap-3">
+            {/* 3:4 Portrait Avatar */}
+            <div className="w-13 h-17 rounded-lg border border-slate-200 bg-slate-100 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs relative">
+              {currentStudent.photo_url ? (
+                <img
+                  src={currentStudent.photo_url}
+                  alt={currentStudent.full_name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-6 h-6 text-slate-400 stroke-1.5" />
+              )}
+              <span className={`absolute bottom-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                currentStudent.status === 'active' ? 'bg-emerald-500' : currentStudent.status === 'withdrawn' ? 'bg-rose-500' : 'bg-amber-500'
+              }`} />
+            </div>
+
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-base font-bold text-slate-900 tracking-tight leading-tight truncate">
+                  {currentStudent.full_name}
+                </h2>
+                {currentStudent.blood_group && (
+                  <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-semibold bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                    {currentStudent.blood_group}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-wrap">
+                <span className="font-semibold text-slate-800">{activeProgram?.name || 'Class'}</span>
+                <span className="text-slate-300">•</span>
+                <span className="text-slate-600">{activeBatch?.name || '—'} ({activeBatch?.shift || 'Morning'})</span>
+                {currentStudent.roll_number && (
+                  <>
+                    <span className="text-slate-300">•</span>
+                    <span className="font-mono text-slate-500">Roll: {currentStudent.roll_number}</span>
+                  </>
+                )}
+              </div>
+
+              <div className="text-[11px] text-slate-500 truncate">
+                Guardian: <strong className="text-slate-700 font-semibold">{currentStudent.guardian_name}</strong> <span className="text-slate-400 font-normal">({guardianRelation})</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Action Pill Bar: 4 Large Tactile Buttons */}
+          <div className="grid grid-cols-4 gap-1.5 pt-0.5">
+            {currentStudent.guardian_phone ? (
+              <a
+                href={`tel:${currentStudent.guardian_phone.replace(/[^0-9+]/g, '')}`}
+                className="h-9 px-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                title="Call Guardian"
+              >
+                <Phone className="w-3.5 h-3.5 text-slate-700" />
+                <span>Call</span>
+              </a>
+            ) : (
+              <button
+                disabled
+                className="h-9 px-2 bg-slate-100 text-slate-400 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Call</span>
+              </button>
+            )}
+
+            {currentStudent.guardian_phone ? (
+              <a
+                href={`https://wa.me/${(currentStudent.guardian_whatsapp || currentStudent.guardian_phone).replace(/[^0-9]/g, '')}`}
+                target="_blank"
+                rel="noreferrer"
+                className="h-9 px-2 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-800 border border-emerald-200/80 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                title="WhatsApp Guardian"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Chat</span>
+              </a>
+            ) : (
+              <button
+                disabled
+                className="h-9 px-2 bg-slate-100 text-slate-400 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 opacity-50 cursor-not-allowed"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Chat</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedIdCardEnrollmentId(undefined);
+                setShowIdCardModal(true);
+              }}
+              className="h-9 px-2 bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              title="View/Print Student ID Card"
+            >
+              <CreditCard className="w-3.5 h-3.5 text-slate-600" />
+              <span>ID Card</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowEditParticularsModal(true)}
+              className="h-9 px-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              title="Edit Student Particulars"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-slate-300" />
+              <span>Edit</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Native Segmented Control */}
+        <div className="px-3.5 py-1.5 bg-slate-100/90 border-b border-slate-200 shrink-0">
+          <div className="grid grid-cols-4 gap-1 p-1 bg-slate-200/70 rounded-xl text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setActiveTab('academic')}
+              className={`py-1.5 rounded-lg text-center transition-all cursor-pointer ${
+                activeTab === 'academic'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Academic
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('finance')}
+              className={`py-1.5 rounded-lg text-center transition-all cursor-pointer ${
+                activeTab === 'finance'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Fees
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('attendance')}
+              className={`py-1.5 rounded-lg text-center transition-all cursor-pointer ${
+                activeTab === 'attendance'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Attendance
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('status');
+                setStatusTarget(currentStudent.status || 'active');
+              }}
+              className={`py-1.5 rounded-lg text-center transition-all cursor-pointer ${
+                activeTab === 'status'
+                  ? 'bg-white text-slate-900 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Status
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Tab Content Body */}
+        <div className="flex-1 overflow-y-auto overscroll-contain p-3.5 space-y-3.5 pb-6">
+          {/* TAB 1: ACADEMIC DETAILS */}
+          {activeTab === 'academic' && (
+            <div className="space-y-3.5">
+              {/* Placement Card */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <GraduationCap className="w-4 h-4 text-slate-700" />
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                      Academic Placement
+                    </h3>
+                  </div>
+                  <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                    Session {activeBatch?.academic_session || '2026–2027'}
+                  </span>
+                </div>
+
+                <div className="divide-y divide-slate-100 text-xs">
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Program / Class</span>
+                    <span className="font-bold text-slate-900 text-right truncate">{activeProgram?.name || 'Academic Class'}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">{isBatchSection ? 'Section' : 'Batch'}</span>
+                    <span className="font-semibold text-slate-900 text-right truncate">{activeBatch?.name || '—'}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Shift & Timings</span>
+                    <span className="font-mono text-slate-800 text-right text-[11px] truncate">
+                      {activeBatch?.shift ? activeBatch.shift.toUpperCase() : 'MORNING'} {activeBatch?.start_time && activeBatch?.end_time ? `• ${activeBatch.start_time} – ${activeBatch.end_time}` : ''}
+                    </span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Admission Date</span>
+                    <span className="font-mono text-slate-800 text-right">{student.admission_date}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Monthly Tuition</span>
+                    <span className="font-mono font-bold text-slate-900 text-right">
+                      PKR {Number(currentStudent.fee_structure?.base_tuition || activeBatch?.fee_amount || 0).toLocaleString()}
+                      <span className="text-[10px] text-slate-400 font-sans font-normal ml-0.5">/mo</span>
+                    </span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Standing</span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold border capitalize ${
+                      currentStudent.status === 'active'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : currentStudent.status === 'withdrawn'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        currentStudent.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500'
+                      }`} />
+                      {currentStudent.status || 'Active'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Transfer / Add Class Actions */}
+                {canManageAcademicStatus && (
+                  <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (primaryEnrollment) handleOpenTransferModal(primaryEnrollment);
+                      }}
+                      className="flex-1 py-2 px-3 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5" />
+                      <span>Change Section</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleOpenAddClassModal}
+                      className="flex-1 py-2 px-3 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Add Class</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Secondary Enrollments (if multi-class) */}
+              {secondaryEnrollments.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                      Additional Enrolled Classes ({secondaryEnrollments.length})
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {secondaryEnrollments.map(enr => {
+                      const prog = programs.find(p => p.id === enr.program_id);
+                      const b = batches.find(x => x.id === enr.batch_id);
+                      const bal = getEnrollmentBalance(enr.id, enr.batch_id);
+                      const fee = getEnrollmentFee(enr, b);
+                      const isActiveOrLeave = enr.status === 'active' || enr.status === 'on_leave';
+
+                      return (
+                        <div key={enr.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <span className="font-bold text-slate-900 block">{prog?.name || 'Class'}</span>
+                              <span className="text-slate-600 text-[11px] block">{b?.name || 'Section'} ({b?.shift || 'Morning'})</span>
+                            </div>
+                            <span className="font-mono font-bold text-slate-900 text-xs">PKR {fee.toLocaleString()}/mo</span>
+                          </div>
+                          {bal > 0 && (
+                            <div className="text-[11px] font-mono font-semibold text-rose-700">
+                              Outstanding Balance: PKR {bal.toLocaleString()}
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-200 flex-wrap">
+                            {canManageAcademicStatus && isActiveOrLeave && (
+                              <button
+                                type="button"
+                                onClick={() => handleMakePrimary(enr.id)}
+                                className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[11px] font-medium cursor-pointer"
+                              >
+                                Make Primary
+                              </button>
+                            )}
+                            {canManageAcademicStatus && isActiveOrLeave && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenTransferModal(enr)}
+                                className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded text-[11px] font-medium cursor-pointer"
+                              >
+                                Transfer
+                              </button>
+                            )}
+                            {canManageAcademicStatus && isActiveOrLeave && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setLeaveClassEnrollment(enr);
+                                  setLeaveClassStatus('withdrawn');
+                                  setLeaveClassReason('');
+                                  setLeaveClassCancelUnpaid(true);
+                                  setLeaveClassError(null);
+                                }}
+                                className="px-2 py-1 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded text-[11px] font-medium cursor-pointer"
+                              >
+                                Leave
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Guardian & Family Record */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="w-4 h-4 text-slate-700" />
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                      Guardian Particulars
+                    </h3>
+                  </div>
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    ({guardianRelation})
+                  </span>
+                </div>
+
+                <div className="divide-y divide-slate-100 text-xs">
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Primary Guardian</span>
+                    <span className="font-bold text-slate-900 text-right truncate">{student.guardian_name}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Guardian Mobile</span>
+                    <div className="flex items-center gap-2 justify-end">
+                      <span className="font-mono font-bold text-slate-900 text-right">{student.guardian_phone}</span>
+                      {student.guardian_phone && (
+                        <div className="inline-flex items-center gap-1 shrink-0">
+                          <a
+                            href={`tel:${student.guardian_phone.replace(/[^0-9+]/g, '')}`}
+                            className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+                            title="Call Guardian"
+                          >
+                            <Phone className="w-3 h-3 text-slate-600" />
+                          </a>
+                          <a
+                            href={`https://wa.me/${(student.guardian_whatsapp || student.guardian_phone).replace(/[^0-9]/g, '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="w-6 h-6 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors cursor-pointer"
+                            title="WhatsApp Guardian"
+                          >
+                            <MessageSquare className="w-3 h-3 text-emerald-700" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Guardian CNIC</span>
+                    <span className="font-mono font-bold text-slate-900 text-right">
+                      {student.guardian_id_card || <span className="text-slate-400 font-sans font-normal italic text-[11px]">Not assigned</span>}
+                    </span>
+                  </div>
+                  {student.father_name && (
+                    <div className="py-1.5 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium">Father</span>
+                      <span className="text-slate-900 text-right truncate">
+                        <span className="font-semibold">{student.father_name}</span>
+                        {student.father_cnic && <span className="text-[10px] font-mono text-slate-500 ml-1.5">({student.father_cnic})</span>}
+                      </span>
+                    </div>
+                  )}
+                  {student.mother_name && (
+                    <div className="py-1.5 flex items-center justify-between gap-2">
+                      <span className="text-slate-500 font-medium">Mother</span>
+                      <span className="text-slate-900 text-right truncate">
+                        <span className="font-semibold">{student.mother_name}</span>
+                        {student.mother_cnic && <span className="text-[10px] font-mono text-slate-500 ml-1.5">({student.mother_cnic})</span>}
+                      </span>
+                    </div>
+                  )}
+                  {(student.residential_address || student.city) && (
+                    <div className="py-1.5 flex items-start justify-between gap-2">
+                      <span className="text-slate-500 font-medium shrink-0">Address</span>
+                      <span className="text-slate-800 text-right text-[11px] max-w-[65%] break-words">
+                        {student.residential_address}{student.city ? `, ${student.city}` : ''}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Portal Credentials */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Key className="w-4 h-4 text-slate-700" />
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                      Portal Credentials
+                    </h3>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  <div>
+                    <span className="text-[11px] text-slate-500 font-medium block mb-1">Username (Guardian CNIC)</span>
+                    {currentStudent.guardian_id_card ? (
+                      <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                        <span className="font-mono font-bold text-slate-900 text-xs">{currentStudent.guardian_id_card}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(currentStudent.guardian_id_card!);
+                            setCopiedCredentials(true);
+                            setTimeout(() => setCopiedCredentials(false), 2000);
+                          }}
+                          className="text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer flex items-center gap-1 text-xs"
+                          title="Copy Login Identifier"
+                        >
+                          {copiedCredentials ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+                          <span className="text-[10px] text-slate-500">{copiedCredentials ? 'Copied' : 'Copy'}</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-2.5 bg-amber-50/60 border border-amber-200 rounded-lg text-[11px] text-amber-800">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>No Guardian CNIC Assigned</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                      <span className="font-mono text-xs text-slate-700 tracking-wider">••••••••••••</span>
+                    </div>
+                    <span className="text-[10px] text-slate-600 font-medium bg-white px-2 py-0.5 rounded border border-slate-200">
+                      Encrypted
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                  {canManageAcademicStatus && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetGuardianCnic(currentStudent.guardian_id_card || '');
+                        setShowResetPasswordModal(true);
+                        setResetSuccessData(null);
+                        setResetErrorMsg(null);
+                      }}
+                      className="flex-1 py-2 px-3 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <Key className="w-3.5 h-3.5 text-slate-300" />
+                      <span>Reset Password</span>
+                    </button>
+                  )}
+                  {currentStudent.guardian_id_card && (
+                    <a
+                      href={getWhatsAppCredentialsUrl(currentStudent.guardian_id_card)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex-1 py-2 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors text-center cursor-pointer"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Send Login</span>
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Personal Details */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-slate-700" />
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                      Personal Details
+                    </h3>
+                  </div>
+                  {student.blood_group && (
+                    <span className="font-mono text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      Blood: {student.blood_group}
+                    </span>
+                  )}
+                </div>
+
+                <div className="divide-y divide-slate-100 text-xs">
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Date of Birth</span>
+                    <span className="font-mono text-slate-800 text-right">{student.date_of_birth || '—'}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Gender</span>
+                    <span className="capitalize text-slate-800 text-right font-medium">{student.gender || '—'}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">B-Form / CRC #</span>
+                    <span className="font-mono text-slate-800 text-right">{student.student_b_form || '—'}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Religion</span>
+                    <span className="text-slate-800 text-right font-medium">{student.religion || '—'}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Previous School</span>
+                    <span className="text-slate-800 text-right truncate max-w-[65%]">{student.previous_school || '—'}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Direct Phone</span>
+                    <span className="font-mono text-slate-800 text-right">{student.phone || '—'}</span>
+                  </div>
+                  <div className="py-1.5 flex items-center justify-between gap-2">
+                    <span className="text-slate-500 font-medium">Direct Email</span>
+                    <span className="font-mono text-slate-800 text-right truncate max-w-[65%]">{student.email || '—'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Enrolled Curriculum Subjects */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="px-3.5 py-2.5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                      <span>Curriculum Subjects</span>
+                      <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-slate-200 text-slate-800">
+                        {editSubjectIds.length}/{availableClassSubjectIds.length}
+                      </span>
+                    </h3>
+                    <p className="text-[10px] text-slate-500 mt-0.5 truncate max-w-[200px]">
+                      Track: {activeElectiveGroup?.name || 'General Stream'}
+                    </p>
+                  </div>
+
+                  {!isManagingSubjects ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsManagingSubjects(true)}
+                      className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Edit</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={handleDiscardSubjectChanges}
+                        disabled={isSavingSubjects}
+                        className="px-2 py-1 text-xs font-medium rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                      >
+                        Discard
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveSubjects}
+                        disabled={isSavingSubjects || !hasSubjectChanges}
+                        className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-950 disabled:opacity-40 transition-colors flex items-center gap-1 shadow-2xs cursor-pointer"
+                      >
+                        {isSavingSubjects ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {editSubjectsSuccess && (
+                  <div className="px-3 py-1.5 bg-emerald-50 border-b border-emerald-200 text-emerald-900 text-xs flex items-center gap-1.5 font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>{editSubjectsSuccess}</span>
+                  </div>
+                )}
+                {editSubjectsError && (
+                  <div className="px-3 py-1.5 bg-rose-50 border-b border-rose-200 text-rose-900 text-xs flex items-center gap-1.5 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                    <span>{editSubjectsError}</span>
+                  </div>
+                )}
+
+                <div className="divide-y divide-slate-100">
+                  {availableClassSubjectIds.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-slate-400">
+                      No subjects configured for this class program.
+                    </div>
+                  ) : (
+                    availableClassSubjectIds.map(subId => {
+                      const isEnrolled = editSubjectIds.includes(subId);
+                      const isCore = activeCompulsoryGroup?.subject_ids.includes(subId) ?? true;
+                      const name = getSubjectName(subId);
+                      const code = getSubjectCode(subId);
+
+                      if (!isManagingSubjects) {
+                        return (
+                          <div key={subId} className="px-3.5 py-2 flex items-center justify-between text-xs">
+                            <div className="min-w-0 pr-2">
+                              <span className="font-semibold text-slate-900 block truncate">{name}</span>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="font-mono text-[10px] text-slate-500">{code}</span>
+                                <span className="text-slate-300">•</span>
+                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-semibold ${
+                                  isCore ? 'bg-slate-100 text-slate-700' : 'bg-indigo-50 text-indigo-700'
+                                }`}>
+                                  {isCore ? 'Core' : 'Elective'}
+                                </span>
+                              </div>
+                            </div>
+                            <span className={`text-[11px] font-medium shrink-0 ${isEnrolled ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
+                              {isEnrolled ? 'Enrolled' : 'Not Enrolled'}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={subId}
+                          onClick={() => handleToggleSubject(subId)}
+                          className={`px-3.5 py-2.5 flex items-center justify-between text-xs cursor-pointer transition-colors ${
+                            isEnrolled ? 'bg-indigo-50/20' : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={isEnrolled}
+                              onChange={() => handleToggleSubject(subId)}
+                              className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 w-4 h-4 cursor-pointer shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <span className="font-semibold text-slate-900 block truncate">{name}</span>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="font-mono text-[10px] text-slate-500">{code}</span>
+                                <span className="text-slate-300">•</span>
+                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-semibold ${
+                                  isCore ? 'bg-slate-100 text-slate-700' : 'bg-indigo-50 text-indigo-700'
+                                }`}>
+                                  {isCore ? 'Core' : 'Elective'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`text-[11px] font-medium shrink-0 ${isEnrolled ? 'text-emerald-700' : 'text-slate-400'}`}>
+                            {isEnrolled ? 'Enrolled' : 'Not Enrolled'}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Document Checklist */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="px-3.5 py-2.5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                    <FileCheck className="w-4 h-4 text-slate-600" />
+                    <span>Document Checklist</span>
+                  </h3>
+                </div>
+
+                {studentDocHeads.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400">
+                    No document checklist heads defined.
+                  </div>
+                ) : (
+                  <div className="p-3 space-y-2.5">
+                    {studentDocHeads.map((head: DocumentChecklistHead) => {
+                      const status = currentStudent.submitted_documents?.[head.code] || 'pending';
+                      const isBusy = updatingDocCode === head.code;
+                      return (
+                        <div
+                          key={head.code}
+                          className="p-2.5 rounded-lg border border-slate-200 bg-slate-50 space-y-2"
+                        >
+                          <div className="flex items-start justify-between gap-1.5">
+                            <div>
+                              <span className="text-xs font-bold text-slate-800 block">{head.title}</span>
+                              <span className="text-[10px] font-mono text-slate-400 block">{head.code}</span>
+                            </div>
+                            {head.is_required && (
+                              <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1 py-0.5 rounded shrink-0">Mandatory</span>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-1 bg-white p-1 rounded-lg border border-slate-200 text-[11px] font-bold">
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleUpdateDocumentStatus(head.code, 'submitted')}
+                              className={`py-1 rounded text-center transition-colors cursor-pointer ${
+                                status === 'submitted'
+                                  ? 'bg-emerald-600 text-white shadow-2xs'
+                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                              }`}
+                            >
+                              Submitted
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleUpdateDocumentStatus(head.code, 'pending')}
+                              className={`py-1 rounded text-center transition-colors cursor-pointer ${
+                                status === 'pending'
+                                  ? 'bg-amber-500 text-white shadow-2xs'
+                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                              }`}
+                            >
+                              Pending
+                            </button>
+                            <button
+                              type="button"
+                              disabled={isBusy}
+                              onClick={() => handleUpdateDocumentStatus(head.code, 'exempted')}
+                              className={`py-1 rounded text-center transition-colors cursor-pointer ${
+                                status === 'exempted'
+                                  ? 'bg-slate-700 text-white shadow-2xs'
+                                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                              }`}
+                            >
+                              Exempted
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: FEE LEDGER & CHALLANS */}
+          {activeTab === 'finance' && (
+            <div className="space-y-3.5">
+              {/* Fee Standing Hero */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div>
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                      Fee Summary
+                    </span>
+                    <span className="text-xs text-slate-600 font-medium">
+                      Session {activeBatch?.academic_session || '2026-2027'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      const targetHash = `#fees?student_id=${encodeURIComponent(currentStudent.id)}`;
+                      if (window.location.hash === targetHash) {
+                        window.dispatchEvent(new HashChangeEvent('hashchange'));
+                      } else {
+                        window.location.hash = targetHash;
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                  >
+                    <span>Fee Desk</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+                  <div className="bg-slate-50 p-2 rounded-lg border border-slate-100">
+                    <span className="text-slate-500 text-[10px] font-medium block">Invoiced</span>
+                    <div className="text-xs font-bold text-slate-900 font-mono mt-0.5 truncate">
+                      PKR {totalBilled.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className="bg-emerald-50/60 p-2 rounded-lg border border-emerald-100">
+                    <span className="text-emerald-700 text-[10px] font-medium block">Paid</span>
+                    <div className="text-xs font-bold text-emerald-800 font-mono mt-0.5 truncate">
+                      PKR {totalPaid.toLocaleString()}
+                    </div>
+                  </div>
+
+                  <div className={`p-2 rounded-lg border ${
+                    totalOutstanding > 0 ? 'bg-rose-50/60 border-rose-100' : 'bg-slate-50 border-slate-100'
+                  }`}>
+                    <span className={`text-[10px] font-medium block ${totalOutstanding > 0 ? 'text-rose-700' : 'text-slate-500'}`}>
+                      Due
+                    </span>
+                    <div className={`text-xs font-bold font-mono mt-0.5 truncate ${
+                      totalOutstanding > 0 ? 'text-rose-700' : 'text-slate-800'
+                    }`}>
+                      PKR {totalOutstanding.toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fee Structure Details */}
+              {currentStudent.fee_structure && (
+                <div className="p-3 bg-white border border-slate-200 rounded-xl text-xs space-y-1 shadow-2xs">
+                  <span className="font-bold text-slate-900 block">Fee Structure</span>
+                  <div className="text-slate-600 font-mono text-[11px] flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                    <span>Tuition: <strong>PKR {Number(currentStudent.fee_structure.base_tuition || 0).toLocaleString()}/mo</strong></span>
+                    {Boolean(currentStudent.fee_structure.admission_fee) && (
+                      <>
+                        <span>•</span>
+                        <span>Admission: <strong>PKR {Number(currentStudent.fee_structure.admission_fee || 0).toLocaleString()}</strong></span>
+                      </>
+                    )}
+                    {Boolean(currentStudent.fee_structure.exam_fee) && (
+                      <>
+                        <span>•</span>
+                        <span>Exam: <strong>PKR {Number(currentStudent.fee_structure.exam_fee || 0).toLocaleString()}</strong></span>
+                      </>
+                    )}
+                  </div>
+                  {currentStudent.fee_structure.concession_val ? (
+                    <div className="mt-1 pt-1 border-t border-slate-100 text-[11px] text-slate-700 font-medium">
+                      Concession: <strong>{currentStudent.fee_structure.concession_type === 'percentage' ? `${currentStudent.fee_structure.concession_val}%` : `PKR ${currentStudent.fee_structure.concession_val}`}</strong> ({currentStudent.fee_structure.concession_reason || 'Approved'})
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              {/* Challans List */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="px-3.5 py-2.5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                    Fee Challans ({invoices.length})
+                  </h3>
+                  <span className="text-[11px] text-slate-500">History</span>
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  {invoices.length === 0 && !isLoadingFinance ? (
+                    <div className="py-6 text-center text-xs text-slate-400">
+                      No challans generated yet for this student.
+                    </div>
+                  ) : (
+                    invoices.map(inv => {
+                      const netPayable = inv.net_total ?? inv.net_amount ?? 0;
+                      const balanceDue = inv.balance_due ?? inv.balance_amount ?? 0;
+                      const isPaid = inv.status === 'PAID' || (inv.status as string) === 'paid';
+                      const isPartial = inv.status === 'PARTIAL' || (inv.status as string) === 'partially_paid';
+
+                      return (
+                        <div key={inv.id} className="p-3 space-y-2 bg-white text-xs">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-mono font-bold text-slate-900">{inv.invoice_number}</span>
+                              <span className="text-slate-500 text-[11px] block">{inv.billing_month}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${
+                              isPaid
+                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                                : isPartial
+                                ? 'bg-amber-50 text-amber-800 border-amber-300'
+                                : 'bg-rose-50 text-rose-800 border-rose-300'
+                            }`}>
+                              {inv.status}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-1.5 py-1.5 px-2 bg-slate-50 rounded-lg text-center border border-slate-100">
+                            <div>
+                              <span className="text-slate-400 text-[10px] block">Billed</span>
+                              <span className="font-mono font-semibold text-slate-800 text-[11px]">PKR {netPayable.toLocaleString()}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 text-[10px] block">Paid</span>
+                              <span className="font-mono font-semibold text-emerald-700 text-[11px]">PKR {inv.paid_amount.toLocaleString()}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 text-[10px] block">Balance</span>
+                              <span className={`font-mono font-bold text-[11px] ${balanceDue > 0 ? 'text-rose-700' : 'text-slate-500'}`}>
+                                PKR {balanceDue.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+                            <span>Due: <strong className="font-mono text-slate-700">{inv.due_date}</strong></span>
+                            <button
+                              type="button"
+                              onClick={() => setChallanInvoice(inv)}
+                              className="px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded text-xs font-semibold inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                              title="Print A4 3-Part Bank Challan"
+                            >
+                              <Printer className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Print</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: ATTENDANCE & RESULTS */}
+          {activeTab === 'attendance' && (
+            <div className="space-y-3.5">
+              {/* Attendance Summary */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div>
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                      Attendance Summary
+                    </h3>
+                    <p className="text-[10px] text-slate-500">
+                      Min 75% attendance required
+                    </p>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                    attendanceMetrics.isEligible
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : 'bg-rose-50 text-rose-800 border-rose-300'
+                  }`}>
+                    {attendanceMetrics.total === 0 ? '100%' : `${attendanceMetrics.percentage}%`}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-4 gap-1.5 text-center">
+                  <div className="p-2 bg-slate-50 rounded-lg border border-slate-100">
+                    <span className="text-slate-400 text-[10px] block">Days</span>
+                    <span className="font-mono font-bold text-slate-900 text-xs">{attendanceMetrics.total}</span>
+                  </div>
+                  <div className="p-2 bg-emerald-50/60 rounded-lg border border-emerald-100">
+                    <span className="text-emerald-700 text-[10px] block">Present</span>
+                    <span className="font-mono font-bold text-emerald-800 text-xs">{attendanceMetrics.present}</span>
+                  </div>
+                  <div className="p-2 bg-amber-50/60 rounded-lg border border-amber-100">
+                    <span className="text-amber-700 text-[10px] block">Late</span>
+                    <span className="font-mono font-bold text-amber-800 text-xs">{attendanceMetrics.late}</span>
+                  </div>
+                  <div className="p-2 bg-rose-50/60 rounded-lg border border-rose-100">
+                    <span className="text-rose-700 text-[10px] block">Absent</span>
+                    <span className="font-mono font-bold text-rose-800 text-xs">{attendanceMetrics.absent}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Attendance Logs */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="px-3.5 py-2.5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                    Recent Attendance Logs
+                  </h3>
+                  <span className="text-xs text-slate-500 font-mono">
+                    {attendanceLogs.length} record{attendanceLogs.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+
+                <div className="divide-y divide-slate-100 max-h-60 overflow-y-auto">
+                  {isLoadingAttendance ? (
+                    <div className="p-6 text-center text-xs text-slate-400 font-mono">
+                      Loading attendance...
+                    </div>
+                  ) : attendanceLogs.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-slate-400">
+                      No attendance records on file.
+                    </div>
+                  ) : (
+                    attendanceLogs.slice(0, 15).map(log => {
+                      let badgeStyle = 'bg-slate-100 text-slate-700 border-slate-200';
+                      if (log.status === 'present') badgeStyle = 'bg-emerald-50 text-emerald-800 border-emerald-200';
+                      if (log.status === 'absent') badgeStyle = 'bg-rose-50 text-rose-800 border-rose-200';
+                      if (log.status === 'late') badgeStyle = 'bg-amber-50 text-amber-800 border-amber-200';
+                      if (log.status === 'excused') badgeStyle = 'bg-indigo-50 text-indigo-800 border-indigo-200';
+
+                      return (
+                        <div key={log.id} className="py-2 px-3.5 flex items-center justify-between text-xs">
+                          <div>
+                            <div className="font-mono font-medium text-slate-900">{log.date}</div>
+                            <div className="text-[10px] text-slate-500 flex items-center gap-1.5">
+                              <span>{log.check_in_time ? new Date(log.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'No time'}</span>
+                              <span>•</span>
+                              <span>{log.marked_by || 'Staff'}</span>
+                            </div>
+                            {log.remarks && <p className="text-[10px] text-slate-500 italic mt-0.5">{log.remarks}</p>}
+                          </div>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-semibold capitalize border ${badgeStyle} shrink-0`}>
+                            {log.status}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Examination Transcript */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="px-3.5 py-2.5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                    Exam Results ({examStats.count})
+                  </h3>
+                  {examStats.count > 0 && examStats.totalMarks > 0 && (
+                    <span className="font-mono text-xs text-emerald-700 font-bold">
+                      {examStats.percentage}% Overall
+                    </span>
+                  )}
+                </div>
+
+                <div className="divide-y divide-slate-100">
+                  {examRows.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-400">
+                      No graded examinations for this student yet.
+                    </div>
+                  ) : (
+                    examRows.map(row => (
+                      <div key={row.title + row.date} className="p-3 space-y-1.5 bg-white text-xs">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="font-semibold text-slate-900 block">{row.title}</span>
+                            <span className="font-mono text-[10px] text-slate-500">{row.date}</span>
+                          </div>
+                          <span className="px-2 py-0.5 rounded text-xs font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 shrink-0">
+                            {row.grade}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-50">
+                          <span className="text-slate-500">Marks: <strong className="font-mono text-slate-900">{row.obtained}</strong> / {row.total}</span>
+                          {row.remarks && <span className="text-slate-500 italic text-[11px] truncate max-w-[55%]">{row.remarks}</span>}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: STATUS & RECORDS */}
+          {activeTab === 'status' && (
+            <div className="space-y-3.5">
+              {/* Standing Card */}
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Standing:</span>
+                  <span className={`px-2.5 py-0.5 rounded text-xs font-bold border uppercase tracking-wider ${
+                    currentStudent.status === 'active'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : currentStudent.status === 'withdrawn'
+                      ? 'bg-rose-50 text-rose-800 border-rose-300'
+                      : currentStudent.status === 'suspended'
+                      ? 'bg-red-50 text-red-800 border-red-300'
+                      : 'bg-amber-50 text-amber-800 border-amber-300'
+                  }`}>
+                    {currentStudent.status || 'Active'}
+                  </span>
+                </div>
+                {currentStudent.status_reason && (
+                  <p className="text-xs text-slate-600 italic">Reason: {currentStudent.status_reason}</p>
+                )}
+                <div className="text-xs text-slate-500 pt-1 border-t border-slate-100 flex items-center justify-between">
+                  <span>Admitted: <strong className="font-mono text-slate-700">{currentStudent.admission_date || '—'}</strong></span>
+                  {currentStudent.updated_at && (
+                    <span>Updated: <strong className="font-mono text-slate-700">{new Date(currentStudent.updated_at).toLocaleDateString()}</strong></span>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Update Form */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="px-3.5 py-2.5 border-b border-slate-200 bg-slate-50/70">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                    Update Student Status
+                  </h3>
+                </div>
+
+                <form onSubmit={handleUpdateStatus} className="p-3.5 space-y-3 text-xs">
+                  {statusSuccessMsg && (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{statusSuccessMsg}</span>
+                    </div>
+                  )}
+
+                  {statusErrorMsg && (
+                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span>{statusErrorMsg}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      New Status <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={statusTarget}
+                      onChange={(e) => setStatusTarget(e.target.value as StudentStatus)}
+                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900 font-medium"
+                    >
+                      <option value="active">Active</option>
+                      <option value="on_leave">On Leave</option>
+                      <option value="suspended">Suspended</option>
+                      <option value="withdrawn">Withdrawn</option>
+                      <option value="alumni">Alumni / Graduated</option>
+                      <option value="waitlisted">Waitlisted</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </div>
+
+                  <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={cancelUnpaidInvoices}
+                        onChange={(e) => setCancelUnpaidInvoices(e.target.checked)}
+                        className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 cursor-pointer"
+                      />
+                      <span className="text-xs text-slate-700 font-medium">
+                        Cancel unpaid invoices on withdrawal
+                      </span>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Reason <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={statusReason}
+                      onChange={(e) => setStatusReason(e.target.value)}
+                      placeholder="e.g. Relocated to another city, course completed"
+                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-900"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isUpdatingStatus || !statusReason.trim()}
+                    className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                  >
+                    <span>{isUpdatingStatus ? 'Saving...' : 'Update Status'}</span>
+                  </button>
+                </form>
+              </div>
+
+              {/* Administrative Utilities */}
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                <div className="px-3.5 py-2.5 border-b border-slate-200 bg-slate-50/70">
+                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                    Administrative Actions
+                  </h3>
+                </div>
+
+                <div className="p-3 grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      fetchAuditLogs();
+                      setShowAuditLogsModal(true);
+                    }}
+                    className="p-2.5 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 border border-slate-200 rounded-lg font-semibold text-slate-800 flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer text-center"
+                  >
+                    <History className="w-4 h-4 text-slate-600" />
+                    <span>Activity Log</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedIdCardEnrollmentId(undefined);
+                      setShowIdCardModal(true);
+                    }}
+                    className="p-2.5 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 border border-slate-200 rounded-lg font-semibold text-slate-800 flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer text-center"
+                  >
+                    <CreditCard className="w-4 h-4 text-slate-600" />
+                    <span>Print ID Card</span>
+                  </button>
+
+                  {canManageAcademicStatus && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (currentStudent.status === 'archived') {
+                          handleUnarchiveFromModal();
+                        } else {
+                          setShowArchiveDialog(true);
+                        }
+                      }}
+                      className="p-2.5 bg-slate-50 hover:bg-slate-100 active:bg-slate-200 border border-slate-200 rounded-lg font-semibold text-amber-800 flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer text-center"
+                    >
+                      <Archive className="w-4 h-4 text-amber-600" />
+                      <span>{currentStudent.status === 'archived' ? 'Restore' : 'Archive'}</span>
+                    </button>
+                  )}
+
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDeleteModalForce(false);
+                        setDeleteModalRequiresForce(false);
+                        setDeleteModalError(null);
+                        setShowDeleteDialog(true);
+                      }}
+                      className="p-2.5 bg-rose-50 hover:bg-rose-100 active:bg-rose-200 border border-rose-200 rounded-lg font-semibold text-rose-800 flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer text-center"
+                    >
+                      <Trash2 className="w-4 h-4 text-rose-600" />
+                      <span>Delete</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Status History */}
+              {currentStudent.status_change_history && currentStudent.status_change_history.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                  <div className="px-3.5 py-2.5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-800">
+                      Status History
+                    </h3>
+                    <History className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {currentStudent.status_change_history.map((h, idx) => (
+                      <div key={idx} className="p-3 space-y-1.5 bg-white text-xs">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-mono text-slate-500">{new Date(h.changed_at).toLocaleDateString()}</span>
+                          <span className="font-mono text-slate-400 text-[10px]">{h.changed_by}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 uppercase">
+                            {h.previous_status}
+                          </span>
+                          <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className={`px-1.5 py-0.2 rounded text-[10px] font-semibold uppercase border ${
+                            h.new_status === 'active'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                              : h.new_status === 'withdrawn'
+                              ? 'bg-rose-50 text-rose-800 border-rose-300'
+                              : 'bg-amber-50 text-amber-800 border-amber-300'
+                          }`}>
+                            {h.new_status}
+                          </span>
+                        </div>
+                        {h.reason && (
+                          <p className="text-slate-700 text-[11px]">{h.reason}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Class Transfer History */}
+              {currentStudent.transfer_history && currentStudent.transfer_history.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-xl p-3.5 space-y-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <h3 className="font-bold text-xs uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <ArrowRightLeft className="w-4 h-4 text-blue-600" />
+                      <span>Section Transfer History</span>
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {currentStudent.transfer_history.map((t, idx) => {
+                      const fromB = batches.find(b => b.id === t.from_batch_id)?.name || t.from_batch_id;
+                      const toB = batches.find(b => b.id === t.to_batch_id)?.name || t.to_batch_id;
+                      return (
+                        <div key={(t as any).id || idx} className="py-2 space-y-1 text-xs">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="font-mono text-slate-500">{t.effective_date}</span>
+                            <span className="font-mono text-[10px] text-slate-400">{t.changed_by || 'Administration'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 font-semibold">
+                            <span className="text-rose-700">{fromB}</span>
+                            <ArrowRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="text-emerald-700">{toB}</span>
+                          </div>
+                          {t.reason && <p className="text-slate-600 text-[11px] italic">{t.reason}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Modal Footer */}
+        <div className="bg-white border-t border-slate-200 px-3.5 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] flex items-center justify-between text-xs text-slate-500 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <span>Admission:</span>
+            <span className="font-mono text-slate-800 font-semibold">{student.admission_date}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5 text-slate-500" />
+              <span>Print</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 border border-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
       {/* FEE CHALLAN PRINT MODAL */}
       {challanInvoice && (
