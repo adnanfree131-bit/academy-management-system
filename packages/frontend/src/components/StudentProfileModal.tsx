@@ -360,14 +360,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const [editProgramId, setEditProgramId] = useState(student.program_id);
   const [editBatchId, setEditBatchId] = useState(student.batch_id);
   const [editElectiveGroupId, setEditElectiveGroupId] = useState(student.elective_group_id || '');
-  const [editTransferDate, setEditTransferDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [editTransferReason, setEditTransferReason] = useState('Administrative class/section transfer');
-  const [editFeeMode, setEditFeeMode] = useState<'keep_current' | 'batch_standard' | 'custom'>('keep_current');
-  const [editCustomFeeAmount, setEditCustomFeeAmount] = useState<number | string>(() => {
-    const curB = batches.find(b => b.id === student.batch_id);
-    return curB?.fee_amount || 0;
-  });
-  const [editUpdateUnpaidChallans, setEditUpdateUnpaidChallans] = useState(true);
   const [editParticularsError, setEditParticularsError] = useState<string | null>(null);
 
   // Dedicated Class Transfer Modal (Multi-Class Support)
@@ -499,14 +491,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setEditProgramId(currentStudent.program_id);
     setEditBatchId(currentStudent.batch_id);
     setEditElectiveGroupId(currentStudent.elective_group_id || '');
-    setEditTransferDate(new Date().toISOString().split('T')[0]);
-    setEditTransferReason('Administrative class/section transfer');
-    setEditFeeMode('keep_current');
-    const curB = batches.find(b => b.id === currentStudent.batch_id);
-    setEditCustomFeeAmount(curB?.fee_amount || 0);
-    setEditUpdateUnpaidChallans(true);
     setEditParticularsError(null);
-  }, [currentStudent, batches]);
+  }, [currentStudent]);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -531,31 +517,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     if (isBatchTransfer) {
       const targetB = batches.find(b => b.id === editBatchId);
       if (targetB && targetB.max_capacity > 0 && (targetB.current_enrollment || 0) >= targetB.max_capacity) {
-        setEditParticularsError(`Target batch "${targetB.name}" has reached full capacity (${targetB.current_enrollment}/${targetB.max_capacity}). Transfer blocked.`);
+        setEditParticularsError(`Target batch "${targetB.name}" has reached full capacity (${targetB.current_enrollment} of ${targetB.max_capacity}). Transfer blocked.`);
         return;
       }
     }
 
     setIsSavingParticulars(true);
     try {
-      let resolvedFeeStructure: any = undefined;
-      if (isBatchTransfer) {
-        const targetB = batches.find(b => b.id === editBatchId);
-        if (editFeeMode === 'batch_standard') {
-          resolvedFeeStructure = {
-            ...(currentStudent.fee_structure || {}),
-            tuition_fee: targetB?.fee_amount || 0,
-            base_tuition_fee: targetB?.fee_amount || 0,
-          };
-        } else if (editFeeMode === 'custom') {
-          resolvedFeeStructure = {
-            ...(currentStudent.fee_structure || {}),
-            tuition_fee: Number(editCustomFeeAmount),
-            base_tuition_fee: Number(editCustomFeeAmount),
-          };
-        }
-      }
-
       const res = await fetch(`/api/v1/sis/students/${currentStudent.id}`, {
         method: 'PATCH',
         headers: {
@@ -568,10 +536,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           batch_id: editBatchId,
           elective_group_id: editElectiveGroupId || undefined,
           ...(isBatchTransfer ? {
-            transfer_effective_date: editTransferDate,
-            transfer_reason: editTransferReason.trim() || 'Administrative class/section transfer',
-            update_unpaid_challans: editUpdateUnpaidChallans,
-            ...(resolvedFeeStructure ? { fee_structure: resolvedFeeStructure } : {}),
+            transfer_effective_date: new Date().toISOString().split('T')[0],
+            transfer_reason: 'Updated in student particulars form',
           } : {}),
           phone: editPhone.trim() || undefined,
           student_whatsapp: editStudentWhatsapp.trim() || undefined,
@@ -1985,7 +1951,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                                 <span className={`px-1.5 py-0.2 rounded text-[9px] font-semibold ${
                                   isCore ? 'bg-slate-100 text-slate-700' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                                 }`}>
-                                  {isCore ? 'Core' : 'Elective'}
+                                  {isCore ? 'Compulsory' : 'Elective'}
                                 </span>
                               </div>
                             </div>
@@ -2071,7 +2037,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                                     <span className={`px-1.5 py-0.2 rounded text-[9px] font-semibold ${
                                       isCore ? 'bg-slate-100 text-slate-700' : 'bg-indigo-50 text-indigo-700'
                                     }`}>
-                                      {isCore ? 'Core' : 'Elective'}
+                                      {isCore ? 'Compulsory' : 'Elective'}
                                     </span>
                                   </div>
                                 </div>
@@ -2111,7 +2077,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                               const isCore = activeCompulsoryGroup?.subject_ids.includes(subId) ?? true;
                               const name = getSubjectName(subId);
                               const code = getSubjectCode(subId);
-                              const groupName = allProgramSubjectGroups.find(g => g.subject_ids.includes(subId))?.name || (isCore ? 'Core Curriculum' : (activeElectiveGroup?.name || 'Elective Stream'));
+                              const groupName = allProgramSubjectGroups.find(g => g.subject_ids.includes(subId))?.name || (isCore ? 'Compulsory Curriculum' : (activeElectiveGroup?.name || 'Elective Stream'));
 
                               return (
                                 <tr
@@ -2137,7 +2103,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                                         ? 'bg-slate-100 text-slate-700 border border-slate-200' 
                                         : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                                     }`}>
-                                      {isCore ? 'Core' : 'Elective'}
+                                      {isCore ? 'Compulsory' : 'Elective'}
                                     </span>
                                   </td>
                                   <td className="py-2.5 px-4 text-slate-600 font-medium">{groupName}</td>
@@ -2810,7 +2776,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         <option value="on_leave">On Leave</option>
                         <option value="suspended">Suspended</option>
                         <option value="withdrawn">Withdrawn</option>
-                        <option value="alumni">Alumni / Graduated</option>
+                        <option value="alumni">Alumni (Graduated)</option>
                         <option value="waitlisted">Waitlisted</option>
                         <option value="archived">Archived</option>
                       </select>
@@ -3836,7 +3802,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                                       : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                                   }`}
                                 >
-                                  {isCore ? 'Core' : 'Elective'}
+                                  {isCore ? 'Compulsory' : 'Elective'}
                                 </span>
                               </div>
                             </div>
@@ -3886,7 +3852,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                                   <span className={`px-1.5 py-0.2 rounded text-[9px] font-semibold ${
                                     isCore ? 'bg-slate-100 text-slate-700' : 'bg-indigo-50 text-indigo-700'
                                   }`}>
-                                    {isCore ? 'Core' : 'Elective'}
+                                    {isCore ? 'Compulsory' : 'Elective'}
                                   </span>
                                 </div>
                               </div>
@@ -4351,7 +4317,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       <option value="on_leave">On Leave</option>
                       <option value="suspended">Suspended</option>
                       <option value="withdrawn">Withdrawn</option>
-                      <option value="alumni">Alumni / Graduated</option>
+                      <option value="alumni">Alumni (Graduated)</option>
                       <option value="waitlisted">Waitlisted</option>
                       <option value="archived">Archived</option>
                     </select>
@@ -4785,7 +4751,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="text"
                       value={editPhone}
                       onChange={e => setEditPhone(e.target.value)}
-                      placeholder="0300-1234567"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
                     />
                   </div>
@@ -4796,7 +4761,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="text"
                       value={editStudentWhatsapp}
                       onChange={e => setEditStudentWhatsapp(e.target.value)}
-                      placeholder="0300-1234567"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
                     />
                   </div>
@@ -4807,7 +4771,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="email"
                       value={editEmail}
                       onChange={e => setEditEmail(e.target.value)}
-                      placeholder="student@example.com"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
                     />
                   </div>
@@ -4819,7 +4782,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       onChange={e => setEditBloodGroup(e.target.value)}
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium bg-white"
                     >
-                      <option value="">-- Select Blood Group --</option>
+                      <option value="">Select Blood Group</option>
                       {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(bg => (
                         <option key={bg} value={bg}>{bg}</option>
                       ))}
@@ -4828,18 +4791,13 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
               </div>
 
-              {/* Academic Placement & Section Transfer */}
+              {/* Academic Placement */}
               <div className="space-y-3 pb-3 border-b border-slate-200">
                 <div className="flex items-center justify-between">
                   <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                     <GraduationCap className="w-3.5 h-3.5 text-slate-600" />
-                    <span>Academic Placement & Section Transfer</span>
+                    <span>Academic Placement</span>
                   </h4>
-                  {editBatchId !== currentStudent.batch_id && (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800 border border-slate-300">
-                      Transfer Pending
-                    </span>
-                  )}
                 </div>
 
                 {editParticularsError && (
@@ -4852,7 +4810,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Academic Class / Program *
+                      Academic Class *
                     </label>
                     <select
                       value={editProgramId || ''}
@@ -4880,7 +4838,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Batch / Section *
+                      Section Batch *
                     </label>
                     <select
                       value={editBatchId || ''}
@@ -4897,7 +4855,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           const isFull = !isCurrent && b.max_capacity > 0 && (b.current_enrollment || 0) >= b.max_capacity;
                           return (
                             <option key={b.id} value={b.id} disabled={isFull}>
-                              {b.name} ({b.shift}) {isFull ? `[FULL: ${b.current_enrollment}/${b.max_capacity}]` : `(${b.current_enrollment || 0}/${b.max_capacity || '∞'})`}
+                              {b.name} ({b.shift}) {isFull ? `[Full: ${b.current_enrollment} of ${b.max_capacity}]` : `(${b.current_enrollment || 0} of ${b.max_capacity || 'Unlimited'})`}
                             </option>
                           );
                         })}
@@ -4913,7 +4871,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       onChange={e => setEditElectiveGroupId(e.target.value)}
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium bg-white"
                     >
-                      <option value="">-- General / Core Only --</option>
+                      <option value="">Compulsory Subjects Only</option>
                       {subjectGroups
                         .filter(g => g.program_id === editProgramId && g.type === 'elective_track')
                         .map(g => (
@@ -4922,138 +4880,12 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </select>
                   </div>
                 </div>
-
-                {/* Section Transfer Sub-Panel (Only displays when batch has changed) */}
-                {editBatchId !== currentStudent.batch_id && (
-                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-3 mt-2 animate-in fade-in duration-150">
-                    <div className="flex items-center gap-2 text-slate-800 font-bold text-xs">
-                      <ArrowRightLeft className="w-4 h-4 text-slate-600" />
-                      <span>Class Transfer Details & Fee Allocation</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10.5px] font-semibold text-slate-700 mb-1">
-                          Effective Transfer Date *
-                        </label>
-                        <input
-                          type="date"
-                          required
-                          value={editTransferDate}
-                          onChange={e => setEditTransferDate(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white focus:ring-1 focus:ring-slate-900 font-mono"
-                        />
-                        <span className="text-[10px] text-slate-500 mt-0.5 block">
-                          Attendance & gradebook records transition from this date forward.
-                        </span>
-                      </div>
-
-                      <div>
-                        <label className="block text-[10.5px] font-semibold text-slate-700 mb-1">
-                          Administrative Reason *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          value={editTransferReason}
-                          onChange={e => setEditTransferReason(e.target.value)}
-                          placeholder="e.g. Schedule clash, academic stream transfer"
-                          className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-white focus:ring-1 focus:ring-slate-900"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Tuition Fee Adjustment Options */}
-                    <div className="pt-2 border-t border-slate-200 space-y-1.5">
-                      <label className="block text-[10.5px] font-bold text-slate-800">
-                        Monthly Tuition Fee Policy
-                      </label>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <label className={`p-2.5 rounded border text-xs cursor-pointer transition-colors ${editFeeMode === 'keep_current' ? 'bg-white border-slate-900 shadow-xs' : 'bg-white/60 border-slate-200 hover:bg-white'}`}>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="editFeeMode"
-                              checked={editFeeMode === 'keep_current'}
-                              onChange={() => setEditFeeMode('keep_current')}
-                              className="text-slate-900 focus:ring-slate-900"
-                            />
-                            <span className="font-semibold text-slate-900">Keep Current Fee</span>
-                          </div>
-                          <span className="text-[10.5px] text-slate-500 block mt-1">
-                            Carry forward locked agreed fee without rate increase.
-                          </span>
-                        </label>
-
-                        <label className={`p-2.5 rounded border text-xs cursor-pointer transition-colors ${editFeeMode === 'batch_standard' ? 'bg-white border-slate-900 shadow-xs' : 'bg-white/60 border-slate-200 hover:bg-white'}`}>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="editFeeMode"
-                              checked={editFeeMode === 'batch_standard'}
-                              onChange={() => setEditFeeMode('batch_standard')}
-                              className="text-slate-900 focus:ring-slate-900"
-                            />
-                            <span className="font-semibold text-slate-900">New Batch Standard</span>
-                          </div>
-                          <span className="text-[10.5px] text-slate-500 block mt-1">
-                            Rs. {batches.find(b => b.id === editBatchId)?.fee_amount?.toLocaleString() || 0} / month
-                          </span>
-                        </label>
-
-                        <label className={`p-2.5 rounded border text-xs cursor-pointer transition-colors ${editFeeMode === 'custom' ? 'bg-white border-slate-900 shadow-xs' : 'bg-white/60 border-slate-200 hover:bg-white'}`}>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              name="editFeeMode"
-                              checked={editFeeMode === 'custom'}
-                              onChange={() => setEditFeeMode('custom')}
-                              className="text-slate-900 focus:ring-slate-900"
-                            />
-                            <span className="font-semibold text-slate-900">Custom Negotiated</span>
-                          </div>
-                          {editFeeMode === 'custom' && (
-                            <div className="mt-1.5">
-                              <input
-                                type="number"
-                                min="0"
-                                value={editCustomFeeAmount}
-                                onChange={e => setEditCustomFeeAmount(e.target.value)}
-                                placeholder="Fee in PKR"
-                                className="w-full px-2 py-1 border border-slate-300 rounded text-xs bg-white font-mono"
-                              />
-                            </div>
-                          )}
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Unpaid Challans & Arrears Note */}
-                    <div className="pt-2 border-t border-slate-200 space-y-1">
-                      <label className="flex items-start gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={editUpdateUnpaidChallans}
-                          onChange={e => setEditUpdateUnpaidChallans(e.target.checked)}
-                          className="rounded border-slate-300 text-slate-900 focus:ring-slate-900 mt-0.5"
-                        />
-                        <div>
-                          <span className="font-semibold text-slate-800 block text-xs">
-                            Update unpaid fee challan(s) to new batch rate
-                          </span>
-                          <span className="text-[10.5px] text-slate-600 leading-tight block mt-0.5">
-                            Automatically updates pending challans for this class. Past arrears from previous months remain locked on the student ledger and roll forward onto future challans.
-                          </span>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Student Demographics & Identification */}
+              {/* Student Demographics & Identification */}
               <div className="space-y-3 pb-3 border-b border-slate-200">
-                <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Demographics & Academic Background</h4>
+                <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Demographics</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">Date of Birth</label>
@@ -5078,12 +4910,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Student B-Form / CNIC</label>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Student B-Form or CNIC</label>
                     <input
                       type="text"
                       value={editStudentBForm}
                       onChange={e => setEditStudentBForm(e.target.value)}
-                      placeholder="35201-1234567-1"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
                     />
                   </div>
@@ -5093,17 +4924,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="text"
                       value={editReligion}
                       onChange={e => setEditReligion(e.target.value)}
-                      placeholder="Religion"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium"
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Previous School / Academy</label>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Previous School</label>
                     <input
                       type="text"
                       value={editPreviousSchool}
                       onChange={e => setEditPreviousSchool(e.target.value)}
-                      placeholder="Previous school name"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium"
                     />
                   </div>
@@ -5120,7 +4949,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="text"
                       value={editResidentialAddress}
                       onChange={e => setEditResidentialAddress(e.target.value)}
-                      placeholder="House / Street / Sector"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
                     />
                   </div>
@@ -5130,7 +4958,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="text"
                       value={editCity}
                       onChange={e => setEditCity(e.target.value)}
-                      placeholder="City"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-medium"
                     />
                   </div>
@@ -5165,7 +4992,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         type="text"
                         value={editFatherName}
                         onChange={e => setEditFatherName(e.target.value)}
-                        placeholder="Father full name"
                         className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
                       />
                     </div>
@@ -5175,7 +5001,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         type="text"
                         value={editFatherCnic}
                         onChange={e => setEditFatherCnic(e.target.value)}
-                        placeholder="35201-XXXXXXX-X"
                         className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
                       />
                     </div>
@@ -5185,7 +5010,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         type="text"
                         value={editFatherPhone}
                         onChange={e => setEditFatherPhone(e.target.value)}
-                        placeholder="0300-1234567"
                         className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
                       />
                     </div>
@@ -5195,7 +5019,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         type="text"
                         value={editFatherOccupation}
                         onChange={e => setEditFatherOccupation(e.target.value)}
-                        placeholder="Occupation"
                         className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
                       />
                     </div>
@@ -5212,7 +5035,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         type="text"
                         value={editMotherName}
                         onChange={e => setEditMotherName(e.target.value)}
-                        placeholder="Mother full name"
                         className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
                       />
                     </div>
@@ -5222,7 +5044,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         type="text"
                         value={editMotherCnic}
                         onChange={e => setEditMotherCnic(e.target.value)}
-                        placeholder="35201-XXXXXXX-X"
                         className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
                       />
                     </div>
@@ -5232,7 +5053,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         type="text"
                         value={editMotherPhone}
                         onChange={e => setEditMotherPhone(e.target.value)}
-                        placeholder="0300-1234567"
                         className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
                       />
                     </div>
@@ -5242,7 +5062,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         type="text"
                         value={editMotherOccupation}
                         onChange={e => setEditMotherOccupation(e.target.value)}
-                        placeholder="Occupation"
                         className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
                       />
                     </div>
@@ -5286,7 +5105,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       required
                       value={editGuardianPhone}
                       onChange={e => setEditGuardianPhone(e.target.value)}
-                      placeholder="0300-1234567"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
                     />
                   </div>
@@ -5297,7 +5115,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="text"
                       value={editGuardianWhatsapp}
                       onChange={e => setEditGuardianWhatsapp(e.target.value)}
-                      placeholder="0300-1234567"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
                     />
                   </div>
@@ -5308,7 +5125,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="email"
                       value={editGuardianEmail}
                       onChange={e => setEditGuardianEmail(e.target.value)}
-                      placeholder="guardian@example.com"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
                     />
                   </div>
@@ -5321,7 +5137,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="text"
                       value={editGuardianIdCard}
                       onChange={e => setEditGuardianIdCard(e.target.value)}
-                      placeholder="35201-1234567-1"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
                     />
                   </div>
@@ -5341,7 +5156,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="text"
                       value={editEmergencyName}
                       onChange={e => setEditEmergencyName(e.target.value)}
-                      placeholder="Contact Full Name"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden"
                     />
                   </div>
@@ -5351,7 +5165,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                       type="text"
                       value={editEmergencyPhone}
                       onChange={e => setEditEmergencyPhone(e.target.value)}
-                      placeholder="0300-1234567"
                       className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
                     />
                   </div>
@@ -5367,33 +5180,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         <option key={r} value={r}>{r}</option>
                       ))}
                     </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Custom Fields (Key / Value) */}
-              <div className="space-y-2">
-                <h4 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Custom Profile Attributes</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Board Registration / Enrollment No.</label>
-                    <input
-                      type="text"
-                      value={editCustomFields.board_registration || ''}
-                      onChange={e => setEditCustomFields(prev => ({ ...prev, board_registration: e.target.value }))}
-                      placeholder="Board registration number"
-                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Previous Marks / Grade</label>
-                    <input
-                      type="text"
-                      value={editCustomFields.previous_marks || ''}
-                      onChange={e => setEditCustomFields(prev => ({ ...prev, previous_marks: e.target.value }))}
-                      placeholder="Grade or marks"
-                      className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs focus:ring-1 focus:ring-slate-900 focus:outline-hidden font-mono"
-                    />
                   </div>
                 </div>
               </div>
@@ -5947,7 +5733,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               {/* Program Selector */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Academic Class / Program <span className="text-rose-500">*</span>
+                  Academic Class <span className="text-rose-500">*</span>
                 </label>
                 <select
                   value={addClassProgramId}
@@ -5963,7 +5749,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               {/* Batch Selector */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Batch / Section <span className="text-rose-500">*</span>
+                  Section Batch <span className="text-rose-500">*</span>
                 </label>
                 <select
                   value={addClassBatchId}
@@ -5975,7 +5761,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     .filter(b => !addClassProgramId || b.program_id === addClassProgramId)
                     .map(b => (
                       <option key={b.id} value={b.id}>
-                        {b.name} ({b.shift ? b.shift.toUpperCase() : 'General'}) — [{b.current_enrollment || 0}/{b.max_capacity || 0} enrolled]
+                        {b.name} ({b.shift ? b.shift.toUpperCase() : 'General'}) — [{b.current_enrollment || 0} of {b.max_capacity || 0} enrolled]
                       </option>
                     ))}
                 </select>
@@ -6019,7 +5805,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   onChange={e => setAddClassElectiveGroupId(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                 >
-                  <option value="">Core Subjects</option>
+                  <option value="">Compulsory Subjects Only</option>
                   {subjectGroups
                     .filter(g => (!addClassProgramId || g.program_id === addClassProgramId) && g.type === 'elective_track')
                     .map(g => (
@@ -6124,8 +5910,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   onChange={e => setLeaveClassStatus(e.target.value as any)}
                   className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium"
                 >
-                  <option value="withdrawn">Withdrawn / Departed</option>
-                  <option value="completed">Completed / Course Finished</option>
+                  <option value="withdrawn">Withdrawn (Departed)</option>
+                  <option value="completed">Completed (Course Finished)</option>
                   <option value="on_leave">On Temporary Leave</option>
                 </select>
               </div>
@@ -6216,7 +6002,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Target Class / Program <span className="text-rose-500">*</span>
+                    Target Class <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={transferTargetProgramId}
@@ -6244,7 +6030,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
-                    Target Batch / Section <span className="text-rose-500">*</span>
+                    Target Section Batch <span className="text-rose-500">*</span>
                   </label>
                   <select
                     value={transferTargetBatchId}
@@ -6261,7 +6047,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         const isFull = !isCurrent && b.max_capacity > 0 && (b.current_enrollment || 0) >= b.max_capacity;
                         return (
                           <option key={b.id} value={b.id} disabled={isFull}>
-                            {b.name} ({b.shift}) {isFull ? `[FULL: ${b.current_enrollment}/${b.max_capacity}]` : `(${b.current_enrollment || 0}/${b.max_capacity || '∞'})`}
+                            {b.name} ({b.shift}) {isFull ? `[Full: ${b.current_enrollment} of ${b.max_capacity}]` : `(${b.current_enrollment || 0} of ${b.max_capacity || 'Unlimited'})`}
                           </option>
                         );
                       })}
@@ -6280,7 +6066,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     onChange={e => setTransferTargetElectiveGroupId(e.target.value)}
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 font-medium"
                   >
-                    <option value="">-- General / Core Only --</option>
+                    <option value="">Compulsory Subjects Only</option>
                     {subjectGroups
                       .filter(g => g.program_id === transferTargetProgramId && g.type === 'elective_track')
                       .map(g => (
@@ -6315,7 +6101,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     type="text"
                     value={transferReason}
                     onChange={e => setTransferReason(e.target.value)}
-                    placeholder="e.g. Schedule adjustment, track change (optional)"
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                   />
                 </div>

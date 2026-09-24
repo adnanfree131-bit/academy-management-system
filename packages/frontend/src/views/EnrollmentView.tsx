@@ -3037,7 +3037,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <>
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Class / Program <span className="text-rose-500">*</span>
+                          Class <span className="text-rose-500">*</span>
                         </label>
                         <ModernSelect
                           value={enrollForm.program_id}
@@ -3063,7 +3063,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Section / Batch <span className="text-rose-500">*</span>
+                          Section Batch <span className="text-rose-500">*</span>
                         </label>
                         <ModernSelect
                           value={enrollForm.batch_id}
@@ -3090,7 +3090,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                               const isFull = (b.current_enrollment || 0) >= b.max_capacity;
                               return {
                                 value: b.id,
-                                label: `${b.name} (${b.shift.toUpperCase()} Shift • ${isFull ? '[FULL] ' : ''}Enrolled: ${b.current_enrollment || 0}/${b.max_capacity})`,
+                                label: `${b.name} (${b.shift.toUpperCase()} Shift • ${isFull ? '[FULL] ' : ''}Enrolled: ${b.current_enrollment || 0} of ${b.max_capacity})`,
                                 disabled: isFull,
                               };
                             }),
@@ -3101,7 +3101,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   ) : (
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-medium text-slate-700 mb-1">
-                        Batch / Course <span className="text-rose-500">*</span>
+                        Section Batch <span className="text-rose-500">*</span>
                       </label>
                       <ModernSelect
                         value={enrollForm.batch_id}
@@ -3124,7 +3124,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                               const isFull = (b.current_enrollment || 0) >= b.max_capacity;
                               return {
                                 value: b.id,
-                                label: `${b.name} (${b.shift.toUpperCase()} Shift${b.fee_amount != null ? ` • PKR ${b.fee_amount.toLocaleString()}` : ''} • ${isFull ? '[FULL] ' : ''}Enrolled: ${b.current_enrollment || 0}/${b.max_capacity})`,
+                                label: `${b.name} (${b.shift.toUpperCase()} Shift${b.fee_amount != null ? ` • PKR ${b.fee_amount.toLocaleString()}` : ''} • ${isFull ? '[FULL] ' : ''}Enrolled: ${b.current_enrollment || 0} of ${b.max_capacity})`,
                                 disabled: isFull,
                               };
                             }),
@@ -3160,7 +3160,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 {electiveGroupsForEnroll.length > 0 && (
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">
-                      Elective Track / Subject Major Stream
+                      Elective Stream
                     </label>
                     <ModernSelect
                       value={enrollForm.elective_group_id}
@@ -3226,7 +3226,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                   </div>
                                   {s.is_core && (
                                     <span className="text-[10px] font-semibold text-slate-600 bg-slate-200/60 px-1.5 py-0.5 rounded">
-                                      Core
+                                      Compulsory
                                     </span>
                                   )}
                                 </label>
@@ -3236,12 +3236,12 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         </div>
                       )}
 
-                      {/* Compulsory Core Subjects */}
+                      {/* Compulsory Subjects */}
                       {compulsoryGroupForEnroll && (
                         <div className="space-y-1.5">
                           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            <span>Compulsory Core Subjects</span>
+                            <span>Compulsory Subjects</span>
                           </div>
                           <div className="space-y-1 bg-white p-2.5 rounded-lg border border-slate-200">
                             {compulsoryGroupForEnroll.subject_ids.map(subId => {
@@ -3271,7 +3271,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                     </div>
                                   </div>
                                   <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                    Core
+                                    Compulsory
                                   </span>
                                 </label>
                               );
@@ -3428,7 +3428,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                     <div>
                       <label className="block text-xs font-medium text-slate-700 mb-1">
-                        Student B-Form / NADRA CRC
+                        Student B-Form or CNIC
                       </label>
                       <input
                         type="text"
@@ -3835,7 +3835,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                               { value: 'Grandfather', label: 'Grandfather' },
                               { value: 'Grandmother', label: 'Grandmother' },
                               { value: 'Legal Guardian', label: 'Legal Guardian' },
-                              { value: 'Orphanage/Sponsor', label: 'Trustee / Sponsor' },
+                              { value: 'Orphanage/Sponsor', label: 'Trustee or Sponsor' },
                               { value: 'Other', label: 'Other' },
                             ]}
                           />
@@ -4631,7 +4631,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <div className="pt-2 border-t border-slate-100 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-slate-800">
-                      Scholarship / Concession
+                      Scholarship or Concession
                     </label>
                     {discountAmount > 0 && (
                       <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
@@ -4650,11 +4650,11 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         if (kRule && kRule.enabled) {
                           setConcessionMode('percentage');
                           setConcessionVal(kRule.discount_percentage);
-                          setConcessionReason(kRule.description || `Kinship / Sibling concession (${kRule.discount_percentage}%)`);
+                          setConcessionReason(kRule.description || `Kinship concession (${kRule.discount_percentage}%)`);
                         } else {
                           setConcessionMode('percentage');
                           setConcessionVal(20);
-                          setConcessionReason('Kinship / Sibling concession policy');
+                          setConcessionReason('Kinship concession policy');
                         }
                       } else if (type === 'merit') {
                         setConcessionMode('percentage');
@@ -4677,7 +4677,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   >
                     <option value="none">Standard Full Fee (No Concession)</option>
                     <option value="kinship">
-                      Kinship / Sibling {tenant?.settings?.fee_rules?.kinship_rules?.enabled ? `(${tenant.settings.fee_rules.kinship_rules.discount_percentage}%)` : '(20%)'}
+                      Kinship or Sibling {tenant?.settings?.fee_rules?.kinship_rules?.enabled ? `(${tenant.settings.fee_rules.kinship_rules.discount_percentage}%)` : '(20%)'}
                     </option>
                     <option value="merit">Academic Merit (25%)</option>
                     <option value="hardship">Financial Hardship (30%)</option>
@@ -4919,7 +4919,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           onChange={val => setInitialPaymentMethod(val as any)}
                           options={[
                             { value: 'cash', label: 'Cash Counter' },
-                            { value: 'meezan_bank', label: 'Bank Transfer / Meezan IBFT' },
+                            { value: 'meezan_bank', label: 'Bank Transfer (Meezan IBFT)' },
                             { value: 'easypaisa', label: 'EasyPaisa' },
                             { value: 'jazzcash', label: 'JazzCash' },
                             { value: 'cheque', label: 'Bank Cheque' },
@@ -4929,7 +4929,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Receipt / Reference Note
+                          Receipt Reference Note
                         </label>
                         <input
                           type="text"
@@ -5042,7 +5042,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   {(() => {
                     const b = batches.find(x => x.id === admitBatchId);
                     const isSec = b ? (b.cohort_type || (/section/i.test(b.name) ? 'section' : 'batch')) === 'section' : false;
-                    return isSec ? 'Target Section' : 'Target Section / Batch';
+                    return isSec ? 'Target Section' : 'Target Section or Batch';
                   })()}
                 </label>
                 <select
@@ -5065,7 +5065,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     const isFull = (b.current_enrollment || 0) >= b.max_capacity;
                     return (
                       <option key={b.id} value={b.id} disabled={isFull}>
-                        {getProgramName(b.program_id)} • {b.name} ({b.shift.toUpperCase()} • {isFull ? '[FULL] ' : ''}{b.current_enrollment}/{b.max_capacity})
+                        {getProgramName(b.program_id)} • {b.name} ({b.shift.toUpperCase()} • {isFull ? '[FULL] ' : ''}{b.current_enrollment} of {b.max_capacity})
                       </option>
                     );
                   })}
@@ -5079,7 +5079,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   onChange={e => setAdmitElectiveGroupId(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="">-- Compulsory Core Only --</option>
+                  <option value="">-- Compulsory Subjects Only --</option>
                   {subjectGroups.filter(g => g.type === 'elective_track').map(g => (
                     <option key={g.id} value={g.id}>{g.name}</option>
                   ))}
@@ -5127,10 +5127,10 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 </div>
               )}
 
-              {/* Guardian CNIC / ID Card */}
+              {/* Guardian CNIC */}
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Guardian CNIC / ID Card
+                  Guardian CNIC
                 </label>
                 <input
                   type="text"
@@ -5173,7 +5173,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-[10.5px] font-semibold text-slate-600 mb-0.5">Concession / Discount (PKR)</label>
+                    <label className="block text-[10.5px] font-semibold text-slate-600 mb-0.5">Concession (PKR)</label>
                     <input
                       type="number"
                       min="0"
@@ -5313,7 +5313,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Guardian CNIC / ID Card</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Guardian CNIC</label>
                 <input
                   type="text"
                   value={newInquiryForm.guardian_id_card}
@@ -5347,8 +5347,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <option value="Walk-in">Walk-in Desk</option>
                     <option value="Phone Call">Phone Call</option>
                     <option value="Referral">Student Referral</option>
-                    <option value="Social Media">Social Media / Website</option>
-                    <option value="Banner">Banner / Pamphlet</option>
+                    <option value="Social Media">Social Media or Website</option>
+                    <option value="Banner">Banner or Pamphlet</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -5389,7 +5389,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Previous Marks / %</label>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Previous Marks or Percentage</label>
                   <input
                     type="text"
                     value={newInquiryForm.previous_marks}
@@ -5899,7 +5899,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Target Class & Section / Batch</label>
+                <label className="block text-xs font-medium text-slate-700 mb-1">Target Class & Section Batch</label>
                 <select
                   value={bulkImportBatchId}
                   onChange={e => setBulkImportBatchId(e.target.value)}
@@ -5908,7 +5908,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   <option value="">-- Select Target Section or Batch --</option>
                   {batches.map(b => (
                     <option key={b.id} value={b.id}>
-                      {getProgramName(b.program_id)} • {b.name} ({b.shift.toUpperCase()} • {b.current_enrollment}/{b.max_capacity})
+                      {getProgramName(b.program_id)} • {b.name} ({b.shift.toUpperCase()} • {b.current_enrollment} of {b.max_capacity})
                     </option>
                   ))}
                 </select>
