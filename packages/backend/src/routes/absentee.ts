@@ -26,11 +26,12 @@ export function absenteeRoutes(store: IDataStore) {
     const getFollowupsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'absentee', 'view', reply)) return;
-      const { date, batch_id, status } = request.query as { date?: string; batch_id?: string; status?: string };
+      const { date, batch_id, status, include_snoozed } = request.query as { date?: string; batch_id?: string; status?: string; include_snoozed?: string };
       const followups = await store.getAbsenteeFollowups(user.tenant_id, {
         date,
         batchId: batch_id,
-        status
+        status,
+        include_snoozed: include_snoozed === '1' || include_snoozed === 'true'
       });
       return reply.send({ success: true, data: followups, timestamp: new Date().toISOString() });
     };

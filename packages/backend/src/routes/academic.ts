@@ -610,9 +610,9 @@ export function academicRoutes(store: IDataStore) {
       };
     };
 
-    fastify.get('/staff', async (request: any, reply) => {
+    const getStaffHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
-      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin' && !can(user, 'classes', 'edit')) {
         return reply.status(403).send({
           success: false,
           error: { code: 'FORBIDDEN', message: 'Only the academy admin can manage staff.' },
@@ -632,19 +632,25 @@ export function academicRoutes(store: IDataStore) {
       if (department && department !== 'all') {
         if (department === 'Teaching Faculty') {
           staffList = staffList.filter(
-            s => ['Science', 'Mathematics', 'Humanities', 'Languages', 'Commerce', 'General'].includes(s.department) ||
-              s.teaching_assignments.length > 0 ||
-              s.role === 'teacher'
+            s => s.role === 'teacher' ||
+              (Array.isArray(s.teaching_assignments) && s.teaching_assignments.length > 0)
           );
         } else if (department === 'Administration & Accounts') {
           staffList = staffList.filter(
-            s => ['Administration', 'Accounts'].includes(s.department) ||
-              s.role === 'finance_manager' ||
-              s.role === 'academic_head'
+            s => (
+              Boolean(s.role && ['academic_head', 'tenant_admin', 'super_admin', 'finance_manager', 'receptionist', 'inventory_manager', 'hr_manager'].includes(s.role)) ||
+              ['Administration', 'Accounts'].includes(s.department) ||
+              /admin|account|manager|clerk|reception|accountant|cashier|bursar|director|principal|academic_head|head/i.test(s.designation || '')
+            ) && !(s.role === 'teacher' && (!s.teaching_assignments || s.teaching_assignments.length === 0))
           );
         } else if (department === 'Support Staff') {
           staffList = staffList.filter(
-            s => !['Science', 'Mathematics', 'Humanities', 'Languages', 'Commerce', 'Administration', 'Accounts'].includes(s.department)
+            s => s.role === 'support_staff' ||
+              /support|peon|driver|guard|security|janitor|cleaner|attendant|helper|cook|gardener|maintenance/i.test(s.designation || '') ||
+              /support/i.test(s.department || '') ||
+              ((!s.role || !['teacher', 'academic_head', 'finance_manager', 'tenant_admin', 'super_admin'].includes(s.role)) &&
+               !['Administration', 'Accounts'].includes(s.department) &&
+               !(Array.isArray(s.teaching_assignments) && s.teaching_assignments.length > 0))
           );
         } else {
           staffList = staffList.filter(s => s.department === department);
@@ -669,9 +675,12 @@ export function academicRoutes(store: IDataStore) {
         data: staffList,
         timestamp: new Date().toISOString(),
       });
-    });
+    };
 
-    fastify.post('/staff', async (request: any, reply) => {
+    fastify.get('/staff', getStaffHandler);
+    fastify.get('/academic/staff', getStaffHandler);
+
+    const postStaffHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
         return reply.status(403).send({
@@ -695,10 +704,10 @@ export function academicRoutes(store: IDataStore) {
         emergency_contact: z.string().optional().nullable(),
         emergency_relation: z.string().optional().nullable(),
         address: z.string().optional().nullable(),
-        department: z.enum(['Science', 'Mathematics', 'Humanities', 'Languages', 'Commerce', 'Administration', 'Accounts', 'General']).optional().nullable(),
+        department: z.string().optional().nullable(),
         designation: z.string().optional().nullable(),
         employment_type: z.enum(['permanent', 'probationary', 'contractual', 'visiting']).optional().nullable(),
-        role: z.enum(['teacher', 'finance_manager', 'academic_head', 'tenant_admin']).optional().nullable(),
+        role: z.enum(['teacher', 'finance_manager', 'academic_head', 'tenant_admin', 'support_staff']).optional().nullable(),
         joining_date: z.string().optional().nullable(),
         probation_end_date: z.string().optional().nullable(),
         qualification: z.string().optional().nullable(),
@@ -764,9 +773,12 @@ export function academicRoutes(store: IDataStore) {
           timestamp: new Date().toISOString(),
         });
       }
-    });
+    };
 
-    fastify.put('/staff/:id', async (request: any, reply) => {
+    fastify.post('/staff', postStaffHandler);
+    fastify.post('/academic/staff', postStaffHandler);
+
+    const putStaffHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
         return reply.status(403).send({
@@ -790,10 +802,10 @@ export function academicRoutes(store: IDataStore) {
         emergency_contact: z.string().optional().nullable(),
         emergency_relation: z.string().optional().nullable(),
         address: z.string().optional().nullable(),
-        department: z.enum(['Science', 'Mathematics', 'Humanities', 'Languages', 'Commerce', 'Administration', 'Accounts', 'General']).optional().nullable(),
+        department: z.string().optional().nullable(),
         designation: z.string().optional().nullable(),
         employment_type: z.enum(['permanent', 'probationary', 'contractual', 'visiting']).optional().nullable(),
-        role: z.enum(['teacher', 'finance_manager', 'academic_head', 'tenant_admin']).optional().nullable(),
+        role: z.enum(['teacher', 'finance_manager', 'academic_head', 'tenant_admin', 'support_staff']).optional().nullable(),
         joining_date: z.string().optional().nullable(),
         probation_end_date: z.string().optional().nullable(),
         relieving_date: z.string().optional().nullable(),
@@ -860,9 +872,12 @@ export function academicRoutes(store: IDataStore) {
           timestamp: new Date().toISOString(),
         });
       }
-    });
+    };
 
-    fastify.patch('/staff/:id/access', async (request: any, reply) => {
+    fastify.put('/staff/:id', putStaffHandler);
+    fastify.put('/academic/staff/:id', putStaffHandler);
+
+    const patchStaffAccessHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
         return reply.status(403).send({
@@ -900,9 +915,12 @@ export function academicRoutes(store: IDataStore) {
         data: publicStaff(updated),
         timestamp: new Date().toISOString(),
       });
-    });
+    };
 
-    fastify.post('/staff/:id/reset-password', async (request: any, reply) => {
+    fastify.patch('/staff/:id/access', patchStaffAccessHandler);
+    fastify.patch('/academic/staff/:id/access', patchStaffAccessHandler);
+
+    const resetPasswordStaffHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
         return reply.status(403).send({
@@ -930,9 +948,12 @@ export function academicRoutes(store: IDataStore) {
         message: 'Password reset successfully.',
         timestamp: new Date().toISOString(),
       });
-    });
+    };
 
-    fastify.post('/staff/:id/archive', async (request: any, reply) => {
+    fastify.post('/staff/:id/reset-password', resetPasswordStaffHandler);
+    fastify.post('/academic/staff/:id/reset-password', resetPasswordStaffHandler);
+
+    const archiveStaffHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
         return reply.status(403).send({
@@ -956,9 +977,12 @@ export function academicRoutes(store: IDataStore) {
         data: publicStaff(updated),
         timestamp: new Date().toISOString(),
       });
-    });
+    };
 
-    fastify.post('/staff/:id/restore', async (request: any, reply) => {
+    fastify.post('/staff/:id/archive', archiveStaffHandler);
+    fastify.post('/academic/staff/:id/archive', archiveStaffHandler);
+
+    const restoreStaffHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
         return reply.status(403).send({
@@ -981,9 +1005,12 @@ export function academicRoutes(store: IDataStore) {
         data: publicStaff(updated),
         timestamp: new Date().toISOString(),
       });
-    });
+    };
 
-    fastify.delete('/staff/:id', async (request: any, reply) => {
+    fastify.post('/staff/:id/restore', restoreStaffHandler);
+    fastify.post('/academic/staff/:id/restore', restoreStaffHandler);
+
+    const deleteStaffHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
         return reply.status(403).send({
@@ -1008,15 +1035,19 @@ export function academicRoutes(store: IDataStore) {
           timestamp: new Date().toISOString(),
         });
       } catch (err: any) {
-        return reply.status(400).send({
+        const statusCode = err.statusCode || 400;
+        return reply.status(statusCode).send({
           success: false,
           error: { code: 'STAFF_DELETE_BLOCKED', message: err.message || 'Cannot delete staff member.' },
           timestamp: new Date().toISOString(),
         });
       }
-    });
+    };
 
-    fastify.put('/staff/:id/teaching-assignments', async (request: any, reply) => {
+    fastify.delete('/staff/:id', deleteStaffHandler);
+    fastify.delete('/academic/staff/:id', deleteStaffHandler);
+
+    const putTeachingAssignmentsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
         return reply.status(403).send({
@@ -1058,6 +1089,9 @@ export function academicRoutes(store: IDataStore) {
         data: publicStaff(updated),
         timestamp: new Date().toISOString(),
       });
-    });
+    };
+
+    fastify.put('/staff/:id/teaching-assignments', putTeachingAssignmentsHandler);
+    fastify.put('/academic/staff/:id/teaching-assignments', putTeachingAssignmentsHandler);
   };
 }

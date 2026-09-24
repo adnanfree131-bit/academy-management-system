@@ -120,7 +120,13 @@ export function geofenceRoutes(store: IDataStore) {
           parse.data.latitude,
           parse.data.longitude
         );
-        return reply.status(201).send({ success: true, data: record, timestamp: new Date().toISOString() });
+        const isAlreadyOpen = Boolean((record as any).already_open);
+        return reply.status(isAlreadyOpen ? 200 : 201).send({
+          success: true,
+          data: record,
+          already_open: isAlreadyOpen,
+          timestamp: new Date().toISOString()
+        });
       } catch (err: any) {
         return reply.status(403).send({
           success: false,
@@ -179,6 +185,26 @@ export function geofenceRoutes(store: IDataStore) {
     };
     fastify.get('/staff', getStaffAttendanceHandler);
     fastify.get('/attendance/staff', getStaffAttendanceHandler);
+
+    // Personal Staff Attendance (/me) - accessible to any staff role, 403 for student/parent
+    const getMyStaffAttendanceHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (user.role === 'student' || user.role === 'parent') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Staff attendance only accessible to staff members.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const { date } = request.query as { date?: string };
+      const staffId = user.sub || user.user_id || '';
+      const record = await store.getMyStaffAttendance(user.tenant_id, staffId, date);
+      return reply.send({ success: true, data: record || null, timestamp: new Date().toISOString() });
+    };
+    fastify.get('/attendance/staff/me', getMyStaffAttendanceHandler);
+    fastify.get('/geofence/attendance/staff/me', getMyStaffAttendanceHandler);
+    fastify.get('/staff/me', getMyStaffAttendanceHandler);
+    fastify.get('/geofence/staff/me', getMyStaffAttendanceHandler);
 
     // Roster of all staff for a specific date (Muster Roll)
     const getStaffRosterHandler = async (request: any, reply: any) => {

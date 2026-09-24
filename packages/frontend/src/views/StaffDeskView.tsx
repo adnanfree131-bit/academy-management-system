@@ -72,7 +72,8 @@ interface StaffDeskViewProps {
 }
 
 export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
-  const { token, tenant } = useAuth();
+  const { token, tenant, user } = useAuth();
+  const isAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin';
 
   // Dynamic Departments from Academy Settings
   const availableDepartments: string[] = useMemo(() => {
@@ -210,6 +211,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
     access: { ...ROLE_DEFAULT_TEMPLATES.teacher } as UserAccessMap,
     permissions: derivePermissions(ROLE_DEFAULT_TEMPLATES.teacher),
     status: 'active' as StaffStatus,
+    role: 'teacher' as string,
   };
 
   const [form, setForm] = useState(initialFormState);
@@ -293,8 +295,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       r =>
         r.status === 'active' &&
         (r.role === 'teacher' ||
-          ['Science', 'Mathematics', 'Humanities', 'Languages', 'Commerce'].includes(r.department) ||
-          (r.teaching_assignments && r.teaching_assignments.length > 0))
+          r.role === 'academic_head' ||
+          (Array.isArray(r.teaching_assignments) && r.teaching_assignments.length > 0))
     ).length;
   }, [rows]);
 
@@ -314,28 +316,24 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
         if (row.status === 'archived') return false;
         if (selectedFilterTab === 'faculty') {
           const isFaculty =
-            ['Science', 'Mathematics', 'Humanities', 'Languages', 'Commerce', 'General'].includes(
-              row.department
-            ) ||
             row.role === 'teacher' ||
-            (row.teaching_assignments && row.teaching_assignments.length > 0);
+            (Array.isArray(row.teaching_assignments) && row.teaching_assignments.length > 0);
           if (!isFaculty) return false;
         } else if (selectedFilterTab === 'admin_accounts') {
-          const isAdminAcc =
+          const isFacultyOnly = row.role === 'teacher' && (!row.teaching_assignments || row.teaching_assignments.length === 0);
+          const isAdminAcc = !isFacultyOnly && (
+            Boolean(row.role && ['academic_head', 'tenant_admin', 'super_admin', 'finance_manager', 'receptionist', 'inventory_manager', 'hr_manager'].includes(row.role)) ||
             ['Administration', 'Accounts'].includes(row.department) ||
-            row.role === 'finance_manager' ||
-            row.role === 'academic_head';
+            /admin|account|manager|clerk|reception|accountant|cashier|bursar|director|principal|academic_head|head/i.test(row.designation || '')
+          );
           if (!isAdminAcc) return false;
         } else if (selectedFilterTab === 'support') {
-          const isSupport = ![
-            'Science',
-            'Mathematics',
-            'Humanities',
-            'Languages',
-            'Commerce',
-            'Administration',
-            'Accounts',
-          ].includes(row.department);
+          const isSupport = row.role === 'support_staff' ||
+            /support|peon|driver|guard|security|janitor|cleaner|attendant|helper|cook|gardener|maintenance/i.test(row.designation || '') ||
+            /support/i.test(row.department || '') ||
+            ((!row.role || !['teacher', 'academic_head', 'finance_manager', 'tenant_admin', 'super_admin'].includes(row.role)) &&
+             !['Administration', 'Accounts'].includes(row.department) &&
+             !(Array.isArray(row.teaching_assignments) && row.teaching_assignments.length > 0));
           if (!isSupport) return false;
         }
       }
@@ -364,6 +362,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
     const defaultAccess = { ...ROLE_DEFAULT_TEMPLATES.teacher };
     setForm({
       ...initialFormState,
+      role: 'teacher',
       access: defaultAccess,
       permissions: derivePermissions(defaultAccess),
       department: (availableDepartments[0] || 'Science') as StaffDepartment,
@@ -407,6 +406,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       access: resolvedAccess,
       permissions: derivePermissions(resolvedAccess),
       status: staff.status || 'active',
+      role: staff.role || 'teacher',
     });
     setDossierTab('personal');
     setError(null);
@@ -427,6 +427,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
 
     const payload: any = {
       ...form,
+      role: form.role || 'teacher',
       access: form.access,
       permissions: derivePermissions(form.access),
       experience_years: Number(form.experience_years) || 0,
@@ -465,17 +466,22 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   // Preset Applicator
   const applyPreset = (preset: 'teacher' | 'accountant' | 'academic_head' | 'clear') => {
     let nextAccess: UserAccessMap = {};
+    let nextRole = form.role || 'teacher';
     if (preset === 'teacher') {
       nextAccess = { ...ROLE_DEFAULT_TEMPLATES.teacher };
+      nextRole = 'teacher';
     } else if (preset === 'accountant') {
       nextAccess = { ...ROLE_DEFAULT_TEMPLATES.finance_manager };
+      nextRole = 'finance_manager';
     } else if (preset === 'academic_head') {
       nextAccess = { ...ROLE_DEFAULT_TEMPLATES.academic_head };
+      nextRole = 'academic_head';
     } else if (preset === 'clear') {
       nextAccess = {};
     }
     setForm(prev => ({
       ...prev,
+      role: nextRole,
       access: nextAccess,
       permissions: derivePermissions(nextAccess),
     }));
@@ -669,7 +675,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* Top Header */}
       <PageHeading
         title="Staff Directory"
-        description="Employee dossiers, academic teaching workload, payroll allocations, and portal credentials."
+        description="Staff, classes they teach, and login access."
         icon={<Users className="w-4 h-4 text-slate-700" />}
         badge={`${totalStaffCount} Personnel`}
       />
@@ -843,19 +849,21 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
             {showStaffModuleMenu && (
               <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100">
                 {/* Primary Action */}
-                <div className="p-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowStaffModuleMenu(false);
-                      openCreateModal();
-                    }}
-                    className="w-full px-3 py-2 text-xs text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-amber-700" />
-                    <span>+ Add Staff</span>
-                  </button>
-                </div>
+                {isAdmin && (
+                  <div className="p-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowStaffModuleMenu(false);
+                        openCreateModal();
+                      }}
+                      className="w-full px-3 py-2 text-xs text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-amber-700" />
+                      <span>+ Add Staff</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Views Section */}
                 <div className="py-1">
@@ -1192,17 +1200,19 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                                   <span>Teaching Workload</span>
                                 </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveActionMenuId(null);
-                                    openAccessDrawer(row);
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors font-medium"
-                                >
-                                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span>Portal Permissions</span>
-                                </button>
+                                 {isAdmin && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionMenuId(null);
+                                      openAccessDrawer(row);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors font-medium"
+                                  >
+                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                    <span>What they can open</span>
+                                  </button>
+                                )}
 
                                 <button
                                   type="button"
@@ -1228,58 +1238,62 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                                   <span>Appointment Letter</span>
                                 </button>
 
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveActionMenuId(null);
-                                    openResetPasswordModal(row);
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors font-medium"
-                                >
-                                  <Key className="w-3.5 h-3.5 text-amber-600" />
-                                  <span>Reset Password</span>
-                                </button>
-                              </div>
-
-                              <div className="py-1">
-                                {row.status === 'archived' ? (
+                                {isAdmin && (
                                   <button
                                     type="button"
                                     onClick={() => {
                                       setActiveActionMenuId(null);
-                                      executeRestore(row);
+                                      openResetPasswordModal(row);
                                     }}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition-colors font-medium"
+                                    className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors font-medium"
                                   >
-                                    <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
-                                    <span>Restore Active</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveActionMenuId(null);
-                                      setArchiveTarget(row);
-                                    }}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50 flex items-center gap-2.5 transition-colors font-medium"
-                                  >
-                                    <Archive className="w-3.5 h-3.5 text-amber-600" />
-                                    <span>Soft Archive</span>
+                                    <Key className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>Reset Password</span>
                                   </button>
                                 )}
-
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setActiveActionMenuId(null);
-                                    setDeleteTarget(row);
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors font-medium"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5 text-rose-500" />
-                                  <span>Delete Staff</span>
-                                </button>
                               </div>
+
+                              {isAdmin && (
+                                <div className="py-1">
+                                  {row.status === 'archived' ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveActionMenuId(null);
+                                        executeRestore(row);
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50 flex items-center gap-2.5 transition-colors font-medium"
+                                    >
+                                      <RotateCcw className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span>Restore Active</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveActionMenuId(null);
+                                        setArchiveTarget(row);
+                                      }}
+                                      className="w-full text-left px-3 py-1.5 text-xs text-amber-700 hover:bg-amber-50 flex items-center gap-2.5 transition-colors font-medium"
+                                    >
+                                      <Archive className="w-3.5 h-3.5 text-amber-600" />
+                                      <span>Soft Archive</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setActiveActionMenuId(null);
+                                      setDeleteTarget(row);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors font-medium"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                                    <span>Delete Staff</span>
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -1409,7 +1423,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <h2 className="text-base font-bold text-slate-900">
                   {editingStaff ? `Edit Staff: ${editingStaff.full_name}` : 'Add Staff'}
                 </h2>
-                <SectionInfo text="Institutional personnel registry, role permissions, and payroll configuration." />
+                <SectionInfo text="Staff record." />
               </div>
               <button
                 type="button"
@@ -1455,17 +1469,19 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               >
                 Compensation
               </button>
-              <button
-                type="button"
-                onClick={() => setDossierTab('access')}
-                className={`py-2.5 px-3 text-xs font-semibold border-b-2 whitespace-nowrap transition-all ${
-                  dossierTab === 'access'
-                    ? 'border-slate-900 text-slate-900'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                Portal Access
-              </button>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setDossierTab('access')}
+                  className={`py-2.5 px-3 text-xs font-semibold border-b-2 whitespace-nowrap transition-all ${
+                    dossierTab === 'access'
+                      ? 'border-slate-900 text-slate-900'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Portal Access
+                </button>
+              )}
             </div>
 
             {/* Modal Body */}
@@ -1805,6 +1821,35 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                       />
                     </div>
                   </div>
+
+                  {editingStaff && (
+                    <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-700">Leave Entitlements & Utilization</span>
+                        <span className="text-[11px] text-slate-500 font-mono">Used / Allowed</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 text-xs">
+                        <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                          <span className="text-[11px] text-slate-500 block">Casual</span>
+                          <span className="font-bold font-mono text-slate-800">
+                            {editingStaff.leave_balance?.casual_used ?? 0} / {editingStaff.leave_balance?.casual_allowed ?? 12}
+                          </span>
+                        </div>
+                        <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                          <span className="text-[11px] text-slate-500 block">Sick</span>
+                          <span className="font-bold font-mono text-slate-800">
+                            {editingStaff.leave_balance?.sick_used ?? 0} / {editingStaff.leave_balance?.sick_allowed ?? 8}
+                          </span>
+                        </div>
+                        <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                          <span className="text-[11px] text-slate-500 block">Annual</span>
+                          <span className="font-bold font-mono text-slate-800">
+                            {editingStaff.leave_balance?.annual_used ?? 0} / {editingStaff.leave_balance?.annual_allowed ?? 10}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1814,7 +1859,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5">
                     <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 mb-1">
                       <span>Monthly Base Salary (PKR) *</span>
-                      <SectionInfo text="Directly links to Staff Payroll desk for automated payslip generation." />
+                      <SectionInfo text="Opens payroll for this person." />
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
@@ -2508,7 +2553,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <h3 className="text-sm font-bold text-slate-900">
                   Staff ID Card
                 </h3>
-                <SectionInfo text="Standard ISO/IEC 7810 ID-1 PVC dimensions (85.6mm × 53.98mm) duplex layout." />
+                <SectionInfo text="ID card, front and back." />
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -2540,7 +2585,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                   </div>
                   <div className="min-w-0 flex-1 leading-tight">
                     <h4 className="font-bold text-[10px] uppercase tracking-tight text-white truncate">
-                      {tenant?.name || 'Apex Academy'}
+                      {tenant?.name || 'Academy'}
                     </h4>
                     <span className="text-[7.5px] font-semibold text-slate-300 tracking-wider uppercase block">
                       Faculty & Staff Identity Division
@@ -2677,7 +2722,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <h3 className="text-sm font-bold text-slate-900">
                   Appointment Letter
                 </h3>
-                <SectionInfo text="Official contract document ready for A4 printing on letterhead." />
+                <SectionInfo text="Appointment letter." />
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -2704,7 +2749,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <div className="border-b-2 border-slate-900 pb-4 flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold uppercase tracking-tight text-slate-900">
-                    {tenant?.name || 'Apex Academy'}
+                    {tenant?.name || 'Academy'}
                   </h2>
                   <p className="text-xs font-medium text-slate-600">
                     Affiliated Higher Secondary Education & Preparatory Institute
@@ -2746,8 +2791,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                   Dear <strong>{appointmentStaff.full_name}</strong>,
                 </p>
                 <p>
-                  On behalf of the Board of Directors and Academic Governance Council of{' '}
-                  <strong>{tenant?.name || 'Apex Academy'}</strong>, we are pleased to offer you the
+                  On behalf of {tenant?.name || 'the academy'} and the principal, we are pleased to offer you the
                   position of <strong>{appointmentStaff.designation}</strong> in the{' '}
                   <strong>{appointmentStaff.department} Department</strong> on{' '}
                   <strong>{appointmentStaff.employment_type}</strong> basis, effective from{' '}
@@ -2761,43 +2805,11 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                   <h4 className="font-bold text-slate-900 uppercase text-[11px]">
                     1. Compensation & Remuneration Structure
                   </h4>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-[11px] border border-slate-200 bg-white rounded-lg overflow-hidden">
-                      <thead>
-                        <tr className="bg-slate-100 border-b border-slate-200 text-slate-700">
-                          <th className="px-2.5 py-1 text-left">Compensation Component</th>
-                          <th className="px-2.5 py-1 text-right">Allocation</th>
-                          <th className="px-2.5 py-1 text-right">Monthly Amount (PKR)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-mono">
-                        <tr>
-                          <td className="px-2.5 py-1 font-sans text-slate-800">Basic Pay</td>
-                          <td className="px-2.5 py-1 text-right text-slate-600">70%</td>
-                          <td className="px-2.5 py-1 text-right">{Math.round((appointmentStaff.base_salary || 0) * 0.7).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                          <td className="px-2.5 py-1 font-sans text-slate-800">Academic & Conveyance Allowance</td>
-                          <td className="px-2.5 py-1 text-right text-slate-600">20%</td>
-                          <td className="px-2.5 py-1 text-right">{Math.round((appointmentStaff.base_salary || 0) * 0.2).toLocaleString()}</td>
-                        </tr>
-                        <tr>
-                          <td className="px-2.5 py-1 font-sans text-slate-800">Medical & Utility Allowance</td>
-                          <td className="px-2.5 py-1 text-right text-slate-600">10%</td>
-                          <td className="px-2.5 py-1 text-right">{Math.round((appointmentStaff.base_salary || 0) * 0.1).toLocaleString()}</td>
-                        </tr>
-                        <tr className="bg-slate-50 font-bold text-slate-900 border-t border-slate-200">
-                          <td className="px-2.5 py-1 font-sans">Total Monthly Remuneration</td>
-                          <td className="px-2.5 py-1 text-right">100%</td>
-                          <td className="px-2.5 py-1 text-right">PKR {(appointmentStaff.base_salary || 0).toLocaleString()}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  <p className="text-[10px] text-slate-600 mt-1">
-                    Remuneration shall be disbursed via automated bank transfer to your designated bank account (
-                    {appointmentStaff.bank_name || 'Designated Bank Account'}
-                    {appointmentStaff.bank_account_number ? ` · Acc #${appointmentStaff.bank_account_number}` : ''}).
+                  <p className="text-xs font-semibold text-slate-900 font-mono">
+                    Monthly Salary: PKR {(appointmentStaff.base_salary || 0).toLocaleString()}
+                  </p>
+                  <p className="text-[11px] text-slate-600">
+                    Paid to: {appointmentStaff.bank_name || 'Bank account on file'}{appointmentStaff.bank_account_number ? ` · Acc #${appointmentStaff.bank_account_number}` : ''}.
                   </p>
                 </div>
 
@@ -2806,9 +2818,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                     2. Terms of Service & Responsibilities
                   </h4>
                   <p>
-                    You will conduct assigned lectures, evaluate student examination papers,
-                    maintain regular notebook checking compliance, and adhere strictly to the
-                    institutional code of conduct and attendance regulations.
+                    You will take your assigned classes and follow the academy’s attendance rules.
                   </p>
                 </div>
 
@@ -2820,8 +2830,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                     Your employment will be subject to a probation period
                     {appointmentStaff.probation_end_date
                       ? ` through ${appointmentStaff.probation_end_date}`
-                      : ' of three (3) months'}
-                    , during which your academic pedagogy and institutional adherence will be evaluated.
+                      : ' of three (3) months'}.
                   </p>
                 </div>
               </div>
@@ -2830,8 +2839,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <div className="pt-12 grid grid-cols-1 sm:grid-cols-2 gap-8 text-xs border-t border-slate-200 print:grid-cols-2">
                 <div>
                   <div className="w-36 border-b border-slate-900 mb-1" />
-                  <p className="font-bold text-slate-900">Campus Director / Principal</p>
-                  <p className="text-[11px] text-slate-500">{tenant?.name || 'Apex Academy'}</p>
+                  <p className="font-bold text-slate-900">Principal</p>
+                  <p className="text-[11px] text-slate-500">{tenant?.name || 'Academy'}</p>
                 </div>
 
                 <div className="text-right">
@@ -2855,7 +2864,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <div className="flex items-center gap-2 text-amber-600">
                 <Archive className="w-5 h-5" />
                 <h3 className="font-bold text-slate-900 text-sm">Archive Staff</h3>
-                <SectionInfo text="Portal login will be revoked; historical attendance, evaluations, and payroll vouchers remain preserved." />
+                <SectionInfo text="They cannot log in. Their old attendance and salary records stay." />
               </div>
               <button
                 type="button"
@@ -2920,7 +2929,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <div className="flex items-center gap-2 text-rose-600">
                 <Trash2 className="w-5 h-5" />
                 <h3 className="font-bold text-slate-900 text-sm">Delete Staff</h3>
-                <SectionInfo text="Deletion permitted only for newly added staff with zero financial, payroll, or exam records." />
+                <SectionInfo text="Delete is blocked while they have classes, homework, attendance, or a payslip." />
               </div>
               <button
                 type="button"

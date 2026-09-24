@@ -10,6 +10,7 @@ import {
   LeaveApplication,
   DayOfWeek 
 } from '@apex/shared-types';
+import { campusToday, campusDayOfWeek } from '../lib/campusDate';
 import { 
   Clock, 
   BookOpen, 
@@ -48,13 +49,14 @@ export interface StudentPortalProps {
   isAdminPreview?: boolean;
 }
 
-const DAYS_OF_WEEK: { key: DayOfWeek; label: string }[] = [
+const ALL_DAYS_OF_WEEK: { key: DayOfWeek; label: string }[] = [
   { key: 'monday', label: 'Monday' },
   { key: 'tuesday', label: 'Tuesday' },
   { key: 'wednesday', label: 'Wednesday' },
   { key: 'thursday', label: 'Thursday' },
   { key: 'friday', label: 'Friday' },
   { key: 'saturday', label: 'Saturday' },
+  { key: 'sunday', label: 'Sunday' },
 ];
 
 export const StudentParentPortalView: React.FC<StudentPortalProps> = ({ 
@@ -76,12 +78,10 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   const [selectedChallanInvoice, setSelectedChallanInvoice] = useState<StudentInvoice | null>(null);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<string | null>(null);
 
-  // Timetable Screen State: active day of week
-  const todayDayIndex = new Date().getDay();
-  const daysMap: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  const todayDayKey = daysMap[todayDayIndex];
-  const initialTimetableDay: DayOfWeek = (todayDayKey === 'sunday' ? 'monday' : todayDayKey) as DayOfWeek;
-  const [selectedTimetableDay, setSelectedTimetableDay] = useState<DayOfWeek>(initialTimetableDay);
+  // Timetable Screen State: active day of week using campus today
+  const campusTodayDateStr = campusToday(tenant?.settings?.timezone || 'Asia/Karachi');
+  const todayDayKey = campusDayOfWeek(campusTodayDateStr, tenant?.settings?.timezone || 'Asia/Karachi');
+  const [selectedTimetableDay, setSelectedTimetableDay] = useState<DayOfWeek>(todayDayKey);
 
   // Attendance Screen State: status filter
   const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'>('ALL');
@@ -92,8 +92,8 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
 
   // Leave Application State (Parent Absence / Sick Note)
   const [showLeaveModal, setShowLeaveModal] = useState<boolean>(false);
-  const [leaveStartDate, setLeaveStartDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [leaveEndDate, setLeaveEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [leaveStartDate, setLeaveStartDate] = useState<string>(campusTodayDateStr);
+  const [leaveEndDate, setLeaveEndDate] = useState<string>(campusTodayDateStr);
   const [leaveCategory, setLeaveCategory] = useState<'medical' | 'personal' | 'emergency'>('medical');
   const [leaveReason, setLeaveReason] = useState<string>('');
   const [isSubmittingLeave, setIsSubmittingLeave] = useState<boolean>(false);
@@ -304,7 +304,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   };
 
   // Today's attendance record check
-  const todayDateStr = new Date().toISOString().split('T')[0];
+  const todayDateStr = campusTodayDateStr;
   const todayAttendance = useMemo(() => {
     return attendance.find(a => a.date === todayDateStr);
   }, [attendance, todayDateStr]);
@@ -315,6 +315,21 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
       .filter(s => s.day_of_week === selectedTimetableDay && !s.is_cancelled)
       .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
   }, [weeklySchedule, selectedTimetableDay]);
+
+  // Sunday tab presence check
+  const hasSundaySlot = useMemo(() => {
+    return weeklySchedule.some(s => s.day_of_week === 'sunday' && !s.is_cancelled);
+  }, [weeklySchedule]);
+
+  const activeDaysOfWeek = useMemo(() => {
+    return ALL_DAYS_OF_WEEK.filter(d => d.key !== 'sunday' || hasSundaySlot);
+  }, [hasSundaySlot]);
+
+  useEffect(() => {
+    if (selectedTimetableDay === 'sunday' && !hasSundaySlot) {
+      setSelectedTimetableDay(todayDayKey === 'sunday' ? 'monday' : todayDayKey);
+    }
+  }, [selectedTimetableDay, hasSundaySlot, todayDayKey]);
 
   // Attendance stats
   const attendanceStats = useMemo(() => {
@@ -1134,7 +1149,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
 
             {/* Day of Week Selector */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              {DAYS_OF_WEEK.map(d => {
+              {activeDaysOfWeek.map(d => {
                 const isSelected = selectedTimetableDay === d.key;
                 const isToday = todayDayKey === d.key;
                 const countForDay = weeklySchedule.filter(s => s.day_of_week === d.key && !s.is_cancelled).length;

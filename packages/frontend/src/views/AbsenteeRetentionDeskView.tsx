@@ -23,13 +23,15 @@ import {
   Search,
   SlidersHorizontal,
   MoreVertical,
-  ArrowLeft
+  ArrowLeft,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
   AbsenteeFollowupItem,
   AbsenteeDeskSummaryKPI,
   RetentionCounselingCase,
+  AbsenteeResolutionReport,
   WhatsAppTemplate,
   WhatsAppAuditLog,
   AbsenteeCallOutcome,
@@ -38,12 +40,15 @@ import {
 } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
+import { campusToday } from '../lib/campusDate';
 
 export const AbsenteeRetentionDeskView: React.FC = () => {
   const { token, tenant } = useAuth();
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'roster' | 'retention' | 'templates'>('roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'retention' | 'templates' | 'report'>('roster');
+  const [monthlyReport, setMonthlyReport] = useState<AbsenteeResolutionReport | null>(null);
+  const [loadingReport, setLoadingReport] = useState<boolean>(false);
 
   // Core Data States
   const [followups, setFollowups] = useState<AbsenteeFollowupItem[]>([]);
@@ -61,7 +66,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
   const [batches, setBatches] = useState<Batch[]>([]);
 
   // Filter States
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = campusToday();
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [selectedBatchId, setSelectedBatchId] = useState('ALL');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
@@ -191,6 +196,25 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
     }
   };
 
+  const fetchMonthlyReport = async () => {
+    if (!token) return;
+    setLoadingReport(true);
+    try {
+      const monthStr = selectedDate ? selectedDate.substring(0, 7) : campusToday().substring(0, 7);
+      const res = await fetch(`/api/v1/absentee/reports/resolution?month=${monthStr}`, {
+        headers: { authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const d = await res.json();
+        setMonthlyReport(d.data);
+      }
+    } catch (e) {
+      console.error('Failed fetching absentee monthly report:', e);
+    } finally {
+      setLoadingReport(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, [selectedDate, selectedBatchId, selectedStatusFilter, token]);
@@ -207,15 +231,8 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
       batch_name: item.batch_name,
       guardian_name: item.guardian_name,
       current_date: item.date,
-      academy_name: tenant?.name || 'Academy Administration',
-      academy_phone: tenant?.phone || 'Academy Office',
-      due_amount: '0',
-      due_date: item.date,
-      exam_title: 'Term Assessment',
-      obtained_marks: '—',
-      total_marks: '—',
-      percentage: '—',
-      teacher_remarks: 'Uninformed absence recorded today. Kindly contact the administration office.'
+      academy_name: tenant?.name || 'Academy',
+      academy_phone: tenant?.phone || 'Academy Office'
     };
 
     for (const [key, val] of Object.entries(data)) {
@@ -266,24 +283,46 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
     const phoneType = phoneSelectionMap[item.id] || 'PRIMARY';
     const recipientPhone = phoneType === 'BACKUP' && item.backup_phone ? item.backup_phone : item.guardian_phone;
 
+    if (!recipientPhone) return;
+
     try {
-      const res = await fetch('/api/v1/whatsapp/dispatch', {
+      // 1. Generate link first
+      const linkRes = await fetch('/api/v1/whatsapp/generate-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          student_id: item.student_id,
-          recipient_phone: recipientPhone,
-          phone_type: phoneType,
-          template_id: selectedTemplateId || null,
-          message_body: messageText,
-          status: 'SENT'
+          phone: recipientPhone,
+          message: messageText
         })
       });
 
-      if (res.ok) {
-        const d = await res.json();
-        // Open the sanitized WhatsApp URL in new window
-        window.open(d.data.link.encoded_url, '_blank');
+      if (!linkRes.ok) {
+        console.error('Failed generating WhatsApp link');
+        return;
+      }
+
+      const linkData = await linkRes.json();
+      const encodedUrl = linkData.data?.encoded_url;
+      if (!encodedUrl) return;
+
+      // 2. Open sanitized WhatsApp URL in new window
+      const win = window.open(encodedUrl, '_blank');
+
+      // 3. Post dispatch audit log only after window.open returns a valid window reference
+      if (win) {
+        await fetch('/api/v1/whatsapp/dispatch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            student_id: item.student_id,
+            recipient_phone: recipientPhone,
+            phone_type: phoneType,
+            template_id: selectedTemplateId || null,
+            message_body: messageText,
+            status: 'SENT'
+          })
+        });
+
         setActionSuccessMsg(`WhatsApp alert opened for ${item.student_name} (${recipientPhone})`);
         fetchData();
         setActiveWhatsAppFollowup(null);
@@ -349,7 +388,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
       });
 
       if (res.ok) {
-        setActionSuccessMsg(`Parent counseling meeting scheduled for ${activeRetentionCase.student_name}`);
+        setActionSuccessMsg('Meeting saved.');
         setActiveRetentionCase(null);
         setMeetingDate('');
         setMeetingNotes('');
@@ -399,7 +438,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
       {/* Header */}
       <PageHeading
         title="Absentee Follow-Up"
-        description="Daily morning follow-up roster, parent communications, leave conversion, and student attendance tracking."
+        description="Call parents of students marked absent today."
         icon={<PhoneForwarded className="w-4 h-4 text-slate-700" />}
       />
 
@@ -593,14 +632,14 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                       className="w-full px-3 py-1.5 text-xs text-emerald-900 bg-emerald-50 hover:bg-emerald-100 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer disabled:opacity-50"
                     >
                       <Zap className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Start Rapid Follow-Up</span>
+                      <span>Start calls</span>
                     </button>
                   </div>
 
                   {/* Views */}
                   <div className="py-1">
                     <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                      Module Views
+                      Views
                     </div>
                     <button
                       type="button"
@@ -629,7 +668,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                     >
                       <div className="flex items-center gap-2">
                         <Users className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Retention Desk ({retentionCases.length})</span>
+                        <span>Repeat absences ({retentionCases.length})</span>
                       </div>
                     </button>
                     <button
@@ -645,6 +684,22 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <MessageCircle className="w-3.5 h-3.5 text-slate-500" />
                         <span>Templates ({templates.length})</span>
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAbsenteeModuleMenu(false);
+                        fetchMonthlyReport();
+                        setActiveTab('report');
+                      }}
+                      className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                        (activeTab as string) === 'report' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-3.5 h-3.5 text-slate-500" />
+                        <span>This month's report</span>
                       </div>
                     </button>
                   </div>
@@ -717,6 +772,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   <option value="CONTACTED">Contacted</option>
                   <option value="UNREACHABLE">Unreachable / Rings</option>
                   <option value="RESOLVED_EXCUSED">Excused / Medical Leave</option>
+                  <option value="SNOOZED">Snoozed</option>
                 </select>
               </div>
             </div>
@@ -845,6 +901,11 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                                 {item.reason_category && (
                                   <div className="text-[10px] text-slate-500 mt-0.5">
                                     Reason: {item.reason_category}
+                                    {item.reason_category === 'FEE_DISPUTE' && typeof item.unpaid_balance === 'number' && (
+                                      <div className="text-[10px] font-semibold text-rose-700 font-mono mt-0.5">
+                                        Unpaid Balance: PKR {item.unpaid_balance.toLocaleString()}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
@@ -870,12 +931,17 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                             <div className="flex items-center justify-end gap-1.5">
                               {/* 1. Send WhatsApp */}
                               <button
+                                disabled={!item.guardian_phone}
                                 onClick={() => handleOpenWhatsAppModal(item)}
-                                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 font-bold rounded-lg text-xs flex items-center gap-1 transition-all"
-                                title="Send WhatsApp Notification"
+                                className={`px-2.5 py-1.5 font-bold rounded-lg text-xs flex items-center gap-1 transition-all ${
+                                  !item.guardian_phone
+                                    ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
+                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300'
+                                }`}
+                                title={!item.guardian_phone ? 'No guardian phone on file' : 'Send WhatsApp Notification'}
                               >
                                 <MessageCircle className="w-3.5 h-3.5" />
-                                WhatsApp
+                                {!item.guardian_phone ? 'No guardian phone on file' : 'WhatsApp'}
                               </button>
 
                               {/* 2. Direct Phone Dialer */}
@@ -969,6 +1035,11 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                           Status: <span className="font-semibold text-slate-700">{item.status.replace('_', ' ')}</span>
                           {item.call_outcome && ` (${item.call_outcome})`}
                           {item.reason_category && ` • ${item.reason_category}`}
+                          {item.reason_category === 'FEE_DISPUTE' && typeof item.unpaid_balance === 'number' && (
+                            <div className="text-[10px] font-semibold text-rose-700 font-mono mt-0.5">
+                              Unpaid Balance: PKR {item.unpaid_balance.toLocaleString()}
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -977,9 +1048,14 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
+                            disabled={!item.guardian_phone}
                             onClick={() => handleOpenWhatsAppModal(item)}
-                            className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 flex items-center justify-center transition-colors cursor-pointer"
-                            title="WhatsApp Notification"
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                              !item.guardian_phone
+                                ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400'
+                                : 'bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 cursor-pointer'
+                            }`}
+                            title={!item.guardian_phone ? 'No guardian phone on file' : 'WhatsApp Notification'}
                             aria-label="WhatsApp"
                           >
                             <MessageCircle className="w-4 h-4" />
@@ -1035,14 +1111,14 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <AlertTriangle className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h3 className="font-bold text-rose-950 text-sm">Attendance Alert & Counseling List</h3>
+                <h3 className="font-bold text-rose-950 text-sm">Students often absent</h3>
                 <p className="text-xs text-rose-800">
-                  Identifies students with monthly attendance below 70% or multiple consecutive unexcused absences. Schedule parent counseling meetings to address attendance gaps.
+                  Students under 75% this month, or absent 3 days in a row.
                 </p>
               </div>
             </div>
             <span className="px-3 py-1 bg-white text-rose-900 font-bold rounded-lg border border-rose-200 text-xs shadow-2xs">
-              {retentionCases.length} Cases Active
+              {retentionCases.length} Open
             </span>
           </div>
 
@@ -1210,6 +1286,138 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                         </td>
                       </tr>
                     ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
+          TAB 4: THIS MONTH'S RESOLUTION AUDIT REPORT
+          ===================================================================== */}
+      {activeTab === 'report' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-slate-50 border border-slate-200 p-3 rounded-xl">
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4 text-slate-700" />
+              <div>
+                <h3 className="text-xs font-bold text-slate-800">This Month's Resolution Audit Report</h3>
+                <p className="text-[11px] text-slate-500 font-mono">
+                  Month: {selectedDate ? selectedDate.substring(0, 7) : campusToday().substring(0, 7)}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveTab('roster')}
+              className="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5 cursor-pointer"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Absentee Roster</span>
+            </button>
+          </div>
+
+          {/* 4-Card Summary Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                  Total Absences
+                </span>
+                <span className="font-mono font-bold text-white text-base leading-none block mt-1">
+                  {monthlyReport?.total_absences ?? 0}
+                </span>
+              </div>
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0">
+                <UserX className="w-3.5 h-3.5" />
+              </span>
+            </div>
+
+            <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                  Follow-Up Rate
+                </span>
+                <span className="font-mono font-bold text-emerald-400 text-base leading-none block mt-1">
+                  {monthlyReport?.followup_rate ?? 0}%
+                </span>
+              </div>
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0">
+                <PhoneCall className="w-3.5 h-3.5" />
+              </span>
+            </div>
+
+            <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                  Medical Converted
+                </span>
+                <span className="font-mono font-bold text-purple-400 text-base leading-none block mt-1">
+                  {monthlyReport?.medical_leave_converted ?? 0}
+                </span>
+              </div>
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-purple-400 border border-white/10 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-3.5 h-3.5" />
+              </span>
+            </div>
+
+            <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                  Prevented Dropouts
+                </span>
+                <span className="font-mono font-bold text-sky-400 text-base leading-none block mt-1">
+                  {monthlyReport?.prevented_dropouts ?? 0}
+                </span>
+              </div>
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0">
+                <Users className="w-3.5 h-3.5" />
+              </span>
+            </div>
+          </div>
+
+          {/* Reason Breakdown */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+            <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <h4 className="text-xs font-bold text-slate-800">Absence Reason Breakdown</h4>
+              <span className="text-[11px] text-slate-500 font-mono">Categorized Parent Responses</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/60 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="p-3">Reason Category</th>
+                    <th className="p-3 text-right">Incidents</th>
+                    <th className="p-3 text-right">Share</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-slate-800">
+                  {loadingReport ? (
+                    <tr>
+                      <td colSpan={3} className="p-6 text-center text-slate-400">Loading monthly report...</td>
+                    </tr>
+                  ) : (
+                    [
+                      { category: 'MEDICAL', label: 'Medical / Illness' },
+                      { category: 'EMERGENCY', label: 'Family Emergency / Out of City' },
+                      { category: 'TRANSPORT', label: 'Transportation / Weather' },
+                      { category: 'FEE_DISPUTE', label: 'Fee Dispute / Financial' },
+                      { category: 'TRUANCY', label: 'Woke Up Late / Truancy' },
+                      { category: 'OTHER', label: 'Other / Unspecified' }
+                    ].map(item => {
+                      const count = monthlyReport?.reason_breakdown?.[item.category as AbsenteeReasonCategory] ?? 0;
+                      const total = monthlyReport?.total_absences || 1;
+                      const pct = Math.round((count / total) * 100);
+                      return (
+                        <tr key={item.category} className="hover:bg-slate-50/70">
+                          <td className="p-3 font-semibold text-slate-800">{item.label} ({item.category})</td>
+                          <td className="p-3 text-right font-mono font-bold">{count}</td>
+                          <td className="p-3 text-right font-mono text-slate-500">{pct}%</td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -1554,8 +1762,8 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-200 pb-3">
               <SectionInfo
-                title="Parent Counseling"
-                description="Schedule director/counselor meeting with parent"
+                title="Call parent"
+                description="Set a meeting with the parent."
               />
               <button onClick={() => setActiveRetentionCase(null)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg">
                 <X className="w-5 h-5" />

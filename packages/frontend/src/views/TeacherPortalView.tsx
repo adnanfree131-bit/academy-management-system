@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { TeacherPortalOverview, TimetableSlot, Batch, Exam } from '@apex/shared-types';
+import { campusToday, campusMinutes, parseTimeToMinutes } from '../lib/campusDate';
 import { 
   Clock, 
   CheckCircle2, 
@@ -28,7 +29,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
   const [showMetrics, setShowMetrics] = useState(false);
 
   // Live Geofence Attendance for Logged-in Faculty
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = campusToday();
   const [todayRecord, setTodayRecord] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [attendanceMsg, setAttendanceMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -36,18 +37,12 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
   const fetchTodayAttendance = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`/api/v1/geofence/attendance/staff?date=${todayStr}`, {
+      const res = await fetch(`/api/v1/geofence/attendance/staff/me?date=${todayStr}`, {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         const body = await res.json();
-        const records = body.data || [];
-        const myRecord = records.find((r: any) =>
-          r.staff_id === user?.id ||
-          r.staff_id === (user as any)?.sub ||
-          r.staff_name === user?.full_name
-        );
-        setTodayRecord(myRecord || null);
+        setTodayRecord(body.data || null);
       }
     } catch {
       // Non-blocking
@@ -89,14 +84,14 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
             setAttendanceMsg({
               type: 'success',
               text: action === 'in'
-                ? `Clocked In successfully (${body.data.distance_meters}m from campus center)`
-                : `Clocked Out successfully. Duty duration: ${Math.floor((body.data.work_duration_minutes || 0) / 60)}h ${(body.data.work_duration_minutes || 0) % 60}m.`
+                ? 'Clocked in.'
+                : `Clocked out. ${Math.floor((body.data.work_duration_minutes || 0) / 60)}h ${(body.data.work_duration_minutes || 0) % 60}m.`
             });
             fetchOverview();
           } else {
             setAttendanceMsg({
               type: 'error',
-              text: body.error?.message || `Clock-${action} failed. Make sure you are within campus boundary.`
+              text: body.error?.message || (action === 'in' ? 'You are outside the campus area.' : `Clock-${action} failed.`)
             });
           }
         } catch {
@@ -142,7 +137,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
     return (
       <div className="p-8 text-center text-slate-400">
         <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-        <p className="text-xs">Loading Faculty Academic Desk...</p>
+        <p className="text-xs">Loading…</p>
       </div>
     );
   }
@@ -162,6 +157,26 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
     }
   };
 
+  const formatStatus = (st?: string) => {
+    if (!st) return 'Present';
+    const s = st.toLowerCase();
+    if (s === 'on_time') return 'Present';
+    if (s === 'late') return 'Late';
+    if (s === 'half_day') return 'Half day';
+    if (s === 'on_leave') return 'Leave';
+    if (s === 'absent') return 'Absent';
+    return st;
+  };
+
+  const nowMinutes = campusMinutes(new Date().toISOString(), tenant?.settings?.timezone || 'Asia/Karachi');
+
+  const isSlotActiveNow = (slot: TimetableSlot) => {
+    const start = parseTimeToMinutes(slot.start_time);
+    const end = parseTimeToMinutes(slot.end_time);
+    if (start === null || end === null) return false;
+    return nowMinutes >= start && nowMinutes < end;
+  };
+
   return (
     <div className="space-y-6">
       
@@ -178,7 +193,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                   Faculty Portal
                 </h1>
                 <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-mono font-bold uppercase rounded-md">
-                  {user?.full_name?.includes('Physics') ? 'Sir Tariq' : (user?.full_name || 'Sir Tariq')}
+                  {user?.full_name || 'Faculty Member'}
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -194,17 +209,21 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
               <div>
                 <span className="font-bold text-[11px] text-slate-900 block">
                   {todayRecord?.clock_out_time
-                    ? 'Shift Completed'
+                    ? `Shift Completed · ${formatStatus(todayRecord.status)}`
                     : todayRecord?.clock_in_time
-                    ? `Clocked In · ${todayRecord.status === 'late' ? 'Late' : 'Present'}`
-                    : 'Campus Geofence Check-In'}
+                    ? `Clocked In · ${formatStatus(todayRecord.status)}`
+                    : todayRecord?.status
+                    ? `${formatStatus(todayRecord.status)}`
+                    : 'Clock in'}
                 </span>
                 <span className="text-[10px] text-slate-500 font-mono block">
                   {todayRecord?.clock_out_time
                     ? `In: ${formatTimeStr(todayRecord.clock_in_time)} | Out: ${formatTimeStr(todayRecord.clock_out_time)}`
                     : todayRecord?.clock_in_time
-                    ? `In at ${formatTimeStr(todayRecord.clock_in_time)} (${todayRecord.distance_meters ?? 15}m from campus)`
-                    : 'GPS coordinates verified within campus perimeter'}
+                    ? `In at ${formatTimeStr(todayRecord.clock_in_time)}`
+                    : todayRecord?.status
+                    ? `Status: ${formatStatus(todayRecord.status)}`
+                    : 'Mark your arrival and departure'}
                 </span>
               </div>
             </div>
@@ -353,7 +372,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                         <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 font-mono text-[10px] font-bold rounded">
                           {slot.batch_name}
                         </span>
-                        {idx === 0 && (
+                        {isSlotActiveNow(slot) && (
                           <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold rounded flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
                             Active Now
@@ -361,7 +380,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                         )}
                       </div>
                       <p className="text-xs text-slate-500 flex items-center gap-2 font-medium">
-                        <span>Room: <strong className="text-slate-700">{slot.room_name}</strong></span>
+                        <span>Room: <strong className="text-slate-700">{slot.room_name || 'Room not set'}</strong></span>
                         <span>•</span>
                         <span>Timing: <strong className="text-slate-700">{slot.start_time} - {slot.end_time}</strong></span>
                       </p>
@@ -369,15 +388,28 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
 
                     <div className="flex items-center gap-2 self-end sm:self-auto">
                       <button
-                        onClick={() => onNavigate('attendance')}
+                        onClick={() => {
+                          if (slot.batch_id) {
+                            sessionStorage.setItem('kampus.pendingBatch', slot.batch_id);
+                          }
+                          onNavigate('attendance');
+                        }}
                         className="h-8 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1 transition-all cursor-pointer"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                         Mark Attendance
                       </button>
                       <button
-                        onClick={() => onNavigate('homework')}
-                        className="h-8 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold text-xs rounded-lg transition-all flex items-center gap-1"
+                        onClick={() => {
+                          if (slot.batch_id) {
+                            sessionStorage.setItem('kampus.pendingBatch', slot.batch_id);
+                          }
+                          if (slot.subject_id) {
+                            sessionStorage.setItem('kampus.pendingSubject', slot.subject_id);
+                          }
+                          onNavigate('homework');
+                        }}
+                        className="h-8 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-semibold text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer"
                       >
                         <BookOpen className="w-3.5 h-3.5 text-slate-600" />
                         Diary
@@ -401,7 +433,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                 <div className="col-span-full py-8 px-4 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
                   <p className="text-xs font-bold text-slate-700">No batches currently assigned</p>
                   <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
-                    Your teaching workload has not been allocated yet. Please contact academy administration to assign your classes and subjects.
+                    No classes assigned yet. Ask the office to assign them.
                   </p>
                 </div>
               ) : (
@@ -419,8 +451,13 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
 
                     <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                       <button
-                        onClick={() => onNavigate('attendance')}
-                        className="flex-1 h-8 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-semibold rounded-lg transition-all text-center border border-slate-200/60 flex items-center justify-center"
+                        onClick={() => {
+                          if (b.id) {
+                            sessionStorage.setItem('kampus.pendingBatch', b.id);
+                          }
+                          onNavigate('attendance');
+                        }}
+                        className="flex-1 h-8 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-semibold rounded-lg transition-all text-center border border-slate-200/60 flex items-center justify-center cursor-pointer"
                       >
                         Mark Attendance
                       </button>

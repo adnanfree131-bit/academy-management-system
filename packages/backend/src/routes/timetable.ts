@@ -42,8 +42,9 @@ export function timetableRoutes(store: IDataStore) {
       return reply.send({ success: true, data: rooms, timestamp: new Date().toISOString() });
     };
     fastify.get('/rooms', getRoomsHandler);
+    fastify.get('/timetable/rooms', getRoomsHandler);
 
-    fastify.post('/rooms', async (request: any, reply: any) => {
+    const createRoomHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'timetable', 'edit', reply)) return;
       const schema = z.object({
@@ -67,7 +68,65 @@ export function timetableRoutes(store: IDataStore) {
       });
 
       return reply.status(201).send({ success: true, data: room, timestamp: new Date().toISOString() });
-    });
+    };
+    fastify.post('/rooms', createRoomHandler);
+    fastify.post('/timetable/rooms', createRoomHandler);
+
+    const updateRoomHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'timetable', 'edit', reply)) return;
+      const { id } = request.params as { id: string };
+      const schema = z.object({
+        name: z.string().min(1).optional(),
+        capacity: z.number().int().min(1).optional(),
+        is_active: z.boolean().optional(),
+      });
+
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid room data', details: parse.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const room = await store.updateRoom(user.tenant_id, id, parse.data);
+      if (!room) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Room not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({ success: true, data: room, timestamp: new Date().toISOString() });
+    };
+    fastify.patch('/rooms/:id', updateRoomHandler);
+    fastify.patch('/timetable/rooms/:id', updateRoomHandler);
+
+    const deleteRoomHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'timetable', 'edit', reply)) return;
+      const { id } = request.params as { id: string };
+      const result = await store.deleteRoom(user.tenant_id, id);
+      if (result === 'NOT_FOUND') {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Room not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      if (result === 'IN_USE') {
+        return reply.status(409).send({
+          success: false,
+          error: { code: 'ROOM_IN_USE', message: 'Cannot delete room that is assigned to timetable slots' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({ success: true, message: 'Room deleted', timestamp: new Date().toISOString() });
+    };
+    fastify.delete('/rooms/:id', deleteRoomHandler);
+    fastify.delete('/timetable/rooms/:id', deleteRoomHandler);
 
     // --- Timetable Slots ---
     const getSlotsHandler = async (request: any, reply: any) => {
@@ -149,6 +208,51 @@ export function timetableRoutes(store: IDataStore) {
     };
     fastify.post('/', createSlotHandler);
     fastify.post('/timetable', createSlotHandler);
+
+    // Update Timetable Slot
+    const updateSlotHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'timetable', 'edit', reply)) return;
+      const { id } = request.params as { id: string };
+      const schema = z.object({
+        batch_id: z.string().min(1),
+        subject_id: z.string().min(1),
+        teacher_id: z.string().min(1),
+        room_id: z.string().nullable().optional(),
+        day_of_week: dayOfWeekEnum,
+        start_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
+        end_time: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/),
+      });
+
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid slot data', details: parse.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const slot = await store.updateTimetableSlot(user.tenant_id, id, parse.data);
+        if (!slot) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Timetable slot not found' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        return reply.send({ success: true, data: slot, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(409).send({
+          success: false,
+          error: { code: 'COLLISION_ERROR', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+    fastify.patch('/:id', updateSlotHandler);
+    fastify.patch('/timetable/:id', updateSlotHandler);
 
     // Assign Substitute Teacher (Dated Overrides)
     const substituteHandler = async (request: any, reply: any) => {

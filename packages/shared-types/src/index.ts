@@ -149,6 +149,7 @@ export type UserRole =
   | 'academic_head'   // Vice Principal / Academic Coordinator
   | 'teacher'         // Faculty member
   | 'finance_manager' // Accountant / Cashier
+  | 'support_staff'   // Support Personnel
   | 'parent'          // Guardian
   | 'student';        // Enrolled pupil
 
@@ -196,7 +197,7 @@ export interface User {
 }
 
 export type EmploymentType = 'permanent' | 'probationary' | 'contractual' | 'visiting';
-export type StaffDepartment = 'Science' | 'Mathematics' | 'Humanities' | 'Languages' | 'Commerce' | 'Administration' | 'Accounts' | 'General';
+export type StaffDepartment = 'Science' | 'Mathematics' | 'Humanities' | 'Languages' | 'Commerce' | 'Administration' | 'Accounts' | 'General' | (string & {});
 export type StaffStatus = 'active' | 'on_leave' | 'inactive' | 'archived';
 
 export interface StaffTeachingAssignment {
@@ -917,6 +918,7 @@ export interface StaffAttendanceRecord {
   admin_adjusted?: boolean;
   admin_adjustment_notes?: string | null;
   adjusted_by?: string | null;
+  already_open?: boolean;
   sessions?: StaffAttendanceSession[];
   created_at: string;
   updated_at: string;
@@ -1027,6 +1029,10 @@ export interface ComplaintTicket {
   tenant_id: string;
   user_id: string;
   user_name?: string;
+  student_id?: string | null;
+  student_name?: string | null;
+  batch_id?: string | null;
+  batch_name?: string | null;
   category: ComplaintCategory;
   priority: ComplaintPriority;
   subject: string;
@@ -1553,6 +1559,7 @@ export interface AbsenteeFollowupItem {
   staff_counselor_id?: string | null;
   staff_counselor_name?: string | null;
   last_whatsapp_sent_at?: string | null;
+  unpaid_balance?: number;
   created_at: string;
   updated_at: string;
 }
@@ -1574,6 +1581,7 @@ export interface RetentionCounselingCase {
   admission_number?: string;
   roll_number?: string;
   batch_name: string;
+  batch_id?: string;
   monthly_attendance_pct: number;
   consecutive_absences: number;
   risk_level: RetentionRiskLevel;

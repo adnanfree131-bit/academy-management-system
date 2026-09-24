@@ -10,7 +10,9 @@ import {
   X, 
   RefreshCw,
   Building2,
-  BookOpen
+  BookOpen,
+  Edit2,
+  Trash2
 } from 'lucide-react';
 import { 
   AcademicProgram,
@@ -24,6 +26,7 @@ import {
 } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
 import { useMobileOverlay } from '../lib/mobileOverlay';
+import { campusToday, campusDayOfWeek } from '../lib/campusDate';
 
 const DAYS: { id: DayOfWeek; label: string }[] = [
   { id: 'monday', label: 'Monday' },
@@ -32,6 +35,7 @@ const DAYS: { id: DayOfWeek; label: string }[] = [
   { id: 'thursday', label: 'Thursday' },
   { id: 'friday', label: 'Friday' },
   { id: 'saturday', label: 'Saturday' },
+  { id: 'sunday', label: 'Sunday' },
 ];
 
 export const TimetableDesk: React.FC = () => {
@@ -48,10 +52,22 @@ export const TimetableDesk: React.FC = () => {
 
   // Filters
   const [selectedBatchId, setSelectedBatchId] = useState<string>('all');
-  const [selectedDay, setSelectedDay] = useState<DayOfWeek | 'all'>('monday');
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek | 'all'>(() => {
+    const dow = campusDayOfWeek(campusToday());
+    return dow === 'sunday' ? 'all' : dow;
+  });
 
-  // Schedule Modal
+  // Schedule / Edit Modal
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
+  const [slotToDelete, setSlotToDelete] = useState<TimetableSlot | null>(null);
+  const [isDeletingSlot, setIsDeletingSlot] = useState(false);
+
+  // Inline Quick Room Creator
+  const [newRoomName, setNewRoomName] = useState('');
+  const [newRoomCapacity, setNewRoomCapacity] = useState('40');
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+
   const [scheduleForm, setScheduleForm] = useState({
     batch_id: '',
     subject_id: '',
@@ -69,10 +85,13 @@ export const TimetableDesk: React.FC = () => {
 
   // Substitute Modal
   const [substituteSlot, setSubstituteSlot] = useState<TimetableSlot | null>(null);
+  const [substituteDate, setSubstituteDate] = useState<string>(() => campusToday());
+  const [substituteReason, setSubstituteReason] = useState<string>('');
 
-  useMobileOverlay('sheet', Boolean(showScheduleModal || substituteSlot), () => {
+  useMobileOverlay('sheet', Boolean(showScheduleModal || substituteSlot || slotToDelete), () => {
     setShowScheduleModal(false);
     setSubstituteSlot(null);
+    setSlotToDelete(null);
   });
   const [substituteTeacherId, setSubstituteTeacherId] = useState('');
   const [substituteCandidates, setSubstituteCandidates] = useState<User[]>([]);
@@ -150,6 +169,7 @@ export const TimetableDesk: React.FC = () => {
             dayOfWeek: scheduleForm.day_of_week,
             startTime: scheduleForm.start_time,
             endTime: scheduleForm.end_time,
+            excludeSlotId: editingSlotId || undefined,
           }),
         });
         const data = await res.json();
@@ -167,6 +187,7 @@ export const TimetableDesk: React.FC = () => {
     return () => clearTimeout(timer);
   }, [
     showScheduleModal,
+    editingSlotId,
     scheduleForm.batch_id,
     scheduleForm.teacher_id,
     scheduleForm.room_id,
@@ -201,8 +222,39 @@ export const TimetableDesk: React.FC = () => {
     fetchTeachers();
   }, [showScheduleModal, scheduleForm.day_of_week, scheduleForm.start_time, scheduleForm.end_time, token]);
 
-  // Handle schedule creation
-  const handleCreateSlot = async (e: React.FormEvent) => {
+  const openCreateModal = () => {
+    setEditingSlotId(null);
+    setCollisionState(null);
+    const dow = campusDayOfWeek(campusToday());
+    setScheduleForm({
+      batch_id: selectedBatchId !== 'all' ? selectedBatchId : (batches[0]?.id || ''),
+      subject_id: subjects[0]?.id || '',
+      teacher_id: '',
+      room_id: '',
+      day_of_week: selectedDay !== 'all' ? selectedDay : (dow === 'sunday' ? 'monday' : dow),
+      start_time: '08:30',
+      end_time: '09:45',
+    });
+    setShowScheduleModal(true);
+  };
+
+  const openEditModal = (slot: TimetableSlot) => {
+    setEditingSlotId(slot.id);
+    setCollisionState(null);
+    setScheduleForm({
+      batch_id: slot.batch_id,
+      subject_id: slot.subject_id,
+      teacher_id: slot.teacher_id,
+      room_id: slot.room_id || '',
+      day_of_week: slot.day_of_week,
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+    });
+    setShowScheduleModal(true);
+  };
+
+  // Handle schedule creation or update
+  const handleSaveSlot = async (e: React.FormEvent) => {
     e.preventDefault();
     if (collisionState?.has_conflict) {
       alert(`Cannot schedule: ${collisionState.message}`);
@@ -211,8 +263,13 @@ export const TimetableDesk: React.FC = () => {
 
     setIsSubmittingSlot(true);
     try {
-      const res = await fetch('/api/v1/timetable/timetable', {
-        method: 'POST',
+      const url = editingSlotId 
+        ? `/api/v1/timetable/timetable/${editingSlotId}`
+        : '/api/v1/timetable/timetable';
+      const method = editingSlotId ? 'PATCH' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -229,9 +286,10 @@ export const TimetableDesk: React.FC = () => {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || 'Failed to schedule class');
+      if (!res.ok) throw new Error(data.error?.message || 'Failed to save class period');
 
       setShowScheduleModal(false);
+      setEditingSlotId(null);
       fetchBaseData();
     } catch (err: any) {
       alert(err.message);
@@ -240,10 +298,65 @@ export const TimetableDesk: React.FC = () => {
     }
   };
 
+  // Quick Room Creation
+  const handleQuickAddRoom = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!newRoomName.trim()) return;
+    setIsCreatingRoom(true);
+    try {
+      const res = await fetch('/api/v1/timetable/rooms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: newRoomName.trim(),
+          capacity: parseInt(newRoomCapacity, 10) || 40,
+          is_active: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Failed to create room');
+      if (data.data) {
+        setRooms(prev => [...prev, data.data]);
+        setScheduleForm(prev => ({ ...prev, room_id: data.data.id }));
+        setNewRoomName('');
+      }
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsCreatingRoom(false);
+    }
+  };
+
+  // Delete Timetable Slot
+  const handleDeleteSlot = async () => {
+    if (!slotToDelete) return;
+    setIsDeletingSlot(true);
+    try {
+      const res = await fetch(`/api/v1/timetable/timetable/${slotToDelete.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Failed to remove period');
+
+      setSlotToDelete(null);
+      fetchBaseData();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsDeletingSlot(false);
+    }
+  };
+
   // Open substitute modal & load free teachers for slot
   const openSubstituteModal = async (slot: TimetableSlot) => {
     setSubstituteSlot(slot);
     setSubstituteTeacherId('');
+    setSubstituteDate(campusToday());
+    setSubstituteReason('');
     try {
       const res = await fetch(
         `/api/v1/timetable/available-teachers?day=${slot.day_of_week}&start_time=${slot.start_time}&end_time=${slot.end_time}`,
@@ -273,7 +386,11 @@ export const TimetableDesk: React.FC = () => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ substitute_teacher_id: substituteTeacherId }),
+        body: JSON.stringify({ 
+          substitute_teacher_id: substituteTeacherId,
+          date: substituteDate,
+          reason: substituteReason.trim() || undefined,
+        }),
       });
 
       const data = await res.json();
@@ -299,12 +416,12 @@ export const TimetableDesk: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <PageHeading
-        title="Timetables"
-        description="Class schedules, classroom allocations, conflict detection, and substitute faculty assignments."
+        title="Timetable"
+        description="Weekly class times, rooms, and substitute teachers."
         icon={<Calendar className="w-4 h-4 text-slate-700" />}
       >
         <button
-          onClick={() => setShowScheduleModal(true)}
+          onClick={openCreateModal}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -392,7 +509,7 @@ export const TimetableDesk: React.FC = () => {
               ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' 
               : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
           }`}>
-            {multiRoomEnabled ? 'Multi-Room Campus' : 'Single-Room Facility'}
+            {multiRoomEnabled ? 'Several rooms' : 'One room'}
           </span>
         </div>
       </div>
@@ -406,8 +523,7 @@ export const TimetableDesk: React.FC = () => {
       ) : filteredSlots.length === 0 ? (
         <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl">
           <Calendar className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-          <p className="text-sm font-bold text-slate-700">No classes scheduled for the selected criteria</p>
-          <p className="text-xs text-slate-400 mt-1">Click "Schedule Class" above to add periods to the weekly master roster.</p>
+          <p className="text-sm font-bold text-slate-700">No classes on this day. Use Schedule Class.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -480,10 +596,26 @@ export const TimetableDesk: React.FC = () => {
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
                 <button
                   onClick={() => openSubstituteModal(slot)}
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer"
                 >
                   <UserCheck className="w-3.5 h-3.5" />
                   <span>{slot.substitute_teacher_id ? 'Change Substitute' : 'Assign Substitute'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openEditModal(slot)}
+                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition-all cursor-pointer"
+                  title="Edit Period"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSlotToDelete(slot)}
+                  className="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition-all cursor-pointer"
+                  title="Remove Period"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
@@ -494,14 +626,14 @@ export const TimetableDesk: React.FC = () => {
       {/* Mobile Floating Action Button (FAB) for Scheduling */}
       <button
         type="button"
-        onClick={() => setShowScheduleModal(true)}
+        onClick={openCreateModal}
         className="sm:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-30 w-14 h-14 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-full shadow-lg flex items-center justify-center active:scale-95 transition-all cursor-pointer"
         title="Schedule Class"
       >
         <Plus className="w-6 h-6" />
       </button>
 
-      {/* Schedule Class Modal with Live Collision Prevention */}
+      {/* Schedule / Edit Class Modal with Live Collision Prevention */}
       {showScheduleModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
           <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[92dvh] flex flex-col mobile-sheet-card">
@@ -510,7 +642,9 @@ export const TimetableDesk: React.FC = () => {
                 <span className="p-1.5 bg-slate-900 text-white rounded-lg">
                   <Calendar className="w-4 h-4" />
                 </span>
-                <h2 className="text-sm font-bold text-slate-900">Schedule Academic Period</h2>
+                <h2 className="text-sm font-bold text-slate-900">
+                  {editingSlotId ? 'Edit class' : 'Schedule class'}
+                </h2>
               </div>
               <button
                 type="button"
@@ -521,7 +655,7 @@ export const TimetableDesk: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCreateSlot} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+            <form onSubmit={handleSaveSlot} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
               {/* Batch & Day Selection */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -621,27 +755,47 @@ export const TimetableDesk: React.FC = () => {
                 </select>
               </div>
 
-              {/* Physical Room Selection (Hidden if Single-Room default setup) */}
-              {multiRoomEnabled ? (
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Physical Classroom</label>
-                  <select
-                    value={scheduleForm.room_id}
-                    onChange={e => setScheduleForm(prev => ({ ...prev, room_id: e.target.value }))}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800"
+              {/* Physical Room Selection */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Physical Classroom</label>
+                <select
+                  value={scheduleForm.room_id}
+                  onChange={e => setScheduleForm(prev => ({ ...prev, room_id: e.target.value }))}
+                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800"
+                >
+                  <option value="">Batch room</option>
+                  {rooms.map(r => (
+                    <option key={r.id} value={r.id}>{r.name} (Cap: {r.capacity})</option>
+                  ))}
+                </select>
+
+                {/* Inline quick room creator */}
+                <div className="mt-2 p-2 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Room name"
+                    value={newRoomName}
+                    onChange={e => setNewRoomName(e.target.value)}
+                    className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-slate-800"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Cap"
+                    value={newRoomCapacity}
+                    onChange={e => setNewRoomCapacity(e.target.value)}
+                    className="w-16 text-xs bg-white border border-slate-200 rounded-lg px-2 py-1 text-slate-800 font-mono"
+                    min={1}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleQuickAddRoom}
+                    disabled={isCreatingRoom || !newRoomName.trim()}
+                    className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white disabled:opacity-50 shrink-0 cursor-pointer"
                   >
-                    <option value="">Standard Batch Classroom</option>
-                    {rooms.map(r => (
-                      <option key={r.id} value={r.id}>{r.name} (Cap: {r.capacity})</option>
-                    ))}
-                  </select>
+                    {isCreatingRoom ? 'Adding...' : 'Add room'}
+                  </button>
                 </div>
-              ) : (
-                <div className="p-2.5 bg-slate-50 border border-slate-200/70 rounded-xl flex items-center justify-between text-[11px]">
-                  <span className="text-slate-500 font-mono">Single-Room Default Active:</span>
-                  <span className="text-emerald-700 font-bold">Room auto-assigned to batch hall</span>
-                </div>
-              )}
+              </div>
 
               {/* Pre-Flight Collision Alert Banner */}
               {isCheckingCollision ? (
@@ -682,7 +836,7 @@ export const TimetableDesk: React.FC = () => {
                       : 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800 shadow-xs cursor-pointer'
                   }`}
                 >
-                  {isSubmittingSlot ? 'Saving Period...' : 'Confirm Schedule'}
+                  {isSubmittingSlot ? 'Saving Period...' : (editingSlotId ? 'Save Changes' : 'Confirm Schedule')}
                 </button>
               </div>
             </form>
@@ -700,7 +854,7 @@ export const TimetableDesk: React.FC = () => {
                   <UserCheck className="w-4 h-4" />
                 </span>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">Assign Substitute Faculty</h2>
+                  <h2 className="text-sm font-bold text-slate-900">Assign substitute</h2>
                   <p className="text-[10px] text-slate-500 font-mono">
                     {substituteSlot.subject_name} • {substituteSlot.start_time}-{substituteSlot.end_time}
                   </p>
@@ -717,8 +871,32 @@ export const TimetableDesk: React.FC = () => {
 
             <form onSubmit={handleAssignSubstitute} className="p-5 space-y-4">
               <div className="text-xs bg-slate-50 p-3 rounded-xl border border-slate-200/70">
-                <p className="text-slate-500">Regular Faculty:</p>
+                <p className="text-slate-500">Usual teacher:</p>
                 <p className="font-bold text-slate-900 mt-0.5">{substituteSlot.teacher_name || 'Assigned Teacher'}</p>
+              </div>
+
+              {/* Date & Reason Inputs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Effective Date</label>
+                  <input
+                    type="date"
+                    value={substituteDate}
+                    onChange={e => setSubstituteDate(e.target.value)}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-mono text-slate-800"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Reason (Optional)</label>
+                  <input
+                    type="text"
+                    value={substituteReason}
+                    onChange={e => setSubstituteReason(e.target.value)}
+                    placeholder="e.g. Leave cover, duty"
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 text-slate-800"
+                  />
+                </div>
               </div>
 
               <div>
@@ -762,6 +940,45 @@ export const TimetableDesk: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Remove Confirmation Sheet */}
+      {slotToDelete && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-sm shadow-xl p-5 mobile-sheet-card">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Remove this period?</h3>
+                <p className="text-xs text-slate-500 font-mono">
+                  {slotToDelete.subject_name} • {slotToDelete.start_time}-{slotToDelete.end_time}
+                </p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 mb-4">
+              This will permanently remove the scheduled period for {slotToDelete.batch_name || 'this batch'} on {slotToDelete.day_of_week}.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSlotToDelete(null)}
+                className="h-8.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteSlot}
+                disabled={isDeletingSlot}
+                className="h-8.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingSlot ? 'Removing...' : 'Remove'}
+              </button>
+            </div>
           </div>
         </div>
       )}

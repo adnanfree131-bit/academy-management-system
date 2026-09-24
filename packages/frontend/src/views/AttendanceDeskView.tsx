@@ -39,6 +39,7 @@ import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
 import { ModernSelect } from '../components/ModernSelect';
 import { hapticLight, hapticSuccess, hapticSelection } from '../lib/haptics';
+import { campusToday } from '../lib/campusDate';
 
 export type DeskAttendanceStatus = AttendanceStatus | 'unmarked';
 
@@ -68,7 +69,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
   
   // Temporal State
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = campusToday(tenant?.settings?.timezone || 'Asia/Karachi');
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [selectedMonth, setSelectedMonth] = useState<string>(todayStr.slice(0, 7)); // YYYY-MM
   
@@ -115,7 +116,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
   const [newLeaveForm, setNewLeaveForm] = useState({
     student_id: '',
     start_date: todayStr,
-    end_date: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+    end_date: campusToday(new Date(Date.now() + 86400000)),
     category: 'medical' as LeaveCategory,
     reason: '',
   });
@@ -156,8 +157,18 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
       if (bData.success && bData.data?.length > 0) {
         setBatches(bData.data);
-        if (!selectedBatchId) {
+        const pendingBatch = sessionStorage.getItem('kampus.pendingBatch');
+        if (pendingBatch && bData.data.some((b: any) => b.id === pendingBatch)) {
+          const match = bData.data.find((b: any) => b.id === pendingBatch);
+          if (match && match.program_id && selectedProgramId !== 'ALL' && selectedProgramId !== match.program_id) {
+            setSelectedProgramId('ALL');
+          }
+          setSelectedBatchId(pendingBatch);
+        } else if (!selectedBatchId) {
           setSelectedBatchId(bData.data[0].id);
+        }
+        if (pendingBatch) {
+          sessionStorage.removeItem('kampus.pendingBatch');
         }
       } else {
         setBatches([]);

@@ -56,6 +56,8 @@ import {
   downloadCsv,
 } from '../lib/staffAttendancePdf';
 import { academyLetterheadFromAuth } from '../lib/officialDocumentPdf';
+import { campusToday } from '../lib/campusDate';
+import { can } from '../lib/access';
 
 function computeHaversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -217,10 +219,11 @@ function calculateAttendancePct(r: {
 export const StaffClockInView: React.FC = () => {
   const { token, user, tenant } = useAuth();
   const isAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin';
+  const hasRosterAccess = isAdmin || can(user, 'staff_attendance', 'view');
 
   // Navigation Dates
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const currentMonthStr = useMemo(() => new Date().toISOString().slice(0, 7), []);
+  const todayStr = useMemo(() => campusToday(), []);
+  const currentMonthStr = useMemo(() => campusToday().slice(0, 7), []);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
   const isSelectedDateToday = selectedDate === todayStr;
@@ -528,25 +531,19 @@ export const StaffClockInView: React.FC = () => {
   }, [token]);
 
   const fetchSelfTodayAttendance = useCallback(async () => {
-    if (!token || isAdmin) return;
+    if (!token) return;
     try {
-      const res = await fetch(`/api/v1/geofence/attendance/staff?date=${todayStr}`, {
+      const res = await fetch(`/api/v1/geofence/attendance/staff/me?date=${todayStr}`, {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
         const body = await res.json();
-        const records: StaffAttendanceRecord[] = body.data || [];
-        const myRecord = records.find(r =>
-          r.staff_id === user?.id ||
-          r.staff_id === (user as any)?.sub ||
-          r.staff_name === user?.full_name
-        );
-        setPersonalClockInRecord(myRecord || null);
+        setPersonalClockInRecord(body.data || null);
       }
     } catch (err) {
       console.error('Failed fetching self attendance:', err);
     }
-  }, [token, isAdmin, todayStr, user]);
+  }, [token, todayStr]);
 
   const fetchRegularizationRequests = useCallback(async () => {
     if (!token) return;
@@ -632,10 +629,10 @@ export const StaffClockInView: React.FC = () => {
 
   // Faculty month change
   useEffect(() => {
-    if (!isAdmin) {
+    if (!hasRosterAccess) {
       fetchFacultyMonthlyRecords(facultySelectedMonth);
     }
-  }, [facultySelectedMonth, isAdmin, fetchFacultyMonthlyRecords]);
+  }, [facultySelectedMonth, hasRosterAccess, fetchFacultyMonthlyRecords]);
 
   // Individual staff change
   useEffect(() => {
@@ -670,10 +667,10 @@ export const StaffClockInView: React.FC = () => {
   }, [geofenceConfig]);
 
   useEffect(() => {
-    if (!isAdmin && geofenceConfig) {
+    if (!hasRosterAccess && geofenceConfig) {
       locateSelf();
     }
-  }, [isAdmin, geofenceConfig, locateSelf]);
+  }, [hasRosterAccess, geofenceConfig, locateSelf]);
 
   // =========================================================================
   // Handlers
@@ -791,7 +788,7 @@ export const StaffClockInView: React.FC = () => {
       const body = await res.json();
       if (res.ok && body.success) {
         setGeofenceConfig(body.data);
-        setSettingsFeedback({ type: 'success', message: 'Attendance policy, shift rules, and campus geofence saved successfully.' });
+        setSettingsFeedback({ type: 'success', message: 'Attendance rules saved.' });
       } else {
         setSettingsFeedback({
           type: 'error',
@@ -1171,12 +1168,21 @@ export const StaffClockInView: React.FC = () => {
           const body = await res.json();
           if (res.ok && body.success) {
             setPersonalClockInRecord(body.data);
-            setPersonalFeedback({
-              type: 'success',
-              message: action === 'in'
-                ? `Clocked in successfully (${body.data.distance_meters}m from campus center)`
-                : `Clocked out successfully.`
-            });
+            const isAlreadyOpen = body.already_open || body.data?.already_open;
+            if (isAlreadyOpen) {
+              const time = formatIsoToTime(body.data?.clock_in_time);
+              setPersonalFeedback({
+                type: 'success',
+                message: `Already clocked in at ${time}`
+              });
+            } else {
+              setPersonalFeedback({
+                type: 'success',
+                message: action === 'in'
+                  ? 'Clocked in.'
+                  : 'Clocked out successfully.'
+              });
+            }
             fetchSelfTodayAttendance();
           } else {
             setPersonalFeedback({
@@ -1225,7 +1231,7 @@ export const StaffClockInView: React.FC = () => {
 
       const body = await res.json();
       if (res.ok && body.success) {
-        setRegFeedback({ type: 'success', message: 'Regularization request submitted for administrative approval.' });
+        setRegFeedback({ type: 'success', message: 'Request sent for approval.' });
         await fetchRegularizationRequests();
         setTimeout(() => {
           setIsRegModalOpen(false);
@@ -1295,7 +1301,7 @@ export const StaffClockInView: React.FC = () => {
         absent: targetRoster.filter(r => r.status === 'absent').length,
       };
       const pdfBytes = await generateDailyMusterRollPdf(letterhead, targetDate, targetRoster, stats);
-      previewPdfBytes(pdfBytes, `Daily_Staff_Muster_Roll_${targetDate}.pdf`);
+      previewPdfBytes(pdfBytes, `Staff_Attendance_${targetDate}.pdf`);
     } catch (err) {
       console.error('Daily PDF preview failed:', err);
       alert('Failed to generate daily attendance PDF document.');
@@ -1321,7 +1327,7 @@ export const StaffClockInView: React.FC = () => {
         absent: targetRoster.filter(r => r.status === 'absent').length,
       };
       const pdfBytes = await generateDailyMusterRollPdf(letterhead, targetDate, targetRoster, stats);
-      downloadPdfBytes(pdfBytes, `Daily_Staff_Muster_Roll_${targetDate}.pdf`);
+      downloadPdfBytes(pdfBytes, `Staff_Attendance_${targetDate}.pdf`);
     } catch (err) {
       console.error('Daily PDF download failed:', err);
     } finally {
@@ -1953,7 +1959,7 @@ export const StaffClockInView: React.FC = () => {
   // =========================================================================
   // VIEW: FACULTY / TEACHER PERSONAL DESK (Non-Admin View)
   // =========================================================================
-  if (!isAdmin) {
+  if (!hasRosterAccess) {
     const isWithinPerimeter =
       personalDistanceMeters !== null &&
       geofenceConfig &&
@@ -1963,13 +1969,13 @@ export const StaffClockInView: React.FC = () => {
       <div className="space-y-6">
         <PageHeading
           title="Staff Attendance"
-          description="GPS geofence check-in and personal attendance history."
+          description="Mark your own arrival and leaving time."
         />
 
         <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Campus Geofence</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">Campus location</span>
               <h2 className="text-lg font-bold text-slate-900 mt-0.5">
                 Campus Location Verification
               </h2>
@@ -2018,7 +2024,7 @@ export const StaffClockInView: React.FC = () => {
             </div>
 
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider block">Duty Duration</span>
+              <span className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider block">Time present</span>
               <span className="text-lg sm:text-xl font-bold font-mono text-slate-900 mt-0.5 block">
                 {formatMinutesToHours(personalClockInRecord?.work_duration_minutes)}
               </span>
@@ -3188,10 +3194,10 @@ export const StaffClockInView: React.FC = () => {
                     </span>
                   </div>
                   <h4 className="text-sm font-bold text-slate-900">
-                    Daily Staff Attendance Register (Muster Roll)
+                    Daily staff attendance
                   </h4>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    Official day-by-day institutional register capturing punch-in/out timestamps, attendance heads, and signature sections.
+                    Today’s arrival, leaving time, and status.
                   </p>
                 </div>
 
@@ -3422,7 +3428,7 @@ export const StaffClockInView: React.FC = () => {
                     Defaulters & Chronic Lates Disciplinary Report
                   </h4>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    Identifies staff below institutional threshold (&lt; 75%) or exhibiting repeated late arrivals for administrative notices.
+                    Staff under 75% attendance, or late 3 or more times.
                   </p>
                 </div>
 
@@ -3844,7 +3850,7 @@ export const StaffClockInView: React.FC = () => {
                     </h4>
                   </div>
                   <p className="text-[11px] text-amber-800 mt-0.5">
-                    Faculty members requesting administrative attendance override for off-campus duty or exceptions.
+                    Staff who asked to correct a missing punch
                   </p>
                 </div>
               </div>
@@ -4006,7 +4012,7 @@ export const StaffClockInView: React.FC = () => {
             </div>
 
             <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Staff members requiring administrative review: late arrivals, half days, absences, and leaves.</span>
+              <span>Needs review: late arrivals, half days, absences, and leaves.</span>
               <span className="font-mono font-bold text-amber-800 bg-amber-50 px-2 py-0.5 border border-amber-200 rounded-lg">
                 {exceptionRecords.length} Exceptions Found
               </span>
@@ -4259,7 +4265,7 @@ export const StaffClockInView: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                   <span className="font-semibold">
-                    Unsaved Policy Changes: You have modified shift parameters, heads, or geofence coordinates. Click "Save Changes" to apply this policy to the live muster roll.
+                    Save to update today’s register.
                   </span>
                 </div>
                 <button
@@ -4277,7 +4283,7 @@ export const StaffClockInView: React.FC = () => {
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
               <div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Standard Institutional Policy</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Attendance rules</span>
                 <h4 className="text-sm font-bold text-slate-900 mt-0.5">
                   Daily Shift Schedule & Grace Tolerances
                 </h4>
@@ -4452,7 +4458,7 @@ export const StaffClockInView: React.FC = () => {
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs flex items-center gap-2 text-slate-600">
               <Info className="w-4 h-4 text-slate-500 shrink-0" />
               <span>
-                Rules evaluate from top to bottom (#1, #2, #3...). Duration deficits (e.g. leaving after 30 mins) take priority upon clock-out. Manual administrative regularizations and approved leaves always override automated scoring.
+                Rules run from top to bottom. Leaving early is checked when they clock out. An approved leave replaces the automatic status.
               </span>
             </div>
 
@@ -4586,7 +4592,7 @@ export const StaffClockInView: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Hardware & Mobile Boundary</span>
-                <h4 className="text-sm font-bold text-slate-900 mt-0.5">Campus Geofence Perimeter & GPS Coordinates</h4>
+                <h4 className="text-sm font-bold text-slate-900 mt-0.5">Campus location</h4>
                 <p className="text-xs text-slate-500">
                   Center coordinates and radius threshold for mobile GPS clock-in proximity verification.
                 </p>
@@ -4657,7 +4663,7 @@ export const StaffClockInView: React.FC = () => {
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none cursor-pointer"
                 >
                   <option value="strict">Strict Mode (Block clock-in when employee is outside campus radius)</option>
-                  <option value="flagged">Audit Mode (Allow clock-in, but flag out-of-perimeter in red on muster roll)</option>
+                  <option value="flagged">Allow clock-in outside campus, and mark it.</option>
                 </select>
               </div>
             </div>

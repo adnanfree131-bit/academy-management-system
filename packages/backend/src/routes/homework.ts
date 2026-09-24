@@ -26,39 +26,92 @@ export function homeworkRoutes(store: IDataStore) {
       const { batch_id } = request.query as { batch_id?: string };
 
       if (user.role === 'student') {
+        const tenantUsers = await store.getTenantUsers(user.tenant_id);
+        const meUser = tenantUsers.find(u => u.id === (user.sub || user.user_id) || (u.email && u.email.toLowerCase() === (user.email || '').toLowerCase()));
+        const studentId = (user as any).student_id || ((user as any).metadata as any)?.student_id || (meUser?.metadata as any)?.student_id;
+
         const students = await store.getStudents(user.tenant_id);
-        const me = students.find(s => s.user_id === user.sub || (s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase()));
-        if (!me || !me.batch_id) {
+        const me = students.find(s =>
+          (studentId && s.id === studentId) ||
+          (s.user_id && (s.user_id === user.sub || s.user_id === user.user_id))
+        );
+        if (!me) {
           return reply.send({ success: true, data: [], timestamp: new Date().toISOString() });
         }
-        const assignments = await store.getHomework(user.tenant_id, me.batch_id);
-        return reply.send({ success: true, data: assignments, timestamp: new Date().toISOString() });
-      }
 
-      if (user.role === 'parent') {
-        const students = await store.getStudents(user.tenant_id);
-        const tenantUsers = await store.getTenantUsers(user.tenant_id);
-        const me = tenantUsers.find(u => u.id === user.sub || (user.email && u.email === user.email));
-        const parentCnic = (me?.metadata as any)?.guardian_id_card || (me?.metadata as any)?.clean_guardian_id_card;
-        const cleanParentCnic = parentCnic ? String(parentCnic).replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const enrollments = await store.getStudentEnrollments(user.tenant_id, me.id);
+        const activeEnrollments = enrollments.filter(e => e.status === 'active' || e.status === 'on_leave');
 
-        const children = students.filter(s => {
-          if (s.guardian_id_card && cleanParentCnic) {
-            const cleanStdCnic = s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
-            if (cleanStdCnic === cleanParentCnic) return true;
-          }
-          if (s.guardian_email && user.email && s.guardian_email.toLowerCase() === user.email.toLowerCase()) return true;
-          if (s.guardian_phone && (me as any)?.phone && s.guardian_phone === (me as any)?.phone) return true;
-          return false;
-        });
-        const childBatchIds = new Set(children.map(c => c.batch_id).filter(Boolean));
         if (batch_id) {
-          if (!childBatchIds.has(batch_id)) {
-            return reply.status(403).send({ success: false, error: { code: 'FORBIDDEN', message: 'Access denied' }, timestamp: new Date().toISOString() });
+          const isEnrolled = activeEnrollments.some(e => e.batch_id === batch_id) || me.batch_id === batch_id;
+          if (!isEnrolled) {
+            return reply.status(403).send({
+              success: false,
+              error: { code: 'FORBIDDEN', message: 'You are not enrolled in this batch.' },
+              timestamp: new Date().toISOString(),
+            });
           }
           const assignments = await store.getHomework(user.tenant_id, batch_id);
           return reply.send({ success: true, data: assignments, timestamp: new Date().toISOString() });
         }
+
+        const primaryEnrollment = activeEnrollments.find(e => e.is_primary) || activeEnrollments[0] || enrollments[0];
+        const targetBatchId = primaryEnrollment?.batch_id || me.batch_id;
+        if (!targetBatchId) {
+          return reply.send({ success: true, data: [], timestamp: new Date().toISOString() });
+        }
+        const assignments = await store.getHomework(user.tenant_id, targetBatchId);
+        return reply.send({ success: true, data: assignments, timestamp: new Date().toISOString() });
+      }
+
+      if (user.role === 'parent') {
+        const tenantUsers = await store.getTenantUsers(user.tenant_id);
+        const me = tenantUsers.find(u => u.id === (user.sub || user.user_id));
+        const parentCnic = (me?.metadata as any)?.guardian_id_card ||
+          (me?.metadata as any)?.clean_guardian_id_card ||
+          (user as any).guardian_id_card ||
+          (user as any).cnic ||
+          ((user as any).metadata as any)?.guardian_id_card ||
+          (me as any)?.cnic ||
+          (me as any)?.guardian_id_card;
+        const cleanParentCnic = parentCnic ? String(parentCnic).replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+
+        const students = await store.getStudents(user.tenant_id);
+        const children = cleanParentCnic ? students.filter(s => {
+          if (s.guardian_id_card) {
+            const cleanStdCnic = s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
+            if (cleanStdCnic === cleanParentCnic) return true;
+          }
+          return false;
+        }) : [];
+
+        const childBatchIds = new Set<string>();
+        for (const child of children) {
+          if (child.batch_id) childBatchIds.add(child.batch_id);
+          const enrollments = await store.getStudentEnrollments(user.tenant_id, child.id);
+          for (const enr of enrollments) {
+            if ((enr.status === 'active' || enr.status === 'on_leave') && enr.batch_id) {
+              childBatchIds.add(enr.batch_id);
+            }
+          }
+        }
+
+        if (batch_id) {
+          if (!childBatchIds.has(batch_id)) {
+            return reply.status(403).send({
+              success: false,
+              error: { code: 'FORBIDDEN', message: 'None of your children attend this batch.' },
+              timestamp: new Date().toISOString(),
+            });
+          }
+          const assignments = await store.getHomework(user.tenant_id, batch_id);
+          return reply.send({ success: true, data: assignments, timestamp: new Date().toISOString() });
+        }
+
+        if (childBatchIds.size === 0) {
+          return reply.send({ success: true, data: [], timestamp: new Date().toISOString() });
+        }
+
         const allAssignments = await store.getHomework(user.tenant_id);
         const filtered = allAssignments.filter(a => childBatchIds.has(a.batch_id));
         return reply.send({ success: true, data: filtered, timestamp: new Date().toISOString() });
@@ -103,7 +156,10 @@ export function homeworkRoutes(store: IDataStore) {
         description: z.string().min(1),
         assigned_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-        attachment_url: z.string().url().optional(),
+        attachment_url: z.union([z.string().url(), z.literal(''), z.null()]).optional(),
+      }).refine(data => data.due_date >= data.assigned_date, {
+        message: 'Due date cannot be before assigned date',
+        path: ['due_date'],
       });
 
       const parse = schema.safeParse(request.body);
@@ -124,10 +180,14 @@ export function homeworkRoutes(store: IDataStore) {
         });
       }
 
+      const tenantUsers = await store.getTenantUsers(user.tenant_id);
+      const authorUser = tenantUsers.find(u => u.id === (user.sub || user.user_id) || (u.email && u.email.toLowerCase() === (user.email || '').toLowerCase()));
+      const teacherName = authorUser?.full_name || (user as any).full_name || 'Teacher';
+
       const homework = await store.createHomework({
         tenant_id: user.tenant_id,
         teacher_id: user.sub || user.user_id || 'teacher-user',
-        teacher_name: user.email ? user.email.split('@')[0] : 'teacher',
+        teacher_name: teacherName,
         ...parse.data,
       });
 
@@ -135,6 +195,166 @@ export function homeworkRoutes(store: IDataStore) {
     };
     fastify.post('/', createHomeworkHandler);
     fastify.post('/homework', createHomeworkHandler);
+
+    // --- PATCH Homework Assignment ---
+    const patchHomeworkHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (user.role === 'student' || user.role === 'parent') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Students and parents cannot edit homework.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      if (!assertFeature(user, 'homework', 'edit', reply)) return;
+
+      const { id } = request.params as { id: string };
+      const allHw = await store.getHomework(user.tenant_id);
+      const existing = allHw.find(h => h.id === id);
+      if (!existing) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Homework assignment not found.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const scope = batchScope(user);
+      if (scope !== 'all' && !scope.includes(existing.batch_id)) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_BATCH', message: 'You are not assigned to this batch.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const schema = z.object({
+        batch_id: z.string().min(1).optional(),
+        subject_id: z.string().min(1).optional(),
+        title: z.string().min(1).optional(),
+        description: z.string().min(1).optional(),
+        assigned_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        attachment_url: z.union([z.string().url(), z.literal(''), z.null()]).optional(),
+      }).refine(data => {
+        const assigned = data.assigned_date || existing.assigned_date;
+        const due = data.due_date || existing.due_date;
+        return due >= assigned;
+      }, {
+        message: 'Due date cannot be before assigned date',
+        path: ['due_date'],
+      });
+
+      const parse = schema.safeParse(request.body);
+      if (!parse.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid homework update payload', details: parse.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (parse.data.batch_id && scope !== 'all' && !scope.includes(parse.data.batch_id)) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_BATCH', message: 'You are not assigned to target batch.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const tenantUsers = await store.getTenantUsers(user.tenant_id);
+      const authorUser = tenantUsers.find(u => u.id === existing.teacher_id || (u.email && u.email.toLowerCase() === existing.teacher_id.toLowerCase()));
+      const teacherName = authorUser?.full_name || (existing.teacher_name && !existing.teacher_name.includes('@') ? existing.teacher_name : 'Teacher');
+
+      const updated = await store.updateHomework(user.tenant_id, id, {
+        ...parse.data,
+        teacher_name: teacherName,
+      });
+
+      return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+    };
+    fastify.patch('/:id', patchHomeworkHandler);
+    fastify.patch('/homework/:id', patchHomeworkHandler);
+
+    // --- DELETE Homework Assignment ---
+    const deleteHomeworkHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (user.role === 'student' || user.role === 'parent') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Students and parents cannot delete homework.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      if (!assertFeature(user, 'homework', 'edit', reply)) return;
+
+      const { id } = request.params as { id: string };
+      const allHw = await store.getHomework(user.tenant_id);
+      const existing = allHw.find(h => h.id === id);
+      if (!existing) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Homework assignment not found.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const scope = batchScope(user);
+      if (scope !== 'all' && !scope.includes(existing.batch_id)) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_BATCH', message: 'You are not assigned to this batch.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      await store.deleteHomework(user.tenant_id, id);
+      return reply.send({
+        success: true,
+        message: 'Homework assignment and notebook checks removed.',
+        timestamp: new Date().toISOString(),
+      });
+    };
+    fastify.delete('/:id', deleteHomeworkHandler);
+    fastify.delete('/homework/:id', deleteHomeworkHandler);
+
+    // --- Homework Roster ---
+    const getRosterHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (user.role === 'student' || user.role === 'parent') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Access denied.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      if (!assertFeature(user, 'homework', 'view', reply)) return;
+
+      const { id } = request.params as { id: string };
+      const allHw = await store.getHomework(user.tenant_id);
+      const existing = allHw.find(h => h.id === id);
+      if (!existing) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Homework assignment not found.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const scope = batchScope(user);
+      if (scope !== 'all' && !scope.includes(existing.batch_id)) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_BATCH', message: 'You are not assigned to this batch.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const roster = await store.getHomeworkRoster(user.tenant_id, id);
+      return reply.send({ success: true, data: roster, timestamp: new Date().toISOString() });
+    };
+    fastify.get('/:id/roster', getRosterHandler);
+    fastify.get('/homework/:id/roster', getRosterHandler);
 
     // --- Physical Notebook Checks ---
     const getChecksHandler = async (request: any, reply: any) => {
@@ -149,6 +369,25 @@ export function homeworkRoutes(store: IDataStore) {
       if (!assertFeature(user, 'homework', 'view', reply)) return;
 
       const { id } = request.params as { id: string };
+      const allHw = await store.getHomework(user.tenant_id);
+      const hw = allHw.find(h => h.id === id);
+      if (!hw) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Homework assignment not found.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const scope = batchScope(user);
+      if (scope !== 'all' && !scope.includes(hw.batch_id)) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_BATCH', message: 'You are not assigned to this batch.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       const checks = await store.getNotebookChecks(user.tenant_id, id);
       return reply.send({ success: true, data: checks, timestamp: new Date().toISOString() });
     };
@@ -167,6 +406,25 @@ export function homeworkRoutes(store: IDataStore) {
       if (!assertFeature(user, 'homework', 'edit', reply)) return;
 
       const { id } = request.params as { id: string };
+      const allHw = await store.getHomework(user.tenant_id);
+      const hw = allHw.find(h => h.id === id);
+      if (!hw) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Homework assignment not found.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const scope = batchScope(user);
+      if (scope !== 'all' && !scope.includes(hw.batch_id)) {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_BATCH', message: 'You are not assigned to this batch.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       const schema = z.object({
         checks: z.array(z.object({
           student_id: z.string().min(1),
@@ -184,27 +442,31 @@ export function homeworkRoutes(store: IDataStore) {
         });
       }
 
-      const scope = batchScope(user);
-      if (scope !== 'all') {
-        const allHw = await store.getHomework(user.tenant_id);
-        const hw = allHw.find(h => h.id === id);
-        if (hw && !scope.includes(hw.batch_id)) {
-          return reply.status(403).send({
+      try {
+        const results = await store.recordNotebookChecks(
+          user.tenant_id,
+          id,
+          parse.data.checks,
+          (user as any).full_name || user.email || user.sub
+        );
+        return reply.status(201).send({ success: true, data: results, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        if (err.code === 'STUDENT_NOT_IN_CLASS' || err.statusCode === 400) {
+          return reply.status(400).send({
             success: false,
-            error: { code: 'FORBIDDEN_BATCH', message: 'You are not assigned to this batch.' },
+            error: { code: 'STUDENT_NOT_IN_CLASS', message: err.message },
             timestamp: new Date().toISOString(),
           });
         }
+        if (err.code === 'NOT_FOUND' || err.statusCode === 404) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'NOT_FOUND', message: err.message },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        throw err;
       }
-
-      const results = await store.recordNotebookChecks(
-        user.tenant_id,
-        id,
-        parse.data.checks,
-        user.email
-      );
-
-      return reply.status(201).send({ success: true, data: results, timestamp: new Date().toISOString() });
     };
     fastify.post('/:id/checks', recordChecksHandler);
     fastify.post('/homework/:id/checks', recordChecksHandler);

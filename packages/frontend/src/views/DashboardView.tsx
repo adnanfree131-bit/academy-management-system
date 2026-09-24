@@ -22,6 +22,7 @@ import {
   StudentInvoice,
   Exam,
 } from '@apex/shared-types';
+import { campusToday, campusDayOfWeek, formatCampusTime } from '../lib/campusDate';
 
 interface DashboardViewProps {
   onNavigate: (screenId: string) => void;
@@ -168,7 +169,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     if (!token) return;
     setIsRefreshing(true);
     const headers = { Authorization: `Bearer ${token}` };
-    const today = new Date().toISOString().slice(0, 10);
+    const today = campusToday();
 
     try {
       const [
@@ -189,7 +190,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         fetch('/api/v1/finance/invoices', { headers }).catch(() => null),
         fetch(`/api/v1/attendance/students?date=${today}`, { headers }).catch(() => null),
         fetch(`/api/v1/geofence/roster?date=${today}`, { headers }).catch(() => null),
-        fetch('/api/v1/timetable', { headers }).catch(() => null),
+        fetch(`/api/v1/timetable?day=${campusDayOfWeek(today)}`, { headers }).catch(() => null),
         fetch('/api/v1/homework', { headers }).catch(() => null),
         fetch('/api/v1/sis/inquiries', { headers }).catch(() => null),
         fetch('/api/v1/exams', { headers }).catch(() => null),
@@ -227,7 +228,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       if (Array.isArray(fees)) setInvoices(fees);
       if (Array.isArray(att)) setAttendanceRecords(att);
       if (Array.isArray(roster)) setStaffRoster(roster);
-      if (Array.isArray(slots)) setTimetableSlots(slots);
+      if (Array.isArray(slots)) {
+        const todayWeekday = campusDayOfWeek(today);
+        setTimetableSlots(slots.filter((s: TimetableSlot) => s.day_of_week === todayWeekday));
+      }
       if (Array.isArray(hw)) setHomeworkList(hw);
       if (Array.isArray(inquiries)) setInquiriesList(inquiries);
       if (Array.isArray(examList)) setExams(examList);
@@ -262,11 +266,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     : 0;
 
   // Staff Attendance Roster
-  const presentStaffCount = staffRoster.filter(s => s.status === 'present' || s.status === 'late').length;
-  const lateStaffCount = staffRoster.filter(s => s.status === 'late').length;
-  const leaveStaffCount = staffRoster.filter(s => s.status === 'on_leave' || s.status === 'leave').length;
+  const isStaffOnDuty = (status?: string) => {
+    const st = (status || '').toLowerCase();
+    return st === 'on_time' || st === 'present' || st === 'late' || st === 'half_day';
+  };
+  const presentStaffCount = staffRoster.filter(s => isStaffOnDuty(s.status)).length;
+  const lateStaffCount = staffRoster.filter(s => (s.status || '').toLowerCase() === 'late').length;
+  const halfDayStaffCount = staffRoster.filter(s => (s.status || '').toLowerCase() === 'half_day').length;
+  const leaveStaffCount = staffRoster.filter(s => {
+    const st = (s.status || '').toLowerCase();
+    return st === 'on_leave' || st === 'leave';
+  }).length;
   const totalStaffCount = staffRoster.length;
   const staffPresentPct = totalStaffCount > 0 ? Math.round((presentStaffCount / totalStaffCount) * 100) : 0;
+
+  // Homework Diary Metrics
+  const campusDateStr = campusToday();
+  const sortedHomeworkList = [...homeworkList].sort((a, b) => {
+    const d = (b.assigned_date || '').localeCompare(a.assigned_date || '');
+    if (d !== 0) return d;
+    return (b.id || '').localeCompare(a.id || '');
+  });
+  const todayHomework = sortedHomeworkList.filter(h => h.assigned_date === campusDateStr);
+  const snippetHomework = todayHomework[0] || sortedHomeworkList[0];
 
   // Finance
   const liveInvoices = invoices.filter(inv => {
@@ -521,7 +543,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Staff On-Campus</span>
+            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Staff present</span>
             <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <UserCheck className="w-3.5 h-3.5" />
             </div>
@@ -529,14 +551,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
               <span className="text-xl sm:text-2xl font-bold font-mono text-white">
-                {presentStaffCount} <span className="text-sm font-normal text-slate-400 font-sans">/ {totalStaffCount || 6}</span>
+                {presentStaffCount} <span className="text-sm font-normal text-slate-400 font-sans">/ {totalStaffCount}</span>
               </span>
               <span className="text-[11px] text-amber-400 font-semibold font-mono">
                 {staffPresentPct}% Duty
               </span>
             </div>
             <p className="text-[11px] text-slate-300 mt-1 truncate">
-              {lateStaffCount > 0 ? `${lateStaffCount} Late • ` : ''}{leaveStaffCount > 0 ? `${leaveStaffCount} Leave • ` : ''}Active On Duty
+              {lateStaffCount > 0 ? `${lateStaffCount} Late • ` : ''}{halfDayStaffCount > 0 ? `${halfDayStaffCount} Half Day • ` : ''}{leaveStaffCount > 0 ? `${leaveStaffCount} Leave • ` : ''}Active On Duty
             </p>
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
@@ -631,7 +653,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-400 font-mono mt-0.5">
-                        {batch.room_number ? `Room ${batch.room_number}` : 'Hall A'} • Capacity: {enrolled}/{batch.max_capacity || 40}
+                        {batch.room_number ? (batch.room_number.toLowerCase().includes('room') || batch.room_number.toLowerCase().includes('hall') || batch.room_number.toLowerCase().includes('lab') ? batch.room_number : `Room ${batch.room_number}`) : 'Room not set'} • Capacity: {enrolled}/{batch.max_capacity || 40}
                       </p>
                     </div>
 
@@ -700,7 +722,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                       </p>
                     </div>
                     <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                      <span>{slot.room_name || 'Hall A'}</span>
+                      <span>{slot.room_name || batches.find(b => b.id === slot.batch_id)?.room_number || 'Room not set'}</span>
                       <span className="truncate max-w-[120px] font-sans font-medium text-slate-600">{slot.batch_name || 'Batch'}</span>
                     </div>
                   </div>
@@ -788,12 +810,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             )}
           </div>
 
-          {/* Faculty & Staff Daily Muster Roll */}
+          {/* Staff today */}
           <div className="bg-white border border-[#E6ECF2] rounded-2xl p-4 sm:p-5 shadow-2xs">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
               <div>
                 <h2 className="text-sm font-bold text-[#081A2F]">
-                  Staff & Faculty On Duty
+                  Staff today
                 </h2>
                 <p className="text-[11px] text-slate-500 mt-0.5">
                   Today's clock-in status and attendance
@@ -804,7 +826,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 onClick={() => onNavigate('geofence')}
                 className="text-xs font-semibold text-[#081A2F] hover:underline cursor-pointer"
               >
-                Muster Roll →
+                Staff attendance →
               </button>
             </div>
 
@@ -812,9 +834,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <div className="space-y-2">
                 {staffRoster.slice(0, 4).map((staff, idx) => {
                   const sName = staff.staff_name || staff.full_name || 'Faculty Member';
-                  const isPresent = staff.status === 'present';
-                  const isLate = staff.status === 'late';
-                  const isOnLeave = staff.status === 'on_leave' || staff.status === 'leave';
+                  const st = (staff.status || '').toLowerCase();
+                  const isOnTime = st === 'on_time' || st === 'present';
+                  const isLate = st === 'late';
+                  const isHalfDay = st === 'half_day';
+                  const isOnLeave = st === 'on_leave' || st === 'leave';
+                  const isAbsent = st === 'absent';
+                  const timeStr = formatCampusTime(staff.clock_in_time, tenant?.settings?.timezone || 'Asia/Karachi');
 
                   return (
                     <div key={staff.staff_id || staff.id || idx} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-2.5 text-xs">
@@ -829,14 +855,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                       </div>
 
                       <div className="text-right shrink-0">
-                        {isPresent && (
+                        {isOnTime && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            {staff.clock_in_time ? staff.clock_in_time.slice(0, 5) : '08:00'} • On Time
+                            {timeStr ? `${timeStr} • ` : ''}On Time
                           </span>
                         )}
                         {isLate && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-amber-50 text-amber-700 border border-amber-200">
-                            {staff.clock_in_time ? staff.clock_in_time.slice(0, 5) : '08:18'} • Late
+                            {timeStr ? `${timeStr} • ` : ''}Late
+                          </span>
+                        )}
+                        {isHalfDay && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-amber-50 text-amber-800 border border-amber-200">
+                            {timeStr ? `${timeStr} • ` : ''}Half Day
                           </span>
                         )}
                         {isOnLeave && (
@@ -844,9 +875,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                             On Leave
                           </span>
                         )}
-                        {!isPresent && !isLate && !isOnLeave && (
+                        {isAbsent && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-rose-50 text-rose-700 border border-rose-200">
+                            Absent
+                          </span>
+                        )}
+                        {!isOnTime && !isLate && !isHalfDay && !isOnLeave && !isAbsent && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-slate-100 text-slate-500">
-                            Off Duty
+                            Not marked
                           </span>
                         )}
                       </div>
@@ -856,7 +892,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               </div>
             ) : (
               <p className="text-xs text-slate-400 py-3 text-center">
-                Staff muster roll loading...
+                No staff attendance for today.
               </p>
             )}
           </div>
@@ -903,15 +939,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
               <span className="text-xl sm:text-2xl font-bold font-mono text-white">
-                {homeworkList.length}
+                {todayHomework.length > 0 ? todayHomework.length : homeworkList.length}
               </span>
               <span className="text-xs text-slate-400 font-medium">
-                Tasks Assigned Today
+                {todayHomework.length > 0 ? 'Tasks Assigned Today' : 'Tasks in Diary'}
               </span>
             </div>
             <p className="text-[11px] text-slate-300 mt-1 truncate">
-              {homeworkList.length > 0 ? (
-                `${homeworkList[0].title} (${homeworkList[0].subject_name || 'Classwork'})`
+              {snippetHomework ? (
+                `${snippetHomework.title} (${snippetHomework.subject_name || 'Classwork'})`
               ) : (
                 'All batches up to date'
               )}

@@ -452,6 +452,13 @@ export function attendanceRoutes(store: IDataStore) {
         );
         return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
       } catch (err: any) {
+        if (err.message === 'INSUFFICIENT_LEAVE' || err.code === 'INSUFFICIENT_LEAVE') {
+          return reply.status(400).send({
+            success: false,
+            error: { code: 'INSUFFICIENT_LEAVE', message: 'Insufficient leave balance' },
+            timestamp: new Date().toISOString(),
+          });
+        }
         return reply.status(404).send({
           success: false,
           error: { code: 'NOT_FOUND', message: err.message },
@@ -460,5 +467,6 @@ export function attendanceRoutes(store: IDataStore) {
       }
     };
     fastify.patch('/staff-leaves/:id/review', reviewStaffLeaveHandler);
+    fastify.patch('/attendance/staff-leaves/:id/review', reviewStaffLeaveHandler);
   };
 }

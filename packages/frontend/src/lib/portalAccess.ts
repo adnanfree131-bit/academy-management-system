@@ -129,6 +129,7 @@ export const ROLE_DEFAULT_TEMPLATES: Record<string, UserAccessMap> = {
     expenses: 'edit',
     payroll: 'edit',
     enrollment: 'view',
+    staff_attendance: 'view',
   },
   academic_head: {
     enrollment: 'edit',
@@ -145,6 +146,7 @@ export const ROLE_DEFAULT_TEMPLATES: Record<string, UserAccessMap> = {
     geofence: 'edit',
     all_classes: 'edit',
     voucher: 'view',
+    staff_attendance: 'view',
   },
 };
 
@@ -275,4 +277,39 @@ export function canOpenScreen(
   }
 
   return Boolean(accessMap[screen as FeatureId]);
+}
+
+/**
+ * Access check helper matching backend signature and frontend access maps:
+ * can(user, 'complaints', 'edit') or can(accessMap, 'complaints', 'edit')
+ */
+export function can(
+  targetOrFeature: any,
+  featureOrLevel?: any,
+  level: AccessLevel = 'view'
+): boolean {
+  if (!targetOrFeature) return false;
+
+  // Case 1: can(user, 'complaints', 'edit')
+  if (typeof targetOrFeature === 'object' && targetOrFeature.role) {
+    const accessMap = resolveUserAccessMap(targetOrFeature.role, targetOrFeature.permissions, targetOrFeature.access);
+    const feature = featureOrLevel as FeatureId;
+    const reqLevel = level;
+    const actual = accessMap[feature];
+    if (!actual) return false;
+    if (reqLevel === 'view') return actual === 'view' || actual === 'edit';
+    return actual === 'edit';
+  }
+
+  // Case 2: can(accessMap, 'complaints', 'edit')
+  if (typeof targetOrFeature === 'object') {
+    const feature = featureOrLevel as FeatureId;
+    const reqLevel = level;
+    const actual = targetOrFeature[feature];
+    if (!actual) return false;
+    if (reqLevel === 'view') return actual === 'view' || actual === 'edit';
+    return actual === 'edit';
+  }
+
+  return false;
 }

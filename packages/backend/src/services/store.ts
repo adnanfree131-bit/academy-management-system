@@ -122,6 +122,7 @@ import {
   resolveUserAccess,
   can,
 } from '../lib/access.js';
+import { campusToday, campusDayOfWeek, campusMinutes, parseTimeToMinutes, normalizeTimeString, getSundayExcludedWorkingDays } from '../lib/campus-date.js';
 
 export interface StoredOTP {
   id: string;
@@ -410,6 +411,8 @@ export interface IDataStore {
   // --- Phase 3: Timetable & Collision Engine ---
   getRooms(tenantId: string): Promise<Room[]>;
   createRoom(data: Omit<Room, 'id' | 'created_at' | 'updated_at'>): Promise<Room>;
+  updateRoom(tenantId: string, roomId: string, data: Partial<Omit<Room, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>): Promise<Room | null>;
+  deleteRoom(tenantId: string, roomId: string): Promise<'DELETED' | 'IN_USE' | 'NOT_FOUND'>;
   getTimetable(tenantId: string, batchId?: string, day?: DayOfWeek, date?: string): Promise<TimetableSlot[]>;
   checkCollision(tenantId: string, slot: {
     batchId: string;
@@ -422,6 +425,7 @@ export interface IDataStore {
     date?: string;
   }): Promise<TimetableCollisionResult>;
   createTimetableSlot(data: Omit<TimetableSlot, 'id' | 'created_at' | 'updated_at'>): Promise<TimetableSlot>;
+  updateTimetableSlot(tenantId: string, slotId: string, data: Partial<Omit<TimetableSlot, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>): Promise<TimetableSlot | null>;
   assignSubstitute(tenantId: string, slotId: string, substituteTeacherId: string, date?: string, reason?: string): Promise<TimetableSlot>;
   deleteTimetableSlot(tenantId: string, slotId: string): Promise<boolean>;
   getAvailableTeachers(tenantId: string, dayOfWeek: DayOfWeek, startTime: string, endTime: string, date?: string): Promise<User[]>;
@@ -452,6 +456,7 @@ export interface IDataStore {
   staffClockIn(tenantId: string, staffId: string, staffName: string, lat: number, lng: number): Promise<StaffAttendanceRecord>;
   staffClockOut(tenantId: string, staffId: string, lat: number, lng: number): Promise<StaffAttendanceRecord>;
   getStaffAttendance(tenantId: string, date?: string): Promise<StaffAttendanceRecord[]>;
+  getMyStaffAttendance(tenantId: string, staffId: string, date?: string): Promise<StaffAttendanceRecord | null>;
   getStaffRoster(tenantId: string, date?: string): Promise<DailyStaffRosterEntry[]>;
   getStaffMonthlySummary(tenantId: string, monthStr: string): Promise<StaffMonthlyAttendanceSummary[]>;
   manualStaffAttendance(
@@ -477,6 +482,18 @@ export interface IDataStore {
   // --- Phase 3: Homework Diary & Physical Notebook Checking ---
   getHomework(tenantId: string, batchId?: string): Promise<HomeworkAssignment[]>;
   createHomework(data: Omit<HomeworkAssignment, 'id' | 'created_at'>): Promise<HomeworkAssignment>;
+  updateHomework(
+    tenantId: string,
+    id: string,
+    data: Partial<Omit<HomeworkAssignment, 'id' | 'tenant_id' | 'created_at'>>
+  ): Promise<HomeworkAssignment | null>;
+  deleteHomework(tenantId: string, id: string): Promise<boolean>;
+  getHomeworkRoster(tenantId: string, assignmentId: string): Promise<Array<{
+    id: string;
+    full_name: string;
+    admission_number: string;
+    roll_number?: string;
+  }>>;
   recordNotebookChecks(
     tenantId: string,
     assignmentId: string,
@@ -491,10 +508,11 @@ export interface IDataStore {
   updateComplaintStatus(
     tenantId: string,
     id: string,
-    status: ComplaintStatus,
-    resolutionReply?: string,
-    internalNotes?: string,
-    resolvedBy?: string
+    status?: ComplaintStatus,
+    resolutionReply?: string | null,
+    internalNotes?: string | null,
+    resolvedBy?: string | null,
+    extra?: Partial<ComplaintTicket>
   ): Promise<ComplaintTicket>;
 
   // --- Phase 4: Fee Heads & Priority Configuration ---
@@ -683,8 +701,8 @@ export interface IDataStore {
   getWhatsAppAuditLogs(tenantId: string, studentId?: string): Promise<WhatsAppAuditLog[]>;
   checkDuplicateAlertToday(tenantId: string, studentId: string, templateCategory: string): Promise<{ wasDispatchedToday: boolean; lastDispatchedAt?: string; dispatchedBy?: string }>;
 
-  syncDailyAbsenteeRoster(tenantId: string, date: string): Promise<AbsenteeFollowupItem[]>;
-  getAbsenteeFollowups(tenantId: string, filters?: { date?: string; batchId?: string; status?: string }): Promise<AbsenteeFollowupItem[]>;
+  syncDailyAbsenteeRoster(tenantId: string, date?: string): Promise<AbsenteeFollowupItem[]>;
+  getAbsenteeFollowups(tenantId: string, filters?: { date?: string; batchId?: string; status?: string; include_snoozed?: boolean }): Promise<AbsenteeFollowupItem[]>;
   getAbsenteeDeskKPI(tenantId: string, date: string): Promise<AbsenteeDeskSummaryKPI>;
   logParentResponse(
     tenantId: string,
@@ -699,6 +717,7 @@ export interface IDataStore {
     counselorId?: string
   ): Promise<AbsenteeFollowupItem | null>;
   getRetentionCases(tenantId: string): Promise<RetentionCounselingCase[]>;
+  refreshRetentionCases(tenantId: string, date?: string): Promise<RetentionCounselingCase[]>;
   scheduleRetentionMeeting(tenantId: string, caseId: string, meetingDate: string, notes: string): Promise<RetentionCounselingCase | null>;
   getAbsenteeResolutionReport(tenantId: string, month: string): Promise<AbsenteeResolutionReport>;
 
@@ -720,7 +739,7 @@ export interface IDataStore {
   reviewSubscriptionReceipt(receiptId: string, status: SubscriptionReceiptStatus, reviewedByEmail: string): Promise<SubscriptionPaymentReceipt>;
   activateAcademy(tenantId: string, durationMonths: number, reviewedByEmail?: string): Promise<Tenant>;
   getTeacherPortalOverview(tenantId: string, teacherId: string, date?: string): Promise<TeacherPortalOverview>;
-  getStudentParentPortalOverview(tenantId: string, studentId?: string, enrollmentId?: string): Promise<StudentParentPortalOverview>;
+  getStudentParentPortalOverview(tenantId: string, studentId?: string, enrollmentId?: string, date?: string): Promise<StudentParentPortalOverview>;
   getSuperAdminOverview(): Promise<SuperAdminOverview>;
   getPlatformConfig(): Promise<PlatformGlobalConfig>;
   updatePlatformConfig(updates: Partial<PlatformGlobalConfig>): Promise<PlatformGlobalConfig>;
@@ -808,6 +827,15 @@ export function isBatchEndedForBillingMonth(batchEndDate: string | null | undefi
   return endIso < monthStartIso;
 }
 
+export function mapHeadCategoryToStatus(category?: string, fallback: StaffAttendanceStatus = 'on_time'): StaffAttendanceStatus {
+  if (category === 'present') return 'on_time';
+  if (category === 'late') return 'late';
+  if (category === 'half_day') return 'half_day';
+  if (category === 'leave') return 'on_leave';
+  if (category === 'absent') return 'absent';
+  if (category === 'on_time' || category === 'on_leave') return category;
+  return fallback;
+}
 
 export class InMemoryDataStore implements IDataStore {
   private tenants: Map<string, Tenant> = new Map();
@@ -939,7 +967,7 @@ export class InMemoryDataStore implements IDataStore {
   private persisting = false;
   private persistAllowed = false;
 
-  private snapshotState(): Record<string, unknown> {
+  public snapshotState(): Record<string, unknown> {
     return {
       tenants: [...this.tenants.entries()],
       users: [...this.users.entries()],
@@ -994,7 +1022,7 @@ export class InMemoryDataStore implements IDataStore {
     };
   }
 
-  private applySnapshot(payload: Record<string, unknown>): void {
+  public applySnapshot(payload: Record<string, unknown>): void {
     const asEntries = <K, V>(value: unknown): [K, V][] => (Array.isArray(value) ? (value as [K, V][]) : []);
     const asArray = <T>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
 
@@ -2740,6 +2768,31 @@ export class InMemoryDataStore implements IDataStore {
       status: 'UNREACHABLE',
       staff_counselor_id: 'a1000000-0000-0000-0000-000000000001',
       staff_counselor_name: 'Campus Director',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    });
+
+    this.absenteeFollowups.push({
+      id: 'af-4',
+      tenant_id: tenantAId,
+      student_id: 'stud-5',
+      student_name: 'Zainab Fatima',
+      admission_number: 'ADM-2026-005',
+      roll_number: 'A-105',
+      guardian_name: 'Fatima Bibi',
+      guardian_phone: '+923005556677',
+      backup_phone: null,
+      batch_id: batchA.id,
+      batch_name: batchA.name,
+      date: todayStr,
+      consecutive_days: 1,
+      call_outcome: null,
+      reason_category: null,
+      parent_remarks: null,
+      expected_return_date: null,
+      is_snoozed: false,
+      snooze_until: null,
+      status: 'PENDING',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     });
@@ -5528,11 +5581,41 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     };
     this.rooms.push(room);
+    this.schedulePersist();
     return room;
   }
 
+  async updateRoom(tenantId: string, roomId: string, data: Partial<Omit<Room, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>): Promise<Room | null> {
+    const room = this.rooms.find(r => r.id === roomId && r.tenant_id === tenantId);
+    if (!room) {
+      return null;
+    }
+    if (data.name !== undefined) room.name = data.name;
+    if (data.capacity !== undefined) room.capacity = data.capacity;
+    if (data.is_active !== undefined) room.is_active = data.is_active;
+    room.updated_at = new Date().toISOString();
+    this.schedulePersist();
+    return room;
+  }
+
+  async deleteRoom(tenantId: string, roomId: string): Promise<'DELETED' | 'IN_USE' | 'NOT_FOUND'> {
+    const roomIndex = this.rooms.findIndex(r => r.id === roomId && r.tenant_id === tenantId);
+    if (roomIndex < 0) {
+      return 'NOT_FOUND';
+    }
+    const hasSlot = this.timetableSlots.some(s => s.tenant_id === tenantId && s.room_id === roomId);
+    if (hasSlot) {
+      return 'IN_USE';
+    }
+    this.rooms.splice(roomIndex, 1);
+    this.schedulePersist();
+    return 'DELETED';
+  }
+
   async getTimetable(tenantId: string, batchId?: string, day?: DayOfWeek, date?: string): Promise<TimetableSlot[]> {
-    const queryDate = date || new Date().toISOString().split('T')[0];
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const queryDate = date || campusToday(tenantTimezone);
     return this.timetableSlots
       .filter(s => 
         s.tenant_id === tenantId &&
@@ -5541,9 +5624,11 @@ export class InMemoryDataStore implements IDataStore {
         !s.is_cancelled
       )
       .map(s => {
+        const batch = this.batches.find(b => b.id === s.batch_id && b.tenant_id === tenantId);
         const activeSub = s.substitutions?.find(sub => sub.date === queryDate);
         return {
           ...s,
+          room_name: s.room_name || batch?.room_number || 'Room not set',
           substitute_teacher_id: activeSub ? activeSub.substitute_teacher_id : (s.substitutions?.length ? null : (s.substitute_teacher_id || null)),
           substitute_teacher_name: activeSub ? (activeSub.substitute_teacher_name || null) : (s.substitutions?.length ? null : (s.substitute_teacher_name || null)),
         };
@@ -5560,9 +5645,6 @@ export class InMemoryDataStore implements IDataStore {
     excludeSlotId?: string;
     date?: string;
   }): Promise<TimetableCollisionResult> {
-    const geofence = await this.getGeofenceConfig(tenantId);
-    const multiRoom = geofence.multi_room_enabled;
-
     const existingSlots = this.timetableSlots.filter(s => 
       s.tenant_id === tenantId &&
       s.day_of_week === slot.dayOfWeek &&
@@ -5570,9 +5652,19 @@ export class InMemoryDataStore implements IDataStore {
       s.id !== slot.excludeSlotId
     );
 
+    const startA = parseTimeToMinutes(slot.startTime);
+    const endA = parseTimeToMinutes(slot.endTime);
+    if (startA === null || endA === null) {
+      return { has_conflict: false };
+    }
+
     for (const existing of existingSlots) {
-      // Time overlap check: startA < endB && endA > startB
-      const overlaps = slot.startTime < existing.end_time && slot.endTime > existing.start_time;
+      const startB = parseTimeToMinutes(existing.start_time);
+      const endB = parseTimeToMinutes(existing.end_time);
+      if (startB === null || endB === null) continue;
+
+      // Time overlap check: startA < endB && endA > startB in minutes
+      const overlaps = startA < endB && endA > startB;
       if (!overlaps) continue;
 
       // 1. Batch conflict: Is this batch already scheduled at this time?
@@ -5602,8 +5694,8 @@ export class InMemoryDataStore implements IDataStore {
         };
       }
 
-      // 3. Room conflict: Only if multi-room mode is enabled and physical roomId is provided
-      if (multiRoom && slot.roomId && existing.room_id && existing.room_id === slot.roomId) {
+      // 3. Room conflict: Only if physical roomId is provided and not empty
+      if (slot.roomId && existing.room_id && existing.room_id === slot.roomId) {
         return {
           has_conflict: true,
           conflict_type: 'room_conflict',
@@ -5639,6 +5731,8 @@ export class InMemoryDataStore implements IDataStore {
     const slot: TimetableSlot = {
       ...data,
       id: crypto.randomUUID(),
+      start_time: normalizeTimeString(data.start_time),
+      end_time: normalizeTimeString(data.end_time),
       batch_name: batch?.name || data.batch_name,
       subject_name: subject?.name || data.subject_name,
       teacher_name: teacher?.full_name || data.teacher_name,
@@ -5648,6 +5742,62 @@ export class InMemoryDataStore implements IDataStore {
     };
 
     this.timetableSlots.push(slot);
+    this.schedulePersist();
+    return slot;
+  }
+
+  async updateTimetableSlot(
+    tenantId: string,
+    slotId: string,
+    data: Partial<Omit<TimetableSlot, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>
+  ): Promise<TimetableSlot | null> {
+    const slot = this.timetableSlots.find(s => s.id === slotId && s.tenant_id === tenantId);
+    if (!slot) {
+      return null;
+    }
+
+    const targetBatchId = data.batch_id || slot.batch_id;
+    const targetTeacherId = data.teacher_id || slot.teacher_id;
+    const targetRoomId = data.room_id !== undefined ? data.room_id : slot.room_id;
+    const targetDay = data.day_of_week || slot.day_of_week;
+    const targetStart = data.start_time ? normalizeTimeString(data.start_time) : slot.start_time;
+    const targetEnd = data.end_time ? normalizeTimeString(data.end_time) : slot.end_time;
+
+    const collision = await this.checkCollision(tenantId, {
+      batchId: targetBatchId,
+      teacherId: targetTeacherId,
+      roomId: targetRoomId,
+      dayOfWeek: targetDay,
+      startTime: targetStart,
+      endTime: targetEnd,
+      excludeSlotId: slotId,
+    });
+
+    if (collision.has_conflict) {
+      throw new Error(`Collision detected: ${collision.message}`);
+    }
+
+    // Hydrate names
+    const batch = this.batches.find(b => b.id === targetBatchId && b.tenant_id === tenantId);
+    const subject = data.subject_id ? this.subjects.find(s => s.id === data.subject_id && s.tenant_id === tenantId) : (slot.subject_id ? this.subjects.find(s => s.id === slot.subject_id && s.tenant_id === tenantId) : undefined);
+    const teacher = Array.from(this.users.values()).find(u => u.id === targetTeacherId && u.tenant_id === tenantId);
+    const room = targetRoomId ? this.rooms.find(r => r.id === targetRoomId && r.tenant_id === tenantId) : undefined;
+
+    slot.batch_id = targetBatchId;
+    if (data.subject_id) slot.subject_id = data.subject_id;
+    slot.teacher_id = targetTeacherId;
+    slot.room_id = targetRoomId || null;
+    slot.day_of_week = targetDay;
+    slot.start_time = targetStart;
+    slot.end_time = targetEnd;
+
+    // Rewrites hydrated names
+    slot.batch_name = batch?.name || slot.batch_name;
+    if (subject) slot.subject_name = subject.name;
+    slot.teacher_name = teacher?.full_name || slot.teacher_name;
+    slot.room_name = room?.name || (targetRoomId ? slot.room_name : null);
+    slot.updated_at = new Date().toISOString();
+
     this.schedulePersist();
     return slot;
   }
@@ -5667,8 +5817,10 @@ export class InMemoryDataStore implements IDataStore {
     const substitute = Array.from(this.users.values()).find(u => u.id === substituteTeacherId && u.tenant_id === tenantId);
     if (!substitute) throw new Error('Substitute teacher not found');
 
-    const subDate = date || new Date().toISOString().split('T')[0];
-    const today = new Date().toISOString().split('T')[0];
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const subDate = date || campusToday(tenantTimezone);
+    const today = campusToday(tenantTimezone);
 
     // Check if substitute teacher is already engaged during this time on this date
     const collision = await this.checkCollision(tenantId, {
@@ -5720,25 +5872,46 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async getAvailableTeachers(tenantId: string, dayOfWeek: DayOfWeek, startTime: string, endTime: string, date?: string): Promise<User[]> {
-    const allTeachers = Array.from(this.users.values()).filter(u => u.tenant_id === tenantId && (u.role === 'teacher' || u.role === 'tenant_admin'));
-    
-    // Find teachers with conflicting slots
+    const teachingStaff = Array.from(this.users.values()).filter(u => {
+      if (u.tenant_id !== tenantId) return false;
+      if (u.status === 'archived' || (u.metadata as any)?.status === 'archived') return false;
+      if (['student', 'parent', 'super_admin'].includes(u.role)) return false;
+
+      const assignments = Array.isArray(u.metadata?.teaching_assignments) ? u.metadata.teaching_assignments : [];
+      const hasTeachingAssignment = assignments.length > 0;
+
+      if (u.role === 'tenant_admin') {
+        return hasTeachingAssignment;
+      }
+
+      return u.role === 'teacher' || u.role === 'academic_head' || hasTeachingAssignment;
+    });
+
     const busyTeacherIds = new Set<string>();
-    for (const slot of this.timetableSlots) {
-      if (slot.tenant_id === tenantId && slot.day_of_week === dayOfWeek && !slot.is_cancelled) {
-        const overlaps = startTime < slot.end_time && endTime > slot.start_time;
-        if (overlaps) {
-          if (date && slot.substitutions?.length) {
-            const sub = slot.substitutions.find(s => s.date === date);
-            busyTeacherIds.add(sub ? sub.substitute_teacher_id : slot.teacher_id);
-          } else {
-            busyTeacherIds.add(slot.teacher_id);
+    const startA = parseTimeToMinutes(startTime);
+    const endA = parseTimeToMinutes(endTime);
+
+    if (startA !== null && endA !== null) {
+      for (const slot of this.timetableSlots) {
+        if (slot.tenant_id === tenantId && slot.day_of_week === dayOfWeek && !slot.is_cancelled) {
+          const startB = parseTimeToMinutes(slot.start_time);
+          const endB = parseTimeToMinutes(slot.end_time);
+          if (startB === null || endB === null) continue;
+
+          const overlaps = startA < endB && endA > startB;
+          if (overlaps) {
+            if (date && slot.substitutions?.length) {
+              const sub = slot.substitutions.find(s => s.date === date);
+              busyTeacherIds.add(sub ? sub.substitute_teacher_id : slot.teacher_id);
+            } else {
+              busyTeacherIds.add(slot.teacher_id);
+            }
           }
         }
       }
     }
 
-    return allTeachers.filter(t => !busyTeacherIds.has(t.id));
+    return teachingStaff.filter(t => !busyTeacherIds.has(t.id));
   }
 
   // --- Phase 3: Student Attendance & Leaves ---
@@ -5856,16 +6029,29 @@ export class InMemoryDataStore implements IDataStore {
     // 1. Auto-sync newly marked absentees into the daily follow-up roster
     await this.syncDailyAbsenteeRoster(tenantId, date);
 
-    // 2. If any student was previously marked absent but is now updated to present/late/excused, resolve the followup
+    // 2. If any student was previously marked absent but is now updated to present/late/excused, resolve or delete the followup
     for (const item of records) {
       if (item.status !== 'absent') {
         const existingFollowup = this.absenteeFollowups.find(
-          f => f.tenant_id === tenantId && f.student_id === item.student_id && f.date === date
+          f => f.tenant_id === tenantId && f.student_id === item.student_id && f.date === date && (f.batch_id === batchId || !f.batch_id)
         );
-        if (existingFollowup && existingFollowup.status === 'PENDING') {
-          existingFollowup.status = item.status === 'excused' ? 'RESOLVED_EXCUSED' : 'CONTACTED';
-          existingFollowup.parent_remarks = `Attendance revised to ${item.status}`;
-          existingFollowup.updated_at = new Date().toISOString();
+        if (existingFollowup) {
+          if (item.status === 'excused') {
+            existingFollowup.status = 'RESOLVED_EXCUSED';
+            existingFollowup.updated_at = new Date().toISOString();
+          } else {
+            if (existingFollowup.status === 'PENDING' && !existingFollowup.call_outcome) {
+              this.absenteeFollowups = this.absenteeFollowups.filter(f => f.id !== existingFollowup.id);
+            } else {
+              const prefix = `Attendance revised to ${item.status}. `;
+              if (!existingFollowup.parent_remarks?.startsWith(`Attendance revised to ${item.status}`)) {
+                existingFollowup.parent_remarks = existingFollowup.parent_remarks
+                  ? `${prefix}${existingFollowup.parent_remarks}`
+                  : `Attendance revised to ${item.status}`;
+              }
+              existingFollowup.updated_at = new Date().toISOString();
+            }
+          }
         }
       }
     }
@@ -5950,10 +6136,131 @@ export class InMemoryDataStore implements IDataStore {
     const leave = this.staffLeaves.find(l => l.id === leaveId && l.tenant_id === tenantId);
     if (!leave) throw new Error('Staff leave record not found');
 
-    leave.status = status;
+    const nowIso = new Date().toISOString();
+
+    if (leave.status === 'approved') {
+      return leave;
+    }
+
+    if (status === 'rejected') {
+      leave.status = 'rejected';
+      leave.review_notes = reviewNotes || null;
+      leave.reviewed_by = reviewerId || null;
+      leave.updated_at = nowIso;
+      this.schedulePersist();
+      return leave;
+    }
+
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+
+    // Calculate dates in leave range that are NOT Sunday
+    const dates: string[] = [];
+    const cur = new Date(`${leave.start_date}T00:00:00Z`);
+    const end = new Date(`${leave.end_date}T00:00:00Z`);
+    while (cur <= end) {
+      const dateStr = cur.toISOString().split('T')[0];
+      if (campusDayOfWeek(dateStr, tenantTimezone) !== 'sunday') {
+        dates.push(dateStr);
+      }
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+    const days = dates.length;
+
+    // Resolve user to decrement leave balance
+    const user = Array.from(this.users.values()).find(u => u.id === leave.staff_id && u.tenant_id === tenantId)
+      || Array.from(this.users.values()).find(u => u.id === leave.staff_id);
+
+    if (user) {
+      if (!user.metadata) user.metadata = {};
+      if (!user.metadata.leave_balance) {
+        user.metadata.leave_balance = {
+          casual_allowed: 12,
+          casual_used: 0,
+          sick_allowed: 8,
+          sick_used: 0,
+          annual_allowed: 10,
+          annual_used: 0,
+        };
+      }
+      const lb = user.metadata.leave_balance as any;
+      const reasonLower = (leave.reason || '').toLowerCase();
+      const isCasual = reasonLower.includes('casual') || leave.category === 'casual';
+      const isSick = reasonLower.includes('sick') || leave.category === 'medical';
+
+      if (isCasual) {
+        const used = lb.casual_used ?? 0;
+        const allowed = lb.casual_allowed ?? 12;
+        if (used + days > allowed) {
+          const err: any = new Error('INSUFFICIENT_LEAVE');
+          err.code = 'INSUFFICIENT_LEAVE';
+          throw err;
+        }
+        lb.casual_used = used + days;
+      } else if (isSick) {
+        const used = lb.sick_used ?? 0;
+        const allowed = lb.sick_allowed ?? 8;
+        if (used + days > allowed) {
+          const err: any = new Error('INSUFFICIENT_LEAVE');
+          err.code = 'INSUFFICIENT_LEAVE';
+          throw err;
+        }
+        lb.sick_used = used + days;
+      } else {
+        const used = lb.annual_used ?? 0;
+        const allowed = lb.annual_allowed ?? 10;
+        if (used + days > allowed) {
+          const err: any = new Error('INSUFFICIENT_LEAVE');
+          err.code = 'INSUFFICIENT_LEAVE';
+          throw err;
+        }
+        lb.annual_used = used + days;
+      }
+    }
+
+    for (const dStr of dates) {
+      const existing = this.staffAttendance.find(s => s.tenant_id === tenantId && s.staff_id === leave.staff_id && s.date === dStr);
+      if (existing) {
+        if (existing.clock_in_time || existing.verification_mode === 'geofence') {
+          continue;
+        }
+        existing.status = 'on_leave';
+        existing.verification_mode = 'manual_regularization';
+        existing.admin_adjusted = true;
+        existing.admin_adjustment_notes = `Approved Leave (${leave.category})${leave.reason ? `: ${leave.reason}` : ''}`;
+        existing.adjusted_by = reviewerId || 'Administrator';
+        existing.updated_at = nowIso;
+      } else {
+        const newRecord: StaffAttendanceRecord = {
+          id: crypto.randomUUID(),
+          tenant_id: tenantId,
+          staff_id: leave.staff_id,
+          staff_name: leave.staff_name || user?.full_name || 'Staff Member',
+          date: dStr,
+          clock_in_time: null,
+          clock_out_time: null,
+          work_duration_minutes: 0,
+          status: 'on_leave',
+          distance_meters: 0,
+          clock_in_lat: 0,
+          clock_in_lng: 0,
+          is_geofence_verified: false,
+          verification_mode: 'manual_regularization',
+          admin_adjusted: true,
+          admin_adjustment_notes: `Approved Leave (${leave.category})${leave.reason ? `: ${leave.reason}` : ''}`,
+          adjusted_by: reviewerId || 'Administrator',
+          sessions: [],
+          created_at: nowIso,
+          updated_at: nowIso,
+        };
+        this.staffAttendance.push(newRecord);
+      }
+    }
+
+    leave.status = 'approved';
     leave.review_notes = reviewNotes || null;
     leave.reviewed_by = reviewerId || null;
-    leave.updated_at = new Date().toISOString();
+    leave.updated_at = nowIso;
 
     this.schedulePersist();
     return leave;
@@ -6055,27 +6362,8 @@ export class InMemoryDataStore implements IDataStore {
       return (h || 0) * 60 + (m || 0);
     };
 
-    const getMinutesFromIso = (isoStr?: string | null, timeZone: string = 'Asia/Karachi'): number | null => {
-      if (!isoStr) return null;
-      try {
-        const d = new Date(isoStr);
-        if (isNaN(d.getTime())) return null;
-        const formatter = new Intl.DateTimeFormat('en-GB', {
-          timeZone,
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        });
-        const [h, m] = formatter.format(d).split(':').map(Number);
-        return (h || 0) * 60 + (m || 0);
-      } catch {
-        const d = new Date(isoStr);
-        return d.getHours() * 60 + d.getMinutes();
-      }
-    };
-
-    const inMinutes = getMinutesFromIso(clockInTime);
-    const outMinutes = getMinutesFromIso(clockOutTime);
+    const inMinutes = clockInTime ? campusMinutes(clockInTime) : null;
+    const outMinutes = clockOutTime ? campusMinutes(clockOutTime) : null;
     const hoursWorked = workDurationMinutes ? workDurationMinutes / 60 : 0;
     const hasCheckedIn = Boolean(clockInTime);
     const hasCheckedOut = Boolean(clockOutTime);
@@ -6090,34 +6378,22 @@ export class InMemoryDataStore implements IDataStore {
 
         if (trigger.time) {
           const cutoff = parseTimeToMinutes(trigger.time);
-          let nowMins = 0;
-          try {
-            const formatter = new Intl.DateTimeFormat('en-GB', {
-              timeZone: 'Asia/Karachi',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false
-            });
-            const [h, m] = formatter.format(new Date()).split(':').map(Number);
-            nowMins = (h || 0) * 60 + (m || 0);
-          } catch {
-            nowMins = new Date().getHours() * 60 + new Date().getMinutes();
-          }
+          const nowMins = campusMinutes(new Date().toISOString());
 
           if (isClosedOrPastDate || (cutoff !== null && nowMins > cutoff)) {
             return {
               head_id: head.id,
               head_name: head.name,
-              head_code: head.code || 'HD',
-              status: (head.category as StaffAttendanceStatus) || 'absent',
+              head_code: head.code || 'A',
+              status: mapHeadCategoryToStatus(head.category, 'absent'),
             };
           }
         } else if (isClosedOrPastDate) {
           return {
             head_id: head.id,
             head_name: head.name,
-            head_code: head.code || 'HD',
-            status: (head.category as StaffAttendanceStatus) || 'absent',
+            head_code: head.code || 'A',
+            status: mapHeadCategoryToStatus(head.category, 'absent'),
           };
         }
       }
@@ -6148,7 +6424,7 @@ export class InMemoryDataStore implements IDataStore {
               head_id: head.id,
               head_name: head.name,
               head_code: head.code || '',
-              status: (head.category as StaffAttendanceStatus) || 'half_day',
+              status: mapHeadCategoryToStatus(head.category, 'half_day'),
             };
           }
         } else if (trigger.type === 'hours_between') {
@@ -6158,7 +6434,7 @@ export class InMemoryDataStore implements IDataStore {
                 head_id: head.id,
                 head_name: head.name,
                 head_code: head.code || '',
-                status: (head.category as StaffAttendanceStatus) || 'half_day',
+                status: mapHeadCategoryToStatus(head.category, 'half_day'),
               };
             }
           }
@@ -6170,7 +6446,7 @@ export class InMemoryDataStore implements IDataStore {
                 head_id: head.id,
                 head_name: head.name,
                 head_code: head.code || '',
-                status: (head.category as StaffAttendanceStatus) || 'half_day',
+                status: mapHeadCategoryToStatus(head.category, 'half_day'),
               };
             }
           }
@@ -6183,7 +6459,7 @@ export class InMemoryDataStore implements IDataStore {
                 head_id: head.id,
                 head_name: head.name,
                 head_code: head.code || '',
-                status: (head.category as StaffAttendanceStatus) || 'half_day',
+                status: mapHeadCategoryToStatus(head.category, 'half_day'),
               };
             }
           }
@@ -6205,7 +6481,7 @@ export class InMemoryDataStore implements IDataStore {
             head_id: head.id,
             head_name: head.name,
             head_code: head.code || '',
-            status: (head.category as StaffAttendanceStatus) || 'late',
+            status: mapHeadCategoryToStatus(head.category, 'late'),
           };
         }
       } else if (trigger.type === 'check_in_between') {
@@ -6217,7 +6493,7 @@ export class InMemoryDataStore implements IDataStore {
               head_id: head.id,
               head_name: head.name,
               head_code: head.code || '',
-              status: (head.category as StaffAttendanceStatus) || 'late',
+              status: mapHeadCategoryToStatus(head.category, 'late'),
             };
           }
         }
@@ -6228,7 +6504,7 @@ export class InMemoryDataStore implements IDataStore {
             head_id: head.id,
             head_name: head.name,
             head_code: head.code || '',
-            status: (head.category as StaffAttendanceStatus) || 'on_time',
+            status: mapHeadCategoryToStatus(head.category, 'on_time'),
           };
         }
       }
@@ -6248,7 +6524,7 @@ export class InMemoryDataStore implements IDataStore {
               head_id: head.id,
               head_name: head.name,
               head_code: head.code || '',
-              status: (head.category as StaffAttendanceStatus) || 'on_time',
+              status: mapHeadCategoryToStatus(head.category, 'on_time'),
             };
           }
         } else if (trigger.type === 'check_out_after') {
@@ -6259,7 +6535,7 @@ export class InMemoryDataStore implements IDataStore {
                 head_id: head.id,
                 head_name: head.name,
                 head_code: head.code || '',
-                status: (head.category as StaffAttendanceStatus) || 'on_time',
+                status: mapHeadCategoryToStatus(head.category, 'on_time'),
               };
             }
           }
@@ -6385,7 +6661,9 @@ export class InMemoryDataStore implements IDataStore {
 
     const now = new Date();
     const nowIso = now.toISOString();
-    const dateStr = nowIso.split('T')[0];
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const dateStr = campusToday(tenantTimezone, now);
 
     // Resolve accurate user full name
     const user = Array.from(this.users.values()).find(u => u.id === staffId);
@@ -6394,56 +6672,80 @@ export class InMemoryDataStore implements IDataStore {
     // Check if record already exists for today
     let record = this.staffAttendance.find(s => s.tenant_id === tenantId && s.staff_id === staffId && s.date === dateStr);
     if (record) {
-      if (record.clock_out_time) {
-        // Multi-session punch: Shift was previously closed, now starting a subsequent session (e.g. evening academy batch)
-        if (!record.sessions || record.sessions.length === 0) {
-          record.sessions = [
-            {
-              in: record.clock_in_time || nowIso,
-              out: record.clock_out_time,
-              duration_minutes: record.work_duration_minutes || 0,
-              in_lat: record.clock_in_lat,
-              in_lng: record.clock_in_lng,
-              out_lat: record.clock_out_lat ?? undefined,
-              out_lng: record.clock_out_lng ?? undefined,
-            }
-          ];
-        }
-        const sessions = record.sessions;
-        // Avoid accidental double tap within 2 minutes of clocking out
-        const lastSession = sessions[sessions.length - 1];
-        if (lastSession?.out) {
-          const elapsed = (now.getTime() - new Date(lastSession.out).getTime()) / 1000;
-          if (elapsed < 120) {
-            return record;
+      if (record.clock_in_time) {
+        const hasOpenSession = !record.clock_out_time || (record.sessions && record.sessions.length > 0 && !record.sessions[record.sessions.length - 1].out);
+        if (!hasOpenSession && record.clock_out_time) {
+          // Multi-session punch: Shift was previously closed, now starting a subsequent session (e.g. evening academy batch)
+          if (!record.sessions || record.sessions.length === 0) {
+            record.sessions = [
+              {
+                in: record.clock_in_time || nowIso,
+                out: record.clock_out_time,
+                duration_minutes: record.work_duration_minutes || 0,
+                in_lat: record.clock_in_lat,
+                in_lng: record.clock_in_lng,
+                out_lat: record.clock_out_lat ?? undefined,
+                out_lng: record.clock_out_lng ?? undefined,
+              }
+            ];
           }
+          const sessions = record.sessions;
+          // Avoid accidental double tap within 2 minutes of clocking out
+          const lastSession = sessions[sessions.length - 1];
+          if (lastSession?.out) {
+            const elapsed = (now.getTime() - new Date(lastSession.out).getTime()) / 1000;
+            if (elapsed < 120) {
+              return record;
+            }
+          }
+          // Append new session
+          sessions.push({
+            in: nowIso,
+            in_lat: lat,
+            in_lng: lng,
+          });
+          record.clock_out_time = null;
+          record.clock_out_lat = null;
+          record.clock_out_lng = null;
+          record.updated_at = nowIso;
+          this.schedulePersist();
+          return record;
         }
-        // Append new session
-        sessions.push({
-          in: nowIso,
-          in_lat: lat,
-          in_lng: lng,
+
+        // Second clock-in the same campus day, while the first session is still open, returns the existing record and does not pretend a new arrival.
+        return {
+          ...record,
+          already_open: true,
+        };
+      } else {
+        // Record exists without clock_in_time (e.g. pre-approved leave or unmarked row).
+        // Update the existing record in-place to avoid duplicate records for the same date.
+        const evaluated = this.evaluateHead(config.heads, {
+          clockInTime: nowIso,
+          isClosedOrPastDate: false,
         });
-        record.clock_out_time = null;
-        record.clock_out_lat = null;
-        record.clock_out_lng = null;
+        record.clock_in_time = nowIso;
+        record.clock_in_lat = lat;
+        record.clock_in_lng = lng;
+        record.distance_meters = distanceMeters;
+        record.status = evaluated.status;
+        record.head_id = evaluated.head_id;
+        record.head_name = evaluated.head_name;
+        record.head_code = evaluated.head_code;
+        record.is_geofence_verified = !isOutside;
+        record.verification_mode = 'geofence';
+        record.admin_adjusted = false;
+        record.sessions = [
+          {
+            in: nowIso,
+            in_lat: lat,
+            in_lng: lng,
+          }
+        ];
         record.updated_at = nowIso;
         this.schedulePersist();
         return record;
       }
-
-      // Discard accidental double-tap/retry within 2 minutes
-      const lastActionIso = record.updated_at || record.clock_in_time || nowIso;
-      const lastActionTime = new Date(lastActionIso).getTime();
-      const elapsedSeconds = (now.getTime() - lastActionTime) / 1000;
-      if (elapsedSeconds < 120 && record.clock_in_time) {
-        return record;
-      }
-
-      // First punch of the day remains arrival! Do not overwrite clock_in_time
-      record.updated_at = nowIso;
-      this.schedulePersist();
-      return record;
     }
 
     // Evaluate head trigger for arrival
@@ -6506,25 +6808,27 @@ export class InMemoryDataStore implements IDataStore {
 
     const now = new Date();
     const nowIso = now.toISOString();
-    const dateStr = nowIso.split('T')[0];
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const dateStr = campusToday(tenantTimezone, now);
 
     // 1. Search for an unclosed clock-in for today (either clock_out_time is null OR last session has no out)
     let record = this.staffAttendance.find(
-      s => s.tenant_id === tenantId && s.staff_id === staffId && s.date === dateStr && (!s.clock_out_time || (s.sessions && s.sessions.length > 0 && !s.sessions[s.sessions.length - 1].out))
+      s => s.tenant_id === tenantId && s.staff_id === staffId && s.date === dateStr && Boolean(s.clock_in_time) && (!s.clock_out_time || (s.sessions && s.sessions.length > 0 && !s.sessions[s.sessions.length - 1].out))
     );
 
     // 2. If not found, look back 18 hours for an unclosed shift started yesterday (night shift crossing midnight)
     if (!record) {
-      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const yesterday = campusToday(tenantTimezone, new Date(now.getTime() - 24 * 60 * 60 * 1000));
       record = this.staffAttendance.find(
-        s => s.tenant_id === tenantId && s.staff_id === staffId && s.date === yesterday && (!s.clock_out_time || (s.sessions && s.sessions.length > 0 && !s.sessions[s.sessions.length - 1].out))
+        s => s.tenant_id === tenantId && s.staff_id === staffId && s.date === yesterday && Boolean(s.clock_in_time) && (!s.clock_out_time || (s.sessions && s.sessions.length > 0 && !s.sessions[s.sessions.length - 1].out))
       );
     }
 
     // 3. Fallback to today's record even if already closed (allows updating clock out time)
     if (!record) {
       record = this.staffAttendance.find(
-        s => s.tenant_id === tenantId && s.staff_id === staffId && s.date === dateStr
+        s => s.tenant_id === tenantId && s.staff_id === staffId && s.date === dateStr && Boolean(s.clock_in_time)
       );
     }
 
@@ -6597,9 +6901,29 @@ export class InMemoryDataStore implements IDataStore {
     );
   }
 
+  async getMyStaffAttendance(tenantId: string, staffId: string, date?: string): Promise<StaffAttendanceRecord | null> {
+    this.sanitizeStaffAttendance(tenantId);
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const targetDate = date || campusToday(tenantTimezone);
+
+    const user = Array.from(this.users.values()).find(
+      u => (u.id === staffId || u.email.toLowerCase() === staffId.toLowerCase()) && u.tenant_id === tenantId
+    );
+    const resolvedId = user ? user.id : staffId;
+
+    const record = this.staffAttendance.find(
+      s => s.tenant_id === tenantId && s.staff_id === resolvedId && s.date === targetDate
+    );
+    return record || null;
+  }
+
   async getStaffRoster(tenantId: string, date?: string): Promise<DailyStaffRosterEntry[]> {
-    const dateStr = date || new Date().toISOString().split('T')[0];
-    const isPast = dateStr < new Date().toISOString().split('T')[0];
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const today = campusToday(tenantTimezone);
+    const dateStr = date || today;
+    const isPast = dateStr < today;
 
     const config = await this.getGeofenceConfig(tenantId);
     const heads = config.heads || [];
@@ -6732,40 +7056,68 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async getStaffMonthlySummary(tenantId: string, monthStr: string): Promise<StaffMonthlyAttendanceSummary[]> {
-    const [year, month] = monthStr.split('-').map(Number);
+    let normalizedMonth = monthStr;
+    if (!/^\d{4}-\d{2}$/.test(monthStr)) {
+      const iso = getBillingMonthStartIso(monthStr);
+      if (iso) normalizedMonth = iso.slice(0, 7);
+    }
+    const [year, month] = normalizedMonth.split('-').map(Number);
     const totalCalendarDays = new Date(year, month, 0).getDate();
+
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
 
     const users = this.getStaffMembersForTenant(tenantId);
     this.sanitizeStaffAttendance(tenantId);
     const monthRecords = this.staffAttendance.filter(s =>
-      s.tenant_id === tenantId && s.date.startsWith(monthStr)
+      s.tenant_id === tenantId && s.date.startsWith(normalizedMonth)
     );
+
+    const monthStartStr = `${normalizedMonth}-01`;
+    const monthEndStr = `${normalizedMonth}-${String(totalCalendarDays).padStart(2, '0')}`;
 
     const staffLeaves = this.staffLeaves.filter(l =>
       l.tenant_id === tenantId &&
       l.status === 'approved' &&
-      (l.start_date.startsWith(monthStr) || l.end_date.startsWith(monthStr))
+      l.start_date <= monthEndStr &&
+      l.end_date >= monthStartStr
     );
 
-    return users.map(user => {
+    const userMap = new Map<string, User>();
+    for (const u of users) userMap.set(u.id, u);
+    for (const p of this.staffSalaryProfiles.filter(sp => sp.tenant_id === tenantId)) {
+      if (!userMap.has(p.staff_id)) {
+        const u = Array.from(this.users.values()).find(usr => usr.id === p.staff_id && usr.tenant_id === tenantId);
+        if (u) userMap.set(u.id, u);
+      }
+    }
+    for (const r of monthRecords) {
+      if (!userMap.has(r.staff_id)) {
+        const u = Array.from(this.users.values()).find(usr => usr.id === r.staff_id && usr.tenant_id === tenantId);
+        if (u) userMap.set(u.id, u);
+      }
+    }
+    const allUsers = Array.from(userMap.values());
+
+    return allUsers.map(user => {
       const uName = user.full_name || (user as any).name || 'Staff Member';
       const empCode = (user.metadata?.employee_code as string) || (user as any).employee_code || `EMP-${user.id.slice(0, 4).toUpperCase()}`;
       const dept = (user.metadata?.department as string) || (user as any).department || 'General';
       const designation = (user.metadata?.designation as string) || (user as any).designation || (user.role === 'teacher' ? 'Faculty Member' : 'Staff');
 
       // Edge case: Staff added mid-month - calculate working days only from their enrollment window
-      const joiningDateStr = (user.metadata?.joining_date as string) || (user as any).joining_date || user.created_at?.split('T')[0];
+      const joiningDateStr = (user.metadata?.joining_date as string) || (user as any).joining_date;
       let startDay = 1;
-      if (joiningDateStr && joiningDateStr.startsWith(monthStr)) {
+      if (joiningDateStr && joiningDateStr.startsWith(normalizedMonth)) {
         startDay = Math.max(1, parseInt(joiningDateStr.split('-')[2], 10) || 1);
-      } else if (joiningDateStr && joiningDateStr > `${monthStr}-${String(totalCalendarDays).padStart(2, '0')}`) {
+      } else if (joiningDateStr && joiningDateStr > `${normalizedMonth}-${String(totalCalendarDays).padStart(2, '0')}`) {
         startDay = totalCalendarDays + 1; // Joined after this month
       }
 
       let totalWorkingDays = 0;
       for (let day = startDay; day <= totalCalendarDays; day++) {
-        const d = new Date(year, month - 1, day);
-        if (d.getDay() !== 0) { // Exclude Sundays
+        const dStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        if (campusDayOfWeek(dStr, tenantTimezone) !== 'sunday') {
           totalWorkingDays++;
         }
       }
@@ -6788,13 +7140,20 @@ export class InMemoryDataStore implements IDataStore {
         if (r.is_geofence_verified) geofenceVerifiedCount++;
       });
 
-      let leaveDays = 0;
+      const leaveDates = new Set<string>();
+      userRecs.filter(r => r.status === 'on_leave').forEach(r => leaveDates.add(r.date));
       staffLeaves.filter(l => l.staff_id === user.id).forEach(l => {
-        const start = new Date(l.start_date).getTime();
-        const end = new Date(l.end_date).getTime();
-        const diffDays = Math.max(1, Math.round((end - start) / 86400000) + 1);
-        leaveDays += (l as any).days || diffDays;
+        const cur = new Date(`${l.start_date}T00:00:00Z`);
+        const end = new Date(`${l.end_date}T00:00:00Z`);
+        while (cur <= end) {
+          const dStr = cur.toISOString().split('T')[0];
+          if (dStr.startsWith(normalizedMonth) && campusDayOfWeek(dStr, tenantTimezone) !== 'sunday') {
+            leaveDates.add(dStr);
+          }
+          cur.setUTCDate(cur.getUTCDate() + 1);
+        }
       });
+      const leaveDays = leaveDates.size;
 
       const accountedDays = presentCount + lateCount + halfDayCount + leaveDays;
       const absentDays = Math.max(0, totalWorkingDays - accountedDays);
@@ -6809,7 +7168,7 @@ export class InMemoryDataStore implements IDataStore {
         employee_code: empCode,
         department: dept,
         designation: designation,
-        month: monthStr,
+        month: normalizedMonth,
         total_calendar_days: totalCalendarDays,
         total_working_days: totalWorkingDays,
         present_days: presentCount,
@@ -6846,7 +7205,7 @@ export class InMemoryDataStore implements IDataStore {
     const config = await this.getGeofenceConfig(tenantId);
     const heads = config.heads || [];
     const selectedHead = data.head_id ? heads.find(h => h.id === data.head_id) : undefined;
-    const finalStatus = selectedHead ? (selectedHead.category as StaffAttendanceStatus) : data.status;
+    const finalStatus = selectedHead ? mapHeadCategoryToStatus(selectedHead.category, data.status) : data.status;
 
     let inIso = data.clock_in_time;
     if (inIso && !inIso.includes('T')) {
@@ -7076,11 +7435,18 @@ export class InMemoryDataStore implements IDataStore {
     req.updated_at = nowIso;
 
     if (action === 'approved') {
+      const config = await this.getGeofenceConfig(tenantId);
+      const heads = config.heads || [];
+      const selectedHead = headId ? heads.find(h => h.id === headId) : undefined;
+      const statusFromHead = selectedHead
+        ? mapHeadCategoryToStatus(selectedHead.category, 'on_time')
+        : 'on_time';
+
       await this.manualStaffAttendance(tenantId, {
         staff_id: req.staff_id,
         staff_name: req.staff_name,
         date: req.date,
-        status: 'on_time',
+        status: statusFromHead,
         head_id: headId,
         clock_in_time: req.clock_in_time || undefined,
         clock_out_time: req.clock_out_time || undefined,
@@ -7105,9 +7471,15 @@ export class InMemoryDataStore implements IDataStore {
     const batch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === data.tenant_id);
     const subject = this.subjects.find(s => s.id === data.subject_id && s.tenant_id === data.tenant_id);
 
+    const author = Array.from(this.users.values()).find(
+      u => u.tenant_id === data.tenant_id && (u.id === data.teacher_id || (u.email && u.email.toLowerCase() === data.teacher_id.toLowerCase()))
+    );
+    const teacherName = author?.full_name || (data.teacher_name && !data.teacher_name.includes('@') ? data.teacher_name : 'Teacher');
+
     const hw: HomeworkAssignment = {
       ...data,
       id: crypto.randomUUID(),
+      teacher_name: teacherName,
       batch_name: batch?.name || data.batch_name,
       subject_name: subject?.name || data.subject_name,
       created_at: new Date().toISOString(),
@@ -7118,17 +7490,144 @@ export class InMemoryDataStore implements IDataStore {
     return hw;
   }
 
+  async updateHomework(
+    tenantId: string,
+    id: string,
+    data: Partial<Omit<HomeworkAssignment, 'id' | 'tenant_id' | 'created_at'>>
+  ): Promise<HomeworkAssignment | null> {
+    const idx = this.homeworkAssignments.findIndex(h => h.id === id && h.tenant_id === tenantId);
+    if (idx < 0) return null;
+
+    const existing = this.homeworkAssignments[idx];
+    const batchId = data.batch_id || existing.batch_id;
+    const subjectId = data.subject_id || existing.subject_id;
+
+    const batch = this.batches.find(b => b.id === batchId && b.tenant_id === tenantId);
+    const subject = this.subjects.find(s => s.id === subjectId && s.tenant_id === tenantId);
+
+    const teacherId = existing.teacher_id;
+    const author = Array.from(this.users.values()).find(
+      u => u.tenant_id === tenantId && (u.id === teacherId || (u.email && u.email.toLowerCase() === teacherId.toLowerCase()))
+    );
+    const teacherName = author?.full_name || (data.teacher_name && !data.teacher_name.includes('@') ? data.teacher_name : (existing.teacher_name && !existing.teacher_name.includes('@') ? existing.teacher_name : 'Teacher'));
+
+    const updated: HomeworkAssignment = {
+      ...existing,
+      ...data,
+      id: existing.id,
+      tenant_id: tenantId,
+      teacher_id: teacherId,
+      teacher_name: teacherName,
+      batch_id: batchId,
+      subject_id: subjectId,
+      batch_name: batch?.name || data.batch_name || existing.batch_name,
+      subject_name: subject?.name || data.subject_name || existing.subject_name,
+      created_at: existing.created_at,
+    };
+
+    this.homeworkAssignments[idx] = updated;
+    this.schedulePersist();
+    return updated;
+  }
+
+  async deleteHomework(tenantId: string, id: string): Promise<boolean> {
+    const idx = this.homeworkAssignments.findIndex(h => h.id === id && h.tenant_id === tenantId);
+    if (idx < 0) return false;
+
+    this.homeworkAssignments.splice(idx, 1);
+    this.notebookChecks = this.notebookChecks.filter(c => !(c.tenant_id === tenantId && c.assignment_id === id));
+    this.schedulePersist();
+    return true;
+  }
+
+  async getHomeworkRoster(tenantId: string, assignmentId: string): Promise<Array<{
+    id: string;
+    full_name: string;
+    admission_number: string;
+    roll_number?: string;
+  }>> {
+    const hw = this.homeworkAssignments.find(h => h.id === assignmentId && h.tenant_id === tenantId);
+    if (!hw) return [];
+
+    this.ensureStudentEnrollments();
+    const batchEnrollments = this.studentEnrollments.filter(e =>
+      e.tenant_id === tenantId &&
+      e.batch_id === hw.batch_id &&
+      (e.status === 'active' || e.status === 'on_leave')
+    );
+
+    const roster: Array<{
+      id: string;
+      full_name: string;
+      admission_number: string;
+      roll_number?: string;
+    }> = [];
+
+    const seenStudentIds = new Set<string>();
+    for (const enr of batchEnrollments) {
+      if (seenStudentIds.has(enr.student_id)) continue;
+      seenStudentIds.add(enr.student_id);
+
+      const student = this.students.find(s => s.id === enr.student_id && s.tenant_id === tenantId);
+      if (!student || student.status === 'archived') continue;
+
+      roster.push({
+        id: student.id,
+        full_name: student.full_name,
+        admission_number: student.admission_number || '',
+        roll_number: enr.roll_number || student.roll_number || undefined,
+      });
+    }
+
+    roster.sort((a, b) =>
+      (a.roll_number || '').localeCompare(b.roll_number || '', undefined, { numeric: true }) ||
+      a.full_name.localeCompare(b.full_name)
+    );
+    return roster;
+  }
+
   async recordNotebookChecks(
     tenantId: string,
     assignmentId: string,
     checks: Array<{ student_id: string; status: NotebookStatus; remarks?: string }>,
     checkedBy: string
   ): Promise<NotebookCheckRecord[]> {
+    const hw = this.homeworkAssignments.find(h => h.id === assignmentId && h.tenant_id === tenantId);
+    if (!hw) {
+      const err: any = new Error('Homework assignment not found');
+      err.code = 'NOT_FOUND';
+      err.statusCode = 404;
+      throw err;
+    }
+
+    this.ensureStudentEnrollments();
+
+    for (const item of checks) {
+      const hasActiveEnrollment = this.studentEnrollments.some(e =>
+        e.tenant_id === tenantId &&
+        e.student_id === item.student_id &&
+        e.batch_id === hw.batch_id &&
+        (e.status === 'active' || e.status === 'on_leave')
+      );
+      if (!hasActiveEnrollment) {
+        const err: any = new Error(`Student ${item.student_id} is not actively enrolled in batch ${hw.batch_id}`);
+        err.code = 'STUDENT_NOT_IN_CLASS';
+        err.statusCode = 400;
+        throw err;
+      }
+    }
+
     const results: NotebookCheckRecord[] = [];
     const nowIso = new Date().toISOString();
 
     for (const item of checks) {
       const student = this.students.find(s => s.id === item.student_id && s.tenant_id === tenantId);
+      const enrollment = this.studentEnrollments.find(e =>
+        e.tenant_id === tenantId &&
+        e.student_id === item.student_id &&
+        e.batch_id === hw.batch_id &&
+        (e.status === 'active' || e.status === 'on_leave')
+      );
       const existingIdx = this.notebookChecks.findIndex(c => 
         c.tenant_id === tenantId && c.assignment_id === assignmentId && c.student_id === item.student_id
       );
@@ -7140,7 +7639,7 @@ export class InMemoryDataStore implements IDataStore {
         student_id: item.student_id,
         student_name: student?.full_name,
         admission_number: student?.admission_number || undefined,
-        roll_number: student?.roll_number || undefined,
+        roll_number: enrollment?.roll_number || student?.roll_number || undefined,
         status: item.status,
         remarks: item.remarks,
         checked_by: checkedBy,
@@ -7180,27 +7679,48 @@ export class InMemoryDataStore implements IDataStore {
       updated_at: new Date().toISOString(),
     };
     this.complaints.push(ticket);
+    this.schedulePersist();
     return ticket;
   }
 
   async updateComplaintStatus(
     tenantId: string,
     id: string,
-    status: ComplaintStatus,
-    resolutionReply?: string,
-    internalNotes?: string,
-    resolvedBy?: string
+    status?: ComplaintStatus,
+    resolutionReply?: string | null,
+    internalNotes?: string | null,
+    resolvedBy?: string | null,
+    extra?: Partial<ComplaintTicket>
   ): Promise<ComplaintTicket> {
     const ticket = this.complaints.find(c => c.id === id && c.tenant_id === tenantId);
     if (!ticket) throw new Error('Complaint ticket not found');
 
-    ticket.status = status;
+    if (status !== undefined) {
+      if (status === 'resolved') {
+        ticket.status = status;
+        if (!ticket.resolved_at) {
+          ticket.resolved_at = new Date().toISOString();
+        }
+        if (resolvedBy !== undefined && resolvedBy !== null) {
+          ticket.resolved_by = resolvedBy;
+        }
+      } else {
+        ticket.status = status;
+        delete ticket.resolved_at;
+        delete ticket.resolved_by;
+      }
+    } else if (resolvedBy !== undefined && ticket.status === 'resolved') {
+      ticket.resolved_by = resolvedBy;
+    }
+
     if (resolutionReply !== undefined) ticket.resolution_reply = resolutionReply;
     if (internalNotes !== undefined) ticket.internal_notes = internalNotes;
-    if (resolvedBy !== undefined) ticket.resolved_by = resolvedBy;
-    if (status === 'resolved') ticket.resolved_at = new Date().toISOString();
+    if (extra) {
+      Object.assign(ticket, extra);
+    }
     ticket.updated_at = new Date().toISOString();
 
+    this.schedulePersist();
     return ticket;
   }
 
@@ -7337,7 +7857,7 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     const passwordToUse = data.password && data.password.trim().length >= 6 ? data.password.trim() : 'ApexStaff2026!';
-    const userRole: UserRole = data.role || (data.department === 'Accounts' ? 'finance_manager' : (data.department === 'Administration' ? 'academic_head' : 'teacher'));
+    const userRole: UserRole = data.role || 'teacher';
     const joiningDate = data.joining_date || new Date().toISOString().split('T')[0];
 
     let staffAccess: Record<string, AccessLevel>;
@@ -7576,6 +8096,16 @@ export class InMemoryDataStore implements IDataStore {
       throw new Error('Cannot delete administrative users.');
     }
 
+    // Check timetable slots
+    const hasTimetable = this.timetableSlots.some(
+      s => s.tenant_id === tenantId && s.teacher_id === userId
+    );
+    if (hasTimetable) {
+      const err: any = new Error('Cannot delete staff member assigned to timetable slots. Please reassign or remove timetable slots first.');
+      err.statusCode = 409;
+      throw err;
+    }
+
     // Check financial transactions
     const hasFinancialVouchers = this.financialTransactions.some(
       t => t.tenant_id === tenantId && (t.recorded_by === userId || (t as any).created_by === userId)
@@ -7589,7 +8119,9 @@ export class InMemoryDataStore implements IDataStore {
       p => p.tenant_id === tenantId && p.staff_id === userId
     );
     if (hasPayslips) {
-      throw new Error('Cannot delete staff member with generated payroll slips. Please use Archive instead.');
+      const err: any = new Error('Cannot delete staff member with generated payslips. Please use Archive instead.');
+      err.statusCode = 409;
+      throw err;
     }
 
     // Check exam evaluations / created exams
@@ -7605,10 +8137,15 @@ export class InMemoryDataStore implements IDataStore {
 
     // Check student attendance marked by staff
     const hasAttendanceMarked = this.studentAttendance.some(
-      a => a.tenant_id === tenantId && a.marked_by === userId
+      a => a.tenant_id === tenantId && (a.marked_by === userId || a.marked_by === user.full_name)
     );
     if (hasAttendanceMarked) {
-      throw new Error('Cannot delete staff member with linked student attendance records. Please use Archive instead.');
+      const err: any = new Error('Cannot delete staff member with linked student attendance records. Please use Archive instead.');
+      const markedById = this.studentAttendance.some(a => a.tenant_id === tenantId && a.marked_by === userId);
+      if (!markedById) {
+        err.statusCode = 409;
+      }
+      throw err;
     }
 
     // Check homework assignments
@@ -7616,7 +8153,9 @@ export class InMemoryDataStore implements IDataStore {
       h => h.tenant_id === tenantId && h.teacher_id === userId
     );
     if (hasHomework) {
-      throw new Error('Cannot delete staff member with assigned homework diary records. Please use Archive instead.');
+      const err: any = new Error('Cannot delete staff member with assigned homework diary records. Please use Archive instead.');
+      err.statusCode = 409;
+      throw err;
     }
 
     // Check notebook checks
@@ -9209,36 +9748,121 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     const monthPrefix = (() => {
-      const n = normalizeBillingMonth(data.payroll_month);
-      const parts = n.split(' ');
-      const idx = MONTH_NAMES.indexOf(parts[0] as typeof MONTH_NAMES[number]);
-      if (idx < 0 || !parts[1]) return '';
-      return `${parts[1]}-${String(idx + 1).padStart(2, '0')}`;
+      const startIso = getBillingMonthStartIso(data.payroll_month);
+      if (startIso) return startIso.slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(data.payroll_month)) return data.payroll_month;
+      return '';
     })();
+
+    const summaries = await this.getStaffMonthlySummary(tenantId, monthPrefix);
+    const summary = summaries.find(s => s.staff_id === data.staff_id);
+
+    const workingDays = summary ? summary.total_working_days : (monthPrefix ? getSundayExcludedWorkingDays(monthPrefix) : 26);
+    const effectivePresentDays = summary ? (summary.present_days + summary.late_days) : 0;
+    const effectiveLateCount = summary ? summary.late_days : 0;
+    const effectiveAbsentDays = summary ? summary.absent_days : 0;
+    const effectiveLeaves = summary ? summary.leave_days : 0;
+    const effectiveHours = summary ? Math.round(summary.total_work_minutes / 60) : 0;
 
     const attendanceRecords = this.staffAttendance.filter(a => {
       if (a.tenant_id !== tenantId || a.staff_id !== data.staff_id) return false;
       if (!monthPrefix) return true;
       return (a.date || '').startsWith(monthPrefix);
     });
-    const presentDays = attendanceRecords.filter(a => a.status === 'on_time' || a.status === 'late').length;
-    const lateCount = attendanceRecords.filter(a => a.status === 'late').length;
-    const absentDays = attendanceRecords.filter(a => a.status === 'absent').length;
-    const approvedLeaves = attendanceRecords.filter(a => a.status === 'on_leave').length;
 
-    const workingDays = 26;
-    const effectivePresentDays = presentDays;
-    const effectiveLateCount = lateCount;
-    const effectiveAbsentDays = absentDays;
-    const effectiveLeaves = approvedLeaves;
-    const effectiveHours = presentDays * 2;
+    const config = await this.getGeofenceConfig(tenantId);
+    const heads = config.heads || [];
+
+    const uniqueRecordsByDate = new Map<string, StaffAttendanceRecord>();
+    for (const r of attendanceRecords) {
+      if (!uniqueRecordsByDate.has(r.date)) {
+        uniqueRecordsByDate.set(r.date, r);
+      }
+    }
+
+    let unpaidEquivalent = 0;
+    for (const r of uniqueRecordsByDate.values()) {
+      const head = r.head_id ? heads.find(h => h.id === r.head_id) : undefined;
+      if (r.status === 'half_day') {
+        if (head) {
+          if (!head.paid) unpaidEquivalent += 0.5;
+        } else {
+          unpaidEquivalent += 0.5;
+        }
+      } else if (r.status === 'absent') {
+        if (head) {
+          if (!head.paid) unpaidEquivalent += 1.0;
+        } else {
+          unpaidEquivalent += 1.0;
+        }
+      } else if (r.status === 'on_leave') {
+        if (head && !head.paid) {
+          unpaidEquivalent += 1.0;
+        }
+      }
+    }
+
+    const lateRule = config.late_penalty_rule || 'none';
+    const latesForDeduction = config.lates_for_leave_deduction || 0;
+    const lateDays = summary ? summary.late_days : effectiveLateCount;
+
+    if (lateRule !== 'none' && latesForDeduction > 0 && lateDays >= latesForDeduction) {
+      const lateGroups = Math.floor(lateDays / latesForDeduction);
+      if (lateRule === 'deduct_half_day_salary') {
+        unpaidEquivalent += lateGroups * 0.5;
+      } else if (lateRule === 'deduct_full_day_salary') {
+        unpaidEquivalent += lateGroups * 1.0;
+      } else if (lateRule === 'deduct_casual_leave') {
+        const staffUser = Array.from(this.users.values()).find(u => u.id === data.staff_id && u.tenant_id === tenantId)
+          || Array.from(this.users.values()).find(u => u.id === data.staff_id);
+        if (staffUser) {
+          if (!staffUser.metadata) staffUser.metadata = {};
+          if (!staffUser.metadata.leave_balance) {
+            staffUser.metadata.leave_balance = {
+              casual_allowed: 12,
+              casual_used: 0,
+              sick_allowed: 8,
+              sick_used: 0,
+              annual_allowed: 10,
+              annual_used: 0,
+            };
+          }
+          const lb = staffUser.metadata?.leave_balance as any;
+          const casualAllowed = lb?.casual_allowed ?? 12;
+          const casualUsed = lb?.casual_used ?? 0;
+          const remainingCasual = Math.max(0, casualAllowed - casualUsed);
+          const casualToDeduct = Math.min(lateGroups, remainingCasual);
+          const leftoverGroups = lateGroups - casualToDeduct;
+          if (lb) {
+            lb.casual_used = casualUsed + casualToDeduct;
+          }
+          unpaidEquivalent += leftoverGroups * 1.0;
+          this.schedulePersist();
+        } else {
+          unpaidEquivalent += lateGroups * 1.0;
+        }
+      }
+    }
+
+    const hasAttendanceDeduction = data.deductions.some(d => d.name === 'Attendance deduction');
+    const finalDeductions = [...data.deductions];
+    if (!hasAttendanceDeduction && unpaidEquivalent > 0) {
+      const unitRate = workingDays > 0 ? profile.base_amount / workingDays : 0;
+      finalDeductions.push({
+        id: crypto.randomUUID(),
+        name: 'Attendance deduction',
+        quantity: unpaidEquivalent,
+        unit_rate: unitRate,
+        total: unpaidEquivalent * unitRate,
+      });
+    }
 
     const earningsWithTotal = data.earnings.map(e => ({
       ...e,
       total: Number(e.quantity) * Number(e.unit_rate)
     }));
 
-    const deductionsWithTotal = data.deductions.map(d => ({
+    const deductionsWithTotal = finalDeductions.map(d => ({
       ...d,
       total: Number(d.quantity) * Number(d.unit_rate)
     }));
@@ -9857,6 +10481,7 @@ export class InMemoryDataStore implements IDataStore {
       });
     }
     this.whatsappTemplates.push(tmpl);
+    this.schedulePersist();
     return tmpl;
   }
 
@@ -9873,6 +10498,7 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     Object.assign(tmpl, data, { updated_at: new Date().toISOString() });
+    this.schedulePersist();
     return tmpl;
   }
 
@@ -9880,6 +10506,7 @@ export class InMemoryDataStore implements IDataStore {
     const idx = this.whatsappTemplates.findIndex(t => t.id === id && t.tenant_id === tenantId);
     if (idx === -1) return false;
     this.whatsappTemplates.splice(idx, 1);
+    this.schedulePersist();
     return true;
   }
 
@@ -9899,7 +10526,9 @@ export class InMemoryDataStore implements IDataStore {
     };
     this.whatsappAuditLogs.push(log);
 
-    const today = new Date().toISOString().split('T')[0];
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const today = campusToday(tenantTimezone);
     const followup = this.absenteeFollowups.find(f => f.student_id === data.student_id && f.tenant_id === tenantId && f.date === today);
     if (followup) {
       followup.last_whatsapp_sent_at = log.dispatched_at;
@@ -9909,6 +10538,7 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
 
+    this.schedulePersist();
     return log;
   }
 
@@ -9923,10 +10553,12 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async checkDuplicateAlertToday(tenantId: string, studentId: string, _templateCategory: string): Promise<{ wasDispatchedToday: boolean; lastDispatchedAt?: string; dispatchedBy?: string }> {
-    const today = new Date().toISOString().split('T')[0];
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const today = campusToday(tenantTimezone);
     const logs = this.whatsappAuditLogs.filter(l => {
       if (l.tenant_id !== tenantId || l.student_id !== studentId) return false;
-      const logDate = l.dispatched_at.split('T')[0];
+      const logDate = campusToday(tenantTimezone, l.dispatched_at);
       return logDate === today;
     });
 
@@ -9942,33 +10574,111 @@ export class InMemoryDataStore implements IDataStore {
     return { wasDispatchedToday: false };
   }
 
-  async syncDailyAbsenteeRoster(tenantId: string, date: string): Promise<AbsenteeFollowupItem[]> {
-    const absentees = this.studentAttendance.filter(a => a.tenant_id === tenantId && a.date === date && a.status === 'absent');
+  async syncDailyAbsenteeRoster(tenantId: string, date?: string): Promise<AbsenteeFollowupItem[]> {
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const targetDate = date || campusToday(tenantTimezone);
+
+    // 1. If an attendance row is no longer 'absent' (present, late, excused):
+    // - set follow-up of that student+date+batch to RESOLVED_EXCUSED when the new status is 'excused'
+    // - otherwise delete the follow-up if it is still PENDING and has no call_outcome
+    // - a follow-up that already has a call stays, with parent_remarks prefixed by "Attendance revised to ..."
+    const dayFollowups = this.absenteeFollowups.filter(f => f.tenant_id === tenantId && f.date === targetDate);
+    for (const f of dayFollowups) {
+      const att = this.studentAttendance.find(
+        a => a.tenant_id === tenantId && a.student_id === f.student_id && a.date === targetDate && (a.batch_id === f.batch_id || (!f.batch_id && !a.batch_id))
+      );
+      if (att && att.status !== 'absent') {
+        if (att.status === 'excused') {
+          f.status = 'RESOLVED_EXCUSED';
+          f.updated_at = new Date().toISOString();
+        } else {
+          if (f.status === 'PENDING' && !f.call_outcome) {
+            this.absenteeFollowups = this.absenteeFollowups.filter(item => item.id !== f.id);
+          } else {
+            const prefix = `Attendance revised to ${att.status}. `;
+            if (!f.parent_remarks?.startsWith(`Attendance revised to ${att.status}`)) {
+              f.parent_remarks = f.parent_remarks
+                ? `${prefix}${f.parent_remarks}`
+                : `Attendance revised to ${att.status}`;
+            }
+            f.updated_at = new Date().toISOString();
+          }
+        }
+      }
+    }
+
+    // 2. For each attendance row with status === 'absent':
+    const absentees = this.studentAttendance.filter(a => a.tenant_id === tenantId && a.date === targetDate && a.status === 'absent');
 
     for (const att of absentees) {
-      const existing = this.absenteeFollowups.find(f => f.tenant_id === tenantId && f.student_id === att.student_id && f.date === date);
-      if (!existing) {
-        const student = this.students.find(s => s.id === att.student_id && s.tenant_id === tenantId);
-        const batch = student?.batch_id ? this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId) : undefined;
+      const existing = this.absenteeFollowups.find(
+        f => f.tenant_id === tenantId && f.student_id === att.student_id && f.date === targetDate && (f.batch_id === att.batch_id || !f.batch_id)
+      );
 
-        const prevFollowup = this.absenteeFollowups
-          .filter(f => f.tenant_id === tenantId && f.student_id === att.student_id && f.date < date)
-          .sort((a, b) => b.date.localeCompare(a.date))[0];
-        const consecutive = prevFollowup ? prevFollowup.consecutive_days + 1 : 1;
+      if (!existing) {
+        // Find enrollment for att.enrollment_id or (student_id + att.batch_id)
+        let enrollment: StudentEnrollment | undefined;
+        if (att.enrollment_id) {
+          enrollment = this.studentEnrollments.find(e => e.id === att.enrollment_id && e.tenant_id === tenantId);
+        }
+        if (!enrollment) {
+          enrollment = this.studentEnrollments.find(e => e.tenant_id === tenantId && e.student_id === att.student_id && e.batch_id === att.batch_id);
+        }
+
+        const student = this.students.find(s => s.id === att.student_id && s.tenant_id === tenantId);
+        const batchId = enrollment?.batch_id || att.batch_id || student?.batch_id || '';
+        const batch = batchId ? this.batches.find(b => b.id === batchId && b.tenant_id === tenantId) : undefined;
+
+        const batchName = enrollment?.batch_name || batch?.name || '';
+        const rollNumber = enrollment?.roll_number || student?.roll_number || '';
+        const admissionNumber = enrollment?.admission_number || student?.admission_number || '';
+        const guardianName = student?.guardian_name || '';
+        const guardianPhone = student?.guardian_phone || '';
+        const guardianWhatsapp = student?.guardian_whatsapp?.trim() || '';
+        const backupPhone = (guardianWhatsapp && guardianWhatsapp !== guardianPhone) ? guardianWhatsapp : null;
+
+        // Compute consecutive_days:
+        // 1 plus count of immediately previous campus dates that also have absent attendance or open follow-up, walking backward.
+        // A gap of one present or unmarked day resets to 1.
+        let consecutive = 1;
+        let checkDate = targetDate;
+        while (true) {
+          const prevDateObj = new Date(checkDate + 'T12:00:00Z');
+          prevDateObj.setUTCDate(prevDateObj.getUTCDate() - 1);
+          const prevDateStr = prevDateObj.toISOString().split('T')[0];
+
+          const hadAbsent = this.studentAttendance.some(
+            a => a.tenant_id === tenantId && a.student_id === att.student_id && (a.batch_id === batchId || !batchId) && a.date === prevDateStr && a.status === 'absent'
+          );
+          const hadOpenFollowup = this.absenteeFollowups.some(
+            f => f.tenant_id === tenantId && f.student_id === att.student_id && (f.batch_id === batchId || !batchId) && f.date === prevDateStr && (f.status === 'PENDING' || f.status === 'UNREACHABLE' || f.status === 'CONTACTED')
+          );
+          const hadPresentOrExcused = this.studentAttendance.some(
+            a => a.tenant_id === tenantId && a.student_id === att.student_id && (a.batch_id === batchId || !batchId) && a.date === prevDateStr && a.status !== 'absent'
+          );
+
+          if (hadPresentOrExcused || (!hadAbsent && !hadOpenFollowup)) {
+            break;
+          }
+
+          consecutive++;
+          checkDate = prevDateStr;
+        }
 
         this.absenteeFollowups.push({
           id: crypto.randomUUID(),
           tenant_id: tenantId,
           student_id: att.student_id,
-          student_name: student?.full_name || 'Student',
-          admission_number: student?.admission_number || 'N/A',
-          roll_number: student?.roll_number || 'N/A',
-          guardian_name: student?.guardian_name || 'Guardian',
-          guardian_phone: student?.guardian_phone || '+923000000000',
-          backup_phone: '+923210000000',
-          batch_id: batch?.id || 'batch-1',
-          batch_name: batch?.name || 'Batch',
-          date,
+          student_name: student?.full_name || '',
+          admission_number: admissionNumber,
+          roll_number: rollNumber,
+          guardian_name: guardianName,
+          guardian_phone: guardianPhone,
+          backup_phone: backupPhone,
+          batch_id: batchId,
+          batch_name: batchName,
+          date: targetDate,
           consecutive_days: consecutive,
           call_outcome: null,
           reason_category: null,
@@ -9983,30 +10693,54 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
 
+    await this.refreshRetentionCases(tenantId, targetDate);
     this.schedulePersist();
-    return this.absenteeFollowups.filter(f => f.tenant_id === tenantId && f.date === date);
+    return this.absenteeFollowups.filter(f => f.tenant_id === tenantId && f.date === targetDate);
   }
 
-  async getAbsenteeFollowups(tenantId: string, filters?: { date?: string; batchId?: string; status?: string }): Promise<AbsenteeFollowupItem[]> {
-    const today = new Date().toISOString().split('T')[0];
+  async getAbsenteeFollowups(tenantId: string, filters?: { date?: string; batchId?: string; status?: string; include_snoozed?: boolean }): Promise<AbsenteeFollowupItem[]> {
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const today = campusToday(tenantTimezone);
     const targetDate = filters?.date || today;
 
     // Dynamically auto-sync any students marked absent in the attendance table
     await this.syncDailyAbsenteeRoster(tenantId, targetDate);
 
+    const tenantInvoices = this.invoices.filter(i => i.tenant_id === tenantId);
+
     return this.absenteeFollowups
       .filter(f => {
         if (f.tenant_id !== tenantId) return false;
         if (f.date !== targetDate) return false;
-        if (filters?.batchId && f.batch_id !== filters.batchId) return false;
+        if (filters?.batchId && filters.batchId !== 'ALL' && f.batch_id !== filters.batchId) return false;
+
+        const isSnoozed = Boolean(f.is_snoozed && f.snooze_until && f.snooze_until >= targetDate);
+
+        if (filters?.status === 'SNOOZED') {
+          return isSnoozed;
+        }
+
+        if (isSnoozed && !filters?.include_snoozed) {
+          return false;
+        }
+
         if (filters?.status && filters.status !== 'ALL' && f.status !== filters.status) return false;
         return true;
+      })
+      .map(f => {
+        const sInvs = tenantInvoices.filter(i => i.student_id === f.student_id && i.status !== 'voided' && i.status !== 'cancelled' && i.status !== 'paid');
+        const unpaid = sInvs.reduce((sum, inv) => sum + (inv.balance_amount ?? inv.balance_due ?? 0), 0);
+        return {
+          ...f,
+          unpaid_balance: unpaid
+        };
       })
       .sort((a, b) => b.consecutive_days - a.consecutive_days);
   }
 
   async getAbsenteeDeskKPI(tenantId: string, date: string): Promise<AbsenteeDeskSummaryKPI> {
-    await this.getAbsenteeFollowups(tenantId, { date });
+    await this.getAbsenteeFollowups(tenantId, { date, include_snoozed: true });
     const followups = this.absenteeFollowups.filter(f => f.tenant_id === tenantId && f.date === date);
     const total = followups.length;
     const contacted = followups.filter(f => f.status === 'CONTACTED' || f.status === 'RESOLVED_EXCUSED').length;
@@ -10053,27 +10787,62 @@ export class InMemoryDataStore implements IDataStore {
 
     if (data.convert_to_medical_leave) {
       item.status = 'RESOLVED_EXCUSED';
-      const att = this.studentAttendance.find(a => a.tenant_id === tenantId && a.student_id === item.student_id && a.date === item.date);
-      if (att) {
-        const prevStatus = att.status;
-        att.status = 'excused';
-        att.remarks = `Excused via Absentee Follow-Up (${data.reason_category}): ${data.parent_remarks || 'Medical/Family explanation'}`;
-        
-        // Add audit trail so attendance desk reflects regularization
-        this.attendanceAuditLogs.push({
-          id: crypto.randomUUID(),
-          tenant_id: tenantId,
-          student_id: item.student_id,
-          student_name: item.student_name,
-          batch_id: item.batch_id,
-          date: item.date,
-          previous_status: prevStatus,
-          new_status: 'excused',
-          reason: `Absence Desk Regularization: ${data.reason_category} - ${data.parent_remarks || 'Parent contacted'}`,
-          changed_by: item.staff_counselor_name || 'Staff Counselor',
-          created_at: new Date().toISOString()
-        });
-      }
+      const startDate = item.date;
+      const endDate = data.expected_return_date || item.date;
+
+      // Create an approved LeaveApplication
+      const leaveApp: LeaveApplication = {
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        student_id: item.student_id,
+        student_name: item.student_name,
+        batch_name: item.batch_name,
+        start_date: startDate,
+        end_date: endDate,
+        category: 'medical',
+        reason: `${data.reason_category}${data.parent_remarks ? ': ' + data.parent_remarks : ''}`,
+        status: 'approved',
+        review_notes: `Converted to medical leave via Absentee Desk (${data.reason_category})`,
+        reviewed_by: counselorId || item.staff_counselor_id || undefined,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      this.leaveApplications.push(leaveApp);
+
+      // Run excuse loop across the period
+      this.studentAttendance.forEach(att => {
+        if (att.tenant_id === tenantId && att.student_id === item.student_id && att.date >= startDate && att.date <= endDate) {
+          const prevStatus = att.status;
+          att.status = 'excused';
+          att.remarks = 'Auto-Excused: Approved Leave';
+          att.updated_at = new Date().toISOString();
+
+          this.attendanceAuditLogs.push({
+            id: crypto.randomUUID(),
+            tenant_id: tenantId,
+            student_id: item.student_id,
+            student_name: item.student_name,
+            batch_id: item.batch_id,
+            date: att.date,
+            previous_status: prevStatus,
+            new_status: 'excused',
+            reason: `Absence Desk Regularization: ${data.reason_category} - ${data.parent_remarks || 'Parent contacted'}`,
+            changed_by: item.staff_counselor_name || 'Staff Counselor',
+            created_at: new Date().toISOString()
+          });
+        }
+      });
+
+      // Resolve follow-ups on those dates to RESOLVED_EXCUSED
+      this.absenteeFollowups.forEach(f => {
+        if (f.tenant_id === tenantId && f.student_id === item.student_id && f.date >= startDate && f.date <= endDate) {
+          f.status = 'RESOLVED_EXCUSED';
+          if (f.id !== item.id) {
+            f.parent_remarks = f.parent_remarks || `Excused under medical leave (${data.reason_category})`;
+          }
+          f.updated_at = new Date().toISOString();
+        }
+      });
     } else if (data.call_outcome === 'NO_ANSWER' || data.call_outcome === 'SWITCHED_OFF') {
       item.status = 'UNREACHABLE';
     } else {
@@ -10085,10 +10854,103 @@ export class InMemoryDataStore implements IDataStore {
       item.snooze_until = data.expected_return_date;
     }
 
+    // Attach current unpaid balance from active invoices
+    const sInvs = this.invoices.filter(i => i.tenant_id === tenantId && i.student_id === item.student_id && i.status !== 'voided' && i.status !== 'cancelled' && i.status !== 'paid');
+    item.unpaid_balance = sInvs.reduce((sum, inv) => sum + (inv.balance_amount ?? inv.balance_due ?? 0), 0);
+
+    this.schedulePersist();
     return item;
   }
 
   async getRetentionCases(tenantId: string): Promise<RetentionCounselingCase[]> {
+    return this.retentionCases.filter(c => c.tenant_id === tenantId);
+  }
+
+  async refreshRetentionCases(tenantId: string, date?: string): Promise<RetentionCounselingCase[]> {
+    this.ensureStudentEnrollments();
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const todayDateStr = date || campusToday(tenantTimezone);
+    const currentMonthPrefix = todayDateStr.substring(0, 7);
+
+    const activeEnrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.status === 'active');
+
+    for (const en of activeEnrollments) {
+      const student = this.students.find(s => s.id === en.student_id && s.tenant_id === tenantId);
+      if (!student) continue;
+
+      const batch = this.batches.find(b => b.id === en.batch_id && b.tenant_id === tenantId);
+      const batchName = en.batch_name || batch?.name || 'Class Batch';
+
+      const monthRecords = this.studentAttendance.filter(
+        a => a.tenant_id === tenantId && a.student_id === en.student_id &&
+             (a.enrollment_id === en.id || (!a.enrollment_id && a.batch_id === en.batch_id)) &&
+             a.date.startsWith(currentMonthPrefix)
+      );
+
+      const countableRecords = monthRecords.filter(a => a.status !== 'excused');
+      const markedDays = countableRecords.length;
+      const presentCount = countableRecords.filter(a => a.status === 'present' || a.status === 'late' || (a.status as any) === 'half_day').length;
+      const monthPercent = markedDays > 0 ? (presentCount / markedDays) * 100 : 100.0;
+
+      const latestFollowup = this.absenteeFollowups
+        .filter(f => f.tenant_id === tenantId && f.student_id === en.student_id && f.batch_id === en.batch_id && (!date || f.date <= todayDateStr))
+        .sort((a, b) => b.date.localeCompare(a.date))[0];
+      const consecutive = latestFollowup ? latestFollowup.consecutive_days : 0;
+
+      const shouldOpen = consecutive >= 3 || (markedDays >= 4 && monthPercent < 75);
+
+      const existingCase = this.retentionCases.find(
+        c => c.tenant_id === tenantId && c.student_id === en.student_id && (c.batch_name === batchName || (c as any).batch_id === en.batch_id)
+      );
+
+      if (shouldOpen) {
+        let riskLevel: RetentionRiskLevel = 'HIGH';
+        if (consecutive >= 5 || (markedDays >= 4 && monthPercent < 60)) {
+          riskLevel = 'CRITICAL';
+        }
+
+        if (existingCase) {
+          existingCase.monthly_attendance_pct = Number(monthPercent.toFixed(1));
+          existingCase.consecutive_absences = consecutive;
+          existingCase.risk_level = riskLevel;
+          existingCase.updated_at = new Date().toISOString();
+          if (existingCase.status !== 'SCHEDULED') {
+            existingCase.status = 'OPEN';
+          }
+        } else {
+          this.retentionCases.push({
+            id: crypto.randomUUID(),
+            tenant_id: tenantId,
+            student_id: en.student_id,
+            student_name: student.full_name,
+            admission_number: en.admission_number || student.admission_number,
+            roll_number: en.roll_number || student.roll_number || undefined,
+            batch_name: batchName,
+            batch_id: en.batch_id,
+            monthly_attendance_pct: Number(monthPercent.toFixed(1)),
+            consecutive_absences: consecutive,
+            risk_level: riskLevel,
+            scheduled_meeting_date: null,
+            counseling_notes: `Identified by automated retention monitor: ${consecutive >= 3 ? `${consecutive} consecutive absences` : `${monthPercent.toFixed(1)}% monthly attendance`}.`,
+            status: 'OPEN',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        }
+      } else {
+        if (existingCase) {
+          if (existingCase.status === 'OPEN' || existingCase.status === 'SCHEDULED') {
+            existingCase.status = 'RESOLVED';
+          }
+          existingCase.monthly_attendance_pct = Number(monthPercent.toFixed(1));
+          existingCase.consecutive_absences = consecutive;
+          existingCase.updated_at = new Date().toISOString();
+        }
+      }
+    }
+
+    this.schedulePersist();
     return this.retentionCases.filter(c => c.tenant_id === tenantId);
   }
 
@@ -10100,6 +10962,7 @@ export class InMemoryDataStore implements IDataStore {
     c.counseling_notes = notes;
     c.status = 'SCHEDULED';
     c.updated_at = new Date().toISOString();
+    this.schedulePersist();
     return c;
   }
 
@@ -10284,7 +11147,10 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async getTeacherPortalOverview(tenantId: string, teacherId: string, date?: string): Promise<TeacherPortalOverview> {
-    const today = date || new Date().toISOString().split('T')[0];
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const today = date || campusToday(tenantTimezone);
+    const currentDayOfWeek = campusDayOfWeek(today, tenantTimezone);
     const teacherUser = Array.from(this.users.values()).find(
       u => (u.id === teacherId || u.email.toLowerCase() === teacherId.toLowerCase()) && u.tenant_id === tenantId
     );
@@ -10295,15 +11161,37 @@ export class InMemoryDataStore implements IDataStore {
     const teacherName = teacherUser.full_name;
     const teacherUserId = teacherUser.id;
 
-    // Timetable slots for this teacher today
-    const teacherSchedule = this.timetableSlots.filter(
-      s => s.tenant_id === tenantId && s.teacher_id === teacherUserId
-    );
+    // Timetable slots for this teacher today:
+    // slots where day_of_week === campusDayOfWeek(campusToday) and (teacher_id === teacher or today’s substitution names this teacher). Sort by start_time. Apply the substitution overlay the student portal already applies.
+    const matchingSlots = this.timetableSlots.filter(s => {
+      if (s.tenant_id !== tenantId || s.is_cancelled) return false;
+      if (s.day_of_week !== currentDayOfWeek) return false;
+      const todaySub = (s.substitutions || []).find(sub => sub.date === today);
+      const isSubstitutedIn = todaySub?.substitute_teacher_id === teacherUserId;
+      const isOriginalTeacher = s.teacher_id === teacherUserId;
+      return isOriginalTeacher || isSubstitutedIn;
+    });
+
+    const teacherSchedule = matchingSlots
+      .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''))
+      .map(slot => {
+        const batch = this.batches.find(b => b.id === slot.batch_id && b.tenant_id === tenantId);
+        const sub = (slot.substitutions || []).find(sub => sub.date === today);
+        return {
+          ...slot,
+          room_name: slot.room_name || batch?.room_number || 'Room not set',
+          substitute_teacher_id: sub ? sub.substitute_teacher_id : (slot.substitute_teacher_id || null),
+          substitute_teacher_name: sub ? (sub.substitute_teacher_name || 'Assigned Substitute') : (slot.substitute_teacher_name || null),
+        };
+      });
 
     // Batches assigned via teaching assignments or timetable schedule
     const assignments: StaffTeachingAssignment[] = (teacherUser.metadata?.teaching_assignments as StaffTeachingAssignment[]) || [];
     const assignedBatchIds = new Set(assignments.map(a => a.batch_id).filter(Boolean));
-    for (const s of teacherSchedule) {
+    const allTeacherSlots = this.timetableSlots.filter(
+      s => s.tenant_id === tenantId && !s.is_cancelled && (s.teacher_id === teacherUserId || s.substitutions?.some(sub => sub.substitute_teacher_id === teacherUserId))
+    );
+    for (const s of allTeacherSlots) {
       if (s.batch_id) assignedBatchIds.add(s.batch_id);
     }
 
@@ -10351,13 +11239,13 @@ export class InMemoryDataStore implements IDataStore {
       recent_diary_entries: recentDiary,
       geofence_status: {
         is_clocked_in: !!clockInRecord && (clockInRecord.status === 'on_time' || clockInRecord.status === 'late'),
-        clocked_in_at: clockInRecord?.clock_in_time || '08:24 AM',
-        distance_meters: clockInRecord?.distance_meters || 18
+        clocked_in_at: clockInRecord?.clock_in_time || null,
+        distance_meters: clockInRecord?.distance_meters ?? null
       }
     };
   }
 
-  async getStudentParentPortalOverview(tenantId: string, studentId?: string, enrollmentId?: string): Promise<StudentParentPortalOverview> {
+  async getStudentParentPortalOverview(tenantId: string, studentId?: string, enrollmentId?: string, date?: string): Promise<StudentParentPortalOverview> {
     const student = studentId
       ? this.students.find(s => s.id === studentId && s.tenant_id === tenantId)
       : null;
@@ -10388,9 +11276,10 @@ export class InMemoryDataStore implements IDataStore {
     const program = this.programs.find(p => p.id === effectiveProgramId && p.tenant_id === tenantId);
 
     // Timetable Slots: Today's schedule for this batch
-    const daysMap: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const currentDayOfWeek = daysMap[new Date().getDay()];
-    const todayDateStr = new Date().toISOString().split('T')[0];
+    const tenant = this.tenants.get(tenantId);
+    const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
+    const todayDateStr = date || campusToday(tenantTimezone);
+    const currentDayOfWeek = campusDayOfWeek(todayDateStr, tenantTimezone);
 
     const batchSlots = this.timetableSlots
       .filter(s => s.tenant_id === tenantId && s.batch_id === effectiveBatchId && !s.is_cancelled);
@@ -10403,14 +11292,12 @@ export class InMemoryDataStore implements IDataStore {
     // do NOT dump the entire weekly schedule into today's timeline.
     const effectiveSchedule = todayOnlySlots.map(slot => {
       const sub = (slot.substitutions || []).find(sub => sub.date === todayDateStr);
-      if (sub) {
-        return {
-          ...slot,
-          substitute_teacher_id: sub.substitute_teacher_id,
-          substitute_teacher_name: sub.substitute_teacher_name || 'Assigned Substitute',
-        };
-      }
-      return slot;
+      return {
+        ...slot,
+        room_name: slot.room_name || batch?.room_number || 'Room not set',
+        substitute_teacher_id: sub ? sub.substitute_teacher_id : (slot.substitute_teacher_id || null),
+        substitute_teacher_name: sub ? (sub.substitute_teacher_name || 'Assigned Substitute') : (slot.substitute_teacher_name || null),
+      };
     });
 
     // Invoices and Balance (Excluding voided or cancelled)
@@ -10603,7 +11490,10 @@ export class InMemoryDataStore implements IDataStore {
       enrollments: enrichedEnrollments,
       selected_enrollment_id: selectedEnrollment?.id || null,
       today_schedule: effectiveSchedule,
-      weekly_schedule: batchSlots,
+      weekly_schedule: batchSlots.map(slot => ({
+        ...slot,
+        room_name: slot.room_name || batch?.room_number || 'Room not set',
+      })),
       invoices: studentInvoices,
       unpaid_balance: unpaidBalance,
       recent_receipts: studentPayments,

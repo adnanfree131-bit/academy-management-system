@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, Phone, Printer, Wallet, UserPlus, Smartphone } from 'lucide-react';
+import { CheckCircle2, Printer, Wallet, UserPlus, Smartphone } from 'lucide-react';
 
 interface ModuleViewProps {
   moduleId: string;
@@ -57,25 +57,6 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
               ))}
             </tbody>
           </table>
-        </div>
-      </div>
-    );
-  }
-
-  if (moduleId === 'absentee') {
-    return (
-      <div className="space-y-4">
-        <div className="bg-white border border-slate-200/90 rounded-xl p-5 shadow-xs flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Phone className="w-5 h-5 text-rose-600" />
-              Absence Follow-Up
-            </h1>
-            <p className="text-xs text-slate-500">28 students pending follow-up outreach via WhatsApp</p>
-          </div>
-          <button className="px-4 py-2 bg-emerald-600 text-white font-bold text-xs rounded-xl hover:bg-emerald-700 shadow-xs">
-            Start WhatsApp Follow-Up
-          </button>
         </div>
       </div>
     );
@@ -157,5 +138,9 @@ export const GenericModuleView: React.FC<ModuleViewProps> = ({ moduleId }) => {
     );
   }
 
-  return <div>Module view not found</div>;
+  return (
+    <div className="p-8 text-center text-slate-400 bg-white border border-slate-200/90 rounded-2xl shadow-xs">
+      <p className="text-xs">Module view not found</p>
+    </div>
+  );
 };

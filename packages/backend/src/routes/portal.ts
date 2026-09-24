@@ -240,7 +240,8 @@ export function portalRoutes(store: IDataStore) {
         }
 
         const enrollmentId = req.query.enrollment_id;
-        const overview = await store.getStudentParentPortalOverview(tenantId, targetStudentId, enrollmentId);
+        const date = req.query.date;
+        const overview = await store.getStudentParentPortalOverview(tenantId, targetStudentId, enrollmentId, date);
         if (linkedChildren) {
           overview.linked_children = linkedChildren;
         }

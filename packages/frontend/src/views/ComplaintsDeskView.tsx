@@ -19,13 +19,17 @@ import {
 } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
+import { resolveUserAccessMap, can } from '../lib/access';
 
 export const ComplaintsDeskView: React.FC = () => {
   const { token, user } = useAuth();
   const isStaff = user?.role ? !['student', 'parent'].includes(user.role) : false;
+  const accessMap = resolveUserAccessMap(user?.role, user?.permissions, user?.access);
+  const canEdit = can(accessMap, 'complaints', 'edit');
 
   // State
   const [tickets, setTickets] = useState<ComplaintTicket[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -39,6 +43,7 @@ export const ComplaintsDeskView: React.FC = () => {
     priority: 'normal' as ComplaintPriority,
     subject: '',
     description: '',
+    student_id: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -69,7 +74,19 @@ export const ComplaintsDeskView: React.FC = () => {
 
   useEffect(() => {
     fetchTickets();
-  }, [token]);
+    if (isStaff && token) {
+      fetch('/api/v1/sis/students', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && Array.isArray(data.data)) {
+            setStudents(data.data);
+          }
+        })
+        .catch(err => console.error('Error loading students for complaints desk:', err));
+    }
+  }, [token, isStaff]);
 
   // Submit Ticket
   const handleSubmitTicket = async (e: React.FormEvent) => {
@@ -78,13 +95,22 @@ export const ComplaintsDeskView: React.FC = () => {
 
     setIsSubmitting(true);
     try {
+      const payload: any = {
+        category: newForm.category,
+        priority: newForm.priority,
+        subject: newForm.subject,
+        description: newForm.description,
+      };
+      if (isStaff && newForm.student_id) {
+        payload.student_id = newForm.student_id;
+      }
       const res = await fetch('/api/v1/complaints/complaints', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(newForm),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -96,6 +122,7 @@ export const ComplaintsDeskView: React.FC = () => {
         priority: 'normal',
         subject: '',
         description: '',
+        student_id: '',
       });
       fetchTickets();
     } catch (err: any) {
@@ -143,9 +170,11 @@ export const ComplaintsDeskView: React.FC = () => {
   const filteredTickets = tickets.filter(t => {
     const q = searchQuery.toLowerCase().trim();
     const matchSearch = !q ||
-      t.subject.toLowerCase().includes(q) ||
+      (t.subject || '').toLowerCase().includes(q) ||
       (t.user_name || '').toLowerCase().includes(q) ||
-      (t.description || '').toLowerCase().includes(q);
+      (t.description || '').toLowerCase().includes(q) ||
+      (t.student_name || '').toLowerCase().includes(q) ||
+      (t.batch_name || '').toLowerCase().includes(q);
     const matchCat = categoryFilter === 'all' || t.category === categoryFilter;
     const matchStat = statusFilter === 'all' || t.status === statusFilter;
     return matchSearch && matchCat && matchStat;
@@ -271,7 +300,7 @@ export const ComplaintsDeskView: React.FC = () => {
         <div className="p-12 text-center bg-white border border-slate-200 rounded-xl shadow-2xs">
           <MessageSquare className="w-7 h-7 text-slate-300 mx-auto mb-2" />
           <p className="text-xs font-semibold text-slate-700">No complaints matching filter</p>
-          <p className="text-[11px] text-slate-400 mt-1">Submit feedback tickets above to initiate service resolution.</p>
+          <p className="text-[11px] text-slate-400 mt-1">No tickets yet. Use New Ticket.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -312,6 +341,18 @@ export const ComplaintsDeskView: React.FC = () => {
                 <h3 className="text-xs sm:text-sm font-semibold text-slate-900">{ticket.subject}</h3>
                 <p className="text-xs text-slate-600 mt-1 leading-relaxed">{ticket.description}</p>
 
+                {(ticket.student_name || ticket.batch_name) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                    {ticket.student_name && (
+                      <span>Student: <strong className="font-semibold text-slate-700">{ticket.student_name}</strong></span>
+                    )}
+                    {ticket.student_name && ticket.batch_name && <span className="text-slate-300">•</span>}
+                    {ticket.batch_name && (
+                      <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-semibold">{ticket.batch_name}</span>
+                    )}
+                  </div>
+                )}
+
                 <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-mono">
                   <span className="flex items-center gap-1">
                     <User className="w-3.5 h-3.5 text-slate-400" />
@@ -350,7 +391,7 @@ export const ComplaintsDeskView: React.FC = () => {
                   ) : (
                     <CheckCircle2 className="w-3.5 h-3.5" />
                   )}
-                  <span>{isStaff ? (ticket.status === 'resolved' ? 'Resolution' : 'Update & Resolve') : (ticket.status === 'resolved' ? 'Resolution' : 'View Ticket')}</span>
+                  <span>{canEdit ? (ticket.status === 'resolved' ? 'Resolution' : 'Update & Resolve') : (ticket.status === 'resolved' ? 'Resolution' : 'View Ticket')}</span>
                 </button>
               </div>
             </div>
@@ -365,7 +406,7 @@ export const ComplaintsDeskView: React.FC = () => {
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
               <SectionInfo
                 title="Submit Ticket"
-                description="Report facility, academic, or administrative feedback"
+                description="Tell the office what happened."
               />
               <button onClick={() => setShowNewModal(false)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg">
                 <X className="w-4 h-4" />
@@ -402,6 +443,26 @@ export const ComplaintsDeskView: React.FC = () => {
                   </select>
                 </div>
               </div>
+
+              {isStaff && (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Student <span className="font-normal text-slate-400">(Optional)</span>
+                  </label>
+                  <select
+                    value={newForm.student_id}
+                    onChange={e => setNewForm(prev => ({ ...prev, student_id: e.target.value }))}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-800"
+                  >
+                    <option value="">No specific student (General)</option>
+                    {students.map((s: any) => (
+                      <option key={s.id} value={s.id}>
+                        {s.full_name} {s.roll_number ? `(${s.roll_number})` : ''} {s.batch_name ? `• ${s.batch_name}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">Ticket Subject</label>
@@ -452,19 +513,25 @@ export const ComplaintsDeskView: React.FC = () => {
           <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden mobile-sheet-card max-h-[92dvh] overflow-y-auto">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
               <SectionInfo
-                title={isStaff ? 'Manage Resolution' : 'Ticket Details & Resolution'}
-                description={isStaff ? 'Update ticket status and provide official resolution notes' : 'View ticket status and official administration reply'}
+                title={canEdit ? 'Manage Resolution' : 'Ticket Details & Resolution'}
+                description={canEdit ? 'Update ticket status and provide official resolution notes' : 'View ticket status and official administration reply'}
               />
               <button onClick={() => setSelectedTicket(null)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {isStaff ? (
+            {canEdit ? (
               <form onSubmit={handleUpdateStatus} className="p-5 space-y-4">
                 <div className="bg-slate-50 border border-slate-200/70 p-3 rounded-xl text-xs space-y-1">
                   <p className="font-bold text-slate-900">{selectedTicket.subject}</p>
                   <p className="text-slate-600 text-[11px]">{selectedTicket.description}</p>
+                  {(selectedTicket.student_name || selectedTicket.batch_name) && (
+                    <div className="text-[11px] text-slate-500 pt-1">
+                      {selectedTicket.student_name && <span>Student: <strong className="text-slate-700">{selectedTicket.student_name}</strong> </span>}
+                      {selectedTicket.batch_name && <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded font-semibold">{selectedTicket.batch_name}</span>}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -482,7 +549,7 @@ export const ComplaintsDeskView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Official Resolution Reply</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Reply to parent</label>
                   <textarea
                     value={resolutionReply}
                     onChange={e => setResolutionReply(e.target.value)}
@@ -492,7 +559,7 @@ export const ComplaintsDeskView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Internal Administrative Notes</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Office notes</label>
                   <input
                     type="text"
                     value={internalNotes}
@@ -539,6 +606,12 @@ export const ComplaintsDeskView: React.FC = () => {
                   </div>
                   <h4 className="font-bold text-slate-900 text-sm">{selectedTicket.subject}</h4>
                   <p className="text-slate-600 text-xs leading-relaxed">{selectedTicket.description}</p>
+                  {(selectedTicket.student_name || selectedTicket.batch_name) && (
+                    <div className="text-[11px] text-slate-500 pt-1">
+                      {selectedTicket.student_name && <span>Student: <strong className="text-slate-700">{selectedTicket.student_name}</strong> </span>}
+                      {selectedTicket.batch_name && <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded font-semibold">{selectedTicket.batch_name}</span>}
+                    </div>
+                  )}
                   <div className="pt-2 border-t border-slate-200/60 text-[10px] text-slate-400 font-mono">
                     Submitted on: {new Date(selectedTicket.created_at).toLocaleString()}
                   </div>
@@ -548,7 +621,7 @@ export const ComplaintsDeskView: React.FC = () => {
                   <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs space-y-1.5">
                     <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Official Resolution Reply:</span>
+                      <span>Reply to parent:</span>
                     </div>
                     <p className="text-emerald-950 text-xs leading-relaxed">
                       {selectedTicket.resolution_reply}
@@ -556,7 +629,7 @@ export const ComplaintsDeskView: React.FC = () => {
                   </div>
                 ) : (
                   <div className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl text-xs text-slate-500 text-center">
-                    This ticket is currently under administrative review. Official resolution remarks will be published here once investigated.
+                    The office has not replied yet.
                   </div>
                 )}
 

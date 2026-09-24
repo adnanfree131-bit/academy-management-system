@@ -65,6 +65,7 @@ export const ROLE_DEFAULT_TEMPLATES: Record<string, Partial<Record<FeatureId, Ac
     expenses: 'edit',
     payroll: 'edit',
     enrollment: 'view',
+    staff_attendance: 'view',
   },
   academic_head: {
     enrollment: 'edit',
@@ -81,6 +82,7 @@ export const ROLE_DEFAULT_TEMPLATES: Record<string, Partial<Record<FeatureId, Ac
     geofence: 'edit',
     all_classes: 'edit',
     voucher: 'view',
+    staff_attendance: 'view',
   },
 };
 
