@@ -938,7 +938,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Executive Desks Summary Bar: Homework, Admissions Pipeline, and Examinations (Sidebar Dark Navy Palette) */}
+      {/* Executive Desks Summary Bar: Homework, Inquiries Desk, and Examinations (Sidebar Dark Navy Palette) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Desk 1: Homework Diary */}
         <div
@@ -976,11 +976,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
         {/* Desk 2: Prospective Inquiries */}
         <div
-          onClick={() => onNavigate('enrollment')}
+          onClick={() => onNavigate('inquiries')}
           className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Admissions Pipeline</span>
+            <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Inquiries Desk</span>
             <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <PhoneCall className="w-3.5 h-3.5" />
             </div>
@@ -996,13 +996,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
             <p className="text-[11px] text-slate-300 mt-1 truncate">
               {inquiriesList.filter(i => i.stage === 'new' || !i.stage).length > 0
-                ? `${inquiriesList.filter(i => i.stage === 'new' || !i.stage).length} new leads pending review`
-                : 'Follow-up pipeline clear'}
+                ? `${inquiriesList.filter(i => i.stage === 'new' || !i.stage).length} new inquiries pending review`
+                : 'No pending inquiries'}
             </p>
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
-            <span>Prospects & Inquiries</span>
-            <span className="text-amber-400 font-semibold hover:underline">Review Pipeline →</span>
+            <span>Candidate Inquiries</span>
+            <span className="text-amber-400 font-semibold hover:underline">Review Inquiries →</span>
           </div>
         </div>
 

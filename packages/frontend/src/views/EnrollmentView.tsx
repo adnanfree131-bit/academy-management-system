@@ -128,6 +128,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
   // Native Mobile Drawer / Sheet States
   const [showDirectoryFilters, setShowDirectoryFilters] = useState(false);
+  const [showInquiryFilters, setShowInquiryFilters] = useState(false);
   const [showOverviewCards, setShowOverviewCards] = useState(false);
   const [mobileActionStudent, setMobileActionStudent] = useState<Student | null>(null);
   const [showModuleMenu, setShowModuleMenu] = useState(false);
@@ -730,6 +731,15 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     const converted = inquiries.filter(i => i.stage === 'admitted').length;
     return { total, newCount, followUpAction, trialAndDiscussion, converted };
   }, [inquiries, todayStr]);
+
+  const activeInquiryFilterCount = useMemo(() => {
+    let count = 0;
+    if (inquiryUrgencyFilter !== 'all') count++;
+    if (inquiryProgramFilter !== 'all') count++;
+    if (inquiryPriorityFilter !== 'all') count++;
+    if (inquirySourceFilter !== 'all') count++;
+    return count;
+  }, [inquiryUrgencyFilter, inquiryProgramFilter, inquiryPriorityFilter, inquirySourceFilter]);
 
   // Comprehensive Filtered Inquiries
   const filteredInquiries = useMemo(() => {
@@ -2168,7 +2178,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             {activeTab === 'directory'
               ? 'Students'
               : activeTab === 'inquiries'
-              ? 'Inquiries Pipeline'
+              ? 'Inquiries Desk'
               : activeTab === 'new_admission'
               ? 'New Student Admission'
               : 'Student ID Cards Studio'}
@@ -2177,7 +2187,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             {activeTab === 'directory'
               ? 'Enrolled student roster, admission records, and academic profiles.'
               : activeTab === 'inquiries'
-              ? 'Prospect inquiries tracking, lead stages, and 1-click admission.'
+              ? 'Prospect inquiries, follow-up records, and admission processing.'
               : activeTab === 'new_admission'
               ? 'Register new student enrollment and generate admission challan.'
               : 'Official duplex identity cards generator and print studio.'}
@@ -2300,7 +2310,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 >
                   <div className="flex items-center gap-2">
                     <Users className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Students Roster</span>
+                    <span>Students Directory</span>
                   </div>
                   <span className="text-[11px] font-mono text-slate-400">{students.length}</span>
                 </button>
@@ -2317,7 +2327,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 >
                   <div className="flex items-center gap-2">
                     <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Inquiries Pipeline</span>
+                    <span>Inquiries Desk</span>
                   </div>
                   <span className="text-[11px] font-mono text-slate-400">{inquiries.length}</span>
                 </button>
@@ -2380,7 +2390,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
                 >
                   <Upload className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Bulk CSV / Excel Upload</span>
+                  <span>Bulk Excel or CSV Import</span>
                 </button>
 
                 <button
@@ -2535,7 +2545,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </div>
                   <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] col-span-2 sm:col-span-1">
                     <div>
-                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Inactive / Alumni</span>
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Inactive and Alumni</span>
                       <span className="font-mono font-bold text-slate-300 text-base">{students.filter(s => s.status !== 'active').length}</span>
                     </div>
                     <span className="w-7 h-7 rounded-lg bg-white/10 text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
@@ -2695,7 +2705,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         type="button"
                         onClick={toggleSelectAllFiltered}
                         className="text-slate-500 hover:text-slate-800"
-                        title="Select/Deselect All Filtered"
+                        title="Select or Deselect All Filtered"
                       >
                         {filteredStudents.length > 0 && filteredStudents.every(s => selectedDirectoryStudentIds.has(s.id)) ? (
                           <CheckSquare className="w-4 h-4 text-slate-900" />
@@ -2707,7 +2717,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <th className="py-2 px-3">Student Details</th>
                     <th className="py-2 px-3 whitespace-nowrap min-w-[130px]">Admission #</th>
                     <th className="py-2 px-3">
-                      {directoryCohortType === 'section' ? 'Class & Section' : directoryCohortType === 'batch' ? 'Class & Batch' : 'Class & Section / Batch'}
+                      {directoryCohortType === 'section' ? 'Class & Section' : directoryCohortType === 'batch' ? 'Class & Batch' : 'Class and Section'}
                     </th>
                     <th className="py-2 px-3">Guardian Contact</th>
                     <th className="py-2 px-3">Status</th>
@@ -3135,7 +3145,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       {/* TAB: STUDENT ID CARDS GENERATOR & PRINTING STUDIO                         */}
       {/* ========================================================================= */}
       {/* ========================================================================= */}
-      {/* TAB 2: ADVANCED INQUIRIES CRM DESK & PIPELINE                             */}
+      {/* ========================================================================= */}
+      {/* TAB 2: INQUIRIES DESK                                                     */}
       {/* ========================================================================= */}
       {activeTab === 'inquiries' && (
         <div className="space-y-4">
@@ -3143,285 +3154,245 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
             <div 
               onClick={() => { setInquiryStageFilter('all'); setInquiryUrgencyFilter('all'); }}
-              className="bg-[#081A2F] border border-[#173252] hover:border-sky-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all cursor-pointer group"
-              title="Click to view all inquiry leads"
+              className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] cursor-pointer"
             >
               <div>
-                <span className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400 block mb-0.5">Total Prospects</span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-mono font-bold text-white text-lg sm:text-xl tracking-tight">{inquiryKPIs.total}</span>
-                  <span className="text-[10px] text-sky-400/80 font-mono font-medium">Pipeline</span>
-                </div>
+                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Total Inquiries</span>
+                <span className="font-mono font-bold text-white text-base">{inquiryKPIs.total}</span>
               </div>
-              <span className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <HelpCircle className="w-4 h-4" />
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center shrink-0">
+                <HelpCircle className="w-3.5 h-3.5" />
               </span>
             </div>
 
             <div 
               onClick={() => { setInquiryStageFilter('new'); setInquiryUrgencyFilter('all'); }}
-              className="bg-[#081A2F] border border-[#173252] hover:border-indigo-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all cursor-pointer group"
-              title="Click to view new unprocessed leads"
+              className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] cursor-pointer"
             >
               <div>
-                <span className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400 block mb-0.5">New Leads</span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-mono font-bold text-indigo-300 text-lg sm:text-xl tracking-tight">{inquiryKPIs.newCount}</span>
-                  <span className="text-[10px] text-indigo-400/80 font-mono font-medium">Fresh</span>
-                </div>
+                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">New Inquiries</span>
+                <span className="font-mono font-bold text-amber-400 text-base">{inquiryKPIs.newCount}</span>
               </div>
-              <span className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <UserPlus className="w-4 h-4" />
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0">
+                <UserPlus className="w-3.5 h-3.5" />
               </span>
             </div>
 
             <div 
               onClick={() => { setInquiryUrgencyFilter('overdue'); }}
-              className={`bg-[#081A2F] border ${inquiryKPIs.followUpAction > 0 ? 'border-rose-500/60 ring-1 ring-rose-500/30' : 'border-[#173252]'} hover:border-rose-500 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all cursor-pointer group`}
-              title="Click to filter inquiries with action due"
+              className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] cursor-pointer"
             >
               <div>
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400 block">Follow-Up Due</span>
-                  {inquiryKPIs.followUpAction > 0 && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                  )}
-                </div>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-mono font-bold text-rose-400 text-lg sm:text-xl tracking-tight">{inquiryKPIs.followUpAction}</span>
-                  <span className="text-[10px] text-rose-400/80 font-mono font-medium">Action Needed</span>
-                </div>
+                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Follow-ups Due</span>
+                <span className="font-mono font-bold text-rose-400 text-base">{inquiryKPIs.followUpAction}</span>
               </div>
-              <span className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <Clock className="w-4 h-4" />
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0">
+                <Clock className="w-3.5 h-3.5" />
               </span>
             </div>
 
             <div 
               onClick={() => { setInquiryStageFilter('trial_scheduled'); }}
-              className="bg-[#081A2F] border border-[#173252] hover:border-purple-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all cursor-pointer group"
-              title="Click to view inquiries in trial demo or fee negotiation"
+              className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] cursor-pointer"
             >
               <div>
-                <span className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400 block mb-0.5">In Trial / Demo</span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-mono font-bold text-purple-300 text-lg sm:text-xl tracking-tight">{inquiryKPIs.trialAndDiscussion}</span>
-                  <span className="text-[10px] text-purple-400/80 font-mono font-medium">Evaluating</span>
-                </div>
+                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Trial Sessions</span>
+                <span className="font-mono font-bold text-indigo-300 text-base">{inquiryKPIs.trialAndDiscussion}</span>
               </div>
-              <span className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <GraduationCap className="w-4 h-4" />
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-indigo-300 border border-white/10 flex items-center justify-center shrink-0">
+                <GraduationCap className="w-3.5 h-3.5" />
               </span>
             </div>
 
             <div 
               onClick={() => { setInquiryStageFilter('admitted'); }}
-              className="bg-[#081A2F] border border-[#173252] hover:border-emerald-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all cursor-pointer group col-span-2 sm:col-span-1"
-              title="Click to view converted / admitted students"
+              className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] col-span-2 sm:col-span-1 cursor-pointer"
             >
               <div>
-                <span className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400 block mb-0.5">Admitted / Converted</span>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="font-mono font-bold text-emerald-400 text-lg sm:text-xl tracking-tight">{inquiryKPIs.converted}</span>
-                  <span className="text-[10px] text-emerald-400/80 font-mono font-medium">Enrolled</span>
-                </div>
+                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Admitted Students</span>
+                <span className="font-mono font-bold text-emerald-400 text-base">{inquiryKPIs.converted}</span>
               </div>
-              <span className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                <CheckCircle2 className="w-4 h-4" />
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-3.5 h-3.5" />
               </span>
             </div>
           </div>
 
           {/* Inquiries Main Control Panel Card */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-            {/* Top Toolbar: Search + Action Buttons */}
-            <div className="p-3 bg-white border-b border-slate-200 space-y-3">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
-                <div className="relative w-full sm:max-w-md">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="bg-white border border-slate-200 rounded-xl shadow-2xs relative z-20">
+            {/* Top Toolbar: Search + Stage Select + Filter Button + Log New Inquiry */}
+            <div className="p-3 bg-white">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={inquirySearchQuery}
                     onChange={e => setInquirySearchQuery(e.target.value)}
-                    placeholder="Search prospects by candidate name, phone, guardian, inquiry #..."
-                    className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white font-sans"
+                    placeholder="Search inquiries by candidate name, phone, guardian, inquiry number..."
+                    className="w-full pl-8 pr-7 py-2 sm:py-1.5 text-xs bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors font-sans text-slate-900"
                   />
                   {inquirySearchQuery && (
                     <button
                       type="button"
                       onClick={() => setInquirySearchQuery('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  <button
-                    type="button"
-                    onClick={handleOpenCreateInquiry}
-                    className="w-full sm:w-auto px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Log New Inquiry</span>
-                  </button>
-                </div>
-              </div>
+                {/* Stage Quick Selector */}
+                <select
+                  value={inquiryStageFilter}
+                  onChange={e => setInquiryStageFilter(e.target.value)}
+                  className="px-2.5 py-2 sm:py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 shrink-0 cursor-pointer"
+                >
+                  <option value="all">All Stages ({inquiries.length})</option>
+                  <option value="new">New ({inquiries.filter(i => i.stage === 'new').length})</option>
+                  <option value="follow_up">Follow Up ({inquiries.filter(i => i.stage === 'follow_up').length})</option>
+                  <option value="trial_scheduled">Trial Scheduled ({inquiries.filter(i => i.stage === 'trial_scheduled').length})</option>
+                  <option value="trial_attended">Trial Attended ({inquiries.filter(i => i.stage === 'trial_attended').length})</option>
+                  <option value="fee_discussion">Fee Discussion ({inquiries.filter(i => i.stage === 'fee_discussion').length})</option>
+                  <option value="admitted">Admitted ({inquiries.filter(i => i.stage === 'admitted').length})</option>
+                  <option value="closed">Closed or Dropped ({inquiries.filter(i => i.stage === 'closed').length})</option>
+                </select>
 
-              {/* Filters Strip: Stage Pills + Urgency Tabs + Program/Priority Selectors */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
-                {/* Stage Filters with live counts */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-                  {[
-                    { id: 'all', label: 'All Inquiries', count: inquiries.length },
-                    { id: 'new', label: 'New', count: inquiries.filter(i => i.stage === 'new').length },
-                    { id: 'follow_up', label: 'Follow Up', count: inquiries.filter(i => i.stage === 'follow_up').length },
-                    { id: 'trial_scheduled', label: 'Trial Scheduled', count: inquiries.filter(i => i.stage === 'trial_scheduled').length },
-                    { id: 'trial_attended', label: 'Trial Attended', count: inquiries.filter(i => i.stage === 'trial_attended').length },
-                    { id: 'fee_discussion', label: 'Fee Discussion', count: inquiries.filter(i => i.stage === 'fee_discussion').length },
-                    { id: 'admitted', label: 'Admitted', count: inquiries.filter(i => i.stage === 'admitted').length },
-                    { id: 'closed', label: 'Closed', count: inquiries.filter(i => i.stage === 'closed').length },
-                  ].map(st => (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => setInquiryStageFilter(st.id)}
-                      className={`px-2.5 py-1 rounded-md text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
-                        inquiryStageFilter === st.id
-                          ? 'bg-amber-600 text-white font-bold shadow-xs'
-                          : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-                      }`}
-                    >
-                      <span>{st.label}</span>
-                      <span className={`text-[10px] font-mono px-1 rounded-full ${
-                        inquiryStageFilter === st.id ? 'bg-amber-700/80 text-white' : 'bg-slate-200 text-slate-600'
-                      }`}>
-                        {st.count}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Urgency & Filter Selectors */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => setInquiryUrgencyFilter('all')}
-                      className={`px-2 py-1 rounded-md transition-all ${
-                        inquiryUrgencyFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      All Dates
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setInquiryUrgencyFilter('overdue')}
-                      className={`px-2 py-1 rounded-md transition-all flex items-center gap-1 ${
-                        inquiryUrgencyFilter === 'overdue' ? 'bg-rose-600 text-white shadow-2xs font-bold' : 'text-rose-600 hover:bg-rose-50'
-                      }`}
-                    >
-                      <AlertTriangle className="w-3 h-3" />
-                      <span>Overdue</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setInquiryUrgencyFilter('today')}
-                      className={`px-2 py-1 rounded-md transition-all ${
-                        inquiryUrgencyFilter === 'today' ? 'bg-amber-600 text-white shadow-2xs font-bold' : 'text-amber-700 hover:bg-amber-50'
-                      }`}
-                    >
-                      Today
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setInquiryUrgencyFilter('upcoming')}
-                      className={`px-2 py-1 rounded-md transition-all ${
-                        inquiryUrgencyFilter === 'upcoming' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Upcoming
-                    </button>
-                  </div>
-
-                  <select
-                    value={inquiryProgramFilter}
-                    onChange={e => setInquiryProgramFilter(e.target.value)}
-                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                  >
-                    <option value="all">All Programs</option>
-                    {programs.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={inquiryPriorityFilter}
-                    onChange={e => setInquiryPriorityFilter(e.target.value)}
-                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                  >
-                    <option value="all">All Priorities</option>
-                    <option value="high">High Priority</option>
-                    <option value="medium">Medium Priority</option>
-                    <option value="low">Low Priority</option>
-                  </select>
-
-                  <select
-                    value={inquirySourceFilter}
-                    onChange={e => setInquirySourceFilter(e.target.value)}
-                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                  >
-                    <option value="all">All Sources</option>
-                    <option value="Walk-in">Walk-in</option>
-                    <option value="Phone Call">Phone Call</option>
-                    <option value="Referral">Referral</option>
-                    <option value="Social Media">Social Media</option>
-                    <option value="Banner">Banner</option>
-                    <option value="Other">Other</option>
-                  </select>
-
-                  {(inquiryStageFilter !== 'all' || inquiryUrgencyFilter !== 'all' || inquiryProgramFilter !== 'all' || inquiryPriorityFilter !== 'all' || inquirySourceFilter !== 'all' || inquirySearchQuery) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setInquiryStageFilter('all');
-                        setInquiryUrgencyFilter('all');
-                        setInquiryProgramFilter('all');
-                        setInquiryPriorityFilter('all');
-                        setInquirySourceFilter('all');
-                        setInquirySearchQuery('');
-                      }}
-                      className="px-2 py-1 text-xs text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
-                      title="Reset all inquiry filters"
-                    >
-                      Reset
-                    </button>
+                {/* Filter Toggle Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowInquiryFilters(prev => !prev)}
+                  className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+                    showInquiryFilters || activeInquiryFilterCount > 0
+                      ? 'bg-amber-50 text-amber-900 border-amber-300'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                  title="Toggle Filters"
+                  aria-label="Toggle Filters"
+                >
+                  <SlidersHorizontal className="w-4 h-4 text-slate-600" />
+                  {activeInquiryFilterCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
+                      {activeInquiryFilterCount}
+                    </span>
                   )}
-                </div>
+                </button>
+
+                {/* Primary Action Button */}
+                <button
+                  type="button"
+                  onClick={handleOpenCreateInquiry}
+                  className="px-3 py-2 sm:py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Log New Inquiry</span>
+                  <span className="sm:hidden">New</span>
+                </button>
               </div>
+
+              {/* Collapsible Filter Selectors */}
+              {showInquiryFilters && (
+                <div className="mt-3 pt-3 border-t border-slate-100 animate-in fade-in duration-150">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 min-w-[140px]">
+                      <span className="text-[11px] font-medium text-slate-500">Urgency:</span>
+                      <select
+                        value={inquiryUrgencyFilter}
+                        onChange={e => setInquiryUrgencyFilter(e.target.value as any)}
+                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+                      >
+                        <option value="all">All Dates</option>
+                        <option value="overdue">Overdue Follow-ups</option>
+                        <option value="today">Due Today</option>
+                        <option value="upcoming">Upcoming</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 min-w-[140px]">
+                      <span className="text-[11px] font-medium text-slate-500">Program:</span>
+                      <select
+                        value={inquiryProgramFilter}
+                        onChange={e => setInquiryProgramFilter(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+                      >
+                        <option value="all">All Programs ({programs.length})</option>
+                        {programs.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 min-w-[140px]">
+                      <span className="text-[11px] font-medium text-slate-500">Priority:</span>
+                      <select
+                        value={inquiryPriorityFilter}
+                        onChange={e => setInquiryPriorityFilter(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+                      >
+                        <option value="all">All Priorities</option>
+                        <option value="high">High Priority</option>
+                        <option value="medium">Medium Priority</option>
+                        <option value="low">Low Priority</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 min-w-[140px]">
+                      <span className="text-[11px] font-medium text-slate-500">Source:</span>
+                      <select
+                        value={inquirySourceFilter}
+                        onChange={e => setInquirySourceFilter(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
+                      >
+                        <option value="all">All Sources</option>
+                        <option value="Walk-in">Walk-in Desk</option>
+                        <option value="Phone Call">Phone Call</option>
+                        <option value="Referral">Student Referral</option>
+                        <option value="Social Media">Social Media</option>
+                        <option value="Banner">Banner</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    {(inquiryUrgencyFilter !== 'all' || inquiryProgramFilter !== 'all' || inquiryPriorityFilter !== 'all' || inquirySourceFilter !== 'all' || inquiryStageFilter !== 'all' || inquirySearchQuery) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInquiryStageFilter('all');
+                          setInquiryUrgencyFilter('all');
+                          setInquiryProgramFilter('all');
+                          setInquiryPriorityFilter('all');
+                          setInquirySourceFilter('all');
+                          setInquirySearchQuery('');
+                        }}
+                        className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer shrink-0"
+                      >
+                        Reset Filters
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Desktop High-Density Table View */}
             <div className="overflow-x-auto hidden md:block">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10.5px]">
-                    <th className="py-3 px-3.5">Inquiry #</th>
-                    <th className="py-3 px-3.5">Candidate Particulars</th>
-                    <th className="py-3 px-3.5">Contact & Outreach</th>
-                    <th className="py-3 px-3.5">Target Class & Shift</th>
-                    <th className="py-3 px-3.5">Source & Priority</th>
-                    <th className="py-3 px-3.5">Next Follow-Up</th>
-                    <th className="py-3 px-3.5">Stage</th>
-                    <th className="py-3 px-3.5">Interaction History</th>
-                    <th className="py-3 px-3.5 text-right">Actions</th>
+                  <tr className="bg-slate-50/80 border-y border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10.5px]">
+                    <th className="py-2.5 px-3 whitespace-nowrap min-w-[110px]">Inquiry #</th>
+                    <th className="py-2.5 px-3">Candidate</th>
+                    <th className="py-2.5 px-3">Parent and Contact</th>
+                    <th className="py-2.5 px-3">Class and Shift</th>
+                    <th className="py-2.5 px-3">Follow-up</th>
+                    <th className="py-2.5 px-3">Stage</th>
+                    <th className="py-2.5 px-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200/70">
                   {filteredInquiries.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-12 text-center text-slate-400">
+                      <td colSpan={7} className="py-12 text-center text-slate-400">
                         <HelpCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                         <p className="text-xs font-semibold text-slate-600">No prospect inquiries match the selected criteria.</p>
                         <p className="text-[11px] text-slate-400 mt-0.5">Try clearing filters or log a new candidate inquiry above.</p>
@@ -3438,14 +3409,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                       return (
                         <tr key={inq.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-3 px-3.5">
-                            <span className="font-mono font-bold text-slate-800 block">{inq.inquiry_number}</span>
+                          <td className="py-2.5 px-3">
+                            <span className="font-mono font-bold text-slate-900 block">{inq.inquiry_number}</span>
                             <span className="text-[10px] text-slate-400 font-mono">
                               {new Date(inq.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                             </span>
                           </td>
 
-                          <td className="py-3 px-3.5">
+                          <td className="py-2.5 px-3">
                             <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
                               <span>{inq.student_name}</span>
                               <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider ${
@@ -3472,7 +3443,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             )}
                           </td>
 
-                          <td className="py-3 px-3.5">
+                          <td className="py-2.5 px-3">
                             <div className="flex items-center gap-1.5">
                               <span className="font-mono text-slate-800 font-semibold">{inq.phone}</span>
                               {inq.phone && (
@@ -3486,7 +3457,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                               )}
                               {cleanWaPhone && (
                                 <a
-                                  href={`https://wa.me/${cleanWaPhone}?text=${encodeURIComponent(`Assalamu Alaikum / Greetings from ${tenant?.name || 'our academy'}. Regarding your admission inquiry (${inq.inquiry_number}) for ${inq.student_name}:`)}`}
+                                  href={`https://wa.me/${cleanWaPhone}?text=${encodeURIComponent(`Assalamu Alaikum, greetings from ${tenant?.name || 'our academy'}. Regarding admission inquiry ${inq.inquiry_number} for ${inq.student_name}:`)}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="w-6 h-6 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors cursor-pointer"
@@ -3503,7 +3474,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             )}
                           </td>
 
-                          <td className="py-3 px-3.5">
+                          <td className="py-2.5 px-3">
                             <div className="font-semibold text-slate-800">
                               {inq.program_id ? getProgramName(inq.program_id) : 'General Inquiry'}
                             </div>
@@ -3513,31 +3484,42 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             </div>
                           </td>
 
-                          <td className="py-3 px-3.5">
-                            <span className="text-[10.5px] font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-block">
-                              {inq.source || 'Walk-in'}
-                            </span>
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-2">
+                              {isOverdue ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                  <AlertTriangle className="w-3 h-3 text-rose-600" />
+                                  <span>Overdue ({inq.next_follow_up_date})</span>
+                                </span>
+                              ) : isDueToday ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  <span>Due Today</span>
+                                </span>
+                              ) : (
+                                <span className="font-mono text-[11px] text-slate-600">
+                                  {inq.next_follow_up_date || '—'}
+                                </span>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveTimelineInquiry(inq);
+                                  setNewFollowUpNote('');
+                                  setNewFollowUpOutcome('spoke_with_parent');
+                                  setNewFollowUpNextDate(inq.next_follow_up_date || '');
+                                }}
+                                className="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-semibold transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                                title="View follow-up history"
+                              >
+                                <History className="w-3 h-3 text-slate-500" />
+                                <span>{followUpLogsCount}</span>
+                              </button>
+                            </div>
                           </td>
 
-                          <td className="py-3 px-3.5">
-                            {isOverdue ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                <AlertTriangle className="w-3 h-3 text-rose-600" />
-                                <span>{inq.next_follow_up_date} (Overdue)</span>
-                              </span>
-                            ) : isDueToday ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                                <Clock className="w-3 h-3 text-amber-600" />
-                                <span>Due Today</span>
-                              </span>
-                            ) : (
-                              <span className="font-mono text-[11px] text-slate-600">
-                                {inq.next_follow_up_date || '—'}
-                              </span>
-                            )}
-                          </td>
-
-                          <td className="py-3 px-3.5">
+                          <td className="py-2.5 px-3">
                             {inq.stage === 'admitted' ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -3554,41 +3536,19 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                 <option value="trial_scheduled">Trial Scheduled</option>
                                 <option value="trial_attended">Trial Attended</option>
                                 <option value="fee_discussion">Fee Discussion</option>
-                                <option value="closed">Closed / Drop</option>
+                                <option value="closed">Closed or Dropped</option>
                               </select>
                             )}
                           </td>
 
-                          <td className="py-3 px-3.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveTimelineInquiry(inq);
-                                setNewFollowUpNote('');
-                                setNewFollowUpOutcome('spoke_with_parent');
-                                setNewFollowUpNextDate(inq.next_follow_up_date || '');
-                              }}
-                              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[11px] font-semibold transition-colors flex items-center gap-1 cursor-pointer"
-                              title="View and log follow-up interaction history"
-                            >
-                              <History className="w-3 h-3 text-slate-500" />
-                              <span>{followUpLogsCount} log{followUpLogsCount === 1 ? '' : 's'}</span>
-                            </button>
-                            {inq.notes && (
-                              <p className="text-[10px] text-slate-400 italic line-clamp-1 max-w-[140px] mt-0.5">
-                                "{inq.notes}"
-                              </p>
-                            )}
-                          </td>
-
-                          <td className="py-3 px-3.5 text-right">
+                          <td className="py-2.5 px-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               {inq.stage !== 'admitted' && (
                                 <button
                                   type="button"
                                   onClick={() => handleOpenAdmitInquiryModal(inq)}
                                   className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1 cursor-pointer"
-                                  title="Quick Batch Admission & Challan Issuance"
+                                  title="Direct Admission and Fee Challan"
                                 >
                                   <UserPlus className="w-3.5 h-3.5" />
                                   <span>Admit</span>
@@ -3599,7 +3559,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                 type="button"
                                 onClick={() => handleOpenEditInquiry(inq)}
                                 className="w-7 h-7 rounded bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
-                                title="Edit Prospect Details"
+                                title="Edit Inquiry Details"
                               >
                                 <Edit className="w-3 h-3" />
                               </button>
@@ -3658,12 +3618,12 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         <span className="font-mono">{inq.phone}</span>
                         {inq.next_follow_up_date && (
                           <span className={`text-[10px] font-mono ${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-500'}`}>
-                            Next: {inq.next_follow_up_date} {isOverdue && '(Overdue)'}
+                            Due: {inq.next_follow_up_date}
                           </span>
                         )}
                       </div>
 
-                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-50">
                         {inq.phone && (
                           <a
                             href={`tel:${inq.phone}`}
@@ -3676,7 +3636,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                         {cleanWaPhone && (
                           <a
-                            href={`https://wa.me/${cleanWaPhone}?text=${encodeURIComponent(`Assalamu Alaikum. Regarding your inquiry at ${tenant?.name || 'our academy'}:`)}`}
+                            href={`https://wa.me/${cleanWaPhone}?text=${encodeURIComponent(`Assalamu Alaikum, greetings from ${tenant?.name || 'our academy'}. Regarding admission inquiry ${inq.inquiry_number} for ${inq.student_name}:`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold flex items-center gap-1"
@@ -6387,7 +6347,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, batch_id: e.target.value }))}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                   >
-                    <option value="">-- Flexible / Unassigned --</option>
+                    <option value="">-- Unassigned Batch --</option>
                     {batches
                       .filter(b => !newInquiryForm.program_id || b.program_id === newInquiryForm.program_id)
                       .map(b => (
@@ -6404,14 +6364,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   >
                     <option value="morning">Morning Shift</option>
                     <option value="evening">Evening Shift</option>
-                    <option value="both">Both / Flexible</option>
+                    <option value="both">Flexible Shifts</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Lead Source</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Inquiry Source</label>
                   <select
                     value={newInquiryForm.source}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, source: e.target.value }))}
@@ -6550,7 +6510,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 )}
                 {cleanPhoneForWhatsApp(activeTimelineInquiry.phone) && (
                   <a
-                    href={`https://wa.me/${cleanPhoneForWhatsApp(activeTimelineInquiry.phone)}?text=${encodeURIComponent(`Assalamu Alaikum / Greetings from ${tenant?.name || 'our academy'}. Regarding inquiry ${activeTimelineInquiry.inquiry_number} for ${activeTimelineInquiry.student_name}:`)}`}
+                    href={`https://wa.me/${cleanPhoneForWhatsApp(activeTimelineInquiry.phone)}?text=${encodeURIComponent(`Assalamu Alaikum, greetings from ${tenant?.name || 'our academy'}. Regarding inquiry ${activeTimelineInquiry.inquiry_number} for ${activeTimelineInquiry.student_name}:`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-colors"
@@ -6747,7 +6707,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 Inquiry #{closeInquiryModal.inquiry_number} • {closeInquiryModal.phone}
               </div>
               <p className="text-[11px] text-slate-600 pt-1 border-t border-slate-200/60">
-                Marking this prospect as Closed / Dropped keeps all historical notes in the audit log for institutional analytics.
+                Marking this prospect as Closed or Dropped keeps all historical notes in the audit log for institutional records.
               </p>
             </div>
 
@@ -6761,13 +6721,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   onChange={e => setCloseReason(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
                 >
-                  <option value="Fee Constraints">Fee Constraints / Budget Limit</option>
-                  <option value="Timings Clash">Class Timings / Shift Clash</option>
-                  <option value="Distance / Transport">Distance / Transport Inconvenience</option>
-                  <option value="Enrolled in Competitor">Enrolled in Competitor Academy</option>
-                  <option value="Unreachable / Not Interested">Unreachable / Not Interested</option>
+                  <option value="Fee Constraints">Fee Constraints</option>
+                  <option value="Timings Clash">Timing Conflict</option>
+                  <option value="Distance / Transport">Distance or Transport</option>
+                  <option value="Enrolled in Competitor">Enrolled Elsewhere</option>
+                  <option value="Unreachable / Not Interested">Not Interested or Unreachable</option>
                   <option value="Discontinued Follow-up">Discontinued Follow-up</option>
-                  <option value="Other">Other Particulars</option>
+                  <option value="Other">Other Reason</option>
                 </select>
               </div>
 
