@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, AbsenteeCallOutcome, AbsenteeReasonCategory, AbsenteeFollowupStatus } from '@apex/shared-types';
 import { can, FeatureId, AccessLevel } from '../lib/access.js';
+import { campusToday } from '../lib/campus-date.js';
 
 export function absenteeRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -42,7 +43,9 @@ export function absenteeRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'absentee', 'view', reply)) return;
       const { date } = request.query as { date?: string };
-      const today = date || new Date().toISOString().split('T')[0];
+      const tenant = await store.getTenantById(user.tenant_id);
+      const tenantTz = (tenant as any)?.settings?.timezone || 'Asia/Karachi';
+      const today = date || campusToday(tenantTz);
       const kpi = await store.getAbsenteeDeskKPI(user.tenant_id, today);
       return reply.send({ success: true, data: kpi, timestamp: new Date().toISOString() });
     };
@@ -57,7 +60,9 @@ export function absenteeRoutes(store: IDataStore) {
       });
 
       const parse = schema.safeParse(request.body || {});
-      const targetDate = parse.success && parse.data?.date ? parse.data.date : new Date().toISOString().split('T')[0];
+      const tenant = await store.getTenantById(user.tenant_id);
+      const tenantTz = (tenant as any)?.settings?.timezone || 'Asia/Karachi';
+      const targetDate = parse.success && parse.data?.date ? parse.data.date : campusToday(tenantTz);
 
       const roster = await store.syncDailyAbsenteeRoster(user.tenant_id, targetDate);
       return reply.send({

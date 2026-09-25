@@ -73,10 +73,20 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
 
   // Modals & Popups
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(studentId || null);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(() => {
+    return studentId || (typeof window !== 'undefined' ? localStorage.getItem('apex_selected_child_id') : null) || null;
+  });
   const [printingReportCard, setPrintingReportCard] = useState<StudentOfficialReportCard | null>(null);
   const [selectedChallanInvoice, setSelectedChallanInvoice] = useState<StudentInvoice | null>(null);
   const [selectedEnrollmentId, setSelectedEnrollmentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedStudentId) {
+      try {
+        localStorage.setItem('apex_selected_child_id', selectedStudentId);
+      } catch (_e) {}
+    }
+  }, [selectedStudentId]);
 
   // Timetable Screen State: active day of week using campus today
   const campusTodayDateStr = campusToday(tenant?.settings?.timezone || 'Asia/Karachi');
@@ -84,7 +94,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   const [selectedTimetableDay, setSelectedTimetableDay] = useState<DayOfWeek>(todayDayKey);
 
   // Attendance Screen State: status filter
-  const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED'>('ALL');
+  const [attendanceFilter, setAttendanceFilter] = useState<'ALL' | 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'EXCUSED'>('ALL');
 
   // Homework Screen State: filters
   const [homeworkSubjectFilter, setHomeworkSubjectFilter] = useState<string>('ALL');
@@ -121,13 +131,29 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
     }
   );
 
-  // Resolve current active screen view
-  const currentView = activeScreen || (
-    forcedTab === 'fees' ? 'voucher' :
-    forcedTab === 'homework' ? 'homework' :
-    forcedTab === 'reports' ? 'exams' :
-    'student_portal'
-  );
+  // Local state for portal views
+  const [innerView, setInnerView] = useState<'student_portal' | 'timetable' | 'attendance' | 'voucher' | 'homework' | 'exams'>(() => {
+    if (activeScreen && ['student_portal', 'timetable', 'attendance', 'voucher', 'homework', 'exams'].includes(activeScreen)) {
+      return activeScreen as any;
+    }
+    if (forcedTab === 'fees') return 'voucher';
+    if (forcedTab === 'homework') return 'homework';
+    if (forcedTab === 'reports') return 'exams';
+    return 'student_portal';
+  });
+
+  useEffect(() => {
+    if (activeScreen && ['student_portal', 'timetable', 'attendance', 'voucher', 'homework', 'exams'].includes(activeScreen)) {
+      setInnerView(activeScreen as any);
+    } else if (!activeScreen) {
+      if (forcedTab === 'fees') setInnerView('voucher');
+      else if (forcedTab === 'homework') setInnerView('homework');
+      else if (forcedTab === 'reports') setInnerView('exams');
+      else setInnerView('student_portal');
+    }
+  }, [activeScreen, forcedTab]);
+
+  const currentView = innerView;
 
   const handleCopyText = (text: string, key: string) => {
     if (!text) return;
@@ -137,20 +163,34 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   };
 
   const handleNavigateScreen = (screen: string) => {
+    if (['student_portal', 'timetable', 'attendance', 'voucher', 'homework', 'exams'].includes(screen)) {
+      setInnerView(screen as any);
+    }
     if (onNavigate) {
       onNavigate(screen);
+    }
+  };
+
+  const handleBackToOverview = () => {
+    setInnerView('student_portal');
+    if (onNavigate) {
+      onNavigate('student_portal');
     }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
-    if (newPasswordInput !== confirmPasswordInput) {
-      setPasswordChangeError('New password and confirm password do not match.');
+    if (newPasswordInput.length < 8) {
+      setPasswordChangeError('New password must be at least 8 characters long.');
       return;
     }
-    if (newPasswordInput.length < 6) {
-      setPasswordChangeError('New password must be at least 6 characters long.');
+    if (newPasswordInput === currentPasswordInput) {
+      setPasswordChangeError('New password must be different from your temporary default password.');
+      return;
+    }
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordChangeError('New password and confirm password do not match.');
       return;
     }
     setIsChangingPassword(true);
@@ -334,13 +374,23 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   // Attendance stats
   const attendanceStats = useMemo(() => {
     const totalCount = attendance.length;
-    const presentCount = attendance.filter(a => a.status === 'PRESENT').length;
+    const presentCount = profile?.monthly_present_days != null ? profile.monthly_present_days : attendance.filter(a => a.status === 'PRESENT' || a.status === 'LATE').length;
     const lateCount = attendance.filter(a => a.status === 'LATE').length;
-    const absentCount = attendance.filter(a => a.status === 'ABSENT').length;
+    const absentCount = profile?.monthly_absent_days != null ? profile.monthly_absent_days : attendance.filter(a => a.status === 'ABSENT').length;
     const excusedCount = attendance.filter(a => a.status === 'EXCUSED').length;
-    const computedPct = profile?.monthly_attendance_pct != null ? profile.monthly_attendance_pct : 100;
+    const computedPct = profile?.monthly_attendance_pct != null ? profile.monthly_attendance_pct : null;
     return { totalCount, presentCount, lateCount, absentCount, excusedCount, pct: computedPct };
-  }, [attendance, profile?.monthly_attendance_pct]);
+  }, [attendance, profile?.monthly_attendance_pct, profile?.monthly_present_days, profile?.monthly_absent_days]);
+
+  // Exam report cards sorted by exam date descending
+  const sortedReportCards = useMemo(() => {
+    return [...reportCards].sort((a, b) => {
+      const dateA = a.exam?.exam_date || '';
+      const dateB = b.exam?.exam_date || '';
+      return dateB.localeCompare(dateA);
+    });
+  }, [reportCards]);
+  const latestReportCard = sortedReportCards[0];
 
   // Filtered attendance records
   const filteredAttendance = useMemo(() => {
@@ -533,6 +583,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                     <span>
                       {todayAttendance.status === 'PRESENT' ? 'Present in School Today' :
                        todayAttendance.status === 'LATE' ? 'Arrived Late Today' :
+                       (todayAttendance.status as any) === 'HALF_DAY' ? 'Half Day Today' :
                        todayAttendance.status === 'EXCUSED' ? 'Approved Leave Today' : 'Marked Absent Today'}
                     </span>
                   </span>
@@ -582,11 +633,13 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             )}
 
             {/* Class Switcher for Multi-Class Enrolled Students */}
-            {overview?.enrollments && overview.enrollments.length > 1 && (
+            {overview?.enrollments && overview.enrollments.filter(e => e.status === 'active' || e.status === 'on_leave').length > 1 && (
               <div className="flex flex-wrap items-center gap-1.5 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
                 <GraduationCap className="w-3.5 h-3.5 text-slate-500 ml-1 shrink-0" />
                 <span className="text-[10px] uppercase font-bold text-slate-500 px-1 shrink-0">Class:</span>
-                {overview.enrollments.map(enr => {
+                {overview.enrollments
+                  .filter(enr => enr.status === 'active' || enr.status === 'on_leave')
+                  .map(enr => {
                   const isSelected = enr.id === overview.selected_enrollment_id;
                   return (
                     <button
@@ -656,18 +709,22 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-700">Tuition Fees</span>
                 <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                  unpaidBalance === 0 ? 'bg-emerald-200 text-emerald-900' : 'bg-rose-200 text-rose-900'
+                  unpaidBalance === 0
+                    ? (invoices.length === 0 ? 'bg-slate-100 text-slate-700' : 'bg-emerald-200 text-emerald-900')
+                    : 'bg-rose-200 text-rose-900'
                 }`}>
-                  {unpaidBalance === 0 ? 'All Paid' : 'Due'}
+                  {unpaidBalance === 0 ? (invoices.length === 0 ? 'No Dues' : 'Fee Status: Fully Cleared') : 'Due'}
                 </span>
               </div>
               <div className={`text-lg sm:text-xl font-bold font-mono ${unpaidBalance === 0 ? 'text-emerald-800' : 'text-rose-700'}`}>
                 {unpaidBalance === 0 ? 'PKR 0' : `PKR ${unpaidBalance.toLocaleString()}`}
               </div>
               <p className="text-xs text-slate-600">
-                {unpaidBalance === 0 
-                  ? 'All tuition fees are fully cleared. Thank you!' 
-                  : 'Pending monthly fee. Please clear before due date.'}
+                {invoices.length === 0 && unpaidBalance === 0
+                  ? 'No payment receipts recorded yet.'
+                  : unpaidBalance === 0 
+                    ? 'Fee Status: Fully Cleared' 
+                    : 'Pending monthly fee. Please clear before due date.'}
               </p>
               <button
                 type="button"
@@ -688,7 +745,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 </span>
               </div>
               <div className="text-lg sm:text-xl font-bold font-mono text-slate-900">
-                {attendanceStats.pct}%
+                {attendanceStats.pct != null ? `${attendanceStats.pct}%` : 'Not marked'}
               </div>
               <p className="text-xs text-slate-600">
                 {attendanceStats.presentCount} days present • {attendanceStats.absentCount} absent
@@ -733,18 +790,20 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             <div className="bg-white rounded-xl p-3.5 sm:p-4 border border-slate-200 shadow-2xs space-y-1.5">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-700">Exam Results</span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                  Latest Exam
-                </span>
+                {latestReportCard && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                    Latest Exam
+                  </span>
+                )}
               </div>
               <div className="text-lg sm:text-xl font-bold font-mono text-slate-900">
-                {reportCards.length > 0 
-                  ? `${(reportCards[0].evaluation.percentage != null ? Number(reportCards[0].evaluation.percentage).toFixed(0) : '0')}%`
+                {latestReportCard 
+                  ? `${(latestReportCard.evaluation.percentage != null ? Number(latestReportCard.evaluation.percentage).toFixed(0) : '0')}%`
                   : 'Active'}
               </div>
               <p className="text-xs text-slate-600">
-                {reportCards.length > 0 
-                  ? `Rank #${reportCards[0].rank || 1} in class (${reportCards[0].exam.title})`
+                {latestReportCard 
+                  ? (latestReportCard.rank ? `Rank #${latestReportCard.rank} in class (${latestReportCard.exam.title})` : `Class Assessment (${latestReportCard.exam.title})`)
                   : 'Regular academic standing'}
               </p>
               <button
@@ -1045,16 +1104,31 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                       No active homework assignments right now.
                     </p>
                   ) : (
-                    homework.slice(0, 3).map(hw => (
-                      <div key={hw.id} className="p-3 rounded-xl border border-slate-100 bg-slate-50 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-indigo-700 text-[11px]">{hw.subject_name}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">Due: {hw.due_date}</span>
+                    homework.slice(0, 3).map(hw => {
+                      const rawStatus = (hw as any).submission_status || (hw as any).check_status || 'pending';
+                      const status = rawStatus === 'complete' ? 'done' : rawStatus;
+                      return (
+                        <div key={hw.id} className="p-3 rounded-xl border border-slate-100 bg-slate-50 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-indigo-700 text-[11px]">{hw.subject_name}</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                                status === 'done'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : status === 'incomplete' || status === 'missing'
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : 'bg-slate-200 text-slate-700'
+                              }`}>
+                                {status}
+                              </span>
+                              <span className="text-[10px] text-slate-500 font-mono">Due: {hw.due_date}</span>
+                            </div>
+                          </div>
+                          <h4 className="font-bold text-slate-900 text-xs">{hw.title}</h4>
+                          <p className="text-slate-600 text-[11px] line-clamp-2">{hw.description}</p>
                         </div>
-                        <h4 className="font-bold text-slate-900 text-xs">{hw.title}</h4>
-                        <p className="text-slate-600 text-[11px] line-clamp-2">{hw.description}</p>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
@@ -1092,9 +1166,10 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                           att.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
                           att.status === 'EXCUSED' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
                           att.status === 'LATE' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                          (att.status as any) === 'HALF_DAY' ? 'bg-orange-100 text-orange-800 border border-orange-200' :
                           'bg-rose-100 text-rose-800 border border-rose-200'
                         }`}>
-                          {att.status === 'PRESENT' ? 'Present' : att.status === 'EXCUSED' ? 'Leave' : att.status === 'LATE' ? 'Late' : 'Absent'}
+                          {att.status === 'PRESENT' ? 'Present' : att.status === 'EXCUSED' ? 'Leave' : (att.status as any) === 'HALF_DAY' ? 'Half Day' : att.status === 'LATE' ? 'Late' : 'Absent'}
                         </span>
                       </div>
                     ))
@@ -1122,6 +1197,13 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           ===================================================================== */}
       {currentView === 'timetable' && (
         <div className="space-y-6">
+          <button
+            type="button"
+            onClick={handleBackToOverview}
+            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
+          >
+            Back
+          </button>
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
@@ -1223,6 +1305,13 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           ===================================================================== */}
       {currentView === 'attendance' && (
         <div className="space-y-6">
+          <button
+            type="button"
+            onClick={handleBackToOverview}
+            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
+          >
+            Back
+          </button>
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
@@ -1249,10 +1338,10 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-center">
                 <span className="text-xs text-slate-500 font-bold uppercase block">Attendance Rate</span>
-                <span className={`text-lg sm:text-xl font-bold font-mono block ${attendanceStats.pct >= 75 ? 'text-emerald-700' : 'text-rose-600'}`}>
-                  {attendanceStats.pct}%
+                <span className={`text-lg sm:text-xl font-bold font-mono block ${attendanceStats.pct != null && attendanceStats.pct >= 75 ? 'text-emerald-700' : 'text-rose-600'}`}>
+                  {attendanceStats.pct != null ? `${attendanceStats.pct}%` : 'Not marked'}
                 </span>
-                <span className="text-[11px] text-slate-400">Regular</span>
+                <span className="text-[11px] text-slate-400">{attendanceStats.pct != null ? (attendanceStats.pct >= 75 ? 'Regular' : 'Low Attendance') : 'No Records'}</span>
               </div>
 
               <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl text-center">
@@ -1287,7 +1376,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
 
                 {/* Filter Tabs */}
                 <div className="flex items-center gap-1 text-xs font-semibold">
-                  {(['ALL', 'PRESENT', 'LATE', 'ABSENT', 'EXCUSED'] as const).map(f => (
+                  {(['ALL', 'PRESENT', 'LATE', 'HALF_DAY', 'ABSENT', 'EXCUSED'] as const).map(f => (
                     <button
                       key={f}
                       type="button"
@@ -1298,7 +1387,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                       }`}
                     >
-                      {f === 'ALL' ? 'All' : f === 'EXCUSED' ? 'Leaves' : f.charAt(0) + f.slice(1).toLowerCase()}
+                      {f === 'ALL' ? 'All' : f === 'EXCUSED' ? 'Leaves' : f === 'HALF_DAY' ? 'Half Day' : f.charAt(0) + f.slice(1).toLowerCase()}
                     </button>
                   ))}
                 </div>
@@ -1318,9 +1407,10 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                         att.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-800' :
                         att.status === 'EXCUSED' ? 'bg-blue-100 text-blue-800' :
                         att.status === 'LATE' ? 'bg-amber-100 text-amber-800' :
+                        (att.status as any) === 'HALF_DAY' ? 'bg-orange-100 text-orange-800' :
                         'bg-rose-100 text-rose-800'
                       }`}>
-                        {att.status === 'PRESENT' ? 'Present' : att.status === 'EXCUSED' ? 'Approved Leave' : att.status === 'LATE' ? 'Late' : 'Absent'}
+                        {att.status === 'PRESENT' ? 'Present' : att.status === 'EXCUSED' ? 'Approved Leave' : (att.status as any) === 'HALF_DAY' ? 'Half Day' : att.status === 'LATE' ? 'Late' : 'Absent'}
                       </span>
                     </div>
                   ))
@@ -1381,6 +1471,13 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           ===================================================================== */}
       {currentView === 'voucher' && (
         <div className="space-y-6">
+          <button
+            type="button"
+            onClick={handleBackToOverview}
+            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
+          >
+            Back
+          </button>
 
           {/* Simple Fee Status Banner */}
           <div className={`p-3.5 sm:p-4 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
@@ -1394,9 +1491,11 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 PKR {unpaidBalance.toLocaleString()}
               </div>
               <p className="text-xs text-slate-600 mt-1">
-                {unpaidBalance === 0 
-                  ? 'All tuition fees are paid. Thank you!' 
-                  : 'Please transfer fee to our official bank account or Raast below.'}
+                {invoices.length === 0 && unpaidBalance === 0
+                  ? 'No payment receipts recorded yet.'
+                  : unpaidBalance === 0 
+                    ? 'Fee Status: Fully Cleared' 
+                    : 'Please transfer fee to our official bank account or Raast below.'}
               </p>
               <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-slate-600 font-medium">
                 <span>Total Invoiced: <strong className="text-slate-900 font-mono">PKR {financialSummary.totalInvoiced.toLocaleString()}</strong></span>
@@ -1665,6 +1764,13 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           ===================================================================== */}
       {currentView === 'homework' && (
         <div className="space-y-6">
+          <button
+            type="button"
+            onClick={handleBackToOverview}
+            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
+          >
+            Back
+          </button>
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
@@ -1782,6 +1888,13 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           ===================================================================== */}
       {currentView === 'exams' && (
         <div className="space-y-6">
+          <button
+            type="button"
+            onClick={handleBackToOverview}
+            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
+          >
+            Back
+          </button>
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
@@ -1796,12 +1909,12 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             </div>
 
             <div className="space-y-4">
-              {reportCards.length === 0 ? (
+              {sortedReportCards.length === 0 ? (
                 <p className="text-xs text-slate-400 p-8 text-center border border-dashed border-slate-200 rounded-xl">
                   No examination report cards published yet.
                 </p>
               ) : (
-                reportCards.map((rc, idx) => (
+                sortedReportCards.map((rc, idx) => (
                   <div key={idx} className="p-5 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                       <div>
@@ -1810,7 +1923,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                         </span>
                         <h4 className="text-base font-bold text-slate-900 mt-1">{rc.exam.title}</h4>
                         <p className="text-xs text-slate-500">
-                          Date: {rc.exam.exam_date} • Class Position: <strong className="text-slate-900 font-bold">Rank #{rc.rank || 1}</strong> of {rc.total_students || 1} students
+                          Date: {rc.exam.exam_date} • Class Position: <strong className="text-slate-900 font-bold">{rc.rank ? `Rank #${rc.rank}` : '—'}</strong>{rc.total_students ? ` of ${rc.total_students} students` : ''}
                         </p>
                       </div>
 
@@ -2223,9 +2336,9 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   <div className="border border-slate-300 p-3 rounded text-center">
                     <span className="text-[10px] font-bold text-slate-600 uppercase block mb-1">Class Merit Rank</span>
                     <span className="text-xl font-bold font-mono text-slate-900 block">
-                      #{printingReportCard.rank || 1} <span className="text-xs text-slate-500 font-normal">of {printingReportCard.total_students || 1}</span>
+                      {printingReportCard.rank ? `#${printingReportCard.rank}` : '—'} {printingReportCard.total_students ? <span className="text-xs text-slate-500 font-normal">of {printingReportCard.total_students}</span> : null}
                     </span>
-                    <span className="text-[10px] text-slate-500 font-medium">Attendance: {profile?.monthly_attendance_pct != null ? profile.monthly_attendance_pct : 100}%</span>
+                    <span className="text-[10px] text-slate-500 font-medium">Attendance: {profile?.monthly_attendance_pct != null ? `${profile.monthly_attendance_pct}%` : '—'}</span>
                   </div>
                 </div>
 

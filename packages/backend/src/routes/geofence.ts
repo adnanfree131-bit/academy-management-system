@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload } from '@apex/shared-types';
 import { can, FeatureId, AccessLevel } from '../lib/access.js';
+import { campusToday } from '../lib/campus-date.js';
 
 export function geofenceRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -48,7 +49,19 @@ export function geofenceRoutes(store: IDataStore) {
         paid: z.boolean(),
         priority: z.number().int().min(1).optional(),
         trigger: z.object({
-          type: z.enum(['check_in_after', 'check_in_before', 'hours_below', 'hours_at_least', 'no_check_in', 'manual_only']),
+          type: z.enum([
+            'check_in_after',
+            'check_in_before',
+            'check_in_between',
+            'check_out_before',
+            'check_out_after',
+            'check_out_between',
+            'hours_below',
+            'hours_at_least',
+            'hours_between',
+            'no_check_in',
+            'manual_only',
+          ]),
           time: z.string().optional(),
           hours: z.number().optional(),
         }),
@@ -222,9 +235,11 @@ export function geofenceRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'staff_attendance', 'view', reply)) return;
       const { month } = request.query as { month?: string };
+      const tenant = await store.getTenantById(user.tenant_id);
+      const tenantTz = (tenant as any)?.settings?.timezone || 'Asia/Karachi';
       const monthStr = month && /^\d{4}-\d{2}$/.test(month) 
         ? month 
-        : new Date().toISOString().slice(0, 7);
+        : campusToday(tenantTz).slice(0, 7);
       const summary = await store.getStaffMonthlySummary(user.tenant_id, monthStr);
       return reply.send({ success: true, data: summary, timestamp: new Date().toISOString() });
     };

@@ -281,19 +281,34 @@ export const FeeChallansView: React.FC = () => {
     ) || null;
   }, [invoices, matchedSingleStudent, genMonth]);
 
-  // Map student ID to active invoice for genMonth
+  // Map student ID / enrollment / batch to active invoice for genMonth
   const studentBillingMap = useMemo(() => {
     const map = new Map<string, StudentInvoice>();
     for (const inv of invoices) {
       if (inv.status !== 'voided' && inv.status !== 'cancelled' && isSameBillingMonth(inv.billing_month, genMonth)) {
-        map.set(inv.student_id, inv);
+        if (inv.enrollment_id) {
+          map.set(`${inv.student_id}:${inv.enrollment_id}`, inv);
+        }
+        if (inv.batch_id) {
+          map.set(`${inv.student_id}:${inv.batch_id}`, inv);
+        }
+        if (!inv.enrollment_id && !inv.batch_id) {
+          map.set(inv.student_id, inv);
+        }
       }
     }
     return map;
   }, [invoices, genMonth]);
 
   const unbilledStudents = useMemo(() => {
-    return eligibleGenerationStudents.filter(s => !studentBillingMap.has(s.id));
+    return eligibleGenerationStudents.filter(s => {
+      const enrId = (s as any).enrollment_id;
+      const bId = s.batch_id;
+      const isBilled = (enrId && studentBillingMap.has(`${s.id}:${enrId}`)) ||
+        (bId && studentBillingMap.has(`${s.id}:${bId}`)) ||
+        studentBillingMap.has(s.id);
+      return !isBilled;
+    });
   }, [eligibleGenerationStudents, studentBillingMap]);
 
   // Handle Single Student Challan Generation
@@ -374,7 +389,12 @@ export const FeeChallansView: React.FC = () => {
       const resData = await res.json();
       if (res.ok && resData.success) {
         const generatedCount = resData.count ?? (Array.isArray(resData.data) ? resData.data.length : resData.data?.count) ?? eligibleGenerationStudents.length;
-        setGenSuccessMessage(`Generated ${generatedCount} challan${generatedCount === 1 ? '' : 's'} for ${genMonth}.`);
+        const skippedNames: string[] = resData.skipped || [];
+        let msg = `Generated ${generatedCount} challan${generatedCount === 1 ? '' : 's'} for ${genMonth}.`;
+        if (skippedNames.length > 0) {
+          msg += ` Skipped (${skippedNames.length} with zero installment): ${skippedNames.join(', ')}.`;
+        }
+        setGenSuccessMessage(msg);
         setAdditionalHeadsToAdd([]);
         await fetchData();
         // Switch to print view for this month

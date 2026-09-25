@@ -297,7 +297,12 @@ export function sisRoutes(store: IDataStore) {
 
       try {
         const enrollment = await store.createStudentEnrollment(user.tenant_id, id, parseResult.data);
-        return reply.status(201).send({ success: true, data: enrollment, timestamp: new Date().toISOString() });
+        return reply.status(201).send({
+          success: true,
+          data: enrollment,
+          challan_error: (enrollment as any).challan_error || undefined,
+          timestamp: new Date().toISOString(),
+        });
       } catch (err: any) {
         const msg = err.message || '';
         let errCode = 'ENROLLMENT_CREATION_FAILED';
@@ -561,7 +566,12 @@ export function sisRoutes(store: IDataStore) {
           ...parseResult.data,
         });
 
-        return reply.status(201).send({ success: true, data: student, timestamp: new Date().toISOString() });
+        return reply.status(201).send({
+          success: true,
+          data: student,
+          challan_error: (student as any).challan_error || undefined,
+          timestamp: new Date().toISOString(),
+        });
       } catch (err: any) {
         const msg = err.message || '';
         let errCode = 'STUDENT_CREATION_FAILED';

@@ -591,7 +591,7 @@ export interface TimetableSubstitution {
 }
 export interface TimetableCollisionResult {
     has_conflict: boolean;
-    conflict_type?: 'teacher_conflict' | 'batch_conflict' | 'room_conflict';
+    conflict_type?: 'teacher_conflict' | 'batch_conflict' | 'room_conflict' | 'time_order';
     message?: string;
     conflicting_slot?: TimetableSlot;
 }
@@ -1092,6 +1092,8 @@ export interface StaffPayslip {
     designation: string;
     payroll_month: string;
     base_salary: number;
+    lecture_count?: number;
+    casual_leave_deducted?: number;
     attendance_summary: {
         working_days: number;
         present_days: number;
@@ -1465,7 +1467,9 @@ export interface StudentParentPortalOverview {
         guardian_phone: string;
         guardian_id_card?: string;
         guardian_relation?: string;
-        monthly_attendance_pct: number;
+        monthly_attendance_pct: number | null;
+        monthly_present_days?: number;
+        monthly_absent_days?: number;
         photo_url?: string;
         subjects?: string[];
         admission_date?: string;

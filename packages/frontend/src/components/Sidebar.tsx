@@ -128,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {/* ============================================================
                   ROLE: FACULTY TEACHER
                   ============================================================ */}
-              {role === 'teacher' && !managedStaff && (
+              {role === 'teacher' && (
                 <>
                   <div>
                     <p className="px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold mb-1.5">

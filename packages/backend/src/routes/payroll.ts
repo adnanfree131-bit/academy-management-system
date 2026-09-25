@@ -75,11 +75,36 @@ export function payrollRoutes(store: IDataStore) {
     fastify.get('/payslips', getPayslipsHandler);
     fastify.get('/payroll/payslips', getPayslipsHandler);
 
+    const attendancePreviewHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      const { staff_id, payroll_month } = request.query as { staff_id?: string; payroll_month?: string };
+      if (!staff_id || !payroll_month) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'staff_id and payroll_month are required' },
+          timestamp: new Date().toISOString()
+        });
+      }
+      try {
+        const preview = await store.calculateStaffAttendanceDeduction(user.tenant_id, staff_id, payroll_month);
+        return reply.send({ success: true, data: preview, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'CALCULATION_FAILED', message: err.message },
+          timestamp: new Date().toISOString()
+        });
+      }
+    };
+    fastify.get('/attendance-preview', attendancePreviewHandler);
+    fastify.get('/payroll/attendance-preview', attendancePreviewHandler);
+
     const generatePayslipHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       const schema = z.object({
         staff_id: z.string().min(1),
         payroll_month: z.string().min(1),
+        lecture_count: z.number().int().min(0).optional(),
         earnings: z.array(z.object({
           id: z.string().default(() => crypto.randomUUID()),
           name: z.string().min(1),

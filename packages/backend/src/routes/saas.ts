@@ -276,7 +276,8 @@ export function saasRoutes(store: IDataStore) {
     fastify.post('/saas/receipts/:id/review', reviewReceiptHandler);
 
     // 5. Get Platform Banking Configuration
-    const getBankingConfigHandler = async (_req: any, reply: any) => {
+    const getBankingConfigHandler = async (req: any, reply: any) => {
+      if (!(await requireSuperAdmin(req, reply))) return;
       try {
         const config = await store.getPlatformBankingConfig();
         const data = { ...config };

@@ -55,18 +55,22 @@ export function homeworkRoutes(store: IDataStore) {
           return reply.send({ success: true, data: assignments, timestamp: new Date().toISOString() });
         }
 
-        const primaryEnrollment = activeEnrollments.find(e => e.is_primary) || activeEnrollments[0] || enrollments[0];
-        const targetBatchId = primaryEnrollment?.batch_id || me.batch_id;
-        if (!targetBatchId) {
+        const studentBatchIds = new Set<string>();
+        if (me.batch_id) studentBatchIds.add(me.batch_id);
+        for (const enr of activeEnrollments) {
+          if (enr.batch_id) studentBatchIds.add(enr.batch_id);
+        }
+        if (studentBatchIds.size === 0) {
           return reply.send({ success: true, data: [], timestamp: new Date().toISOString() });
         }
-        const assignments = await store.getHomework(user.tenant_id, targetBatchId);
-        return reply.send({ success: true, data: assignments, timestamp: new Date().toISOString() });
+        const allAssignments = await store.getHomework(user.tenant_id);
+        const filtered = allAssignments.filter(a => studentBatchIds.has(a.batch_id));
+        return reply.send({ success: true, data: filtered, timestamp: new Date().toISOString() });
       }
 
       if (user.role === 'parent') {
         const tenantUsers = await store.getTenantUsers(user.tenant_id);
-        const me = tenantUsers.find(u => u.id === (user.sub || user.user_id));
+        const me = tenantUsers.find(u => u.id === (user.sub || user.user_id) || (user.email && u.email === user.email));
         const parentCnic = (me?.metadata as any)?.guardian_id_card ||
           (me?.metadata as any)?.clean_guardian_id_card ||
           (user as any).guardian_id_card ||
@@ -75,15 +79,28 @@ export function homeworkRoutes(store: IDataStore) {
           (me as any)?.cnic ||
           (me as any)?.guardian_id_card;
         const cleanParentCnic = parentCnic ? String(parentCnic).replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const parentEmail = (user.email || me?.email || '').trim().toLowerCase();
+        const parentPhone = ((me as any)?.phone || (user as any)?.phone || (me?.metadata as any)?.phone || (me?.metadata as any)?.guardian_phone || '').trim();
 
         const students = await store.getStudents(user.tenant_id);
-        const children = cleanParentCnic ? students.filter(s => {
-          if (s.guardian_id_card) {
+        const children = students.filter(s => {
+          if (cleanParentCnic && s.guardian_id_card) {
             const cleanStdCnic = s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase();
             if (cleanStdCnic === cleanParentCnic) return true;
           }
+          if (cleanParentCnic && (s.father_cnic || s.mother_cnic)) {
+            const cleanFatherCnic = s.father_cnic ? s.father_cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+            const cleanMotherCnic = s.mother_cnic ? s.mother_cnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+            if (cleanFatherCnic === cleanParentCnic || cleanMotherCnic === cleanParentCnic) return true;
+          }
+          if (parentEmail && s.guardian_email && s.guardian_email.trim().toLowerCase() === parentEmail) {
+            return true;
+          }
+          if (parentPhone && s.guardian_phone && s.guardian_phone.trim() === parentPhone) {
+            return true;
+          }
           return false;
-        }) : [];
+        });
 
         const childBatchIds = new Set<string>();
         for (const child of children) {
@@ -149,11 +166,20 @@ export function homeworkRoutes(store: IDataStore) {
       }
       if (!assertFeature(user, 'homework', 'edit', reply)) return;
 
+      const rawBatchId = typeof request.body?.batch_id === 'string' ? request.body.batch_id.trim() : '';
+      if (!rawBatchId) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'BATCH_REQUIRED', message: 'Target batch/class is required.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       const schema = z.object({
-        batch_id: z.string().min(1),
-        subject_id: z.string().min(1),
-        title: z.string().min(1),
-        description: z.string().min(1),
+        batch_id: z.string().trim().min(1, 'Target batch/class is required.'),
+        subject_id: z.string().trim().min(1, 'Subject is required.'),
+        title: z.string().trim().min(1, 'Title is required.'),
+        description: z.string().trim().min(1, 'Description is required.'),
         assigned_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
         attachment_url: z.union([z.string().url(), z.literal(''), z.null()]).optional(),
@@ -167,6 +193,16 @@ export function homeworkRoutes(store: IDataStore) {
         return reply.status(400).send({
           success: false,
           error: { code: 'VALIDATION_ERROR', message: 'Invalid homework assignment payload', details: parse.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const batches = await store.getBatches(user.tenant_id);
+      const batchExists = batches.some(b => b.id === parse.data.batch_id);
+      if (!batchExists) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'INVALID_BATCH', message: 'Target batch/class does not exist.' },
           timestamp: new Date().toISOString(),
         });
       }
@@ -228,11 +264,22 @@ export function homeworkRoutes(store: IDataStore) {
         });
       }
 
+      if (request.body && 'batch_id' in request.body) {
+        const rawBatchId = typeof request.body.batch_id === 'string' ? request.body.batch_id.trim() : '';
+        if (!rawBatchId) {
+          return reply.status(400).send({
+            success: false,
+            error: { code: 'BATCH_REQUIRED', message: 'Target batch/class cannot be blank.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
       const schema = z.object({
-        batch_id: z.string().min(1).optional(),
-        subject_id: z.string().min(1).optional(),
-        title: z.string().min(1).optional(),
-        description: z.string().min(1).optional(),
+        batch_id: z.string().trim().min(1, 'Target batch/class cannot be blank.').optional(),
+        subject_id: z.string().trim().min(1).optional(),
+        title: z.string().trim().min(1).optional(),
+        description: z.string().trim().min(1).optional(),
         assigned_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
         attachment_url: z.union([z.string().url(), z.literal(''), z.null()]).optional(),
@@ -254,12 +301,23 @@ export function homeworkRoutes(store: IDataStore) {
         });
       }
 
-      if (parse.data.batch_id && scope !== 'all' && !scope.includes(parse.data.batch_id)) {
-        return reply.status(403).send({
-          success: false,
-          error: { code: 'FORBIDDEN_BATCH', message: 'You are not assigned to target batch.' },
-          timestamp: new Date().toISOString(),
-        });
+      if (parse.data.batch_id) {
+        const batches = await store.getBatches(user.tenant_id);
+        const batchExists = batches.some(b => b.id === parse.data.batch_id);
+        if (!batchExists) {
+          return reply.status(400).send({
+            success: false,
+            error: { code: 'INVALID_BATCH', message: 'Target batch/class does not exist.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        if (scope !== 'all' && !scope.includes(parse.data.batch_id)) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN_BATCH', message: 'You are not assigned to target batch.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
       }
 
       const tenantUsers = await store.getTenantUsers(user.tenant_id);

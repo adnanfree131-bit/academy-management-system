@@ -427,11 +427,13 @@ export function financeRoutes(store: IDataStore) {
 
       const generated = await store.generateBatchInvoices(user.tenant_id, parse.data);
       const count = generated.length;
+      const skipped = (generated as any).skipped || [];
       return reply.status(201).send({
         success: true,
         data: generated,
         count,
         invoices_created: count,
+        skipped,
         timestamp: new Date().toISOString()
       });
     };
@@ -580,6 +582,9 @@ export function financeRoutes(store: IDataStore) {
       }).refine(d => d.payment_method !== 'cheque' || Boolean(d.cheque_number && String(d.cheque_number).trim()), {
         message: 'Cheque number is required for cheque payments',
         path: ['cheque_number']
+      }).refine(d => !d.is_override || Boolean(d.override_reason && String(d.override_reason).trim()), {
+        message: 'Override reason is required when override is enabled.',
+        path: ['override_reason']
       });
 
       const parse = schema.safeParse(request.body);
@@ -628,6 +633,12 @@ export function financeRoutes(store: IDataStore) {
             allocated_amount: z.number().min(0)
           })).optional()
         })).min(1)
+      }).refine(d => d.payment_method !== 'cheque' || Boolean(d.cheque_number && String(d.cheque_number).trim()), {
+        message: 'Cheque number is required for cheque payments',
+        path: ['cheque_number']
+      }).refine(d => d.payments.every(p => !p.is_override || Boolean(p.override_reason && String(p.override_reason).trim())), {
+        message: 'Override reason is required when override is enabled on any child payment.',
+        path: ['payments']
       });
 
       const parse = schema.safeParse(request.body);
@@ -770,6 +781,7 @@ export function financeRoutes(store: IDataStore) {
     // =========================================================================
     const getDiscountsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'voucher', 'view', reply)) return;
       const { student_id } = request.query as { student_id?: string };
       const discounts = await store.getDiscounts(user.tenant_id, student_id);
       return reply.send({ success: true, data: discounts, timestamp: new Date().toISOString() });
@@ -956,7 +968,7 @@ export function financeRoutes(store: IDataStore) {
       if (!assertFeature(user, 'expenses', 'edit', reply)) return;
       const schema = z.object({
         type: z.enum(['income', 'expense']),
-        account_head_id: z.string().min(1),
+        account_head_id: z.string().min(1, 'Choose an account head.'),
         head_name: z.string().optional().nullable(),
         amount: z.number().positive(),
         transaction_date: z.string().optional().nullable(),
@@ -971,40 +983,52 @@ export function financeRoutes(store: IDataStore) {
 
       const parse = schema.safeParse(request.body);
       if (!parse.success) {
+        const isHeadError = parse.error.issues.some(i => i.path.includes('account_head_id'));
         return reply.status(400).send({
           success: false,
-          error: { code: 'VALIDATION_ERROR', message: 'Invalid transaction data', details: parse.error.flatten() },
+          error: { code: 'VALIDATION_ERROR', message: isHeadError ? 'Choose an account head.' : 'Invalid transaction data', details: parse.error.flatten() },
           timestamp: new Date().toISOString()
         });
       }
 
-      // Auto resolve head_name if omitted
-      let headName = parse.data.head_name;
-      if (!headName) {
-        const heads = await store.getAccountHeads(user.tenant_id);
-        const head = heads.find(h => h.id === parse.data.account_head_id);
-        headName = head?.name || 'General';
+      // Check account head exists on this tenant and type matches voucher type
+      const heads = await store.getAccountHeads(user.tenant_id);
+      const head = heads.find(h => h.id === parse.data.account_head_id && h.type === parse.data.type);
+      if (!head) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'INVALID_ACCOUNT_HEAD', message: 'Choose an account head.' },
+          timestamp: new Date().toISOString()
+        });
       }
 
       const txDate = parse.data.transaction_date || parse.data.date || new Date().toISOString().slice(0, 10);
       const payee = parse.data.paid_to_or_received_from || parse.data.payee_payer || 'General';
 
-      const tx = await store.createFinancialTransaction({
-        tenant_id: user.tenant_id,
-        type: parse.data.type,
-        account_head_id: parse.data.account_head_id,
-        head_name: headName,
-        amount: parse.data.amount,
-        transaction_date: txDate,
-        payment_method: parse.data.payment_method,
-        paid_to_or_received_from: payee,
-        reference_number: parse.data.reference_number || null,
-        description: parse.data.description || null,
-        attachment_url: parse.data.attachment_url || null,
-        recorded_by: user.email || 'Finance Desk'
-      });
+      try {
+        const tx = await store.createFinancialTransaction({
+          tenant_id: user.tenant_id,
+          type: parse.data.type,
+          account_head_id: head.id,
+          head_name: head.name,
+          amount: parse.data.amount,
+          transaction_date: txDate,
+          payment_method: parse.data.payment_method,
+          paid_to_or_received_from: payee,
+          reference_number: parse.data.reference_number || null,
+          description: parse.data.description || null,
+          attachment_url: parse.data.attachment_url || null,
+          recorded_by: user.email || 'Finance Desk'
+        });
 
-      return reply.status(201).send({ success: true, data: tx, timestamp: new Date().toISOString() });
+        return reply.status(201).send({ success: true, data: tx, timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'TRANSACTION_FAILED', message: err.message },
+          timestamp: new Date().toISOString()
+        });
+      }
     };
     fastify.post('/transactions', createTransactionHandler);
 

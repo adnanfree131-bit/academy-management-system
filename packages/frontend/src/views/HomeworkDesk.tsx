@@ -110,11 +110,16 @@ export const HomeworkDesk: React.FC = () => {
           ? bData.data
           : bData.data.filter((b: Batch) => userBatchScope.includes(b.id));
 
-        const matchedPending = pendingBatch && bData.data.find((b: Batch) => b.id === pendingBatch);
-        const initialBatch = matchedPending || filtered[0] || bData.data[0];
+        const matchedPending = pendingBatch && filtered.find((b: Batch) => b.id === pendingBatch);
+        const initialBatch = userBatchScope === 'all'
+          ? (matchedPending || filtered[0] || bData.data[0])
+          : (matchedPending || filtered[0]);
         if (initialBatch) {
           setSelectedBatchId(initialBatch.id);
           setNewHwForm(prev => ({ ...prev, batch_id: initialBatch.id }));
+        } else {
+          setSelectedBatchId('');
+          setNewHwForm(prev => ({ ...prev, batch_id: '' }));
         }
       }
 
@@ -137,6 +142,16 @@ export const HomeworkDesk: React.FC = () => {
   // Fetch homework assignments
   const fetchAssignments = async (deletedId?: string) => {
     if (!token) return;
+    if (userBatchScope !== 'all' && userBatchScope.length === 0) {
+      setAssignments([]);
+      setIsLoading(false);
+      return;
+    }
+    if (userBatchScope !== 'all' && selectedBatchId && !userBatchScope.includes(selectedBatchId)) {
+      setAssignments([]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     const headers = { Authorization: `Bearer ${token}` };
 
@@ -226,7 +241,7 @@ export const HomeworkDesk: React.FC = () => {
   const handleOpenCreateModal = () => {
     setEditingAssignmentId(null);
     setNewHwForm({
-      batch_id: selectedBatchId || (scopedBatches[0]?.id || batches[0]?.id || ''),
+      batch_id: selectedBatchId || (scopedBatches[0]?.id || ''),
       subject_id: newHwForm.subject_id || subjects[0]?.id || '',
       title: '',
       description: '',
@@ -273,6 +288,11 @@ export const HomeworkDesk: React.FC = () => {
   const handleSubmitAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
+
+    if (!newHwForm.batch_id || !newHwForm.batch_id.trim()) {
+      alert('Please select a target class/batch.');
+      return;
+    }
 
     if (newHwForm.due_date < newHwForm.assigned_date) {
       alert('Due date cannot be before assigned date.');
@@ -996,14 +1016,18 @@ export const HomeworkDesk: React.FC = () => {
                       className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800"
                       required
                     >
-                      {scopedBatches.map(b => {
-                        const progName = programs.find(p => p.id === b.program_id)?.name;
-                        return (
-                          <option key={b.id} value={b.id}>
-                            {progName ? `${progName} • ` : ''}{b.name}
-                          </option>
-                        );
-                      })}
+                      {scopedBatches.length === 0 ? (
+                        <option value="">No assigned classes</option>
+                      ) : (
+                        scopedBatches.map(b => {
+                          const progName = programs.find(p => p.id === b.program_id)?.name;
+                          return (
+                            <option key={b.id} value={b.id}>
+                              {progName ? `${progName} • ` : ''}{b.name}
+                            </option>
+                          );
+                        })
+                      )}
                     </select>
                   </div>
 
@@ -1089,7 +1113,7 @@ export const HomeworkDesk: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmittingHw}
+                  disabled={isSubmittingHw || !newHwForm.batch_id}
                   className="flex-1 min-h-11 px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {isSubmittingHw ? (editingAssignmentId ? 'Saving...' : 'Assigning...') : 'Confirm Assignment'}

@@ -95,31 +95,19 @@ export function portalRoutes(store: IDataStore) {
         // Strict Role-Based Identity Binding (Eliminates IDOR)
         if (user.role === 'student') {
           const allStudents = await store.getStudents(tenantId);
-          let myStudent = allStudents.find(s => 
-            (s.user_id && s.user_id === user.sub) || 
-            (s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase())
-          );
-          if (!myStudent) {
-            // Match via guardian CNIC, roll number, or admission number if user was authenticated with identifier
-            const guardianCnic = (me?.metadata as any)?.clean_guardian_id_card || (me?.metadata as any)?.guardian_id_card;
-            const cleanCnic = guardianCnic ? String(guardianCnic).replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
-            const metaRoll = (me?.metadata as any)?.roll_number;
-            const metaAdm = (me?.metadata as any)?.admission_number;
-
-            myStudent = allStudents.find(s => {
-              if (metaRoll && s.roll_number && s.roll_number.toLowerCase() === metaRoll.toLowerCase()) return true;
-              if (metaAdm && s.admission_number && s.admission_number.toLowerCase() === metaAdm.toLowerCase()) return true;
-              if (cleanCnic && s.guardian_id_card && s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() === cleanCnic) return true;
-              return false;
-            });
-            if (myStudent) {
-              await store.updateStudent(tenantId, myStudent.id, { user_id: user.sub });
-            }
-          }
+          const myStudent = allStudents.find(s => s.user_id && s.user_id === user.sub) ||
+            allStudents.find(s => s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase());
           if (!myStudent) {
             return reply.status(403).send({
               success: false,
               error: { code: 'STUDENT_UNLINKED', message: 'No student record is linked to this account.' }
+            });
+          }
+          if ((myStudent as any).portal_blocked) {
+            return reply.status(403).send({
+              success: false,
+              error: { code: 'PORTAL_BLOCKED', message: 'Student portal access has been blocked by the academy.' },
+              timestamp: new Date().toISOString(),
             });
           }
           if (targetStudentId && targetStudentId !== myStudent.id) {
@@ -144,14 +132,20 @@ export function portalRoutes(store: IDataStore) {
             return false;
           });
 
-          if (children.length === 0) {
+          // Check for portal_blocked on linked students
+          const unblockedChildren = children.filter(c => {
+            const linkedUser = users.find(u => u.id === c.user_id || (u.email && c.email && u.email.toLowerCase() === c.email.toLowerCase()));
+            return !(linkedUser?.metadata as any)?.portal_blocked && !(c as any).portal_blocked;
+          });
+
+          if (unblockedChildren.length === 0) {
             return reply.status(403).send({
               success: false,
               error: { code: 'NO_LINKED_CHILDREN', message: 'No student records associated with this parent account.' }
             });
           }
           if (targetStudentId) {
-            const isChild = children.some(c => c.id === targetStudentId);
+            const isChild = unblockedChildren.some(c => c.id === targetStudentId);
             if (!isChild) {
               return reply.status(403).send({
                 success: false,
@@ -159,18 +153,18 @@ export function portalRoutes(store: IDataStore) {
               });
             }
           } else {
-            targetStudentId = children[0].id;
+            targetStudentId = unblockedChildren[0].id;
           }
 
           const allBatches = await store.getBatches(tenantId);
           const allPrograms = await store.getPrograms(tenantId);
           const allInvoices = await store.getInvoices(tenantId);
 
-          linkedChildren = await Promise.all(children.map(async c => {
+          linkedChildren = await Promise.all(unblockedChildren.map(async c => {
             const b = allBatches.find(batch => batch.id === c.batch_id);
             const p = allPrograms.find(prog => prog.id === c.program_id);
-            const cInvoices = allInvoices.filter(i => i.student_id === c.id && i.status !== 'voided');
-            const unpaid = cInvoices.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
+            const cInvoices = allInvoices.filter(i => i.student_id === c.id && i.status !== 'voided' && (i.status as any) !== 'cancelled');
+            const unpaid = cInvoices.reduce((sum, inv) => sum + (typeof inv.balance_due === 'number' ? inv.balance_due : (inv.balance_amount ?? 0)), 0);
             const enrollments = await store.getStudentEnrollments(tenantId, c.id);
             return {
               id: c.id,

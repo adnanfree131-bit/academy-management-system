@@ -650,9 +650,17 @@ export interface IDataStore {
   getStaffSalaryProfiles(tenantId: string): Promise<StaffSalaryProfile[]>;
   saveStaffSalaryProfile(data: Omit<StaffSalaryProfile, 'id' | 'created_at' | 'updated_at'>): Promise<StaffSalaryProfile>;
   getPayslips(tenantId: string, options?: { staffId?: string; payrollMonth?: string }): Promise<StaffPayslip[]>;
+  calculateStaffAttendanceDeduction(tenantId: string, staffId: string, payrollMonth: string): Promise<{
+    unpaidEquivalent: number;
+    unitRate: number;
+    totalDeduction: number;
+    workingDays: number;
+    casualToDeduct: number;
+  }>;
   generatePayslip(tenantId: string, data: {
     staff_id: string;
     payroll_month: string;
+    lecture_count?: number;
     earnings: PayrollEarningHead[];
     deductions: PayrollDeductionHead[];
     admin_notes?: string;
@@ -665,7 +673,7 @@ export interface IDataStore {
   createQuestionChapter(tenantId: string, data: Omit<QuestionChapter, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>): Promise<QuestionChapter>;
   getBankQuestions(tenantId: string, filters?: { chapterId?: string; subjectId?: string; type?: ExamQuestionType; isQuizBank?: boolean }): Promise<BankQuestion[]>;
   createBankQuestion(tenantId: string, data: Omit<BankQuestion, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>): Promise<BankQuestion>;
-  importQuestionsFromExcel(tenantId: string, subjectId: string, programId: string, rows: ExcelQuestionImportRow[]): Promise<{ imported_count: number; chapters_created: number; questions: BankQuestion[] }>;
+  importQuestionsFromExcel(tenantId: string, subjectId: string, programId: string, rows: ExcelQuestionImportRow[]): Promise<{ imported_count: number; chapters_created: number; questions: BankQuestion[]; skipped_count?: number; skipped_rows?: Array<{ row: string; reason: string }> }>;
   deleteBankQuestion(tenantId: string, questionId: string): Promise<boolean>;
 
   getExams(tenantId: string, batchId?: string, subjectId?: string): Promise<Exam[]>;
@@ -878,6 +886,9 @@ export class InMemoryDataStore implements IDataStore {
   private financialTransactions: FinancialTransaction[] = [];
   private staffSalaryProfiles: StaffSalaryProfile[] = [];
   private staffPayslips: StaffPayslip[] = [];
+  private invoiceCounters: Map<string, number> = new Map();
+  private receiptCounters: Map<string, number> = new Map();
+  private familyReceiptCounters: Map<string, number> = new Map();
 
   // Phase 5 Collections
   private questionChapters: QuestionChapter[] = [];
@@ -1146,7 +1157,21 @@ export class InMemoryDataStore implements IDataStore {
       const existing = this.studentEnrollments.filter(e => e.tenant_id === student.tenant_id && e.student_id === student.id);
       if (existing.length === 0) {
         const batch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === student.tenant_id);
-        const status = (validStatuses.includes(student.status) ? student.status : 'active') as StudentEnrollmentStatus;
+        const isWaitlisted = student.status === 'waitlisted';
+        const status = isWaitlisted
+          ? 'withdrawn'
+          : (validStatuses.includes(student.status) ? student.status : 'active') as StudentEnrollmentStatus;
+        if (isWaitlisted) {
+          (student as any).portal_blocked = true;
+          if (student.user_id) {
+            const u = this.users.get(student.user_id);
+            if (u) {
+              u.status = 'inactive';
+              if (!u.metadata) u.metadata = {};
+              u.metadata.portal_blocked = true;
+            }
+          }
+        }
         const enrollment: StudentEnrollment = {
           id: crypto.randomUUID(),
           tenant_id: student.tenant_id,
@@ -3221,6 +3246,11 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async createSubjectGroup(data: Omit<SubjectGroup, 'id' | 'created_at'>): Promise<SubjectGroup> {
+    if (data.type === 'compulsory') {
+      this.subjectGroups = this.subjectGroups.filter(
+        g => !(g.tenant_id === data.tenant_id && g.program_id === data.program_id && g.type === 'compulsory')
+      );
+    }
     const group: SubjectGroup = {
       ...data,
       id: crypto.randomUUID(),
@@ -3752,6 +3782,19 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
 
+    const isWaitlisted = student.status === 'waitlisted';
+    if (isWaitlisted) {
+      (student as any).portal_blocked = true;
+      if (student.user_id) {
+        const u = this.users.get(student.user_id);
+        if (u) {
+          u.status = 'inactive';
+          if (!u.metadata) u.metadata = {};
+          u.metadata.portal_blocked = true;
+        }
+      }
+    }
+
     this.students.push(student);
 
     const primaryEnrollment: StudentEnrollment = {
@@ -3763,13 +3806,13 @@ export class InMemoryDataStore implements IDataStore {
       roll_number: student.roll_number,
       subjects: Array.isArray(student.subjects) ? [...student.subjects] : [],
       elective_group_id: student.elective_group_id || null,
-      status: (['active', 'on_leave', 'suspended', 'withdrawn', 'completed', 'archived', 'waitlisted'].includes(student.status) ? student.status : 'active') as StudentEnrollmentStatus,
+      status: (isWaitlisted ? 'withdrawn' : (['active', 'on_leave', 'suspended', 'withdrawn', 'completed', 'archived'].includes(student.status) ? student.status : 'active')) as StudentEnrollmentStatus,
       is_primary: true,
       fee_structure: student.fee_structure ? JSON.parse(JSON.stringify(student.fee_structure)) : undefined,
       billing_mode: student.billing_mode || batch?.billing_mode || 'monthly',
       installment_plan: student.installment_plan,
       admission_date: student.admission_date,
-      ended_at: null,
+      ended_at: isWaitlisted ? new Date().toISOString().split('T')[0] : null,
       created_at: student.created_at,
       updated_at: student.updated_at,
     };
@@ -3871,34 +3914,37 @@ export class InMemoryDataStore implements IDataStore {
             });
           }
         }
-        if (instItems.length === 0 && tuitionHead) {
+        if (instItems.length === 0 && tuitionHead && Number(firstInst.amount) > 0) {
           instItems.push({
             fee_head_id: tuitionHead.id,
-            amount: firstInst.amount || 1000,
+            amount: Number(firstInst.amount),
           });
         }
-        try {
-          const openingInvoice = await this.generateInvoice(data.tenant_id, {
-            student_id: student.id,
-            enrollment_id: primaryEnrollment.id,
-            billing_month: billingMonth,
-            due_date: firstInst.due_date || dueDate,
-            custom_items: instItems,
-            installment_number: 1,
-            total_installments: student.installment_plan.total_installments,
-            billing_mode: 'installment',
-            notes: `Admission Opening Fee Challan - Installment 1 of ${student.installment_plan.total_installments}`
-          } as any);
-          firstInst.status = 'billed';
-          firstInst.invoice_id = openingInvoice.id;
-          if (primaryEnrollment.installment_plan?.installments?.[0]) {
-            primaryEnrollment.installment_plan.installments[0].status = 'billed';
-            primaryEnrollment.installment_plan.installments[0].invoice_id = openingInvoice.id;
+        if (instItems.length > 0) {
+          try {
+            const openingInvoice = await this.generateInvoice(data.tenant_id, {
+              student_id: student.id,
+              enrollment_id: primaryEnrollment.id,
+              billing_month: billingMonth,
+              due_date: firstInst.due_date || dueDate,
+              custom_items: instItems,
+              installment_number: 1,
+              total_installments: student.installment_plan.total_installments,
+              billing_mode: 'installment',
+              notes: `Admission Opening Fee Challan - Installment 1 of ${student.installment_plan.total_installments}`
+            } as any);
+            firstInst.status = 'billed';
+            firstInst.invoice_id = openingInvoice.id;
+            if (primaryEnrollment.installment_plan?.installments?.[0]) {
+              primaryEnrollment.installment_plan.installments[0].status = 'billed';
+              primaryEnrollment.installment_plan.installments[0].invoice_id = openingInvoice.id;
+            }
+            student.first_invoice_id = openingInvoice.id;
+            this.schedulePersist();
+          } catch (invErr: any) {
+            console.error('Failed to generate opening invoice on admission (installment):', invErr);
+            (student as any).challan_error = invErr?.message || 'Failed to generate opening fee challan';
           }
-          student.first_invoice_id = openingInvoice.id;
-          this.schedulePersist();
-        } catch (invErr) {
-          console.error('Failed to generate opening invoice on admission (installment):', invErr);
         }
       } else if (customItems.length > 0) {
         try {
@@ -3913,8 +3959,9 @@ export class InMemoryDataStore implements IDataStore {
           } as any);
           student.first_invoice_id = openingInvoice.id;
           this.schedulePersist();
-        } catch (invErr) {
+        } catch (invErr: any) {
           console.error('Failed to generate opening invoice on admission:', invErr);
+          (student as any).challan_error = invErr?.message || 'Failed to generate opening fee challan';
         }
       }
     }
@@ -4137,10 +4184,10 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     // A student holds a seat when 'active' or 'on_leave' (temporary absence).
-    // Seats are only released on 'withdrawn', 'archived', 'alumni', 'suspended'.
+    // Seats are only released on 'withdrawn', 'archived', 'alumni', 'suspended', 'waitlisted'.
     const wasHoldingSeat = previousStatus === 'active' || previousStatus === 'on_leave';
     const willHoldSeat = status === 'active' || status === 'on_leave';
-    const isDeactivating = ['withdrawn', 'archived', 'suspended', 'alumni'].includes(status);
+    const isDeactivating = ['withdrawn', 'archived', 'suspended', 'alumni', 'waitlisted'].includes(status);
 
     const studentEnrollments = this.studentEnrollments.filter(
       e => e.tenant_id === tenantId && e.student_id === studentId
@@ -4149,7 +4196,7 @@ export class InMemoryDataStore implements IDataStore {
     // 1. Validate batch capacity BEFORE mutating student state if reactivating
     if (!wasHoldingSeat && willHoldSeat) {
       const enrollmentsToReactivate = studentEnrollments.filter(
-        e => e.is_primary || e.status === (previousStatus as any) || e.status === 'archived'
+        e => e.is_primary || e.status === (previousStatus as any) || e.status === 'archived' || e.status === 'withdrawn'
       );
       if (enrollmentsToReactivate.length === 0 && studentEnrollments.length > 0) {
         enrollmentsToReactivate.push(studentEnrollments[0]);
@@ -4165,6 +4212,11 @@ export class InMemoryDataStore implements IDataStore {
     // 2. State Mutation
     student.status = status;
     student.status_reason = reason;
+    if (['withdrawn', 'archived', 'suspended', 'alumni', 'waitlisted'].includes(status)) {
+      (student as any).portal_blocked = true;
+    } else if (status === 'active' || status === 'on_leave') {
+      (student as any).portal_blocked = false;
+    }
     if (!student.status_change_history) {
       student.status_change_history = [];
     }
@@ -4181,7 +4233,7 @@ export class InMemoryDataStore implements IDataStore {
     if (isDeactivating) {
       const targetEnrollmentStatus: StudentEnrollmentStatus = 
         status === 'archived' ? 'archived' :
-        status === 'withdrawn' ? 'withdrawn' :
+        status === 'withdrawn' || status === 'waitlisted' ? 'withdrawn' :
         status === 'suspended' ? 'suspended' :
         status === 'alumni' ? 'completed' : 'archived';
 
@@ -4194,7 +4246,7 @@ export class InMemoryDataStore implements IDataStore {
       }
     } else if (!wasHoldingSeat && willHoldSeat) {
       const enrollmentsToReactivate = studentEnrollments.filter(
-        e => e.is_primary || e.status === (previousStatus as any) || e.status === 'archived'
+        e => e.is_primary || e.status === (previousStatus as any) || e.status === 'archived' || e.status === 'withdrawn'
       );
       if (enrollmentsToReactivate.length === 0 && studentEnrollments.length > 0) {
         enrollmentsToReactivate.push(studentEnrollments[0]);
@@ -4217,10 +4269,10 @@ export class InMemoryDataStore implements IDataStore {
       const user = this.users.get(student.user_id);
       if (user && user.tenant_id === tenantId) {
         if (!user.metadata) user.metadata = {};
-        if (['withdrawn', 'archived', 'suspended', 'alumni'].includes(status)) {
+        if (['withdrawn', 'archived', 'suspended', 'alumni', 'waitlisted'].includes(status)) {
           user.status = 'inactive';
           user.metadata.portal_blocked = true;
-        } else if (status === 'active') {
+        } else if (status === 'active' || status === 'on_leave') {
           user.status = 'active';
           user.metadata.portal_blocked = false;
         }
@@ -4244,17 +4296,18 @@ export class InMemoryDataStore implements IDataStore {
         const otherActiveChildren = this.students.some(s =>
           s.tenant_id === tenantId &&
           s.id !== student.id &&
-          s.status === 'active' &&
+          (s.status === 'active' || s.status === 'on_leave') &&
           s.guardian_id_card &&
           s.guardian_id_card.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() === cleanGuardianCnic
         );
-        if (['withdrawn', 'archived', 'suspended', 'alumni'].includes(status)) {
+
+        if (['withdrawn', 'archived', 'suspended', 'alumni', 'waitlisted'].includes(status)) {
           if (!otherActiveChildren) {
             parentUser.status = 'inactive';
             parentUser.metadata.portal_blocked = true;
             parentUser.updated_at = new Date().toISOString();
           }
-        } else if (status === 'active') {
+        } else if (status === 'active' || status === 'on_leave') {
           parentUser.status = 'active';
           parentUser.metadata.portal_blocked = false;
           parentUser.updated_at = new Date().toISOString();
@@ -4556,9 +4609,16 @@ export class InMemoryDataStore implements IDataStore {
       .map(id => this.students.find(s => s.id === id && s.tenant_id === tenantId))
       .filter((s): s is Student => Boolean(s));
 
-    const activePromotedCount = studentsToPromote.filter(s => s.status === 'active').length;
-    if (targetBatch.current_enrollment + activePromotedCount > targetBatch.max_capacity) {
-      throw new Error(`Target batch capacity exceeded. Batch '${targetBatch.name}' capacity: ${targetBatch.max_capacity}, currently enrolled: ${targetBatch.current_enrollment}, attempting to add: ${activePromotedCount}`);
+    // Promotion capacity counts enrollments that are active or on_leave
+    const currentOccupied = this.studentEnrollments.filter(e =>
+      e.tenant_id === tenantId &&
+      e.batch_id === targetBatch.id &&
+      (e.status === 'active' || e.status === 'on_leave')
+    ).length;
+
+    const seatHoldingPromotedCount = studentsToPromote.filter(s => s.status === 'active' || s.status === 'on_leave').length;
+    if (targetBatch.max_capacity && (currentOccupied + seatHoldingPromotedCount > targetBatch.max_capacity)) {
+      throw new Error(`Target batch capacity exceeded. Batch '${targetBatch.name}' capacity: ${targetBatch.max_capacity}, currently enrolled: ${currentOccupied}, attempting to add: ${seatHoldingPromotedCount}`);
     }
 
     const targetCompGroup = effectiveProgramId ? this.subjectGroups.find(g => g.tenant_id === tenantId && g.program_id === effectiveProgramId && g.type === 'compulsory') : undefined;
@@ -4584,10 +4644,10 @@ export class InMemoryDataStore implements IDataStore {
 
       // Adjust source and target batch enrollments
       const sourceBatch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
-      if (sourceBatch && student.status === 'active') {
+      if (sourceBatch && (student.status === 'active' || student.status === 'on_leave')) {
         sourceBatch.current_enrollment = Math.max(0, sourceBatch.current_enrollment - 1);
       }
-      if (student.status === 'active') {
+      if (student.status === 'active' || student.status === 'on_leave') {
         targetBatch.current_enrollment += 1;
       }
 
@@ -5247,8 +5307,9 @@ export class InMemoryDataStore implements IDataStore {
           due_date: dueDate,
           notes: `Opening Fee Challan for ${batch.name}`
         });
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to generate opening invoice for enrollment:', err);
+        (enrollment as any).challan_error = err?.message || 'Failed to generate opening fee challan';
       }
     }
 
@@ -5658,6 +5719,14 @@ export class InMemoryDataStore implements IDataStore {
       return { has_conflict: false };
     }
 
+    if (startA >= endA) {
+      return {
+        has_conflict: true,
+        conflict_type: 'time_order',
+        message: 'End time must be after start time.',
+      };
+    }
+
     for (const existing of existingSlots) {
       const startB = parseTimeToMinutes(existing.start_time);
       const endB = parseTimeToMinutes(existing.end_time);
@@ -5719,7 +5788,7 @@ export class InMemoryDataStore implements IDataStore {
     });
 
     if (collision.has_conflict) {
-      throw new Error(`Collision detected: ${collision.message}`);
+      throw new Error(collision.message || 'Collision detected');
     }
 
     // Hydrate names if available
@@ -5774,7 +5843,7 @@ export class InMemoryDataStore implements IDataStore {
     });
 
     if (collision.has_conflict) {
-      throw new Error(`Collision detected: ${collision.message}`);
+      throw new Error(collision.message || 'Collision detected');
     }
 
     // Hydrate names
@@ -7468,6 +7537,9 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async createHomework(data: Omit<HomeworkAssignment, 'id' | 'created_at'>): Promise<HomeworkAssignment> {
+    if (!data.batch_id || !data.batch_id.trim()) {
+      throw new Error('Target batch/class is required.');
+    }
     const batch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === data.tenant_id);
     const subject = this.subjects.find(s => s.id === data.subject_id && s.tenant_id === data.tenant_id);
 
@@ -8311,6 +8383,114 @@ export class InMemoryDataStore implements IDataStore {
     return this.invoices.find(i => i.id === id && i.tenant_id === tenantId) || null;
   }
 
+  private synchronizeInvoiceBalances(invoice: StudentInvoice): void {
+    if (!invoice.items || !Array.isArray(invoice.items)) {
+      invoice.items = [];
+    }
+    let totalGross = 0;
+    let totalDiscount = 0;
+    let totalNet = 0;
+    let totalPaid = 0;
+
+    for (const item of invoice.items) {
+      const orig = Number(item.original_amount) || 0;
+      const disc = Number(item.discount_amount) || 0;
+      item.net_amount = Math.max(0, orig - disc);
+      const paid = Number(item.paid_amount) || 0;
+      item.balance_due = Math.max(0, item.net_amount - paid);
+
+      totalGross += orig;
+      totalDiscount += disc;
+      totalNet += item.net_amount;
+      totalPaid += paid;
+    }
+
+    invoice.subtotal_amount = totalGross;
+    invoice.subtotal = totalGross;
+    invoice.discount_amount = totalDiscount;
+    invoice.net_amount = totalNet;
+    invoice.net_total = totalNet;
+    invoice.total_amount = totalNet;
+    invoice.paid_amount = totalPaid;
+    const balance = Math.max(0, totalNet - totalPaid);
+    invoice.balance_amount = balance;
+    invoice.balance_due = balance;
+
+    if (invoice.status !== 'cancelled' && invoice.status !== 'voided' && invoice.status !== 'rolled_over') {
+      if (balance <= 0 && totalPaid > 0) {
+        invoice.status = 'paid';
+      } else if (totalPaid > 0) {
+        invoice.status = 'partially_paid';
+      } else {
+        invoice.status = 'unpaid';
+      }
+    }
+    invoice.updated_at = new Date().toISOString();
+  }
+
+  getNextInvoiceNumber(tenantId: string): string {
+    const currentYear = new Date().getFullYear();
+    const tenant = this.tenants.get(tenantId);
+    const existingSuffixes = this.invoices
+      .filter(i => i.tenant_id === tenantId && i.invoice_number)
+      .map(i => {
+        const m = i.invoice_number.match(/INV-\d{4}-(\d+)/);
+        return m ? parseInt(m[1], 10) : 0;
+      });
+    const maxExisting = existingSuffixes.length > 0 ? Math.max(0, ...existingSuffixes) : 0;
+    const storedCounter = (tenant?.settings as any)?.last_invoice_counter || 0;
+    const inMemCounter = this.invoiceCounters.get(tenantId) || 0;
+    const nextNum = Math.max(maxExisting, storedCounter, inMemCounter) + 1;
+    this.invoiceCounters.set(tenantId, nextNum);
+    if (tenant) {
+      tenant.settings = tenant.settings || ({} as any);
+      (tenant.settings as any).last_invoice_counter = nextNum;
+    }
+    return `INV-${currentYear}-${nextNum.toString().padStart(4, '0')}`;
+  }
+
+  getNextReceiptNumber(tenantId: string): string {
+    const currentYear = new Date().getFullYear();
+    const tenant = this.tenants.get(tenantId);
+    const existingSuffixes = this.feePayments
+      .filter(p => p.tenant_id === tenantId && p.receipt_number)
+      .map(p => {
+        const m = p.receipt_number.match(/REC-\d{4}-(\d+)/);
+        return m ? parseInt(m[1], 10) : 0;
+      });
+    const maxExisting = existingSuffixes.length > 0 ? Math.max(0, ...existingSuffixes) : 0;
+    const storedCounter = (tenant?.settings as any)?.last_receipt_counter || 0;
+    const inMemCounter = this.receiptCounters.get(tenantId) || 0;
+    const nextNum = Math.max(maxExisting, storedCounter, inMemCounter) + 1;
+    this.receiptCounters.set(tenantId, nextNum);
+    if (tenant) {
+      tenant.settings = tenant.settings || ({} as any);
+      (tenant.settings as any).last_receipt_counter = nextNum;
+    }
+    return `REC-${currentYear}-${nextNum.toString().padStart(5, '0')}`;
+  }
+
+  getNextFamilyReceiptNumber(tenantId: string): string {
+    const currentYear = new Date().getFullYear();
+    const tenant = this.tenants.get(tenantId);
+    const existingSuffixes = this.feePayments
+      .filter(p => p.tenant_id === tenantId && p.reference_number && p.reference_number.startsWith('FAM-'))
+      .map(p => {
+        const m = (p.reference_number || '').match(/FAM-\d{4}-(\d+)/);
+        return m ? parseInt(m[1], 10) : 0;
+      });
+    const maxExisting = existingSuffixes.length > 0 ? Math.max(0, ...existingSuffixes) : 0;
+    const storedCounter = (tenant?.settings as any)?.last_family_receipt_counter || 0;
+    const inMemCounter = this.familyReceiptCounters.get(tenantId) || 0;
+    const nextNum = Math.max(maxExisting, storedCounter, inMemCounter) + 1;
+    this.familyReceiptCounters.set(tenantId, nextNum);
+    if (tenant) {
+      tenant.settings = tenant.settings || ({} as any);
+      (tenant.settings as any).last_family_receipt_counter = nextNum;
+    }
+    return `FAM-${currentYear}-${nextNum.toString().padStart(5, '0')}`;
+  }
+
   async generateInvoice(tenantId: string, data: {
     student_id: string;
     enrollment_id?: string;
@@ -8366,9 +8546,7 @@ export class InMemoryDataStore implements IDataStore {
     const program = this.programs.find(p => p.id === programId && p.tenant_id === tenantId);
     const rollNumber = enrollment?.roll_number || student.roll_number;
     const invoiceId = crypto.randomUUID();
-    const count = this.invoices.filter(i => i.tenant_id === tenantId).length + 1;
-    const currentYear = new Date().getFullYear();
-    const invoiceNumber = `INV-${currentYear}-${count.toString().padStart(4, '0')}`;
+    const invoiceNumber = this.getNextInvoiceNumber(tenantId);
 
     const items: InvoiceItem[] = [];
     let subtotal = 0;
@@ -8655,6 +8833,7 @@ export class InMemoryDataStore implements IDataStore {
     });
 
     const created: StudentInvoice[] = [];
+    const skipped: string[] = [];
 
     for (const enrollment of enrollmentsToBill) {
       const student = this.students.find(s => s.id === enrollment.student_id && s.tenant_id === tenantId);
@@ -8679,6 +8858,11 @@ export class InMemoryDataStore implements IDataStore {
       if (effectiveBillingMode === 'installment' && instPlan) {
         const pendingInst = instPlan.installments?.find((ins: any) => ins.status === 'pending');
         if (!pendingInst) {
+          continue;
+        }
+
+        if (Number(pendingInst.amount) <= 0) {
+          skipped.push(student.full_name);
           continue;
         }
 
@@ -8750,6 +8934,7 @@ export class InMemoryDataStore implements IDataStore {
         created.push(inv);
       }
     }
+    (created as any).skipped = skipped;
     return created;
   }
 
@@ -8770,8 +8955,9 @@ export class InMemoryDataStore implements IDataStore {
         if (ri.status === 'rolled_over') {
           ri.status = 'unpaid';
           ri.rolled_into_invoice_id = null;
-          ri.balance_amount = Number(ri.net_amount || 0);
-          ri.balance_due = Number(ri.net_amount || 0);
+          const restoredBalance = Math.max(0, Number(ri.net_amount || 0) - Number(ri.paid_amount || 0));
+          ri.balance_amount = restoredBalance;
+          ri.balance_due = restoredBalance;
           ri.updated_at = new Date().toISOString();
         }
       });
@@ -8793,6 +8979,16 @@ export class InMemoryDataStore implements IDataStore {
         if (inst && inst.status === 'billed') {
           inst.status = 'pending';
           inst.invoice_id = null;
+        }
+      }
+      const enrollments = this.studentEnrollments.filter(e => e.student_id === invoice.student_id && e.tenant_id === tenantId);
+      for (const enr of enrollments) {
+        if (enr.installment_plan?.installments) {
+          const inst = enr.installment_plan.installments.find((i: any) => i.installment_number === invoice.installment_number || i.invoice_id === invoice.id);
+          if (inst && inst.status === 'billed') {
+            inst.status = 'pending';
+            inst.invoice_id = null;
+          }
         }
       }
     }
@@ -8833,11 +9029,34 @@ export class InMemoryDataStore implements IDataStore {
         if (ri.status === 'rolled_over') {
           ri.status = 'unpaid';
           ri.rolled_into_invoice_id = null;
-          ri.balance_amount = Number(ri.net_amount || 0);
-          ri.balance_due = Number(ri.net_amount || 0);
+          const restoredBalance = Math.max(0, Number(ri.net_amount || 0) - Number(ri.paid_amount || 0));
+          ri.balance_amount = restoredBalance;
+          ri.balance_due = restoredBalance;
           ri.updated_at = new Date().toISOString();
         }
       });
+    }
+
+    // If this invoice belongs to an installment plan, revert milestone from 'billed' back to 'pending'
+    if (invoice.installment_number) {
+      const student = this.students.find(s => s.id === invoice.student_id && s.tenant_id === tenantId);
+      if (student?.installment_plan?.installments) {
+        const inst = student.installment_plan.installments.find(i => i.installment_number === invoice.installment_number || i.invoice_id === invoice.id);
+        if (inst && inst.status === 'billed') {
+          inst.status = 'pending';
+          inst.invoice_id = null;
+        }
+      }
+      const enrollments = this.studentEnrollments.filter(e => e.student_id === invoice.student_id && e.tenant_id === tenantId);
+      for (const enr of enrollments) {
+        if (enr.installment_plan?.installments) {
+          const inst = enr.installment_plan.installments.find((i: any) => i.installment_number === invoice.installment_number || i.invoice_id === invoice.id);
+          if (inst && inst.status === 'billed') {
+            inst.status = 'pending';
+            inst.invoice_id = null;
+          }
+        }
+      }
     }
 
     // Record audit log for deletion
@@ -8921,17 +9140,12 @@ export class InMemoryDataStore implements IDataStore {
         });
       }
 
-      const totalGross = newItems.reduce((s, it) => s + it.original_amount, 0);
+      if (newItems.length === 0) {
+        throw new Error('At least one fee line item is required.');
+      }
+
       invoice.items = newItems;
-      invoice.subtotal_amount = totalGross;
-      invoice.subtotal = totalGross;
-      invoice.discount_amount = newItems.reduce((s, it) => s + (it.discount_amount || 0), 0);
-      invoice.net_amount = totalGross;
-      invoice.net_total = totalGross;
-      invoice.total_amount = totalGross;
-      invoice.balance_amount = Math.max(0, invoice.net_amount - invoice.paid_amount);
-      invoice.balance_due = invoice.balance_amount;
-      invoice.status = invoice.balance_amount <= 0 ? 'paid' : (invoice.paid_amount > 0 ? 'partially_paid' : 'unpaid');
+      this.synchronizeInvoiceBalances(invoice);
     }
 
     invoice.updated_at = new Date().toISOString();
@@ -9021,6 +9235,9 @@ export class InMemoryDataStore implements IDataStore {
     if (!data.is_override && amountPaid > outstanding + 0.05) {
       throw new Error(`Amount exceeds outstanding PKR ${outstanding}. Record only the due amount, or use override with a reason to post an advance.`);
     }
+    if (data.is_override && !String(data.override_reason || '').trim()) {
+      throw new Error('Override reason is required when override is enabled.');
+    }
 
     // Determine allocations: use provided cashier review override or compute smart distribution
     const allocations = data.allocations && data.allocations.length > 0
@@ -9044,15 +9261,16 @@ export class InMemoryDataStore implements IDataStore {
           || invoice.items.find((i: InvoiceItem) => i.fee_head_id === alloc.fee_head_id);
       }
       if (item) {
+        const itemBal = Number(item.balance_due ?? Math.max(0, item.net_amount - item.paid_amount));
+        if (!data.is_override && amt > itemBal + 0.05) {
+          throw new Error(`Allocation of ${amt} exceeds line item balance due (${itemBal}) for ${item.head_name || item.head_code || 'fee item'}`);
+        }
         item.paid_amount += amt;
         item.balance_due = Math.max(0, item.net_amount - item.paid_amount);
       }
     }
 
-    invoice.paid_amount = invoice.items.reduce((s: number, it: InvoiceItem) => s + it.paid_amount, 0);
-    invoice.balance_amount = Math.max(0, invoice.net_amount - invoice.paid_amount);
-    invoice.status = invoice.balance_amount <= 0 ? 'paid' : (invoice.paid_amount > 0 ? 'partially_paid' : 'unpaid');
-    invoice.updated_at = new Date().toISOString();
+    this.synchronizeInvoiceBalances(invoice);
 
     // If this invoice has rolled-over invoices and arrears were settled, mark rolled invoices paid
     if (Array.isArray(invoice.rolled_invoice_ids) && invoice.rolled_invoice_ids.length > 0) {
@@ -9077,9 +9295,7 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
 
-    const count = this.feePayments.filter(p => p.tenant_id === tenantId).length + 1;
-    const currentYear = new Date().getFullYear();
-    const receiptNumber = `REC-${currentYear}-${count.toString().padStart(5, '0')}`;
+    const receiptNumber = this.getNextReceiptNumber(tenantId);
 
     const payment: FeePayment = {
       id: crypto.randomUUID(),
@@ -9142,6 +9358,15 @@ export class InMemoryDataStore implements IDataStore {
           inst.status = 'paid';
         }
       }
+      if (invoice.enrollment_id) {
+        const enr = this.studentEnrollments.find(e => e.id === invoice.enrollment_id);
+        if (enr?.installment_plan?.installments) {
+          const inst = enr.installment_plan.installments.find((i: any) => i.installment_number === invoice.installment_number || i.invoice_id === invoice.id);
+          if (inst) {
+            inst.status = 'paid';
+          }
+        }
+      }
     }
 
     this.schedulePersist();
@@ -9172,41 +9397,55 @@ export class InMemoryDataStore implements IDataStore {
       throw new Error('At least one child payment is required');
     }
 
-    const currentYear = new Date().getFullYear();
-    const count = this.feePayments.filter(p => p.tenant_id === tenantId).length + 1;
-    const familyReceiptNumber = `FAM-${currentYear}-${count.toString().padStart(5, '0')}`;
+    const familyReceiptNumber = this.getNextFamilyReceiptNumber(tenantId);
 
     const results: Array<{ payment: FeePayment; invoice: StudentInvoice }> = [];
     let totalAmount = 0;
     const invoiceBackup = this.invoices.map(i => ({ ...i, items: i.items.map(it => ({ ...it })) }));
+    const studentBackup = this.students.map(s => ({
+      id: s.id,
+      installment_plan: s.installment_plan ? JSON.parse(JSON.stringify(s.installment_plan)) : undefined,
+    }));
+    const enrollmentBackup = this.studentEnrollments.map(e => ({
+      id: e.id,
+      installment_plan: e.installment_plan ? JSON.parse(JSON.stringify(e.installment_plan)) : undefined,
+    }));
     const paymentLen = this.feePayments.length;
     const txLen = this.financialTransactions.length;
 
     try {
-    for (const p of data.payments) {
-      if (p.amount_paid <= 0) continue;
-      const res = await this.recordPayment(tenantId, {
-        invoice_id: p.invoice_id,
-        amount_paid: p.amount_paid,
-        payment_method: data.payment_method,
-        reference_number: data.reference_number || familyReceiptNumber,
-        bank_name: data.bank_name,
-        cheque_number: data.cheque_number,
-        clearing_date: data.clearing_date,
-        is_override: p.is_override,
-        override_reason: p.override_reason,
-        allocations: p.allocations,
-        collected_by: data.collected_by,
-      });
-      results.push(res);
-      totalAmount += p.amount_paid;
-    }
+      for (const p of data.payments) {
+        if (p.amount_paid <= 0) continue;
+        const res = await this.recordPayment(tenantId, {
+          invoice_id: p.invoice_id,
+          amount_paid: p.amount_paid,
+          payment_method: data.payment_method,
+          reference_number: data.reference_number || familyReceiptNumber,
+          bank_name: data.bank_name,
+          cheque_number: data.cheque_number,
+          clearing_date: data.clearing_date,
+          is_override: p.is_override,
+          override_reason: p.override_reason,
+          allocations: p.allocations,
+          collected_by: data.collected_by,
+        });
+        results.push(res);
+        totalAmount += p.amount_paid;
+      }
     } catch (err) {
       for (const b of invoiceBackup) {
         const cur = this.invoices.find(i => i.id === b.id);
         if (cur) {
           Object.assign(cur, { ...b, items: b.items.map(it => ({ ...it })) });
         }
+      }
+      for (const sb of studentBackup) {
+        const s = this.students.find(st => st.id === sb.id);
+        if (s) s.installment_plan = sb.installment_plan;
+      }
+      for (const eb of enrollmentBackup) {
+        const e = this.studentEnrollments.find(en => en.id === eb.id);
+        if (e) e.installment_plan = eb.installment_plan;
       }
       this.feePayments.splice(paymentLen);
       this.financialTransactions.splice(txLen);
@@ -9252,10 +9491,7 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
 
-    invoice.paid_amount = invoice.items.reduce((s, it) => s + it.paid_amount, 0);
-    invoice.balance_amount = Math.max(0, invoice.net_amount - invoice.paid_amount);
-    invoice.status = invoice.balance_amount <= 0 ? 'paid' : (invoice.paid_amount > 0 ? 'partially_paid' : 'unpaid');
-    invoice.updated_at = new Date().toISOString();
+    this.synchronizeInvoiceBalances(invoice);
 
     // If this invoice had rolled-over prior invoices that were marked paid, revert them if arrears balance is now unpaid
     if (Array.isArray(invoice.rolled_invoice_ids) && invoice.rolled_invoice_ids.length > 0) {
@@ -9314,6 +9550,15 @@ export class InMemoryDataStore implements IDataStore {
         const inst = payingStudent.installment_plan.installments.find(i => i.installment_number === invoice.installment_number || i.invoice_id === invoice.id);
         if (inst && inst.status === 'paid') {
           inst.status = 'billed';
+        }
+      }
+      if (invoice.enrollment_id) {
+        const enr = this.studentEnrollments.find(e => e.id === invoice.enrollment_id && e.tenant_id === tenantId);
+        if (enr?.installment_plan?.installments) {
+          const inst = enr.installment_plan.installments.find((i: any) => i.installment_number === invoice.installment_number || i.invoice_id === invoice.id);
+          if (inst && inst.status === 'paid') {
+            inst.status = 'billed';
+          }
         }
       }
     }
@@ -9413,13 +9658,6 @@ export class InMemoryDataStore implements IDataStore {
       }
       actualDiscount = Math.min(actualDiscount, invoice.balance_amount);
 
-      // Apply to invoice
-      invoice.discount_amount += actualDiscount;
-      invoice.net_amount = Math.max(0, invoice.subtotal_amount - invoice.discount_amount);
-      invoice.balance_amount = Math.max(0, invoice.net_amount - invoice.paid_amount);
-      invoice.status = invoice.balance_amount <= 0 ? 'paid' : (invoice.paid_amount > 0 ? 'partially_paid' : 'unpaid');
-      invoice.updated_at = new Date().toISOString();
-
       // Distribute discount to items (proportionately or to eligible heads)
       if (data.fee_head_id) {
         const item = invoice.items.find((it: InvoiceItem) => it.fee_head_id === data.fee_head_id);
@@ -9441,6 +9679,8 @@ export class InMemoryDataStore implements IDataStore {
           remainingDisc -= deduct;
         }
       }
+
+      this.synchronizeInvoiceBalances(invoice);
     } else {
       actualDiscount = Number(data.discount_value);
     }
@@ -9605,6 +9845,14 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async createFinancialTransaction(data: Omit<FinancialTransaction, 'id' | 'voucher_number' | 'created_at'>): Promise<FinancialTransaction> {
+    if (!data.account_head_id) {
+      throw new Error('Choose an account head.');
+    }
+    const head = this.accountHeads.find(h => h.tenant_id === data.tenant_id && h.id === data.account_head_id);
+    if (!head || head.type !== data.type) {
+      throw new Error('Choose an account head.');
+    }
+
     const count = this.financialTransactions.filter(t => t.tenant_id === data.tenant_id && t.type === data.type).length + 1;
     const prefix = data.type === 'income' ? 'INC' : 'EXP';
     const year = new Date().getFullYear();
@@ -9615,6 +9863,7 @@ export class InMemoryDataStore implements IDataStore {
       voucher_number,
       created_at: new Date().toISOString(),
       ...data,
+      head_name: head.name,
       date: data.date || data.transaction_date,
       payee_payer: data.payee_payer || data.paid_to_or_received_from,
     };
@@ -9727,45 +9976,40 @@ export class InMemoryDataStore implements IDataStore {
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
-  async generatePayslip(tenantId: string, data: {
-    staff_id: string;
-    payroll_month: string;
-    earnings: PayrollEarningHead[];
-    deductions: PayrollDeductionHead[];
-    admin_notes?: string;
-    processed_by: string;
-  }): Promise<StaffPayslip> {
-    const profile = this.staffSalaryProfiles.find(p => p.tenant_id === tenantId && p.staff_id === data.staff_id);
-    if (!profile) throw new Error('Staff salary profile not configured');
-
-    const existingSlip = this.staffPayslips.find(p =>
-      p.tenant_id === tenantId &&
-      p.staff_id === data.staff_id &&
-      isSameBillingMonth(p.payroll_month, data.payroll_month)
-    );
-    if (existingSlip) {
-      throw new Error(`A payslip already exists for this staff member for ${data.payroll_month} (${existingSlip.slip_number}).`);
-    }
-
+  async calculateStaffAttendanceDeduction(tenantId: string, staffId: string, payrollMonth: string): Promise<{
+    unpaidEquivalent: number;
+    unitRate: number;
+    totalDeduction: number;
+    workingDays: number;
+    casualToDeduct: number;
+  }> {
+    const profile = this.staffSalaryProfiles.find(p => p.tenant_id === tenantId && p.staff_id === staffId);
     const monthPrefix = (() => {
-      const startIso = getBillingMonthStartIso(data.payroll_month);
+      const startIso = getBillingMonthStartIso(payrollMonth);
       if (startIso) return startIso.slice(0, 7);
-      if (/^\d{4}-\d{2}$/.test(data.payroll_month)) return data.payroll_month;
+      if (/^\d{4}-\d{2}$/.test(payrollMonth)) return payrollMonth;
       return '';
     })();
 
     const summaries = await this.getStaffMonthlySummary(tenantId, monthPrefix);
-    const summary = summaries.find(s => s.staff_id === data.staff_id);
+    const summary = summaries.find(s => s.staff_id === staffId);
 
     const workingDays = summary ? summary.total_working_days : (monthPrefix ? getSundayExcludedWorkingDays(monthPrefix) : 26);
-    const effectivePresentDays = summary ? (summary.present_days + summary.late_days) : 0;
     const effectiveLateCount = summary ? summary.late_days : 0;
-    const effectiveAbsentDays = summary ? summary.absent_days : 0;
-    const effectiveLeaves = summary ? summary.leave_days : 0;
-    const effectiveHours = summary ? Math.round(summary.total_work_minutes / 60) : 0;
+
+    // For per_lecture contract type, daily working-day attendance deduction does not apply
+    if (profile?.contract_type === 'per_lecture') {
+      return {
+        unpaidEquivalent: 0,
+        unitRate: 0,
+        totalDeduction: 0,
+        workingDays,
+        casualToDeduct: 0,
+      };
+    }
 
     const attendanceRecords = this.staffAttendance.filter(a => {
-      if (a.tenant_id !== tenantId || a.staff_id !== data.staff_id) return false;
+      if (a.tenant_id !== tenantId || a.staff_id !== staffId) return false;
       if (!monthPrefix) return true;
       return (a.date || '').startsWith(monthPrefix);
     });
@@ -9806,6 +10050,7 @@ export class InMemoryDataStore implements IDataStore {
     const latesForDeduction = config.lates_for_leave_deduction || 0;
     const lateDays = summary ? summary.late_days : effectiveLateCount;
 
+    let casualToDeduct = 0;
     if (lateRule !== 'none' && latesForDeduction > 0 && lateDays >= latesForDeduction) {
       const lateGroups = Math.floor(lateDays / latesForDeduction);
       if (lateRule === 'deduct_half_day_salary') {
@@ -9813,47 +10058,89 @@ export class InMemoryDataStore implements IDataStore {
       } else if (lateRule === 'deduct_full_day_salary') {
         unpaidEquivalent += lateGroups * 1.0;
       } else if (lateRule === 'deduct_casual_leave') {
-        const staffUser = Array.from(this.users.values()).find(u => u.id === data.staff_id && u.tenant_id === tenantId)
-          || Array.from(this.users.values()).find(u => u.id === data.staff_id);
+        const staffUser = Array.from(this.users.values()).find(u => u.id === staffId && u.tenant_id === tenantId)
+          || Array.from(this.users.values()).find(u => u.id === staffId);
         if (staffUser) {
-          if (!staffUser.metadata) staffUser.metadata = {};
-          if (!staffUser.metadata.leave_balance) {
-            staffUser.metadata.leave_balance = {
-              casual_allowed: 12,
-              casual_used: 0,
-              sick_allowed: 8,
-              sick_used: 0,
-              annual_allowed: 10,
-              annual_used: 0,
-            };
-          }
           const lb = staffUser.metadata?.leave_balance as any;
           const casualAllowed = lb?.casual_allowed ?? 12;
           const casualUsed = lb?.casual_used ?? 0;
           const remainingCasual = Math.max(0, casualAllowed - casualUsed);
-          const casualToDeduct = Math.min(lateGroups, remainingCasual);
+          casualToDeduct = Math.min(lateGroups, remainingCasual);
           const leftoverGroups = lateGroups - casualToDeduct;
-          if (lb) {
-            lb.casual_used = casualUsed + casualToDeduct;
-          }
           unpaidEquivalent += leftoverGroups * 1.0;
-          this.schedulePersist();
         } else {
           unpaidEquivalent += lateGroups * 1.0;
         }
       }
     }
 
+    const unitRate = workingDays > 0 ? (profile?.base_amount || 0) / workingDays : 0;
+    const totalDeduction = unpaidEquivalent * unitRate;
+
+    return {
+      unpaidEquivalent,
+      unitRate,
+      totalDeduction,
+      workingDays,
+      casualToDeduct,
+    };
+  }
+
+  async generatePayslip(tenantId: string, data: {
+    staff_id: string;
+    payroll_month: string;
+    lecture_count?: number;
+    earnings: PayrollEarningHead[];
+    deductions: PayrollDeductionHead[];
+    admin_notes?: string;
+    processed_by: string;
+  }): Promise<StaffPayslip> {
+    const profile = this.staffSalaryProfiles.find(p => p.tenant_id === tenantId && p.staff_id === data.staff_id);
+    if (!profile) throw new Error('Staff salary profile not configured');
+
+    if (profile.contract_type === 'per_lecture') {
+      if (data.lecture_count === undefined || data.lecture_count === null || typeof data.lecture_count !== 'number' || isNaN(data.lecture_count)) {
+        throw new Error('Lecture count is required.');
+      }
+    }
+
+    const existingSlip = this.staffPayslips.find(p =>
+      p.tenant_id === tenantId &&
+      p.staff_id === data.staff_id &&
+      isSameBillingMonth(p.payroll_month, data.payroll_month)
+    );
+    if (existingSlip) {
+      throw new Error(`A payslip already exists for this staff member for ${data.payroll_month} (${existingSlip.slip_number}).`);
+    }
+
+    const monthPrefix = (() => {
+      const startIso = getBillingMonthStartIso(data.payroll_month);
+      if (startIso) return startIso.slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(data.payroll_month)) return data.payroll_month;
+      return '';
+    })();
+
+    const summaries = await this.getStaffMonthlySummary(tenantId, monthPrefix);
+    const summary = summaries.find(s => s.staff_id === data.staff_id);
+
+    const workingDays = summary ? summary.total_working_days : (monthPrefix ? getSundayExcludedWorkingDays(monthPrefix) : 26);
+    const effectivePresentDays = summary ? (summary.present_days + summary.late_days) : 0;
+    const effectiveLateCount = summary ? summary.late_days : 0;
+    const effectiveAbsentDays = summary ? summary.absent_days : 0;
+    const effectiveLeaves = summary ? summary.leave_days : 0;
+    const effectiveHours = summary ? Math.round(summary.total_work_minutes / 60) : 0;
+
+    const attDeduction = await this.calculateStaffAttendanceDeduction(tenantId, data.staff_id, data.payroll_month);
+
     const hasAttendanceDeduction = data.deductions.some(d => d.name === 'Attendance deduction');
     const finalDeductions = [...data.deductions];
-    if (!hasAttendanceDeduction && unpaidEquivalent > 0) {
-      const unitRate = workingDays > 0 ? profile.base_amount / workingDays : 0;
+    if (!hasAttendanceDeduction && attDeduction.totalDeduction > 0) {
       finalDeductions.push({
         id: crypto.randomUUID(),
         name: 'Attendance deduction',
-        quantity: unpaidEquivalent,
-        unit_rate: unitRate,
-        total: unpaidEquivalent * unitRate,
+        quantity: attDeduction.unpaidEquivalent,
+        unit_rate: attDeduction.unitRate,
+        total: attDeduction.totalDeduction,
       });
     }
 
@@ -9869,7 +10156,12 @@ export class InMemoryDataStore implements IDataStore {
 
     const totalEarnings = earningsWithTotal.reduce((s, e) => s + e.total, 0);
     const totalDeductions = deductionsWithTotal.reduce((s, d) => s + d.total, 0);
-    const netSalary = Math.max(0, profile.base_amount + totalEarnings - totalDeductions);
+
+    const effectiveBaseSalary = profile.contract_type === 'per_lecture'
+      ? (profile.base_amount * (data.lecture_count ?? 0))
+      : profile.base_amount;
+
+    const netSalary = Math.max(0, effectiveBaseSalary + totalEarnings - totalDeductions);
 
     const count = this.staffPayslips.filter(p => p.tenant_id === tenantId).length + 1;
     const cleanMonth = data.payroll_month.replace(/\s+/g, '');
@@ -9883,14 +10175,16 @@ export class InMemoryDataStore implements IDataStore {
       staff_name: profile.staff_name,
       designation: profile.designation,
       payroll_month: data.payroll_month,
-      base_salary: profile.base_amount,
+      base_salary: effectiveBaseSalary,
+      lecture_count: data.lecture_count,
+      casual_leave_deducted: attDeduction.casualToDeduct,
       attendance_summary: {
         working_days: workingDays,
         present_days: effectivePresentDays,
         late_count: effectiveLateCount,
         absent_days: effectiveAbsentDays,
         approved_leaves: effectiveLeaves,
-        hours_or_lectures: effectiveHours
+        hours_or_lectures: profile.contract_type === 'per_lecture' && data.lecture_count !== undefined ? data.lecture_count : effectiveHours
       },
       earnings: earningsWithTotal,
       deductions: deductionsWithTotal,
@@ -9916,20 +10210,45 @@ export class InMemoryDataStore implements IDataStore {
       throw new Error('This payslip has already been marked paid.');
     }
 
+    // Auto-post salary expense to Cashbook
+    const salaryHead = (await this.getAccountHeads(tenantId, 'expense'))
+      .find(h => /salaries|salary|payroll|wage/i.test(`${h.name} ${h.code || ''}`));
+    if (!salaryHead) {
+      throw new Error('Add a salary head before marking paid.');
+    }
+
+    // Deduct casual leave now that payslip is marked paid
+    if (slip.casual_leave_deducted && slip.casual_leave_deducted > 0) {
+      const staffUser = Array.from(this.users.values()).find(u => u.id === slip.staff_id && u.tenant_id === tenantId)
+        || Array.from(this.users.values()).find(u => u.id === slip.staff_id);
+      if (staffUser) {
+        if (!staffUser.metadata) staffUser.metadata = {};
+        if (!staffUser.metadata.leave_balance) {
+          staffUser.metadata.leave_balance = {
+            casual_allowed: 12,
+            casual_used: 0,
+            sick_allowed: 8,
+            sick_used: 0,
+            annual_allowed: 10,
+            annual_used: 0,
+          };
+        }
+        const lb = staffUser.metadata.leave_balance as any;
+        lb.casual_used = (lb.casual_used || 0) + slip.casual_leave_deducted;
+      }
+    }
+
     slip.status = 'paid';
     slip.payment_date = new Date().toISOString().split('T')[0];
     slip.payment_method = paymentMethod;
     slip.transaction_reference = reference || null;
     slip.updated_at = new Date().toISOString();
 
-    // Auto-post salary expense to Cashbook
-    const salaryHead = (await this.getAccountHeads(tenantId, 'expense'))
-      .find(h => /salary|payroll|wage/i.test(`${h.name} ${h.code || ''}`));
     await this.createFinancialTransaction({
       tenant_id: tenantId,
       type: 'expense',
-      account_head_id: salaryHead?.id || 'head-salaries',
-      head_name: salaryHead?.name || 'Staff Salaries & Payroll',
+      account_head_id: salaryHead.id,
+      head_name: salaryHead.name,
       amount: slip.net_salary,
       payment_method: paymentMethod,
       reference_number: reference || slip.slip_number,
@@ -10012,11 +10331,33 @@ export class InMemoryDataStore implements IDataStore {
     return question;
   }
 
-  async importQuestionsFromExcel(tenantId: string, subjectId: string, programId: string, rows: ExcelQuestionImportRow[]): Promise<{ imported_count: number; chapters_created: number; questions: BankQuestion[] }> {
+  async importQuestionsFromExcel(tenantId: string, subjectId: string, programId: string, rows: ExcelQuestionImportRow[]): Promise<{ imported_count: number; chapters_created: number; questions: BankQuestion[]; skipped_count: number; skipped_rows: Array<{ row: string; reason: string }> }> {
     let chaptersCreated = 0;
     const importedQuestions: BankQuestion[] = [];
+    const skippedRows: Array<{ row: string; reason: string }> = [];
 
     for (const row of rows) {
+      const qType: ExamQuestionType = row.question_type || 'MCQ';
+
+      // Excel/CSV import: a blank MCQ key is rejected for that row, not stored as A
+      if (qType === 'MCQ') {
+        const correctOpt = row.correct_option?.trim().toUpperCase();
+        if (!correctOpt) {
+          skippedRows.push({
+            row: row.question_text || `Question ${importedQuestions.length + skippedRows.length + 1}`,
+            reason: 'Blank MCQ correct option'
+          });
+          continue;
+        }
+        if (!['A', 'B', 'C', 'D'].includes(correctOpt)) {
+          skippedRows.push({
+            row: row.question_text || `Question ${importedQuestions.length + skippedRows.length + 1}`,
+            reason: `Invalid MCQ correct option "${correctOpt}"`
+          });
+          continue;
+        }
+      }
+
       let chapterId: string | undefined = undefined;
 
       if (row.chapter_name || row.chapter_number) {
@@ -10044,7 +10385,6 @@ export class InMemoryDataStore implements IDataStore {
         chapterId = existingChapter?.id;
       }
 
-      const qType: ExamQuestionType = row.question_type || 'MCQ';
       let options: Array<{ key: string; text: string }> = [];
       if (qType === 'MCQ') {
         if (row.option_a) options.push({ key: 'A', text: row.option_a });
@@ -10062,7 +10402,7 @@ export class InMemoryDataStore implements IDataStore {
         question_text: row.question_text,
         marks: row.marks || (qType === 'MCQ' ? 1 : (qType === 'SHORT' ? 4 : 8)),
         options: options.length > 0 ? options : undefined,
-        correct_option: qType === 'MCQ' ? (row.correct_option?.trim().toUpperCase() || 'A') : null,
+        correct_option: qType === 'MCQ' ? (row.correct_option?.trim().toUpperCase() || null) : null,
         rubric_guide: row.rubric_guide || null,
         difficulty_level: row.difficulty_level || 'MEDIUM',
         is_quiz_bank: true,
@@ -10078,7 +10418,9 @@ export class InMemoryDataStore implements IDataStore {
     return {
       imported_count: importedQuestions.length,
       chapters_created: chaptersCreated,
-      questions: importedQuestions
+      questions: importedQuestions,
+      skipped_count: skippedRows.length,
+      skipped_rows: skippedRows
     };
   }
 
@@ -10239,6 +10581,14 @@ export class InMemoryDataStore implements IDataStore {
       throw new Error('Exam scores cannot be negative.');
     }
 
+    if (exam.short_total_marks !== undefined && exam.short_total_marks !== null && shortScore > exam.short_total_marks) {
+      throw new Error('Short marks cannot exceed the short total.');
+    }
+
+    if (exam.long_total_marks !== undefined && exam.long_total_marks !== null && longScore > exam.long_total_marks) {
+      throw new Error('Long marks cannot exceed the long total.');
+    }
+
     const totalObtained = Number((autoMcqScore + shortScore + longScore).toFixed(2));
     const totalPossible = exam.total_marks > 0 ? exam.total_marks : 100;
 
@@ -10355,30 +10705,7 @@ export class InMemoryDataStore implements IDataStore {
 
     let evaluation = this.studentExamEvaluations.find(ev => ev.exam_id === examId && ev.student_id === studentId && ev.tenant_id === tenantId);
     if (!evaluation) {
-      if (!Array.isArray(student.subjects) || !student.subjects.includes(exam.subject_id)) {
-        return null;
-      }
-      evaluation = {
-        id: crypto.randomUUID(),
-        tenant_id: tenantId,
-        exam_id: examId,
-        student_id: studentId,
-        student_name: student.full_name,
-        admission_number: student.admission_number,
-        roll_number: student.roll_number,
-        mcq_answers: {},
-        mcq_score: 0,
-        short_score: 0,
-        short_remarks: null,
-        long_score: 0,
-        long_remarks: null,
-        total_obtained: 0,
-        percentage: 0,
-        grade: 'F',
-        status: 'ABSENT',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+      return null;
     }
 
     const allEvals = this.studentExamEvaluations
@@ -11384,22 +11711,39 @@ export class InMemoryDataStore implements IDataStore {
     // Calculate monthly attendance without penalizing approved excused leaves
     const currentMonthPrefix = todayDateStr.substring(0, 7);
     const monthRecords = studentAttendanceRecords.filter(a => a.date.startsWith(currentMonthPrefix));
-    const targetEvalRecords = monthRecords.length > 0 ? monthRecords : studentAttendanceRecords;
-    const countableRecords = targetEvalRecords.filter(a => a.status !== 'excused');
-    const presentCount = countableRecords.filter(a => a.status === 'present' || a.status === 'late' || (a.status as any) === 'half_day').length;
-    const computedAttendancePct = countableRecords.length > 0
-      ? Math.round((presentCount / countableRecords.length) * 1000) / 10
-      : 100.0;
+    const countableRecords = monthRecords.filter(a => (a.status || '').toLowerCase() !== 'excused');
+    let presentSum = 0;
+    let presentCount = 0;
+    let absentCount = 0;
+    for (const r of countableRecords) {
+      const st = (r.status || '').toLowerCase();
+      if (st === 'present') {
+        presentSum += 1;
+        presentCount += 1;
+      } else if (st === 'late') {
+        presentSum += 1;
+        presentCount += 1;
+      } else if (st === 'half_day') {
+        presentSum += 0.5;
+        presentCount += 0.5;
+      } else if (st === 'absent') {
+        absentCount += 1;
+      }
+    }
+    const computedAttendancePct: number | null = countableRecords.length > 0
+      ? Math.round((presentSum / countableRecords.length) * 1000) / 10
+      : null;
 
     // Recent Attendance (Ground truth: empty array if none marked yet)
     const recentAttendance = studentAttendanceRecords
       .slice(0, 15)
       .map(a => {
         const rawStatus = (a.status || '').toLowerCase();
-        const status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED' = 
+        const status: 'PRESENT' | 'ABSENT' | 'LATE' | 'HALF_DAY' | 'EXCUSED' = 
           rawStatus === 'present' ? 'PRESENT' :
           rawStatus === 'excused' ? 'EXCUSED' :
-          (rawStatus === 'late' || rawStatus === 'half_day') ? 'LATE' : 'ABSENT';
+          rawStatus === 'half_day' ? 'HALF_DAY' :
+          rawStatus === 'late' ? 'LATE' : 'ABSENT';
         return {
           date: a.date,
           status,
@@ -11481,6 +11825,8 @@ export class InMemoryDataStore implements IDataStore {
         guardian_id_card: student.guardian_id_card,
         guardian_relation: student.guardian_relation || 'Father / Guardian',
         monthly_attendance_pct: computedAttendancePct,
+        monthly_present_days: presentCount,
+        monthly_absent_days: absentCount,
         photo_url: student.photo_url,
         subjects: resolvedSubjects,
         admission_date: selectedEnrollment?.admission_date || student.admission_date,

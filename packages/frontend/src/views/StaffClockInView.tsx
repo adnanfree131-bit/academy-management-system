@@ -169,6 +169,7 @@ function formatTriggerDescription(head: AttendanceHead): string {
 
 export type RuleScenario =
   | 'early_exit'
+  | 'check_out_before'
   | 'hours_below'
   | 'late_arrival'
   | 'on_time'
@@ -182,6 +183,7 @@ export function getLiveRuleSummary(
 ): string {
   switch (scenario) {
     case 'early_exit':
+    case 'check_out_before':
       return `Staff who arrive on time but clock out before ${form.triggerTime || '01:00 PM'} will automatically be recorded as ${form.category === 'half_day' ? 'Half Day (HD)' : (form.name || 'Early Departure')}.${form.paid ? ' Counted as paid duty hours in payroll.' : ' Unpaid duration subject to wage deduction.'}`;
     case 'hours_below':
       return `Staff whose total duty between arrival and departure is under ${form.triggerHours || 4} hours will automatically be recorded as ${form.category === 'half_day' ? 'Half Day (HD)' : (form.name || 'Short Shift')}.${form.paid ? ' Counted as paid duty hours in payroll.' : ' Unpaid duration subject to wage deduction.'}`;
@@ -929,7 +931,7 @@ export const StaffClockInView: React.FC = () => {
       return 'manual_special';
     }
     if (t.type === 'check_out_before' || t.type === 'check_out_between' || t.type === 'check_out_after') {
-      return 'early_exit';
+      return 'check_out_before';
     }
     if (t.type === 'hours_below' || t.type === 'hours_between' || t.type === 'hours_at_least') {
       return 'hours_below';
@@ -947,7 +949,7 @@ export const StaffClockInView: React.FC = () => {
       id: `head-${Date.now()}`,
       name: 'Early Departure',
       code: 'ED',
-      scenario: 'early_exit',
+      scenario: 'check_out_before',
       category: 'half_day',
       paid: true,
       triggerTime: defaultEarlyTime,
@@ -972,7 +974,7 @@ export const StaffClockInView: React.FC = () => {
       category: head.category || (head.kind === 'leave' ? 'leave' : 'present'),
       paid: head.paid !== false,
       triggerTime: head.trigger?.time || (
-        scenario === 'early_exit' ? defaultEarlyTime :
+        scenario === 'early_exit' || scenario === 'check_out_before' ? defaultEarlyTime :
         scenario === 'late_arrival' || scenario === 'on_time' ? defaultGraceTime :
         scenario === 'no_check_in' ? settingsForm.absent_cutoff_time || '10:00' :
         '08:30'
@@ -1001,6 +1003,7 @@ export const StaffClockInView: React.FC = () => {
 
       switch (newScenario) {
         case 'early_exit':
+        case 'check_out_before':
           if (isDefaultText) {
             defaultName = 'Early Departure';
             defaultCode = 'ED';
@@ -1089,6 +1092,7 @@ export const StaffClockInView: React.FC = () => {
     let triggerConfig: any = { type: 'manual_only' };
     switch (headModalForm.scenario) {
       case 'early_exit':
+      case 'check_out_before':
         triggerConfig = { type: 'check_out_before', time: headModalForm.triggerTime };
         break;
       case 'hours_below':
@@ -5279,7 +5283,7 @@ export const StaffClockInView: React.FC = () => {
                   className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none cursor-pointer"
                 >
                   <optgroup label="Departure & Shift Completion Rules">
-                    <option value="early_exit">Early Departure (Staff came on time, but left before shift ended)</option>
+                    <option value="check_out_before">Early Departure (Staff came on time, but left before shift ended)</option>
                     <option value="hours_below">Short Shift / Minimum Hours (Total working duty under X hours)</option>
                   </optgroup>
                   <optgroup label="Morning Arrival Rules">
@@ -5306,7 +5310,7 @@ export const StaffClockInView: React.FC = () => {
                     onChange={e => setHeadModalForm(prev => ({ ...prev, name: e.target.value }))}
                     placeholder={
                       headModalForm.scenario === 'leave' ? 'e.g. Casual Leave, Medical Leave' :
-                      headModalForm.scenario === 'early_exit' ? 'e.g. Early Departure, Short Leave' :
+                      (headModalForm.scenario === 'early_exit' || headModalForm.scenario === 'check_out_before') ? 'e.g. Early Departure, Short Leave' :
                       headModalForm.scenario === 'hours_below' ? 'e.g. Short Shift, Half Day' :
                       'e.g. Late Arrival, Official Duty'
                     }
@@ -5330,7 +5334,7 @@ export const StaffClockInView: React.FC = () => {
               {/* 3. DYNAMIC SCENARIO PARAMETERS */}
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3.5">
                 {/* A: EARLY DEPARTURE */}
-                {headModalForm.scenario === 'early_exit' && (
+                {(headModalForm.scenario === 'early_exit' || headModalForm.scenario === 'check_out_before') && (
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-1">
                       Staff clocks out earlier than:
@@ -5483,7 +5487,7 @@ export const StaffClockInView: React.FC = () => {
                         onChange={e => setHeadModalForm(prev => ({ ...prev, category: e.target.value as AttendanceHeadCategory }))}
                         className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none cursor-pointer"
                       >
-                        {headModalForm.scenario === 'early_exit' && (
+                        {(headModalForm.scenario === 'early_exit' || headModalForm.scenario === 'check_out_before') && (
                           <>
                             <option value="half_day">Half Day (HD)</option>
                             <option value="present">Present with Early Exit Flag (P)</option>

@@ -1463,7 +1463,12 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
       if (res.ok && result.success) {
         setCreatedStudentResult(result.data);
-        setEnrollSuccessMessage(`Enrollment confirmed! Admission: ${result.data.admission_number}`);
+        const challanErr = result.challan_error || result.data?.challan_error;
+        if (challanErr) {
+          setEnrollSuccessMessage(`Enrollment confirmed! Admission: ${result.data.admission_number}. Fee challan generation failed: ${challanErr}`);
+        } else {
+          setEnrollSuccessMessage(`Enrollment confirmed! Admission: ${result.data.admission_number}`);
+        }
 
         let recordedPayment: any = null;
         const payAmt = typeof initialPaymentAmount === 'number' && initialPaymentAmount > 0 ? initialPaymentAmount : firstChallanDue;

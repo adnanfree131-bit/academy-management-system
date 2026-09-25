@@ -217,6 +217,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
   const [familyPaymentMethod, setFamilyPaymentMethod] = useState<PaymentMethod>('cash');
   const [familyReference, setFamilyReference] = useState<string>('');
   const [familyBankName, setFamilyBankName] = useState<string>('');
+  const [familyChequeNumber, setFamilyChequeNumber] = useState<string>('');
   const [isSubmittingFamily, setIsSubmittingFamily] = useState<boolean>(false);
   const [familyReceiptData, setFamilyReceiptData] = useState<{
     receiptNumber: string;
@@ -818,6 +819,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
     setFamilyPaymentMethod('cash');
     setFamilyReference('');
     setFamilyBankName('');
+    setFamilyChequeNumber('');
     setSelectedFamily({
       guardian_name: student.guardian_name || student.father_name || 'Guardian',
       guardian_phone: student.guardian_phone || student.phone || '',
@@ -924,6 +926,11 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
       return;
     }
 
+    if (familyPaymentMethod === 'cheque' && !familyChequeNumber.trim()) {
+      alert('Cheque number is required for bank cheque payments.');
+      return;
+    }
+
     setIsSubmittingFamily(true);
     try {
       const res = await fetch('/api/v1/finance/family-payment', {
@@ -936,6 +943,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
           payment_method: familyPaymentMethod,
           reference_number: familyReference || undefined,
           bank_name: familyBankName || undefined,
+          cheque_number: familyPaymentMethod === 'cheque' ? (familyChequeNumber.trim() || undefined) : undefined,
           payments: paymentItems,
         }),
       });
@@ -6221,7 +6229,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className={`grid grid-cols-1 ${familyPaymentMethod === 'cheque' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-3`}>
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">Payment Method</label>
                     <ModernSelect
@@ -6237,6 +6245,22 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
                     </ModernSelect>
                   </div>
 
+                  {familyPaymentMethod === 'cheque' && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-1">
+                        Cheque # <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. CHQ-882310"
+                        value={familyChequeNumber}
+                        onChange={e => setFamilyChequeNumber(e.target.value)}
+                        className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg font-mono text-slate-800"
+                        required
+                      />
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">Reference # / Trx ID</label>
                     <input
@@ -6249,7 +6273,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Bank Name (Optional)</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Bank Name {familyPaymentMethod === 'cheque' ? '' : '(Optional)'}</label>
                     <input
                       type="text"
                       placeholder="e.g. Meezan Bank"

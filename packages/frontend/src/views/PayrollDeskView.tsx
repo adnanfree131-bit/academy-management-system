@@ -45,6 +45,12 @@ export const PayrollDeskView: React.FC = () => {
   const [earnings, setEarnings] = useState<PayrollEarningHead[]>([]);
   const [deductions, setDeductions] = useState<PayrollDeductionHead[]>([]);
   const [adminNotes, setAdminNotes] = useState<string>('');
+  const [lectureCount, setLectureCount] = useState<number | ''>('');
+  const [attPreview, setAttPreview] = useState<{
+    unpaidEquivalent: number;
+    unitRate: number;
+    totalDeduction: number;
+  } | null>(null);
 
   // Disbursement Modal
   const [showDisburseModal, setShowDisburseModal] = useState<boolean>(false);
@@ -110,6 +116,31 @@ export const PayrollDeskView: React.FC = () => {
     fetchPayrollData();
   }, [token, selectedMonth]);
 
+  useEffect(() => {
+    setLectureCount('');
+  }, [selectedStaffId]);
+
+  useEffect(() => {
+    if (!token || !selectedStaffId) {
+      setAttPreview(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/v1/payroll/attendance-preview?staff_id=${encodeURIComponent(selectedStaffId)}&payroll_month=${encodeURIComponent(selectedMonth)}`, {
+      headers: { authorization: `Bearer ${token}` }
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!cancelled && data?.success) {
+          setAttPreview(data.data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAttPreview(null);
+      });
+    return () => { cancelled = true; };
+  }, [token, selectedStaffId, selectedMonth]);
+
   const currentProfile = profiles.find(p => p.staff_id === selectedStaffId);
 
   // Dynamic Row Operations
@@ -158,15 +189,27 @@ export const PayrollDeskView: React.FC = () => {
   };
 
   // Calculations
-  const baseSalary = currentProfile?.base_amount || 0;
+  const isPerLecture = currentProfile?.contract_type === 'per_lecture';
+  const baseSalary = isPerLecture
+    ? (Number(lectureCount || 0) * (currentProfile?.base_amount || 0))
+    : (currentProfile?.base_amount || 0);
+
+  const hasManualAttendanceDeduction = deductions.some(d => d.name === 'Attendance deduction');
+  const autoAttendanceDeduction = (hasManualAttendanceDeduction || isPerLecture) ? 0 : (attPreview?.totalDeduction || 0);
+
   const totalEarnings = earnings.reduce((s, e) => s + (Number(e.quantity) * Number(e.unit_rate)), 0);
-  const totalDeductions = deductions.reduce((s, d) => s + (Number(d.quantity) * Number(d.unit_rate)), 0);
+  const totalDeductions = deductions.reduce((s, d) => s + (Number(d.quantity) * Number(d.unit_rate)), 0) + autoAttendanceDeduction;
   const netPayable = Math.max(0, baseSalary + totalEarnings - totalDeductions);
 
   // Process and Save Payslip
   const handleProcessSalary = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !selectedStaffId) return;
+
+    if (isPerLecture && (lectureCount === '' || Number(lectureCount) < 0)) {
+      alert('Lecture count is required.');
+      return;
+    }
 
     try {
       const res = await fetch('/api/v1/payroll/payslips/generate', {
@@ -175,6 +218,7 @@ export const PayrollDeskView: React.FC = () => {
         body: JSON.stringify({
           staff_id: selectedStaffId,
           payroll_month: selectedMonth,
+          lecture_count: isPerLecture ? Number(lectureCount) : undefined,
           earnings: earnings.filter(e => e.name.trim() && Number(e.unit_rate) >= 0),
           deductions: deductions.filter(d => d.name.trim() && Number(d.unit_rate) >= 0),
           admin_notes: adminNotes
@@ -447,12 +491,39 @@ export const PayrollDeskView: React.FC = () => {
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-slate-400">Base Contract Salary</p>
-                <p className="text-base font-bold font-mono text-slate-900">{baseSalary.toLocaleString()} PKR</p>
+                <p className="text-xs text-slate-400">
+                  {isPerLecture ? 'Lecture Unit Rate' : 'Base Contract Salary'}
+                </p>
+                <p className="text-base font-bold font-mono text-slate-900">
+                  {currentProfile ? `${currentProfile.base_amount.toLocaleString()} PKR${isPerLecture ? ' / lecture' : ''}` : '0 PKR'}
+                </p>
               </div>
             </div>
 
             <form onSubmit={handleProcessSalary} className="space-y-5">
+              {/* Per-Lecture Input if contract_type is per_lecture */}
+              {isPerLecture && (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Delivered Lectures <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="0"
+                      value={lectureCount}
+                      onChange={e => setLectureCount(e.target.value === '' ? '' : Math.max(0, parseInt(e.target.value, 10) || 0))}
+                      placeholder="e.g. 24"
+                      className="w-32 px-3 py-1.5 text-xs font-mono font-bold bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
+                      required
+                    />
+                    <span className="text-xs text-slate-500 font-mono">
+                      × {(currentProfile?.base_amount || 0).toLocaleString()} PKR / lecture = <span className="font-bold text-slate-900">{baseSalary.toLocaleString()} PKR</span>
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Earnings Section */}
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
@@ -599,6 +670,11 @@ export const PayrollDeskView: React.FC = () => {
                   </p>
                   <p className="text-[11px] text-slate-400">
                     Base: {baseSalary.toLocaleString()} + Additions: {totalEarnings.toLocaleString()} - Deductions: {totalDeductions.toLocaleString()}
+                    {autoAttendanceDeduction > 0 && (
+                      <span className="text-amber-400 ml-1">
+                        (incl. {autoAttendanceDeduction.toLocaleString()} PKR attendance deduction)
+                      </span>
+                    )}
                   </p>
                 </div>
 

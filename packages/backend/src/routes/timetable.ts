@@ -192,6 +192,14 @@ export function timetableRoutes(store: IDataStore) {
         });
       }
 
+      if (parse.data.start_time >= parse.data.end_time) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'INVALID_TIME_RANGE', message: 'End time must be after start time.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       try {
         const slot = await store.createTimetableSlot({
           tenant_id: user.tenant_id,
@@ -199,9 +207,10 @@ export function timetableRoutes(store: IDataStore) {
         });
         return reply.status(201).send({ success: true, data: slot, timestamp: new Date().toISOString() });
       } catch (err: any) {
-        return reply.status(409).send({
+        const isTimeOrder = err.message?.includes('End time must be after start time');
+        return reply.status(isTimeOrder ? 400 : 409).send({
           success: false,
-          error: { code: 'COLLISION_ERROR', message: err.message },
+          error: { code: isTimeOrder ? 'INVALID_TIME_RANGE' : 'COLLISION_ERROR', message: err.message },
           timestamp: new Date().toISOString(),
         });
       }
@@ -233,6 +242,14 @@ export function timetableRoutes(store: IDataStore) {
         });
       }
 
+      if (parse.data.start_time >= parse.data.end_time) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'INVALID_TIME_RANGE', message: 'End time must be after start time.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       try {
         const slot = await store.updateTimetableSlot(user.tenant_id, id, parse.data);
         if (!slot) {
@@ -244,9 +261,10 @@ export function timetableRoutes(store: IDataStore) {
         }
         return reply.send({ success: true, data: slot, timestamp: new Date().toISOString() });
       } catch (err: any) {
-        return reply.status(409).send({
+        const isTimeOrder = err.message?.includes('End time must be after start time');
+        return reply.status(isTimeOrder ? 400 : 409).send({
           success: false,
-          error: { code: 'COLLISION_ERROR', message: err.message },
+          error: { code: isTimeOrder ? 'INVALID_TIME_RANGE' : 'COLLISION_ERROR', message: err.message },
           timestamp: new Date().toISOString(),
         });
       }

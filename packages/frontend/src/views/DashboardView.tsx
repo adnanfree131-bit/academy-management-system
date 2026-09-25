@@ -248,9 +248,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   }, [token]);
 
   /* ─── Ground Truth Metrics ─── */
-  const activeStudents = students.filter(s => s.status === 'active').length || students.length;
-  const totalCapacity = batches.reduce((sum, b) => sum + (b.max_capacity || 40), 0) || 50;
-  const capacityPct = totalCapacity > 0 ? Math.round((activeStudents / totalCapacity) * 100) : 0;
+  const activeStudents = students.filter(s => s.status === 'active').length;
+  const batchesWithCapacity = batches.filter(b => typeof b.max_capacity === 'number' && b.max_capacity > 0);
+  const totalCapacity = batchesWithCapacity.reduce((sum, b) => sum + (b.max_capacity as number), 0);
+  const hasCapacity = batchesWithCapacity.length > 0 && totalCapacity > 0;
+  const capacityPct = hasCapacity ? Math.round((activeStudents / totalCapacity) * 100) : 0;
 
   // Student Attendance
   const markedBatchIds = new Set(attendanceRecords.map((r: any) => r.batch_id).filter(Boolean));
@@ -297,11 +299,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
   });
   const totalBilled = liveInvoices.reduce((a, inv) => a + (inv.net_total ?? inv.net_amount ?? 0), 0);
   const totalCollected = liveInvoices.reduce((a, inv) => a + (inv.paid_amount ?? 0), 0);
-  const unpaidInvoices = liveInvoices.filter(inv => {
-    const st = String(inv.status || '').toLowerCase();
-    return (inv.balance_due ?? inv.balance_amount ?? 0) > 0 || st === 'unpaid' || st === 'partially_paid';
+  const overdueInvoices = liveInvoices.filter(inv => {
+    const bal = inv.balance_due ?? inv.balance_amount ?? 0;
+    return bal > 0 && Boolean(inv.due_date) && inv.due_date! < campusDateStr;
   });
-  const overdueAmount = unpaidInvoices.reduce((a, inv) => a + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
+  const overdueAmount = overdueInvoices.reduce((a, inv) => a + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
   const feeRealizationPct = totalBilled > 0 ? Math.round((totalCollected / totalBilled) * 100) : 0;
 
   const formattedDate = new Date().toLocaleDateString('en-US', {
@@ -310,7 +312,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
     year: 'numeric',
   });
 
-  const displayName = user?.full_name || 'Director Adnan';
+  const displayName = user?.full_name || (
+    user?.role === 'tenant_admin' ? 'Campus Admin' :
+    user?.role === 'teacher' ? 'Faculty Member' :
+    user?.role === 'student' ? 'Student' :
+    user?.role === 'parent' ? 'Guardian' :
+    user?.role === 'super_admin' ? 'Platform Admin' :
+    'Campus Admin'
+  );
 
   // Academic Donut calculation
   const colors = ['#081A2F', '#B88634', '#059669', '#0284C7', '#7C3AED'];
@@ -322,15 +331,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         }).length;
         const pct = activeStudents > 0 && stdCount > 0
           ? Math.round((stdCount / activeStudents) * 100)
-          : idx === 0 ? 100 : 0;
+          : 0;
         return {
           label: p.name,
           pct: pct,
-          count: stdCount || (idx === 0 ? activeStudents : 0),
+          count: stdCount,
           color: colors[idx % colors.length],
         };
       })
-    : [{ label: 'General Enrollment', pct: 100, count: activeStudents, color: '#081A2F' }];
+    : [{ label: 'General Enrollment', pct: activeStudents > 0 ? 100 : 0, count: activeStudents, color: '#081A2F' }];
 
   if (isInitialLoading) {
     return (
@@ -466,10 +475,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
               <span className="text-xl sm:text-2xl font-bold font-mono text-white">{activeStudents}</span>
-              <span className="text-[11px] font-mono text-slate-400">/ {totalCapacity}</span>
+              <span className="text-[11px] font-mono text-slate-400">/ {hasCapacity ? totalCapacity : '—'}</span>
             </div>
             <p className="text-[11px] text-slate-300 mt-1">
-              <span className="font-mono font-semibold text-amber-400">{capacityPct}%</span> capacity occupied
+              {hasCapacity ? (
+                <>
+                  <span className="font-mono font-semibold text-amber-400">{capacityPct}%</span> capacity occupied
+                </>
+              ) : (
+                <span>—</span>
+              )}
             </p>
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
@@ -500,7 +515,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </p>
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
-            <span className="text-rose-400 font-semibold font-mono">{unpaidInvoices.length} Overdue</span>
+            <span className="text-rose-400 font-semibold font-mono">{overdueInvoices.length} Overdue</span>
             <span className="text-amber-400 font-semibold hover:underline">Cashier →</span>
           </div>
         </div>
@@ -569,7 +584,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       </div>
 
       {/* ─── Operational Alerts (Attention Strips) ─── */}
-      {(unmarkedBatches.length > 0 || unpaidInvoices.length > 0) && (
+      {(unmarkedBatches.length > 0 || overdueInvoices.length > 0) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {unmarkedBatches.length > 0 && (
             <div
@@ -590,7 +605,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
           )}
 
-          {unpaidInvoices.length > 0 && (
+          {overdueInvoices.length > 0 && (
             <div
               onClick={() => onNavigate('voucher')}
               className="p-3 bg-rose-50/80 border border-rose-200/80 rounded-2xl flex items-center justify-between gap-3 text-xs cursor-pointer hover:bg-rose-100/70 transition-colors"
@@ -598,7 +613,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <div className="flex items-center gap-2.5 min-w-0">
                 <CreditCard className="w-4 h-4 text-rose-700 shrink-0" />
                 <span className="text-rose-900 font-medium truncate">
-                  {unpaidInvoices.length} fee challans overdue ({money(overdueAmount)}).
+                  {overdueInvoices.length} fee challans overdue ({money(overdueAmount)}).
                 </span>
               </div>
               <span className="font-semibold text-rose-800 shrink-0 hover:underline">
@@ -758,9 +773,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               </button>
             </div>
 
-            {unpaidInvoices.length > 0 ? (
+            {overdueInvoices.length > 0 ? (
               <div className="space-y-2">
-                {unpaidInvoices.slice(0, 3).map(inv => (
+                {overdueInvoices.slice(0, 3).map(inv => (
                   <div
                     key={inv.id}
                     className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3 text-xs"
@@ -805,7 +820,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               </div>
             ) : (
               <p className="text-xs text-slate-400 py-4 text-center">
-                All fee invoices are cleared for this billing cycle.
+                No overdue fee invoices for this billing cycle.
               </p>
             )}
           </div>

@@ -103,6 +103,14 @@ export const ComplaintsDeskView: React.FC = () => {
       };
       if (isStaff && newForm.student_id) {
         payload.student_id = newForm.student_id;
+      } else if (user?.role === 'parent') {
+        const hashMatch = window.location.hash.match(/[?&]student_id=([^&]+)/);
+        const hashStudentId = hashMatch ? decodeURIComponent(hashMatch[1]) : null;
+        const storedStudentId = typeof window !== 'undefined' ? localStorage.getItem('apex_selected_child_id') : null;
+        const parentStudentId = hashStudentId || storedStudentId;
+        if (parentStudentId) {
+          payload.student_id = parentStudentId;
+        }
       }
       const res = await fetch('/api/v1/complaints/complaints', {
         method: 'POST',
@@ -190,13 +198,15 @@ export const ComplaintsDeskView: React.FC = () => {
         description="Submit and track campus facility requests, academic inquiries, and student feedback."
         icon={<MessageSquare className="w-4 h-4 text-slate-700" />}
       >
-        <button
-          onClick={() => setShowNewModal(true)}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Ticket</span>
-        </button>
+        {(!isStaff || canEdit) && (
+          <button
+            onClick={() => setShowNewModal(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Ticket</span>
+          </button>
+        )}
       </PageHeading>
 
       {/* Standalone Search Bar & Filters Strip */}

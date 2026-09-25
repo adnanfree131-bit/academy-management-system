@@ -218,7 +218,15 @@ export function canOpenScreen(
   if (role === 'super_admin' || role === 'tenant_admin') return true;
 
   if (role === 'student' || role === 'parent') {
-    return screen === 'student_portal' || screen === 'complaints';
+    return (
+      screen === 'student_portal' ||
+      screen === 'complaints' ||
+      screen === 'timetable' ||
+      screen === 'attendance' ||
+      screen === 'voucher' ||
+      screen === 'homework' ||
+      screen === 'exams'
+    );
   }
 
   if (ADMIN_ONLY_SCREENS.includes(screen)) return false;

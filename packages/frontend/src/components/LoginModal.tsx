@@ -448,17 +448,17 @@ export const LoginModal: React.FC = () => {
 
   const activeAcademyName = mode === 'register'
     ? (regName.trim() || 'Academy Name')
-    : (branding?.name || (tenantSlug === 'tsa' || !tenantSlug ? 'The Smart Academy' : isSubdomain ? `${tenantSlug.toUpperCase()} Academy` : 'The Smart Academy'));
+    : (branding?.name || (tenantSlug === 'tsa' ? 'The Smart Academy' : tenantSlug ? `${tenantSlug.toUpperCase()} Academy` : ''));
 
   const activeAcademyLogo = mode === 'register'
     ? regLogoUrl
-    : (branding?.logo_url || '/tsa-logo.png');
+    : (branding?.logo_url || (tenantSlug === 'tsa' ? '/tsa-logo.png' : null));
 
   const activeDomain = mode === 'register'
     ? (regSlug.trim() ? `${regSlug.trim().toLowerCase()}.${baseDomain}` : `subdomain.${baseDomain}`)
     : (typeof window !== 'undefined' && window.location.hostname.toLowerCase() === 'edu.kampus.pk'
         ? 'edu.kampus.pk'
-        : (branding?.domain || (tenantSlug ? `${tenantSlug}.${baseDomain}` : `tsa.${baseDomain}`)));
+        : (branding?.domain || (tenantSlug ? `${tenantSlug}.${baseDomain}` : '')));
 
   return (
     <div className="min-h-[100dvh] bg-slate-50 sm:bg-slate-100 flex items-center justify-center p-3 sm:p-6 lg:p-10 font-sans">
@@ -525,12 +525,14 @@ export const LoginModal: React.FC = () => {
                 )}
               </div>
               <h1 className="font-academy text-xl sm:text-2xl text-white tracking-tight break-words">{activeAcademyName}</h1>
-              <div className="mt-2.5">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
-                  <Lock className="w-3 h-3" />
-                  {activeDomain}
-                </span>
-              </div>
+              {activeDomain && (
+                <div className="mt-2.5">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
+                    <Lock className="w-3 h-3" />
+                    {activeDomain}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -541,27 +543,31 @@ export const LoginModal: React.FC = () => {
         <div className="lg:col-span-7 bg-white p-5 sm:p-8 lg:p-12 flex flex-col justify-between min-h-0 lg:min-h-[680px] overflow-y-auto">
           
           {/* Mobile Institutional Branding Header (Visible only on mobile/tablet < lg) */}
-          <div className="lg:hidden text-center mb-6 pt-1">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-2 border border-slate-200/80 shadow-xs flex items-center justify-center mx-auto mb-3">
-              {activeAcademyLogo ? (
-                <img src={activeAcademyLogo} alt={activeAcademyName} className="w-full h-full object-contain" />
-              ) : (
-                <GraduationCap className="w-8 h-8 text-slate-700" />
+          {!isPlatformSignIn && (
+            <div className="lg:hidden text-center mb-6 pt-1">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white p-2 border border-slate-200/80 shadow-xs flex items-center justify-center mx-auto mb-3">
+                {activeAcademyLogo ? (
+                  <img src={activeAcademyLogo} alt={activeAcademyName} className="w-full h-full object-contain" />
+                ) : (
+                  <GraduationCap className="w-8 h-8 text-slate-700" />
+                )}
+              </div>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-brand">
+                {activeAcademyName}
+              </h1>
+              <p className="text-xs text-slate-500 font-medium mt-1">
+                Staff &amp; Guardian Portal • Session 2026–2027
+              </p>
+              {activeDomain && (
+                <div className="mt-2.5">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-600">
+                    <Lock className="w-2.5 h-2.5 text-slate-400" />
+                    {activeDomain}
+                  </span>
+                </div>
               )}
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-brand">
-              {activeAcademyName}
-            </h1>
-            <p className="text-xs text-slate-500 font-medium mt-1">
-              Staff &amp; Guardian Portal • Session 2026–2027
-            </p>
-            <div className="mt-2.5">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[10px] font-mono text-slate-600">
-                <Lock className="w-2.5 h-2.5 text-slate-400" />
-                {activeDomain}
-              </span>
-            </div>
-          </div>
+          )}
 
           {/* Mode Switcher (Visible ONLY on platform root and in form step; NEVER on academy subdomains) */}
           {!isSubdomain && step === 'form' && (
@@ -594,7 +600,7 @@ export const LoginModal: React.FC = () => {
             
             {/* Headings */}
             <div className="mb-6">
-              <h2 className={`text-2xl font-bold tracking-tight text-slate-900 ${step === 'form' && mode === 'login' ? 'hidden lg:block' : ''}`}>
+              <h2 className={`text-2xl font-bold tracking-tight text-slate-900 ${step === 'form' && mode === 'login' && !isPlatformSignIn ? 'hidden lg:block' : ''}`}>
                 {step === 'otp' && 'Verify Academy Email'}
                 {step === 'registration_success' && 'Registration Complete'}
                 {step === 'forgot_password_request' && 'Reset Password'}
@@ -602,7 +608,7 @@ export const LoginModal: React.FC = () => {
                 {step === 'contact_admin_forgot_password' && 'Password Reset Assistance'}
                 {step === 'form' && (mode === 'login' ? 'Sign In' : 'Register Academy')}
               </h2>
-              <p className={`text-xs text-slate-500 mt-1.5 leading-relaxed ${step === 'form' && mode === 'login' ? 'hidden lg:block' : ''}`}>
+              <p className={`text-xs text-slate-500 mt-1.5 leading-relaxed ${step === 'form' && mode === 'login' && !isPlatformSignIn ? 'hidden lg:block' : ''}`}>
                 {step === 'otp' && `Enter the 6-digit verification code sent to ${email}`}
                 {step === 'registration_success' && 'Your academy portal is active and ready to use.'}
                 {step === 'forgot_password_request' && 'Enter your institutional email to receive a password reset code.'}
@@ -1227,10 +1233,6 @@ export const LoginModal: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500 font-medium">Username:</span>
                     <span className="font-semibold text-slate-900 font-mono">Father / Guardian CNIC</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500 font-medium">Default Password:</span>
-                    <span className="font-mono font-bold bg-white px-2 py-0.5 border border-slate-200 rounded text-slate-800">Student@123</span>
                   </div>
                 </div>
 

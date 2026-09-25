@@ -105,7 +105,7 @@ export const ForcePasswordChangeModal: React.FC = () => {
                 required
                 value={currentPassword}
                 onChange={e => setCurrentPassword(e.target.value)}
-                placeholder="e.g. Student@123"
+                placeholder="Enter current password"
                 className="w-full px-3 py-2 pl-9 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-sans"
               />
               <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />

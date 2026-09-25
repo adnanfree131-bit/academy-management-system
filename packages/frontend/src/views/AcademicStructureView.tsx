@@ -571,10 +571,14 @@ export const AcademicStructureView: React.FC = () => {
     try {
       // If an existing compulsory group exists, delete it first to replace with clean set
       if (activeCompulsoryGroup) {
-        await fetch(`/api/v1/academic/groups/${activeCompulsoryGroup.id}`, {
+        const delRes = await fetch(`/api/v1/academic/groups/${activeCompulsoryGroup.id}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
         });
+        const delData = await delRes.json().catch(() => ({}));
+        if (!delRes.ok || delData.success === false) {
+          throw new Error(delData.error?.message || 'Failed to update existing compulsory group.');
+        }
       }
 
       if (compulsorySelectedSubjectIds.length > 0) {

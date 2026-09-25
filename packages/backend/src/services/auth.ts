@@ -43,7 +43,7 @@ export class AuthService {
     const tenantUsers = await this.store.getTenantUsers(tenantId);
 
     const matchingStudents = students.filter(s => {
-      if (s.status !== 'active') return false;
+      if (s.status === 'archived') return false;
       const keys = [s.guardian_id_card, s.father_cnic].map(v => this.cnicKey(v)).filter(v => v.length >= 5);
       return keys.includes(cleanInputCnic);
     });
@@ -147,6 +147,9 @@ export class AuthService {
       const allStudents = await this.store.getStudents(tenant.id);
       const std = allStudents.find(s => s.user_id === user.id || (s.email && s.email.toLowerCase() === user.email.toLowerCase()));
       if (std) {
+        if ((std as any).portal_blocked) {
+          throw new Error(`Your account status is '${user.status}' or portal access has been restricted. Please contact academy administration.`);
+        }
         const enrollments = await this.store.getStudentEnrollments(tenant.id, std.id);
         const hasActiveEnrollment = enrollments.some(e => e.status === 'active' || e.status === 'on_leave');
         if (!hasActiveEnrollment && std.status !== 'active') {

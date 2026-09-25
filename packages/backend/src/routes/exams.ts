@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
-import { JWTPayload, ExamQuestionType, QuestionDifficulty, ExamStatus, EvaluationStatus } from '@apex/shared-types';
+import { JWTPayload, Exam, ExamQuestion, ExamQuestionType, QuestionDifficulty, ExamStatus, EvaluationStatus } from '@apex/shared-types';
 import { can, batchScope } from '../lib/access.js';
 
 export function examRoutes(store: IDataStore) {
@@ -213,10 +213,15 @@ export function examRoutes(store: IDataStore) {
         parse.data.rows
       );
 
+      let message = `Successfully imported ${result.imported_count} questions into question bank.`;
+      if (result.skipped_count && result.skipped_count > 0 && result.skipped_rows) {
+        message += ` Skipped ${result.skipped_count} row(s): ${result.skipped_rows.map((s: any) => `${s.row} (${s.reason})`).join(', ')}.`;
+      }
+
       return reply.status(201).send({
         success: true,
         data: result,
-        message: `Successfully imported ${result.imported_count} questions into question bank.`,
+        message,
         timestamp: new Date().toISOString()
       });
     };
@@ -226,10 +231,21 @@ export function examRoutes(store: IDataStore) {
     // =========================================================================
     // 4. EXAM SETUP & EXAM PAPER MANAGEMENT
     // =========================================================================
+    const sanitizeExamQuestions = (exam: Exam, keepCorrectOption: boolean): Exam => {
+      if (keepCorrectOption) return exam;
+      return {
+        ...exam,
+        questions: exam.questions ? exam.questions.map(q => {
+          const { correct_option, ...rest } = q;
+          return rest as ExamQuestion;
+        }) : exam.questions
+      };
+    };
+
     const getExamsHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       const hasView = can(user, 'exams_bank', 'view') || can(user, 'exams_marks', 'view') || can(user, 'exams_reports', 'view');
-      if (user.role === 'student' || user.role === 'parent' || !hasView) {
+      if (user.role !== 'student' && user.role !== 'parent' && !hasView) {
         return reply.status(403).send({
           success: false,
           error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires examination view permission.' },
@@ -237,8 +253,17 @@ export function examRoutes(store: IDataStore) {
         });
       }
       const { batch_id, subject_id } = request.query as { batch_id?: string; subject_id?: string };
-      const exams = await store.getExams(user.tenant_id, batch_id, subject_id);
-      return reply.send({ success: true, data: exams, timestamp: new Date().toISOString() });
+      let exams = await store.getExams(user.tenant_id, batch_id, subject_id);
+
+      const scope = batchScope(user);
+      if (user.role === 'teacher' && scope !== 'all') {
+        exams = exams.filter(e => scope.includes(e.batch_id));
+      }
+
+      const keepCorrectOption = user.role !== 'student' && user.role !== 'parent' && can(user, 'exams_bank', 'view');
+      const sanitizedExams = exams.map(e => sanitizeExamQuestions(e, keepCorrectOption));
+
+      return reply.send({ success: true, data: sanitizedExams, timestamp: new Date().toISOString() });
     };
     fastify.get('/', getExamsHandler);
     fastify.get('/exams', getExamsHandler);
@@ -246,7 +271,7 @@ export function examRoutes(store: IDataStore) {
     const getExamByIdHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       const hasView = can(user, 'exams_bank', 'view') || can(user, 'exams_marks', 'view') || can(user, 'exams_reports', 'view');
-      if (user.role === 'student' || user.role === 'parent' || !hasView) {
+      if (user.role !== 'student' && user.role !== 'parent' && !hasView) {
         return reply.status(403).send({
           success: false,
           error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires examination view permission.' },
@@ -262,7 +287,18 @@ export function examRoutes(store: IDataStore) {
           timestamp: new Date().toISOString()
         });
       }
-      return reply.send({ success: true, data: exam, timestamp: new Date().toISOString() });
+      if (user.role === 'teacher') {
+        const scope = batchScope(user);
+        if (scope !== 'all' && !scope.includes(exam.batch_id)) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. You are not assigned to this exam batch.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+      const keepCorrectOption = user.role !== 'student' && user.role !== 'parent' && can(user, 'exams_bank', 'view');
+      return reply.send({ success: true, data: sanitizeExamQuestions(exam, keepCorrectOption), timestamp: new Date().toISOString() });
     };
     fastify.get('/:id', getExamByIdHandler);
     fastify.get('/exams/:id', getExamByIdHandler);
@@ -478,6 +514,23 @@ export function examRoutes(store: IDataStore) {
         });
       }
 
+      if (exam) {
+        if (exam.short_total_marks !== undefined && exam.short_total_marks !== null && (parse.data.short_score ?? 0) > exam.short_total_marks) {
+          return reply.status(400).send({
+            success: false,
+            error: { code: 'VALIDATION_ERROR', message: 'Short marks cannot exceed the short total.' },
+            timestamp: new Date().toISOString()
+          });
+        }
+        if (exam.long_total_marks !== undefined && exam.long_total_marks !== null && (parse.data.long_score ?? 0) > exam.long_total_marks) {
+          return reply.status(400).send({
+            success: false,
+            error: { code: 'VALIDATION_ERROR', message: 'Long marks cannot exceed the long total.' },
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+
       try {
         const evaluation = await store.evaluateStudentExam(user.tenant_id, {
           exam_id: id,
@@ -617,9 +670,13 @@ export function examRoutes(store: IDataStore) {
       if (!reportCard) {
         return reply.status(404).send({
           success: false,
-          error: { code: 'NOT_FOUND', message: 'Report card data not found for specified student and exam' },
+          error: { code: 'NOT_FOUND', message: 'Result is not published.' },
           timestamp: new Date().toISOString()
         });
+      }
+      const keepCorrectOption = user.role !== 'student' && user.role !== 'parent' && can(user, 'exams_bank', 'view');
+      if (reportCard.exam) {
+        reportCard.exam = sanitizeExamQuestions(reportCard.exam, keepCorrectOption);
       }
       return reply.send({ success: true, data: reportCard, timestamp: new Date().toISOString() });
     };

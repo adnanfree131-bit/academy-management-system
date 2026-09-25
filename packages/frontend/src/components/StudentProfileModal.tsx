@@ -1060,10 +1060,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setShowAddClassModal(false);
         await fetchEnrollments();
         await fetchInvoices();
         if (onStudentUpdated) onStudentUpdated();
+        const challanErr = data.challan_error || data.data?.challan_error;
+        if (challanErr) {
+          setAddClassError(`Fee challan generation failed: ${challanErr}`);
+        } else {
+          setShowAddClassModal(false);
+        }
       } else {
         setAddClassError(data.error?.message || 'Failed to enroll in class');
       }
@@ -5345,7 +5350,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         <span className="text-xs">Standard Default</span>
                         {resetPasswordType === 'default' && <CheckCircle2 className="w-3.5 h-3.5 text-slate-900" />}
                       </div>
-                      <span className="font-mono text-xs text-slate-900 block font-semibold">Student@123</span>
+                      <span className="text-xs text-slate-500 block font-normal">Default system credential</span>
                     </button>
 
                     <button

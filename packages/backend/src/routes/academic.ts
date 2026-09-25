@@ -503,13 +503,29 @@ export function academicRoutes(store: IDataStore) {
           timestamp: new Date().toISOString(),
         });
       }
+      let resolvedSettings = (tenant.settings || {}) as Record<string, any>;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        const bankFields = ['bank_name', 'account_title', 'account_number', 'iban', 'branch_code', 'raast_id'];
+        const sanitized = { ...resolvedSettings };
+        for (const field of bankFields) {
+          delete sanitized[field];
+        }
+        if (sanitized.payment_settings && typeof sanitized.payment_settings === 'object') {
+          sanitized.payment_settings = { ...sanitized.payment_settings };
+          for (const field of bankFields) {
+            delete sanitized.payment_settings[field];
+          }
+        }
+        resolvedSettings = sanitized;
+      }
+
       return reply.send({
         success: true,
         data: {
           id: tenant.id,
           name: tenant.name,
           slug: tenant.slug,
-          settings: tenant.settings || {},
+          settings: resolvedSettings,
         },
         timestamp: new Date().toISOString(),
       });

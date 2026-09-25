@@ -242,6 +242,13 @@ export function complaintsRoutes(store: IDataStore) {
       const isStaff = user.role !== 'student' && user.role !== 'parent';
 
       if (isStaff) {
+        if (!can(user, 'complaints', 'edit')) {
+          return reply.status(403).send({
+            success: false,
+            error: { code: 'FORBIDDEN_ROLE', message: 'Access denied. Requires complaints edit permission.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
         if (parse.data.student_id) {
           const resolved = await resolveStudentAndBatch(user.tenant_id, parse.data.student_id);
           if (!resolved) {

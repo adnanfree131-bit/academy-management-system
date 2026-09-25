@@ -458,7 +458,7 @@ export const FeeReversalsView: React.FC = () => {
       // Optimistically remove from state so nothing shows as deleted or cancelled
       setInvoices(prev => prev.filter(inv => inv.id !== deleteTargetChallan.id));
       setPayments(prev => prev.filter(pay => pay.invoice_id !== deleteTargetChallan.id));
-      showNotification('success', `Fee challan ${deleteTargetChallan.invoice_number} and all connected payment records were deleted.`);
+      showNotification('success', 'Challan deleted.');
       setDeleteTargetChallan(null);
       setDeleteChallanReason('');
       await fetchData();

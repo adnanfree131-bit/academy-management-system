@@ -351,15 +351,10 @@ export const TimetableDesk: React.FC = () => {
     }
   };
 
-  // Open substitute modal & load free teachers for slot
-  const openSubstituteModal = async (slot: TimetableSlot) => {
-    setSubstituteSlot(slot);
-    setSubstituteTeacherId('');
-    setSubstituteDate(campusToday());
-    setSubstituteReason('');
+  const loadSubstituteCandidates = async (slot: TimetableSlot, dateStr: string) => {
     try {
       const res = await fetch(
-        `/api/v1/timetable/available-teachers?day=${slot.day_of_week}&start_time=${slot.start_time}&end_time=${slot.end_time}`,
+        `/api/v1/timetable/available-teachers?day=${slot.day_of_week}&start_time=${slot.start_time}&end_time=${slot.end_time}&date=${encodeURIComponent(dateStr)}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const data = await res.json();
@@ -368,10 +363,21 @@ export const TimetableDesk: React.FC = () => {
         const candidates = (data.data || []).filter((u: User) => u.id !== slot.teacher_id);
         setSubstituteCandidates(candidates);
         if (candidates.length > 0) setSubstituteTeacherId(candidates[0].id);
+        else setSubstituteTeacherId('');
       }
     } catch (err) {
       console.error('Failed to load substitute candidates:', err);
     }
+  };
+
+  // Open substitute modal & load free teachers for slot
+  const openSubstituteModal = async (slot: TimetableSlot) => {
+    const today = campusToday();
+    setSubstituteSlot(slot);
+    setSubstituteTeacherId('');
+    setSubstituteDate(today);
+    setSubstituteReason('');
+    await loadSubstituteCandidates(slot, today);
   };
 
   const handleAssignSubstitute = async (e: React.FormEvent) => {
@@ -903,7 +909,11 @@ export const TimetableDesk: React.FC = () => {
                     <input
                       type="date"
                       value={substituteDate}
-                      onChange={e => setSubstituteDate(e.target.value)}
+                      onChange={e => {
+                        const newD = e.target.value;
+                        setSubstituteDate(newD);
+                        if (substituteSlot && newD) loadSubstituteCandidates(substituteSlot, newD);
+                      }}
                       className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-mono text-slate-800"
                       required
                     />

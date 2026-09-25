@@ -132,6 +132,7 @@ export const ExamDeskView: React.FC = () => {
   const [evalLongRemarks, setEvalLongRemarks] = useState<string>('');
   const [examEvaluations, setExamEvaluations] = useState<StudentExamEvaluation[]>([]);
   const [evalSaveSuccess, setEvalSaveSuccess] = useState('');
+  const [evalError, setEvalError] = useState('');
 
   // Fetch initial data
   const fetchData = async () => {
@@ -282,17 +283,33 @@ export const ExamDeskView: React.FC = () => {
   const calculatedPercentage = Number(((totalCalculatedObtained / examTotalMarks) * 100).toFixed(2));
 
   let derivedGrade = 'F';
-  if (calculatedPercentage >= 90) derivedGrade = 'A*';
-  else if (calculatedPercentage >= 80) derivedGrade = 'A';
-  else if (calculatedPercentage >= 70) derivedGrade = 'B';
-  else if (calculatedPercentage >= 60) derivedGrade = 'C';
-  else if (calculatedPercentage >= 50) derivedGrade = 'D';
-  else if (calculatedPercentage >= 40) derivedGrade = 'E';
+  const customScale = (tenant as any)?.settings?.grading_scale;
+  if (customScale && Array.isArray(customScale) && customScale.length > 0) {
+    const sortedTiers = [...customScale].sort((a: any, b: any) => b.min_percentage - a.min_percentage);
+    for (const tier of sortedTiers) {
+      if (calculatedPercentage >= tier.min_percentage) {
+        derivedGrade = tier.grade;
+        break;
+      }
+    }
+  } else {
+    // Standard Pakistani Matric/F.Sc Board Grading Scale (matches store.ts)
+    if (calculatedPercentage >= 80) derivedGrade = 'A+';
+    else if (calculatedPercentage >= 70) derivedGrade = 'A';
+    else if (calculatedPercentage >= 60) derivedGrade = 'B';
+    else if (calculatedPercentage >= 50) derivedGrade = 'C';
+    else if (calculatedPercentage >= 40) derivedGrade = 'D';
+    else if (calculatedPercentage >= 33) derivedGrade = 'E';
+    else derivedGrade = 'F';
+  }
 
   // Handle Save Evaluation
   const handleSaveEvaluation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!evalSelectedExamId || !evalSelectedStudentId || !token) return;
+
+    setEvalError('');
+    setEvalSaveSuccess('');
 
     try {
       const res = await fetch(`/api/v1/exams/${evalSelectedExamId}/evaluate`, {
@@ -315,6 +332,7 @@ export const ExamDeskView: React.FC = () => {
       if (res.ok) {
         const d = await res.json();
         setEvalSaveSuccess(`Evaluation saved for ${currentStudent?.full_name}: ${d.data.total_obtained} Marks (${d.data.grade})`);
+        setEvalError('');
         fetchData();
         // Refresh evaluations list
         const evRes = await fetch(`/api/v1/exams/${evalSelectedExamId}/evaluations`, {
@@ -324,9 +342,13 @@ export const ExamDeskView: React.FC = () => {
           const evData = await evRes.json();
           setExamEvaluations(evData.data || []);
         }
+      } else {
+        const errData = await res.json().catch(() => null);
+        setEvalError(errData?.error?.message || errData?.message || 'Failed to save evaluation.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save evaluation:', err);
+      setEvalError(err?.message || 'Failed to save evaluation.');
     }
   };
 
@@ -422,25 +444,84 @@ export const ExamDeskView: React.FC = () => {
     e.preventDefault();
     if (!excelSubjectId || !excelProgramId || !excelTextRaw || !token) return;
 
-    // Parse tab-separated or comma-separated rows
-    // Expected format: ChapterNumber, ChapterName, Type, QuestionText, Marks, OptionA, OptionB, OptionC, OptionD, CorrectOption, Rubric
+    // Parse tab-separated or comma-separated rows without splitting quoted fields
+    const parseCsvLine = (line: string): string[] => {
+      if (line.includes('\t')) {
+        return line.split('\t').map(c => c.trim().replace(/^"(.*)"$/, '$1'));
+      }
+      const parts: string[] = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          parts.push(current.trim().replace(/^"(.*)"$/, '$1'));
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      parts.push(current.trim().replace(/^"(.*)"$/, '$1'));
+      return parts;
+    };
+
     const lines = excelTextRaw.trim().split('\n');
-    const parsedRows = lines.map(line => {
-      const parts = line.includes('\t') ? line.split('\t') : line.split(',');
-      return {
+    const skippedRows: string[] = [];
+    const parsedRows: any[] = [];
+
+    lines.forEach((line, idx) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      const parts = parseCsvLine(trimmed);
+      const qType = (parts[2]?.trim().toUpperCase() || 'MCQ') as ExamQuestionType;
+      const qText = parts[3]?.trim();
+      const rawMarks = parts[4]?.trim();
+      const parsedMarks = rawMarks ? parseFloat(rawMarks) : NaN;
+
+      if (!qText) {
+        skippedRows.push(`Row ${idx + 1} (missing question text)`);
+        return;
+      }
+      if (rawMarks && isNaN(parsedMarks)) {
+        skippedRows.push(`Row ${idx + 1} "${qText.slice(0, 20)}..." (column shift: marks "${rawMarks}")`);
+        return;
+      }
+      if (qType === 'MCQ') {
+        const correctOpt = parts[9]?.trim().toUpperCase();
+        if (!correctOpt || !['A', 'B', 'C', 'D'].includes(correctOpt)) {
+          skippedRows.push(`Row ${idx + 1} "${qText.slice(0, 20)}..." (missing or invalid MCQ key "${correctOpt || ''}")`);
+          return;
+        }
+      }
+
+      parsedRows.push({
         chapter_number: parseInt(parts[0]?.trim() || '1', 10),
         chapter_name: parts[1]?.trim() || 'General Chapter',
-        question_type: (parts[2]?.trim().toUpperCase() || 'MCQ') as ExamQuestionType,
-        question_text: parts[3]?.trim() || 'Sample question',
-        marks: parseFloat(parts[4]?.trim() || '1'),
+        question_type: qType,
+        question_text: qText,
+        marks: isNaN(parsedMarks) ? 1 : parsedMarks,
         option_a: parts[5]?.trim(),
         option_b: parts[6]?.trim(),
         option_c: parts[7]?.trim(),
         option_d: parts[8]?.trim(),
         correct_option: parts[9]?.trim().toUpperCase(),
         rubric_guide: parts[10]?.trim()
-      };
-    }).filter(r => r.question_text);
+      });
+    });
+
+    if (parsedRows.length === 0) {
+      if (skippedRows.length > 0) {
+        setImportSuccessMsg(`No valid rows to import. Skipped: ${skippedRows.join('; ')}`);
+      }
+      return;
+    }
 
     try {
       const res = await fetch('/api/v1/exams/questions/import-excel', {
@@ -458,7 +539,17 @@ export const ExamDeskView: React.FC = () => {
 
       if (res.ok) {
         const d = await res.json();
-        setImportSuccessMsg(`Successfully imported ${d.data.imported_count} questions across ${d.data.chapters_created} chapters!`);
+        const serverSkipped = d.data.skipped_count || 0;
+        const totalSkipped = skippedRows.length + serverSkipped;
+        const skippedNames = [
+          ...skippedRows,
+          ...(d.data.skipped_rows || []).map((s: any) => typeof s === 'string' ? s : `${s.row} (${s.reason})`)
+        ];
+        let msg = `Successfully imported ${d.data.imported_count} questions across ${d.data.chapters_created} chapters!`;
+        if (totalSkipped > 0) {
+          msg += ` Skipped ${totalSkipped} row(s): ${skippedNames.join('; ')}`;
+        }
+        setImportSuccessMsg(msg);
         setExcelTextRaw('');
         fetchData();
       }
@@ -478,9 +569,14 @@ export const ExamDeskView: React.FC = () => {
         const d = await res.json();
         setActiveReportCard(d.data);
         setShowReportCardModal(true);
+        setEvalError('');
+      } else {
+        const d = await res.json().catch(() => null);
+        setEvalError(d?.error?.message || d?.message || 'Result is not published.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed opening report card:', err);
+      setEvalError(err?.message || 'Failed opening report card.');
     }
   };
 
@@ -1214,6 +1310,21 @@ export const ExamDeskView: React.FC = () => {
             </div>
           )}
 
+          {evalError && (
+            <div className="p-3 bg-rose-50 border border-rose-300 text-rose-900 rounded-xl text-xs flex items-center justify-between">
+              <span className="font-semibold flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                {evalError}
+              </span>
+              <button
+                onClick={() => setEvalError('')}
+                className="text-rose-700 hover:text-rose-900 font-bold p-0.5"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {currentExam ? (
             eligibleStudents.length === 0 ? (
               <div className="p-8 text-center bg-white rounded-xl border border-slate-200 space-y-2">
@@ -1260,7 +1371,7 @@ export const ExamDeskView: React.FC = () => {
                                 !chosen ? 'bg-slate-100 text-slate-600' :
                                 isCorrect ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
                               }`}>
-                                !chosen ? 'Unanswered' : isCorrect ? `Correct (+${mcq.marks}M)` : 'Incorrect (0M)'
+                                {!chosen ? 'Unanswered' : isCorrect ? `Correct (+${mcq.marks}M)` : 'Incorrect (0M)'}
                               </span>
                             </div>
 
