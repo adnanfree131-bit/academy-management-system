@@ -24,6 +24,7 @@ import {
   Copy,
   Camera, 
   Upload, 
+  Download,
   FileSpreadsheet,
   Archive,
   Trash2,
@@ -183,6 +184,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [bulkImportCsvText, setBulkImportCsvText] = useState<string>('');
   const [isBulkImporting, setIsBulkImporting] = useState<boolean>(false);
   const [bulkImportResult, setBulkImportResult] = useState<{ imported_count: number; failed_count: number; errors: any[] } | null>(null);
+  const [bulkImportValidationErrors, setBulkImportValidationErrors] = useState<string[]>([]);
 
   // Single Student Archive & Delete States
   const [studentToArchive, setStudentToArchive] = useState<Student | null>(null);
@@ -785,87 +787,192 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     }
   };
 
-  // Bulk CSV Import Handler
+  // Helper to parse CSV row accounting for quotes
+  const parseCsvRow = (text: string): string[] => {
+    const result: string[] = [];
+    let cur = '';
+    let inQuotes = false;
+    for (let j = 0; j < text.length; j++) {
+      const c = text[j];
+      if (c === '"') {
+        if (inQuotes && text[j + 1] === '"') {
+          cur += '"';
+          j++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (c === ',' && !inQuotes) {
+        result.push(cur.trim());
+        cur = '';
+      } else {
+        cur += c;
+      }
+    }
+    result.push(cur.trim());
+    return result;
+  };
+
+  // Download official sample Excel-compatible CSV template
+  const handleDownloadSampleCsv = () => {
+    const headers = [
+      'full_name',
+      'guardian_name',
+      'guardian_phone',
+      'guardian_relation',
+      'guardian_id_card',
+      'phone',
+      'email',
+      'gender',
+      'roll_number',
+      'date_of_birth',
+      'residential_address'
+    ];
+    const sampleRows = [
+      [
+        'Muhammad Ali',
+        'Tariq Mahmood',
+        '03001234567',
+        'Father',
+        '35201-1234567-1',
+        '03009876543',
+        'ali@example.com',
+        'Male',
+        '101',
+        '2008-05-15',
+        'House 12 Street 4 Lahore'
+      ],
+      [
+        'Fatima Noor',
+        'Noor Muhammad',
+        '03217654321',
+        'Father',
+        '35201-7654321-3',
+        '03211234567',
+        'fatima@example.com',
+        'Female',
+        '102',
+        '2009-08-20',
+        'Model Town Lahore'
+      ]
+    ];
+    const csvContent = [headers.join(','), ...sampleRows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'student_bulk_enrollment_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Handle direct file upload (.csv or .txt)
+  const handleBulkCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setBulkImportCsvText(content);
+        validateCsvRows(content, bulkImportBatchId);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  // Validate CSV rows and check compulsory fields
+  const validateCsvRows = (csvText: string, batchId: string): { rows: any[]; errors: string[] } => {
+    const lines = csvText.trim().split(/\r?\n/).filter(l => l.trim().length > 0);
+    if (lines.length <= 1) {
+      const err = ['File must contain a header row and at least 1 student record'];
+      setBulkImportValidationErrors(err);
+      return { rows: [], errors: err };
+    }
+
+    const headers = parseCsvRow(lines[0]).map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
+    const rows: any[] = [];
+    const errors: string[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const rowNum = i + 1;
+      const values = parseCsvRow(lines[i]).map(v => v.trim().replace(/^["']|["']$/g, ''));
+      const rowObj: any = {};
+      headers.forEach((h, idx) => {
+        rowObj[h] = values[idx] || '';
+      });
+
+      const fullName = rowObj.full_name || rowObj.name || rowObj['student name'] || '';
+      const guardianName = rowObj.guardian_name || rowObj.father_name || rowObj['guardian name'] || '';
+      const guardianPhone = rowObj.guardian_phone || rowObj.guardian_mobile || rowObj.phone || '';
+      const targetBatch = rowObj.batch_id || batchId || '';
+
+      if (!fullName.trim()) {
+        errors.push(`Row ${rowNum}: Student Full Name is missing (compulsory).`);
+      }
+      if (!guardianName.trim()) {
+        errors.push(`Row ${rowNum}: Guardian / Father Name is missing (compulsory).`);
+      }
+      if (!guardianPhone.trim()) {
+        errors.push(`Row ${rowNum}: Guardian Phone is missing (compulsory).`);
+      }
+      if (!targetBatch) {
+        errors.push(`Row ${rowNum}: Target Section/Batch is not selected (compulsory).`);
+      }
+
+      rows.push({
+        full_name: fullName.trim(),
+        phone: rowObj.phone || rowObj.mobile || undefined,
+        email: rowObj.email || undefined,
+        guardian_name: guardianName.trim() || 'Guardian',
+        guardian_phone: guardianPhone.trim() || undefined,
+        guardian_id_card: rowObj.guardian_id_card || rowObj.guardian_cnic || rowObj.cnic || undefined,
+        guardian_relation: rowObj.guardian_relation || rowObj.relation || 'Father',
+        batch_id: targetBatch || undefined,
+        gender: rowObj.gender || undefined,
+        blood_group: rowObj.blood_group || undefined,
+        roll_number: rowObj.roll_number || rowObj.roll || undefined,
+        date_of_birth: rowObj.date_of_birth || rowObj.dob || undefined,
+        student_b_form: rowObj.student_b_form || rowObj.b_form || rowObj.bform || undefined,
+        previous_school: rowObj.previous_school || rowObj.previous_academy || rowObj.last_school || undefined,
+        religion: rowObj.religion || undefined,
+        residential_address: rowObj.residential_address || rowObj.address || undefined,
+        city: rowObj.city || undefined,
+        father_name: rowObj.father_name || guardianName || undefined,
+        father_cnic: rowObj.father_cnic || rowObj.guardian_id_card || undefined,
+        father_phone: rowObj.father_phone || guardianPhone || undefined,
+      });
+    }
+
+    setBulkImportValidationErrors(errors);
+    return { rows, errors };
+  };
+
+  // Bulk CSV Import Handler with validation
   const handleExecuteBulkImport = async () => {
     if (!token || !bulkImportCsvText.trim()) return;
+    const { rows, errors } = validateCsvRows(bulkImportCsvText, bulkImportBatchId);
+    if (errors.length > 0) {
+      alert(`Cannot import: Please correct ${errors.length} compulsory validation issue(s) first.`);
+      return;
+    }
+    if (rows.length === 0) {
+      alert('No student records found to import.');
+      return;
+    }
+
     setIsBulkImporting(true);
     setBulkImportResult(null);
     try {
-      const lines = bulkImportCsvText.trim().split(/\r?\n/);
-      if (lines.length <= 1) {
-        alert('CSV must contain a header row and at least one student data row');
-        setIsBulkImporting(false);
-        return;
-      }
-      const parseCsvRow = (text: string): string[] => {
-        const result: string[] = [];
-        let cur = '';
-        let inQuotes = false;
-        for (let j = 0; j < text.length; j++) {
-          const c = text[j];
-          if (c === '"') {
-            if (inQuotes && text[j + 1] === '"') {
-              cur += '"';
-              j++;
-            } else {
-              inQuotes = !inQuotes;
-            }
-          } else if (c === ',' && !inQuotes) {
-            result.push(cur.trim());
-            cur = '';
-          } else {
-            cur += c;
-          }
-        }
-        result.push(cur.trim());
-        return result;
-      };
-
-      const headers = parseCsvRow(lines[0]).map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
-      const rows: any[] = [];
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue;
-        const values = parseCsvRow(line).map(v => v.trim().replace(/^["']|["']$/g, ''));
-        const rowObj: any = {};
-        headers.forEach((h, idx) => {
-          rowObj[h] = values[idx] || '';
-        });
-        rows.push({
-          full_name: rowObj.full_name || rowObj.name || rowObj['student name'] || '',
-          phone: rowObj.phone || rowObj.mobile || undefined,
-          email: rowObj.email || undefined,
-          guardian_name: rowObj.guardian_name || rowObj.father_name || rowObj['guardian name'] || 'Guardian',
-          guardian_phone: rowObj.guardian_phone || rowObj.guardian_mobile || rowObj.phone || undefined,
-          guardian_id_card: rowObj.guardian_id_card || rowObj.guardian_cnic || rowObj.cnic || undefined,
-          guardian_relation: rowObj.guardian_relation || rowObj.relation || 'Father',
-          batch_id: rowObj.batch_id || bulkImportBatchId || (batches[0]?.id || ''),
-          gender: rowObj.gender || undefined,
-          blood_group: rowObj.blood_group || undefined,
-          date_of_birth: rowObj.date_of_birth || rowObj.dob || undefined,
-          student_b_form: rowObj.student_b_form || rowObj.b_form || rowObj.bform || undefined,
-          previous_school: rowObj.previous_school || rowObj.previous_academy || rowObj.last_school || undefined,
-          religion: rowObj.religion || undefined,
-          residential_address: rowObj.residential_address || rowObj.address || undefined,
-          city: rowObj.city || undefined,
-          father_name: rowObj.father_name || rowObj.guardian_name || undefined,
-          father_cnic: rowObj.father_cnic || rowObj.guardian_id_card || rowObj.guardian_cnic || undefined,
-          father_phone: rowObj.father_phone || rowObj.guardian_phone || undefined,
-          father_occupation: rowObj.father_occupation || undefined,
-          mother_name: rowObj.mother_name || undefined,
-          mother_cnic: rowObj.mother_cnic || undefined,
-          mother_phone: rowObj.mother_phone || undefined,
-          mother_occupation: rowObj.mother_occupation || undefined,
-        });
-      }
-
       const res = await fetch('/api/v1/sis/students/bulk-import', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ students: rows })
+        body: JSON.stringify({ students: rows, batch_id: bulkImportBatchId || undefined })
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -1814,6 +1921,158 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               : 'Official duplex identity cards generator and print studio.'}
           </p>
         </div>
+
+        {/* Global Module Actions Menu available across ALL tabs (Directory, Inquiries, Admission, ID Cards) */}
+        <div ref={moduleContainerRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowModuleMenu(prev => !prev)}
+            className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+              showModuleMenu
+                ? 'bg-slate-100 text-slate-900 border-slate-300 shadow-2xs'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+            title="Actions & Options"
+            aria-label="Actions & Options"
+          >
+            <MoreVertical className="w-4 h-4 text-slate-600" />
+          </button>
+
+          {/* Dropdown Menu containing all options */}
+          {showModuleMenu && (
+            <div
+              className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-50 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100"
+            >
+              {/* Primary Action - Dark Theme Orange/Amber Button */}
+              <div className="p-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModuleMenu(false);
+                    setActiveTab('new_admission');
+                  }}
+                  className="w-full px-3 py-2 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 font-semibold shadow-xs transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 text-white" />
+                  <span>New Admission</span>
+                </button>
+              </div>
+
+              {/* Navigation Section */}
+              <div className="py-1">
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                  Views
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModuleMenu(false);
+                    setActiveTab('directory');
+                  }}
+                  className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                    activeTab === 'directory' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Students Roster</span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-400">{students.length}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModuleMenu(false);
+                    setActiveTab('inquiries');
+                  }}
+                  className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                    (activeTab as string) === 'inquiries' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Inquiries Pipeline</span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-400">{inquiries.length}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModuleMenu(false);
+                    setActiveTab('id_cards');
+                  }}
+                  className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                    (activeTab as string) === 'id_cards' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Student ID Cards</span>
+                  </div>
+                </button>
+              </div>
+
+              {/* Display Options Section (Institutional Slider / Toggle) */}
+              <div className="py-1">
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                  Display
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowOverviewCards(prev => !prev)}
+                  className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Overview Cards</span>
+                  </div>
+                  <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                    showOverviewCards ? 'bg-amber-600' : 'bg-slate-300'
+                  }`}>
+                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                      showOverviewCards ? 'translate-x-4' : 'translate-x-0'
+                    }`} />
+                  </div>
+                </button>
+              </div>
+
+              {/* Administrative Tools */}
+              <div className="py-1">
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                  Tools
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModuleMenu(false);
+                    setShowBulkImportModal(true);
+                    setBulkImportResult(null);
+                    setBulkImportCsvText('');
+                    setBulkImportValidationErrors([]);
+                  }}
+                  className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Bulk CSV / Excel Upload</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModuleMenu(false);
+                    setIsAddingDocHead(true);
+                  }}
+                  className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Physical Document Checklist</span>
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Error state */}
@@ -1934,10 +2193,10 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           setShowModuleMenu(false);
                           setActiveTab('new_admission');
                         }}
-                        className="w-full px-3 py-2 text-xs text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+                        className="w-full px-3 py-2 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 font-semibold shadow-xs transition-colors cursor-pointer"
                       >
-                        <Plus className="w-3.5 h-3.5 text-amber-700" />
-                        <span>+ New Admission</span>
+                        <Plus className="w-3.5 h-3.5 text-white" />
+                        <span>New Admission</span>
                       </button>
                     </div>
 
@@ -2011,10 +2270,10 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
                           <span>Overview Cards</span>
                         </div>
-                        <div className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                          showOverviewCards ? 'bg-amber-600' : 'bg-slate-200'
+                        <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          showOverviewCards ? 'bg-amber-600' : 'bg-slate-300'
                         }`}>
-                          <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                          <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
                             showOverviewCards ? 'translate-x-4' : 'translate-x-0'
                           }`} />
                         </div>
@@ -5235,7 +5494,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       {/* ========================================================================= */}
       {showNewInquiryModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 mobile-sheet">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
                 <HelpCircle className="w-4 h-4 text-amber-600" />
@@ -5251,23 +5510,23 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </button>
             </div>
 
-            <form onSubmit={handleCreateInquiry} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">
-                  Candidate Full Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newInquiryForm.student_name}
-                  onChange={e => setNewInquiryForm(prev => ({ ...prev, student_name: e.target.value }))}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <form onSubmit={handleCreateInquiry} className="space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Candidate Full Name <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newInquiryForm.student_name}
+                    onChange={e => setNewInquiryForm(prev => ({ ...prev, student_name: e.target.value }))}
+                    placeholder="e.g. Zainab Ali"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-sans"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Contact Phone <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -5275,59 +5534,65 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     required
                     value={newInquiryForm.phone}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                    placeholder="03001234567"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-sans"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Email</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
                   <input
                     type="email"
                     value={newInquiryForm.email}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                    placeholder="student@example.com"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-sans"
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Guardian Name</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Guardian Name</label>
                   <input
                     type="text"
                     value={newInquiryForm.guardian_name}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, guardian_name: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                    placeholder="e.g. Muhammad Ali"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-sans"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Guardian Phone</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Guardian Phone</label>
                   <input
                     type="text"
                     value={newInquiryForm.guardian_phone}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, guardian_phone: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                    placeholder="03211234567"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-sans"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Guardian CNIC</label>
+                  <input
+                    type="text"
+                    value={newInquiryForm.guardian_id_card}
+                    onChange={e => setNewInquiryForm(prev => ({ ...prev, guardian_id_card: e.target.value }))}
+                    placeholder="35201-1234567-1"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-mono"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Guardian CNIC</label>
-                <input
-                  type="text"
-                  value={newInquiryForm.guardian_id_card}
-                  onChange={e => setNewInquiryForm(prev => ({ ...prev, guardian_id_card: e.target.value }))}
-                  placeholder=""
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Program of Interest</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Program of Interest</label>
                   <select
                     value={newInquiryForm.program_id}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, program_id: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                   >
                     <option value="">-- Select Program --</option>
                     {programs.map(p => (
@@ -5336,11 +5601,11 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Lead Source</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Lead Source</label>
                   <select
                     value={newInquiryForm.source}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, source: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                   >
                     <option value="Walk-in">Walk-in Desk</option>
                     <option value="Phone Call">Phone Call</option>
@@ -5352,13 +5617,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Priority</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Priority</label>
                   <select
                     value={newInquiryForm.priority}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, priority: e.target.value as any }))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                   >
                     <option value="high">High Priority</option>
                     <option value="medium">Medium</option>
@@ -5366,44 +5631,47 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Next Follow-Up Date</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Next Follow-Up Date</label>
                   <input
                     type="date"
                     value={newInquiryForm.next_follow_up_date}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, next_follow_up_date: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-sans"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Previous Institution</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Previous Institution</label>
                   <input
                     type="text"
                     value={newInquiryForm.previous_school}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, previous_school: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                    placeholder="e.g. Army Public School"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-sans"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Previous Marks or Percentage</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Previous Marks or Percentage</label>
                   <input
                     type="text"
                     value={newInquiryForm.previous_marks}
                     onChange={e => setNewInquiryForm(prev => ({ ...prev, previous_marks: e.target.value }))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                    placeholder="e.g. 980/1100 or 89%"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-sans"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Discussion Notes</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Discussion Notes</label>
                 <textarea
                   value={newInquiryForm.notes}
                   onChange={e => setNewInquiryForm(prev => ({ ...prev, notes: e.target.value }))}
                   rows={2}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+                  placeholder="Record discussion details, subject interests, or discount requests..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 font-sans"
                 />
               </div>
 
@@ -5411,13 +5679,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <button
                   type="button"
                   onClick={() => setShowNewInquiryModal(false)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors"
+                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors"
+                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-xs"
                 >
                   Save Inquiry
                 </button>
@@ -5878,8 +6146,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
             <div className="flex items-center justify-between border-b border-slate-200 pb-3">
               <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
-                <span>Bulk Student CSV Import</span>
+                <FileSpreadsheet className="w-4 h-4 text-amber-600" />
+                <span>Bulk Student CSV / Excel Import</span>
               </div>
               <button
                 type="button"
@@ -5891,17 +6159,41 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </button>
             </div>
 
-            <p className="text-xs text-slate-600">
-              Bulk enroll students by pasting CSV rows. Must include full name and primary guardian details.
-            </p>
+            {/* Step 1: Download Sample Excel Template */}
+            <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                  <FileSpreadsheet className="w-4 h-4 text-amber-700" />
+                  Excel / CSV Template
+                </h4>
+                <p className="text-[11px] text-amber-900/80 mt-0.5">
+                  Download the sample template, fill in your student roster in Excel, and upload below.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleDownloadSampleCsv}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer shrink-0"
+              >
+                <Download className="w-3.5 h-3.5 text-white" />
+                <span>Download Sample (.csv)</span>
+              </button>
+            </div>
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Target Class & Section Batch</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  1. Target Class & Section Batch <span className="text-rose-500">*</span>
+                </label>
                 <select
                   value={bulkImportBatchId}
-                  onChange={e => setBulkImportBatchId(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  onChange={e => {
+                    setBulkImportBatchId(e.target.value);
+                    if (bulkImportCsvText.trim()) {
+                      validateCsvRows(bulkImportCsvText, e.target.value);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                 >
                   <option value="">-- Select Target Section or Batch --</option>
                   {batches.map(b => (
@@ -5913,32 +6205,86 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </div>
 
               <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  2. Upload CSV / Excel File
+                </label>
+                <label
+                  htmlFor="bulk-student-file-input"
+                  className="border-2 border-dashed border-slate-300 hover:border-amber-500 bg-slate-50/60 hover:bg-amber-50/20 rounded-xl p-3 text-center cursor-pointer transition-colors block"
+                >
+                  <Upload className="w-5 h-5 text-amber-600 mx-auto mb-1" />
+                  <span className="text-xs font-semibold text-slate-700 block">
+                    Choose CSV file or drag & drop here
+                  </span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    Accepts standard .csv format exported from Excel / Google Sheets
+                  </span>
+                  <input
+                    id="bulk-student-file-input"
+                    type="file"
+                    accept=".csv,text/csv,text/plain"
+                    onChange={handleBulkCsvFileChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-700">CSV Data</label>
+                  <label className="block text-xs font-semibold text-slate-700">Or Paste / Preview CSV Text</label>
                   <button
                     type="button"
                     onClick={() => {
                       const sample = `full_name,phone,guardian_name,guardian_phone,guardian_relation,guardian_id_card\nAhmad Khan,03001234567,Tariq Khan,03007654321,Father,35201-1234567-1\nSara Ali,03121234567,Ali Raza,03127654321,Father,35201-7654321-3`;
                       setBulkImportCsvText(sample);
+                      validateCsvRows(sample, bulkImportBatchId);
                     }}
-                    className="text-[11px] text-indigo-600 hover:underline font-medium"
+                    className="text-[11px] text-amber-700 hover:underline font-semibold"
                   >
                     Paste Sample CSV
                   </button>
                 </div>
                 <textarea
-                  rows={8}
+                  rows={5}
                   value={bulkImportCsvText}
-                  onChange={e => setBulkImportCsvText(e.target.value)}
+                  onChange={e => {
+                    setBulkImportCsvText(e.target.value);
+                    validateCsvRows(e.target.value, bulkImportBatchId);
+                  }}
                   placeholder="full_name,phone,guardian_name,guardian_phone,guardian_relation,guardian_id_card&#10;Muhammad Bilal,03001234567,Tariq Bilal,03009876543,Father,35202-1234567-1"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                 />
               </div>
 
-              <div className="flex items-center justify-between text-[11px] text-slate-500">
-                <span>Required: full_name, guardian_name, guardian_phone, guardian_id_card</span>
-                <span>{bulkImportCsvText.trim() ? `${bulkImportCsvText.trim().split(/\r?\n/).length - 1} rows detected` : '0 rows'}</span>
-              </div>
+              {/* Compulsory Fields Validation Status Badge / Warning */}
+              {bulkImportCsvText.trim() && (
+                <div className="space-y-1.5">
+                  {bulkImportValidationErrors.length > 0 ? (
+                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 space-y-1">
+                      <div className="font-bold flex items-center gap-1.5 text-rose-700">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>Compulsory Fields Missing ({bulkImportValidationErrors.length} validation issues):</span>
+                      </div>
+                      <ul className="list-disc list-inside text-[11px] font-mono space-y-0.5 pl-1 max-h-24 overflow-y-auto">
+                        {bulkImportValidationErrors.map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                      </ul>
+                      <p className="text-[10.5px] text-rose-600 font-sans pt-1">
+                        Compulsory items: Full Name, Guardian Name, Guardian Phone, and Target Class/Batch.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2 font-semibold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>
+                        All compulsory fields verified! Ready to import{' '}
+                        {bulkImportCsvText.trim().split(/\r?\n/).length - 1} student(s).
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Import Results Banner */}
@@ -5973,15 +6319,15 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               <button
                 type="button"
                 onClick={() => setShowBulkImportModal(false)}
-                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
               >
                 Close
               </button>
               <button
                 type="button"
                 onClick={handleExecuteBulkImport}
-                disabled={isBulkImporting || !bulkImportCsvText.trim()}
-                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                disabled={isBulkImporting || !bulkImportCsvText.trim() || bulkImportValidationErrors.length > 0}
+                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-xs"
               >
                 {isBulkImporting ? (
                   <>
@@ -6410,17 +6756,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   />
                   <span className="text-xs text-slate-700">Mandatory</span>
                 </label>
-
-                {configuredDocHeads.length === 0 && (
-                  <button
-                    type="button"
-                    disabled={isSavingDocHead}
-                    onClick={handleLoadStandardDocHeads}
-                    className="text-xs text-amber-600 hover:text-amber-700 font-semibold cursor-pointer"
-                  >
-                    + Load default checklist
-                  </button>
-                )}
               </div>
             </div>
 

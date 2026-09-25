@@ -1259,10 +1259,10 @@ export const AcademicStructureView: React.FC = () => {
                       setShowModuleMenu(false);
                       openCreateProgramModal();
                     }}
-                    className="w-full px-3 py-1.5 text-xs text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+                    className="w-full px-3 py-2 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 font-semibold shadow-xs transition-colors cursor-pointer"
                   >
-                    <Plus className="w-3.5 h-3.5 text-amber-700" />
-                    <span>+ New Class</span>
+                    <Plus className="w-3.5 h-3.5 text-white" />
+                    <span>New Class</span>
                   </button>
 
                   <button
@@ -1359,10 +1359,10 @@ export const AcademicStructureView: React.FC = () => {
                       <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
                       <span>Overview Cards</span>
                     </div>
-                    <div className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                      showOverviewCards ? 'bg-amber-600' : 'bg-slate-200'
+                    <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                      showOverviewCards ? 'bg-amber-600' : 'bg-slate-300'
                     }`}>
-                      <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                      <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
                         showOverviewCards ? 'translate-x-4' : 'translate-x-0'
                       }`} />
                     </div>

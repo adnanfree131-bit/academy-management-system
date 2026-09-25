@@ -608,7 +608,249 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
         title="Student Attendance"
         description="Daily class attendance registers, 31-day monthly matrix, absence tracking, and formal leave approvals."
         icon={<CheckSquare className="w-4 h-4 text-slate-700" />}
-      />
+      >
+        <div ref={attendanceModuleContainerRef} className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowAttendanceModuleMenu(prev => !prev)}
+            className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-xl sm:rounded-lg border transition-all cursor-pointer shrink-0 ${
+              showAttendanceModuleMenu
+                ? 'bg-amber-50 border-amber-300 text-amber-900 shadow-2xs'
+                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+            }`}
+            title="Attendance Options"
+            aria-label="Attendance Options"
+          >
+            <MoreVertical className="w-4 h-4 text-slate-600" />
+          </button>
+
+          {showAttendanceModuleMenu && (
+            <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left">
+              {/* Primary Actions */}
+              <div className="p-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAttendanceModuleMenu(false);
+                    handleSaveAttendance();
+                  }}
+                  disabled={isSaving || students.length === 0}
+                  className="w-full px-3 py-2 text-left text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-xs"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+                  <span>{isSaving ? 'Saving Roster...' : 'Save Attendance Roster'}</span>
+                </button>
+              </div>
+
+              <div className="py-1">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setShowAttendanceModuleMenu(false);
+                    const academy = await academyLetterheadFromAuth(tenant);
+                    const batch = batches.find(b => b.id === selectedBatchId);
+                    const bytes = await buildSimpleStatementPdf({
+                      title: 'Daily Attendance Register',
+                      academy,
+                      identity: [
+                        { label: 'Batch', value: batch?.name || '—' },
+                        { label: 'Date', value: selectedDate },
+                        { label: 'Enrolled', value: String(stats.total) },
+                        { label: 'Present', value: String(stats.present) },
+                        { label: 'Absent', value: String(stats.absent) },
+                        { label: 'Late', value: String(stats.late) },
+                        { label: 'Excused', value: String(stats.excused) },
+                      ],
+                      columns: [
+                        { key: 'adm', label: 'Adm #', width: 75 },
+                        { key: 'name', label: 'Student Name', width: 180 },
+                        { key: 'guardian', label: 'Guardian & Mobile', width: 140 },
+                        { key: 'status', label: 'Status', width: 75 },
+                        { key: 'remarks', label: 'Remarks / Reason', width: 125 },
+                      ],
+                      rows: students.map(s => ({
+                        adm: s.admission_number,
+                        name: s.full_name,
+                        guardian: `${s.guardian_name || '—'} (${s.guardian_phone || '—'})`,
+                        status: (attendanceRecords[s.id]?.status || 'present').toUpperCase(),
+                        remarks: attendanceRecords[s.id]?.reasonCategory 
+                          ? `[${attendanceRecords[s.id]?.reasonCategory}] ${attendanceRecords[s.id]?.remarks || ''}`
+                          : attendanceRecords[s.id]?.remarks || '—',
+                      })),
+                    });
+                    await downloadPdfBytes(bytes, `attendance-${batch?.name || 'batch'}-${selectedDate}.pdf`);
+                  }}
+                  disabled={students.length === 0}
+                  className="w-full px-3 py-1.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <FileText className="w-4 h-4 text-slate-500 shrink-0" />
+                  <span>Download Register PDF</span>
+                </button>
+              </div>
+
+              {/* Quick Marking */}
+              <div className="py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAttendanceModuleMenu(false);
+                    markAllPresent();
+                  }}
+                  className="w-full px-3 py-1.5 text-left text-xs font-medium text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer"
+                >
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>1-Tap: Mark All Present</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAttendanceModuleMenu(false);
+                    markAllAbsent();
+                  }}
+                  className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                >
+                  <X className="w-4 h-4 text-slate-500 shrink-0" />
+                  <span>Mark All Absent</span>
+                </button>
+                {isPastDate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAttendanceModuleMenu(false);
+                      resetToUnmarked();
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Reset to Unmarked</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Views */}
+              <div className="py-1">
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Views</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('roster');
+                    setShowAttendanceModuleMenu(false);
+                  }}
+                  className={`w-full px-3 py-1.5 text-left text-xs font-medium flex items-center justify-between cursor-pointer ${
+                    activeTab === 'roster' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Daily Roster</span>
+                  </div>
+                  {activeTab === 'roster' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('monthly');
+                    setShowAttendanceModuleMenu(false);
+                  }}
+                  className={`w-full px-3 py-1.5 text-left text-xs font-medium flex items-center justify-between cursor-pointer ${
+                    (activeTab as string) === 'monthly' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Monthly Register</span>
+                  </div>
+                  {(activeTab as string) === 'monthly' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('defaulters');
+                    setShowAttendanceModuleMenu(false);
+                  }}
+                  className={`w-full px-3 py-1.5 text-left text-xs font-medium flex items-center justify-between cursor-pointer ${
+                    (activeTab as string) === 'defaulters' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <BarChart2 className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Attendance Defaulters</span>
+                  </div>
+                  {(activeTab as string) === 'defaulters' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('leaves');
+                    setShowAttendanceModuleMenu(false);
+                  }}
+                  className={`w-full px-3 py-1.5 text-left text-xs font-medium flex items-center justify-between cursor-pointer ${
+                    (activeTab as string) === 'leaves' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Leave Requests</span>
+                  </div>
+                  {leaves.filter(l => l.status === 'pending').length > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  )}
+                </button>
+              </div>
+
+              {/* Display: Animated Slider */}
+              <div className="py-1">
+                <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">Display</div>
+                <button
+                  type="button"
+                  onClick={() => setShowOverviewCards(prev => !prev)}
+                  className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Overview Summary</span>
+                  </span>
+                  <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                    showOverviewCards ? 'bg-amber-600' : 'bg-slate-300'
+                  }`}>
+                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                      showOverviewCards ? 'translate-x-4' : 'translate-x-0'
+                    }`} />
+                  </div>
+                </button>
+              </div>
+
+              {/* Tools */}
+              <div className="py-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAttendanceModuleMenu(false);
+                    setShowNewLeaveModal(true);
+                  }}
+                  className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 text-slate-500 shrink-0" />
+                  <span>Submit Leave Application</span>
+                </button>
+                {stats.absent > 0 && onNavigate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAttendanceModuleMenu(false);
+                      onNavigate('absentee');
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-xs font-medium text-rose-700 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    <ArrowUpRight className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Open Absentee Follow-Up ({stats.absent})</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </PageHeading>
 
       {/* TAB 1: DAILY ROSTER */}
       {activeTab === 'roster' && (
@@ -923,246 +1165,6 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                   <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-600" />
                 )}
               </button>
-
-              {/* Module Menu Options Button (MoreVertical icon, parallel to filter) */}
-              <div ref={attendanceModuleContainerRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowAttendanceModuleMenu(prev => !prev)}
-                  className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-xl sm:rounded-lg border transition-all cursor-pointer shrink-0 ${
-                    showAttendanceModuleMenu
-                      ? 'bg-amber-50 border-amber-300 text-amber-900 shadow-2xs'
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
-                  title="Attendance Options"
-                  aria-label="Attendance Options"
-                >
-                  <MoreVertical className="w-4 h-4 text-slate-600" />
-                </button>
-
-                {showAttendanceModuleMenu && (
-                  <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left">
-                    {/* Primary Actions */}
-                    <div className="py-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAttendanceModuleMenu(false);
-                          handleSaveAttendance();
-                        }}
-                        disabled={isSaving || students.length === 0}
-                        className="w-full px-3 py-2 text-left text-xs font-semibold text-amber-700 hover:bg-amber-50 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                      >
-                        <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />
-                        <span>{isSaving ? 'Saving Roster...' : 'Save Attendance Roster'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setShowAttendanceModuleMenu(false);
-                          const academy = await academyLetterheadFromAuth(tenant);
-                          const batch = batches.find(b => b.id === selectedBatchId);
-                          const bytes = await buildSimpleStatementPdf({
-                            title: 'Daily Attendance Register',
-                            academy,
-                            identity: [
-                              { label: 'Batch', value: batch?.name || '—' },
-                              { label: 'Date', value: selectedDate },
-                              { label: 'Enrolled', value: String(stats.total) },
-                              { label: 'Present', value: String(stats.present) },
-                              { label: 'Absent', value: String(stats.absent) },
-                              { label: 'Late', value: String(stats.late) },
-                              { label: 'Excused', value: String(stats.excused) },
-                            ],
-                            columns: [
-                              { key: 'adm', label: 'Adm #', width: 75 },
-                              { key: 'name', label: 'Student Name', width: 180 },
-                              { key: 'guardian', label: 'Guardian & Mobile', width: 140 },
-                              { key: 'status', label: 'Status', width: 75 },
-                              { key: 'remarks', label: 'Remarks / Reason', width: 125 },
-                            ],
-                            rows: students.map(s => ({
-                              adm: s.admission_number,
-                              name: s.full_name,
-                              guardian: `${s.guardian_name || '—'} (${s.guardian_phone || '—'})`,
-                              status: (attendanceRecords[s.id]?.status || 'present').toUpperCase(),
-                              remarks: attendanceRecords[s.id]?.reasonCategory 
-                                ? `[${attendanceRecords[s.id]?.reasonCategory}] ${attendanceRecords[s.id]?.remarks || ''}`
-                                : attendanceRecords[s.id]?.remarks || '—',
-                            })),
-                          });
-                          await downloadPdfBytes(bytes, `attendance-${batch?.name || 'batch'}-${selectedDate}.pdf`);
-                        }}
-                        disabled={students.length === 0}
-                        className="w-full px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer disabled:opacity-50"
-                      >
-                        <FileText className="w-4 h-4 text-slate-500 shrink-0" />
-                        <span>Download Register PDF</span>
-                      </button>
-                    </div>
-
-                    {/* Quick Marking */}
-                    <div className="py-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAttendanceModuleMenu(false);
-                          markAllPresent();
-                        }}
-                        className="w-full px-3 py-2 text-left text-xs font-medium text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>1-Tap: Mark All Present</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAttendanceModuleMenu(false);
-                          markAllAbsent();
-                        }}
-                        className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <X className="w-4 h-4 text-slate-500 shrink-0" />
-                        <span>Mark All Absent</span>
-                      </button>
-                      {isPastDate && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAttendanceModuleMenu(false);
-                            resetToUnmarked();
-                          }}
-                          className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                        >
-                          <RotateCcw className="w-4 h-4 text-slate-500 shrink-0" />
-                          <span>Reset to Unmarked</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Views */}
-                    <div className="py-1">
-                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Views</div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('roster');
-                          setShowAttendanceModuleMenu(false);
-                        }}
-                        className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center justify-between cursor-pointer ${
-                          activeTab === 'roster' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
-                          <span>Daily Roster</span>
-                        </div>
-                        {activeTab === 'roster' && <Check className="w-3.5 h-3.5 text-amber-600" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('monthly');
-                          setShowAttendanceModuleMenu(false);
-                        }}
-                        className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center justify-between cursor-pointer ${
-                          (activeTab as string) === 'monthly' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <CalendarDays className="w-4 h-4 text-slate-500 shrink-0" />
-                          <span>Monthly Register</span>
-                        </div>
-                        {(activeTab as string) === 'monthly' && <Check className="w-3.5 h-3.5 text-amber-600" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('defaulters');
-                          setShowAttendanceModuleMenu(false);
-                        }}
-                        className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center justify-between cursor-pointer ${
-                          (activeTab as string) === 'defaulters' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <BarChart2 className="w-4 h-4 text-slate-500 shrink-0" />
-                          <span>Attendance Defaulters</span>
-                        </div>
-                        {(activeTab as string) === 'defaulters' && <Check className="w-3.5 h-3.5 text-amber-600" />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('leaves');
-                          setShowAttendanceModuleMenu(false);
-                        }}
-                        className={`w-full px-3 py-2 text-left text-xs font-medium flex items-center justify-between cursor-pointer ${
-                          (activeTab as string) === 'leaves' ? 'bg-amber-50 text-amber-900 font-bold' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <ShieldCheck className="w-4 h-4 text-slate-500 shrink-0" />
-                          <span>Leave Requests</span>
-                        </div>
-                        {leaves.filter(l => l.status === 'pending').length > 0 && (
-                          <span className="w-2 h-2 rounded-full bg-rose-500" />
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Display: Animated Slider */}
-                    <div className="py-1">
-                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">Display</div>
-                      <button
-                        type="button"
-                        onClick={() => setShowOverviewCards(prev => !prev)}
-                        className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
-                      >
-                        <span className="flex items-center gap-2">
-                          <Users className="w-4 h-4 text-slate-500 shrink-0" />
-                          <span>Overview Summary</span>
-                        </span>
-                        <div className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                          showOverviewCards ? 'bg-amber-600' : 'bg-slate-200'
-                        }`}>
-                          <span className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
-                            showOverviewCards ? 'translate-x-4' : 'translate-x-0'
-                          }`} />
-                        </div>
-                      </button>
-                    </div>
-
-                    {/* Tools */}
-                    <div className="py-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowAttendanceModuleMenu(false);
-                          setShowNewLeaveModal(true);
-                        }}
-                        className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                      >
-                        <Plus className="w-4 h-4 text-slate-500 shrink-0" />
-                        <span>Submit Leave Application</span>
-                      </button>
-                      {stats.absent > 0 && onNavigate && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowAttendanceModuleMenu(false);
-                            onNavigate('absentee');
-                          }}
-                          className="w-full px-3 py-2 text-left text-xs font-medium text-rose-700 hover:bg-rose-50 flex items-center gap-2 cursor-pointer"
-                        >
-                          <ArrowUpRight className="w-4 h-4 text-rose-600 shrink-0" />
-                          <span>Open Absentee Follow-Up ({stats.absent})</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Status Filter Pills (Toggled by Filter button) */}
