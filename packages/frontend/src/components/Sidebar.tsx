@@ -25,6 +25,7 @@ import {
   Settings,
   FileText,
   RotateCcw,
+  HelpCircle,
   X 
 } from 'lucide-react';
 import { hapticSelection } from '../lib/haptics';
@@ -393,6 +394,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       >
                         <UserPlus className={`w-4 h-4 ${currentScreen === 'enrollment' ? 'text-amber-400' : 'text-slate-400'}`} />
                         <span>Students</span>
+                      </button>}
+
+                      {allow('enrollment') && <button 
+                        onClick={() => handleNavClick('inquiries')}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all ${
+                          currentScreen === 'inquiries'
+                            ? 'bg-[#122B4A] text-white font-semibold shadow-xs border-l-2 border-amber-500'
+                            : 'text-slate-300 hover:bg-[#10243C] hover:text-white font-medium'
+                        }`}
+                      >
+                        <HelpCircle className={`w-4 h-4 ${currentScreen === 'inquiries' ? 'text-amber-400' : 'text-slate-400'}`} />
+                        <span>Inquiries Desk</span>
                       </button>}
 
                       {(allow('id_cards') || allow('enrollment')) && <button 

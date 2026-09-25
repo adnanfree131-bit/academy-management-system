@@ -406,6 +406,15 @@ export interface CustomFieldDefinition {
 }
 export type InquiryStage = 'new' | 'follow_up' | 'trial_scheduled' | 'trial_attended' | 'fee_discussion' | 'admitted' | 'closed';
 export type InquiryPriority = 'high' | 'medium' | 'low';
+export interface InquiryFollowUp {
+    id: string;
+    date: string;
+    notes: string;
+    outcome?: string | null;
+    next_date?: string | null;
+    recorded_by?: string | null;
+    recorded_by_name?: string | null;
+}
 export interface StudentInquiry {
     id: string;
     tenant_id: string;
@@ -417,11 +426,17 @@ export interface StudentInquiry {
     guardian_phone?: string | null;
     guardian_id_card?: string | null;
     program_id?: string | null;
+    batch_id?: string | null;
+    preferred_shift?: 'morning' | 'evening' | 'both' | null;
     source: string;
     stage: InquiryStage;
     priority: InquiryPriority;
     notes?: string | null;
     next_follow_up_date?: string | null;
+    assigned_to?: string | null;
+    assigned_to_name?: string | null;
+    closed_reason?: string | null;
+    follow_up_history?: InquiryFollowUp[];
     custom_field_values?: Record<string, any>;
     created_at: string;
     updated_at: string;

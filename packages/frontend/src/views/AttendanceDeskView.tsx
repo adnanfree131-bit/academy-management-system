@@ -1071,7 +1071,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
             <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2 shadow-sm flex flex-wrap items-center justify-between gap-2.5 text-xs">
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-1.5 font-bold text-white">
-                  <Users className="w-3.5 h-3.5 text-slate-300" />
+                  <Users className="w-3.5 h-3.5 text-sky-400" />
                   <span className="text-slate-300">Roster Strength:</span>
                   <span className="font-mono text-white font-bold">{stats.total}</span>
                 </div>
@@ -1081,19 +1081,19 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                 <div className="flex flex-wrap items-center gap-2.5 font-mono text-[11px]">
                   <span className="flex items-center gap-1.5 text-slate-300">
                     <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    Present: <strong className="text-white font-bold">{stats.present}</strong>
+                    Present: <strong className="text-emerald-400 font-bold">{stats.present}</strong>
                   </span>
                   <span className="flex items-center gap-1.5 text-slate-300">
                     <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                    Late: <strong className="text-white font-bold">{stats.late}</strong>
+                    Late: <strong className="text-amber-400 font-bold">{stats.late}</strong>
                   </span>
                   <span className="flex items-center gap-1.5 text-slate-300">
                     <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                    Absent: <strong className="text-white font-bold">{stats.absent}</strong>
+                    Absent: <strong className="text-rose-400 font-bold">{stats.absent}</strong>
                   </span>
                   <span className="flex items-center gap-1.5 text-slate-300">
                     <span className="w-2 h-2 rounded-full bg-sky-400"></span>
-                    Excused: <strong className="text-white font-bold">{stats.excused}</strong>
+                    Excused: <strong className="text-sky-400 font-bold">{stats.excused}</strong>
                   </span>
                   {stats.unmarked > 0 && (
                     <span className="flex items-center gap-1 text-amber-300 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/60">

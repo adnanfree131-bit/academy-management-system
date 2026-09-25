@@ -79,7 +79,7 @@ export function sisRoutes(store: IDataStore) {
       return false;
     };
 
-    // --- Inquiries Desk ---
+    // --- Inquiries Desk (Advanced Inquiry CRM & Desk) ---
     fastify.get('/inquiries', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'view', reply)) return;
@@ -98,11 +98,15 @@ export function sisRoutes(store: IDataStore) {
         guardian_phone: z.string().optional(),
         guardian_id_card: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         program_id: z.string().uuid().optional().or(z.literal('')).transform(v => v || undefined),
+        batch_id: z.string().optional().or(z.literal('')).transform(v => v || undefined),
+        preferred_shift: z.enum(['morning', 'evening', 'both']).optional().nullable(),
         notes: z.string().optional(),
         source: z.string().default('Walk-in'),
         stage: z.enum(['new', 'follow_up', 'trial_scheduled', 'trial_attended', 'fee_discussion', 'admitted', 'closed']).default('new'),
         priority: z.enum(['high', 'medium', 'low']).default('medium'),
-        next_follow_up_date: z.string().optional(),
+        next_follow_up_date: z.string().optional().nullable(),
+        assigned_to: z.string().optional().nullable(),
+        assigned_to_name: z.string().optional().nullable(),
         custom_field_values: z.record(z.any()).default({}),
       });
 
@@ -123,12 +127,60 @@ export function sisRoutes(store: IDataStore) {
       return reply.status(201).send({ success: true, data: inquiry, timestamp: new Date().toISOString() });
     });
 
+    fastify.put('/inquiries/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
+      const { id } = request.params as { id: string };
+      const schema = z.object({
+        student_name: z.string().min(1).optional(),
+        phone: z.string().min(1).optional(),
+        email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined).nullable(),
+        guardian_name: z.string().optional().nullable(),
+        guardian_phone: z.string().optional().nullable(),
+        guardian_id_card: z.string().optional().or(z.literal('')).transform(v => v || undefined).nullable(),
+        program_id: z.string().uuid().optional().or(z.literal('')).transform(v => v || undefined).nullable(),
+        batch_id: z.string().optional().or(z.literal('')).transform(v => v || undefined).nullable(),
+        preferred_shift: z.enum(['morning', 'evening', 'both']).optional().nullable(),
+        notes: z.string().optional().nullable(),
+        source: z.string().optional(),
+        stage: z.enum(['new', 'follow_up', 'trial_scheduled', 'trial_attended', 'fee_discussion', 'admitted', 'closed']).optional(),
+        priority: z.enum(['high', 'medium', 'low']).optional(),
+        next_follow_up_date: z.string().optional().nullable(),
+        assigned_to: z.string().optional().nullable(),
+        assigned_to_name: z.string().optional().nullable(),
+        closed_reason: z.string().optional().nullable(),
+        custom_field_values: z.record(z.any()).optional(),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid update data', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const updated = await store.updateInquiry(user.tenant_id, id, parseResult.data as any);
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Inquiry not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+    });
+
     fastify.patch('/inquiries/:id/stage', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         stage: z.enum(['new', 'follow_up', 'trial_scheduled', 'trial_attended', 'fee_discussion', 'admitted', 'closed']),
+        closed_reason: z.string().optional(),
+        stage_note: z.string().optional(),
       });
 
       const parseResult = schema.safeParse(request.body);
@@ -140,7 +192,15 @@ export function sisRoutes(store: IDataStore) {
         });
       }
 
-      const updated = await store.updateInquiryStage(user.tenant_id, id, parseResult.data.stage as InquiryStage);
+      const updated = await store.updateInquiryStage(
+        user.tenant_id, 
+        id, 
+        parseResult.data.stage as InquiryStage,
+        parseResult.data.closed_reason,
+        parseResult.data.stage_note,
+        (user as any).full_name || (user as any).name || user.email || 'Counselor'
+      );
+
       if (!updated) {
         return reply.status(404).send({
           success: false,
@@ -150,6 +210,60 @@ export function sisRoutes(store: IDataStore) {
       }
 
       return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+    });
+
+    // Log Counselor Interaction / Follow-Up
+    fastify.post('/inquiries/:id/follow-ups', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
+      const { id } = request.params as { id: string };
+      const schema = z.object({
+        notes: z.string().min(1, 'Follow-up discussion notes are required'),
+        outcome: z.string().optional(),
+        next_date: z.string().optional().nullable(),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Notes are required for follow-up record', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const updated = await store.addInquiryFollowUp(user.tenant_id, id, {
+        notes: parseResult.data.notes,
+        outcome: parseResult.data.outcome,
+        next_date: parseResult.data.next_date || undefined,
+        recorded_by: user.user_id,
+        recorded_by_name: (user as any).full_name || (user as any).name || user.email || 'Counselor',
+      });
+
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Inquiry not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+    });
+
+    fastify.delete('/inquiries/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
+      const { id } = request.params as { id: string };
+      const success = await store.deleteInquiry(user.tenant_id, id);
+      if (!success) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Inquiry not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      return reply.send({ success: true, message: 'Inquiry successfully deleted', timestamp: new Date().toISOString() });
     });
 
     // 1-Click Admit from Inquiry into Batch

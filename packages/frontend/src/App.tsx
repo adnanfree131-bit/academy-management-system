@@ -117,6 +117,7 @@ const getScreenMeta = (screen: string, role?: string): ScreenMeta => {
   switch (screen) {
     case 'dashboard': return { section: 'Overview', title: 'Dashboard' };
     case 'enrollment': return { section: 'Academic Management', title: 'Students' };
+    case 'inquiries': return { section: 'Academic Management', title: 'Inquiries Desk' };
     case 'classes': return { section: 'Academic Management', title: 'Classes & Batches' };
     case 'timetable': return { section: 'Academic Management', title: 'Timetables' };
     case 'new_admission': return { section: 'Academic Management', title: 'Admission Form' };
@@ -441,6 +442,8 @@ const MainLayout: React.FC = () => {
                 <AcademicStructureView />
               ) : currentScreen === 'id_cards' ? (
                 <EnrollmentView defaultTab="id_cards" onNavigate={handleSwitchScreen} />
+              ) : currentScreen === 'inquiries' ? (
+                <EnrollmentView defaultTab="inquiries" onNavigate={handleSwitchScreen} />
               ) : currentScreen === 'enrollment' ? (
                 <EnrollmentView defaultTab="directory" initialStudentId={previewStudentId} onNavigate={handleSwitchScreen} />
               ) : currentScreen === 'new_admission' ? (

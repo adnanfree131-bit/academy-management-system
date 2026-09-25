@@ -274,10 +274,13 @@ export interface IDataStore {
   getCustomFields(tenantId: string, entityType: 'student' | 'inquiry'): Promise<CustomFieldDefinition[]>;
   createCustomField(data: Omit<CustomFieldDefinition, 'id' | 'created_at'>): Promise<CustomFieldDefinition>;
 
-  // Inquiries Desk (Phase 2)
+  // Inquiries Desk (Phase 2 & Advanced Inquiry CRM)
   getInquiries(tenantId: string): Promise<StudentInquiry[]>;
   createInquiry(data: Omit<StudentInquiry, 'id' | 'inquiry_number' | 'created_at' | 'updated_at'>): Promise<StudentInquiry>;
-  updateInquiryStage(tenantId: string, id: string, stage: InquiryStage): Promise<StudentInquiry | null>;
+  updateInquiry(tenantId: string, id: string, data: Partial<StudentInquiry>): Promise<StudentInquiry | null>;
+  updateInquiryStage(tenantId: string, id: string, stage: InquiryStage, closedReason?: string, stageNote?: string, actorName?: string): Promise<StudentInquiry | null>;
+  addInquiryFollowUp(tenantId: string, id: string, followUp: { notes: string; outcome?: string; next_date?: string; recorded_by?: string; recorded_by_name?: string }): Promise<StudentInquiry | null>;
+  deleteInquiry(tenantId: string, id: string): Promise<boolean>;
 
   // Student SIS (Phase 2)
   getStudents(tenantId: string, batchId?: string): Promise<Student[]>;
@@ -3421,32 +3424,108 @@ export class InMemoryDataStore implements IDataStore {
     return field;
   }
 
-  // --- Inquiries Methods ---
+  // --- Inquiries Methods (Advanced Inquiry CRM & Desk) ---
   async getInquiries(tenantId: string): Promise<StudentInquiry[]> {
     return this.inquiries.filter(i => i.tenant_id === tenantId);
   }
 
   async createInquiry(data: Omit<StudentInquiry, 'id' | 'inquiry_number' | 'created_at' | 'updated_at'>): Promise<StudentInquiry> {
     const count = this.inquiries.filter(i => i.tenant_id === data.tenant_id).length + 1;
+    const now = new Date().toISOString();
     const inquiry: StudentInquiry = {
       ...data,
       id: crypto.randomUUID(),
       inquiry_number: `INQ-2026-${count.toString().padStart(3, '0')}`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      follow_up_history: data.follow_up_history && data.follow_up_history.length > 0 
+        ? data.follow_up_history 
+        : (data.notes ? [{
+            id: crypto.randomUUID(),
+            date: now,
+            notes: data.notes,
+            outcome: 'Initial Inquiry Logged',
+            next_date: data.next_follow_up_date || null,
+            recorded_by: data.assigned_to || null,
+            recorded_by_name: data.assigned_to_name || 'Front Desk',
+          }] : []),
+      created_at: now,
+      updated_at: now,
     };
     this.inquiries.push(inquiry);
     this.schedulePersist();
     return inquiry;
   }
 
-  async updateInquiryStage(tenantId: string, id: string, stage: InquiryStage): Promise<StudentInquiry | null> {
+  async updateInquiry(tenantId: string, id: string, data: Partial<StudentInquiry>): Promise<StudentInquiry | null> {
+    const inq = this.inquiries.find(i => i.id === id && i.tenant_id === tenantId);
+    if (!inq) return null;
+    Object.assign(inq, data, { updated_at: new Date().toISOString() });
+    this.schedulePersist();
+    return inq;
+  }
+
+  async updateInquiryStage(
+    tenantId: string, 
+    id: string, 
+    stage: InquiryStage, 
+    closedReason?: string, 
+    stageNote?: string, 
+    actorName?: string
+  ): Promise<StudentInquiry | null> {
     const inq = this.inquiries.find(i => i.id === id && i.tenant_id === tenantId);
     if (!inq) return null;
     inq.stage = stage;
+    if (stage === 'closed' && closedReason) {
+      inq.closed_reason = closedReason;
+    }
+    if (!inq.follow_up_history) inq.follow_up_history = [];
+    if (stageNote || closedReason) {
+      inq.follow_up_history.push({
+        id: crypto.randomUUID(),
+        date: new Date().toISOString(),
+        notes: stageNote || (closedReason ? `Closed: ${closedReason}` : `Stage advanced to ${stage}`),
+        outcome: `Stage Changed to ${stage}`,
+        recorded_by_name: actorName || 'Counselor',
+      });
+    }
     inq.updated_at = new Date().toISOString();
     this.schedulePersist();
     return inq;
+  }
+
+  async addInquiryFollowUp(
+    tenantId: string, 
+    id: string, 
+    followUp: { notes: string; outcome?: string; next_date?: string; recorded_by?: string; recorded_by_name?: string }
+  ): Promise<StudentInquiry | null> {
+    const inq = this.inquiries.find(i => i.id === id && i.tenant_id === tenantId);
+    if (!inq) return null;
+    if (!inq.follow_up_history) inq.follow_up_history = [];
+    const entry = {
+      id: crypto.randomUUID(),
+      date: new Date().toISOString(),
+      notes: followUp.notes,
+      outcome: followUp.outcome || null,
+      next_date: followUp.next_date || null,
+      recorded_by: followUp.recorded_by || null,
+      recorded_by_name: followUp.recorded_by_name || 'Counselor',
+    };
+    inq.follow_up_history.push(entry);
+    if (followUp.next_date) {
+      inq.next_follow_up_date = followUp.next_date;
+    }
+    inq.updated_at = new Date().toISOString();
+    this.schedulePersist();
+    return inq;
+  }
+
+  async deleteInquiry(tenantId: string, id: string): Promise<boolean> {
+    const initialLen = this.inquiries.length;
+    this.inquiries = this.inquiries.filter(i => !(i.id === id && i.tenant_id === tenantId));
+    if (this.inquiries.length < initialLen) {
+      this.schedulePersist();
+      return true;
+    }
+    return false;
   }
 
   // --- Student SIS Methods ---
