@@ -327,13 +327,13 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
 
             <div className="p-3 bg-[#081A2F] rounded-xl border border-[#173252] shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
               <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">Pending Attendance</span>
-              <span className="text-base sm:text-lg font-bold font-mono text-amber-400 mt-0.5 block">{pendingAttendance.length} Batch</span>
+              <span className="text-base sm:text-lg font-bold font-mono text-white mt-0.5 block">{pendingAttendance.length} Batch</span>
               <span className="text-[10px] text-slate-400">Attendance Pending</span>
             </div>
 
             <div className="p-3 bg-[#081A2F] rounded-xl border border-[#173252] shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
               <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">Exams to Grade</span>
-              <span className="text-base sm:text-lg font-bold font-mono text-rose-400 mt-0.5 block">{pendingGrading.length} Exams</span>
+              <span className="text-base sm:text-lg font-bold font-mono text-white mt-0.5 block">{pendingGrading.length} Exams</span>
               <span className="text-[10px] text-slate-400">Assessments</span>
             </div>
           </div>

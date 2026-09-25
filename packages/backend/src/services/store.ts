@@ -3188,7 +3188,7 @@ export class InMemoryDataStore implements IDataStore {
     const enrolledStudents = this.students.filter(s => s.tenant_id === tenantId && s.program_id === id);
     const enrolledInEnrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.program_id === id);
     const childBatchIds = new Set(this.batches.filter(b => b.tenant_id === tenantId && b.program_id === id).map(b => b.id));
-    const batchStudents = this.students.filter(s => s.tenant_id === tenantId && childBatchIds.has(s.batch_id));
+    const batchStudents = this.students.filter(s => s.tenant_id === tenantId && Boolean(s.batch_id) && childBatchIds.has(s.batch_id as string));
     const totalStudents = Math.max(enrolledStudents.length, enrolledInEnrollments.length, batchStudents.length);
 
     if (totalStudents > 0) {
@@ -3200,22 +3200,22 @@ export class InMemoryDataStore implements IDataStore {
     this.subjectGroups = this.subjectGroups.filter(g => !(g.tenant_id === tenantId && g.program_id === id));
 
     // Clean up timetable periods referencing this program or child batches
-    if (this.timetable) {
-      this.timetable = this.timetable.filter(t => !(t.tenant_id === tenantId && (childBatchIds.has(t.batch_id) || (t as any).program_id === id)));
+    if (this.timetableSlots) {
+      this.timetableSlots = this.timetableSlots.filter(t => !(t.tenant_id === tenantId && (childBatchIds.has(t.batch_id) || (t as any).program_id === id)));
     }
 
     // Clean up faculty teaching assignments referencing this program or child batches
     for (const u of this.users.values()) {
       if (u.tenant_id === tenantId && u.metadata && Array.isArray(u.metadata.teaching_assignments)) {
         u.metadata.teaching_assignments = u.metadata.teaching_assignments.filter((a: any) =>
-          a.program_id !== id && !childBatchIds.has(a.batch_id)
+          a.program_id !== id && (!a.batch_id || !childBatchIds.has(a.batch_id))
         );
       }
     }
 
     // Clean up template fee structures referencing child batches
     if (this.feeStructures) {
-      this.feeStructures = this.feeStructures.filter(fs => !(fs.tenant_id === tenantId && childBatchIds.has(fs.batch_id)));
+      this.feeStructures = this.feeStructures.filter(fs => !(fs.tenant_id === tenantId && Boolean(fs.batch_id) && childBatchIds.has(fs.batch_id as string)));
     }
 
     const initLen = this.programs.length;
@@ -3376,8 +3376,8 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     // Clean up timetable periods referencing this batch
-    if (this.timetable) {
-      this.timetable = this.timetable.filter(t => !(t.tenant_id === tenantId && t.batch_id === id));
+    if (this.timetableSlots) {
+      this.timetableSlots = this.timetableSlots.filter(t => !(t.tenant_id === tenantId && t.batch_id === id));
     }
 
     // Clean up faculty teaching assignments referencing this batch

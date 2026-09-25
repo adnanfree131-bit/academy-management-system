@@ -1113,7 +1113,7 @@ export const AcademicStructureView: React.FC = () => {
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <GraduationCap className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -1133,7 +1133,7 @@ export const AcademicStructureView: React.FC = () => {
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <FolderTree className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -1153,7 +1153,7 @@ export const AcademicStructureView: React.FC = () => {
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <Users className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -1165,7 +1165,7 @@ export const AcademicStructureView: React.FC = () => {
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 truncate">
                   Total Occupancy
                 </span>
-                <span className="text-[10px] font-mono font-bold text-amber-300 bg-white/10 px-1 py-0.5 rounded border border-white/10">
+                <span className="text-[10px] font-mono font-bold text-slate-200 bg-white/[0.06] px-1 py-0.5 rounded border border-white/10">
                   {Math.round(capacityPercent)}%
                 </span>
               </div>
@@ -1174,7 +1174,7 @@ export const AcademicStructureView: React.FC = () => {
                 <span className="font-normal text-slate-400 ml-1">/ {totalCapacity} Seats</span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-indigo-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <Users className="w-3.5 h-3.5" />
             </span>
           </div>

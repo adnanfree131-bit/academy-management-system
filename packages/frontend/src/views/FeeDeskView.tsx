@@ -2535,40 +2535,40 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
                     PKR {duesSummary.totalInvoiced.toLocaleString()}
                   </span>
                 </div>
-                <span className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center shrink-0">
+                <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                   <CreditCard className="w-3.5 h-3.5" />
                 </span>
               </div>
               <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                 <div>
                   <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Collections</span>
-                  <span className="font-mono font-bold text-emerald-400 text-xs sm:text-sm">
+                  <span className="font-mono font-bold text-white text-xs sm:text-sm">
                     PKR {duesSummary.totalCollected.toLocaleString()}
                   </span>
                 </div>
-                <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0">
+                <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                 </span>
               </div>
               <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                 <div>
                   <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Overdue Receivables</span>
-                  <span className="font-mono font-bold text-rose-400 text-xs sm:text-sm">
+                  <span className="font-mono font-bold text-white text-xs sm:text-sm">
                     PKR {duesSummary.allAmount.toLocaleString()}
                   </span>
                 </div>
-                <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0">
+                <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                   <AlertCircle className="w-3.5 h-3.5" />
                 </span>
               </div>
               <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                 <div>
                   <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Defaulters</span>
-                  <span className="font-mono font-bold text-amber-400 text-xs sm:text-sm">
+                  <span className="font-mono font-bold text-white text-xs sm:text-sm">
                     {duesSummary.allCount} Students
                   </span>
                 </div>
-                <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0">
+                <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                   <Users className="w-3.5 h-3.5" />
                 </span>
               </div>
@@ -3761,8 +3761,8 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
                 <span className="font-mono font-bold text-white text-xs">{totalDefaultersCount} Students</span>
               </div>
               <div className="bg-[#081A2F] border border-[#173252] rounded-lg px-2.5 py-1.5 flex items-center gap-2 shadow-2xs">
-                <span className="text-[10px] uppercase font-mono font-bold text-rose-400">Total Dues:</span>
-                <span className="font-mono font-bold text-rose-400 text-xs">PKR {totalDefaultersAmount.toLocaleString()}</span>
+                <span className="text-[10px] uppercase font-mono font-bold text-slate-400">Total Dues:</span>
+                <span className="font-mono font-bold text-white text-xs">PKR {totalDefaultersAmount.toLocaleString()}</span>
               </div>
             </div>
           )}
@@ -3823,8 +3823,8 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
                       <span className="font-mono font-bold text-white text-xs">{totalDefaultersCount} Students</span>
                     </div>
                     <div className="bg-[#081A2F] border border-[#173252] rounded-lg px-2.5 py-1.5 flex items-center gap-2 shadow-2xs">
-                      <span className="text-[10px] uppercase font-mono font-bold text-rose-400">Total Dues:</span>
-                      <span className="font-mono font-bold text-rose-400 text-xs">PKR {totalDefaultersAmount.toLocaleString()}</span>
+                      <span className="text-[10px] uppercase font-mono font-bold text-slate-400">Total Dues:</span>
+                      <span className="font-mono font-bold text-white text-xs">PKR {totalDefaultersAmount.toLocaleString()}</span>
                     </div>
                   </div>
 

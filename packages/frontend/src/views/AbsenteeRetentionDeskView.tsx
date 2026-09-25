@@ -461,7 +461,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <UserX className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -473,7 +473,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 Contacted Rate
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {kpi.contacted_percentage}%
                 </span>
                 <span className="text-xs font-medium text-slate-400 leading-none">
@@ -481,7 +481,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <PhoneCall className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -493,7 +493,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 Unreachable
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-amber-400 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {kpi.unreachable_count}
                 </span>
                 <span className="text-xs font-medium text-slate-400 leading-none">
@@ -501,7 +501,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <PhoneMissed className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -513,7 +513,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 Pending Calls
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-sky-400 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {kpi.pending_count}
                 </span>
                 <span className="text-xs font-medium text-slate-400 leading-none">
@@ -521,7 +521,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <Clock className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -533,7 +533,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 Excused Leaves
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-purple-400 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {kpi.excused_count}
                 </span>
                 <span className="text-xs font-medium text-slate-400 leading-none">
@@ -541,7 +541,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-purple-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <ShieldCheck className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -1537,7 +1537,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   {monthlyReport?.total_absences ?? 0}
                 </span>
               </div>
-              <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                 <UserX className="w-3.5 h-3.5" />
               </span>
             </div>
@@ -1547,11 +1547,11 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight">
                   Follow-Up Rate
                 </span>
-                <span className="font-mono font-bold text-emerald-400 text-base leading-none block mt-1">
+                <span className="font-mono font-bold text-white text-base leading-none block mt-1">
                   {monthlyReport?.followup_rate ?? 0}%
                 </span>
               </div>
-              <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                 <PhoneCall className="w-3.5 h-3.5" />
               </span>
             </div>
@@ -1561,11 +1561,11 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight">
                   Medical Converted
                 </span>
-                <span className="font-mono font-bold text-purple-400 text-base leading-none block mt-1">
+                <span className="font-mono font-bold text-white text-base leading-none block mt-1">
                   {monthlyReport?.medical_leave_converted ?? 0}
                 </span>
               </div>
-              <span className="w-7 h-7 rounded-lg bg-white/10 text-purple-400 border border-white/10 flex items-center justify-center shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                 <ShieldCheck className="w-3.5 h-3.5" />
               </span>
             </div>
@@ -1575,11 +1575,11 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight">
                   Prevented Dropouts
                 </span>
-                <span className="font-mono font-bold text-sky-400 text-base leading-none block mt-1">
+                <span className="font-mono font-bold text-white text-base leading-none block mt-1">
                   {monthlyReport?.prevented_dropouts ?? 0}
                 </span>
               </div>
-              <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                 <Users className="w-3.5 h-3.5" />
               </span>
             </div>

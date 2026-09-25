@@ -346,13 +346,13 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 Income
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="font-mono font-bold text-emerald-400 text-xs sm:text-base leading-none truncate">
+                <span className="font-mono font-bold text-white text-xs sm:text-base leading-none truncate">
                   PKR {totalIncome.toLocaleString()}
                 </span>
               </div>
               <span className="text-[10px] text-slate-400 leading-none hidden sm:inline">Inflow</span>
             </div>
-            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs hidden xs:flex">
+            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs hidden xs:flex">
               <TrendingUp className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
             </span>
           </div>
@@ -364,13 +364,13 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 Expenses
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="font-mono font-bold text-rose-400 text-xs sm:text-base leading-none truncate">
+                <span className="font-mono font-bold text-white text-xs sm:text-base leading-none truncate">
                   PKR {totalExpense.toLocaleString()}
                 </span>
               </div>
               <span className="text-[10px] text-slate-400 leading-none hidden sm:inline">Outflow</span>
             </div>
-            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs hidden xs:flex">
+            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs hidden xs:flex">
               <TrendingDown className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
             </span>
           </div>
@@ -382,13 +382,13 @@ export const IncomeExpenseDeskView: React.FC = () => {
                 Net Balance
               </span>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className={`font-mono font-bold text-xs sm:text-base leading-none truncate ${netBalance >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                <span className={`font-mono font-bold text-xs sm:text-base leading-none truncate ${netBalance < 0 ? 'text-rose-400' : 'text-white'}`}>
                   PKR {netBalance.toLocaleString()}
                 </span>
               </div>
               <span className="text-[10px] text-slate-400 leading-none hidden sm:inline">{netBalance >= 0 ? 'Surplus' : 'Deficit'}</span>
             </div>
-            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs hidden xs:flex">
+            <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs hidden xs:flex">
               <Scale className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
             </span>
           </div>
@@ -910,20 +910,20 @@ export const IncomeExpenseDeskView: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                 <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                   <span className="text-[10px] font-mono uppercase font-bold text-slate-400 block tracking-wider">Month Income</span>
-                  <span className="text-lg sm:text-xl font-bold font-mono text-emerald-400 block mt-1">
+                  <span className="text-lg sm:text-xl font-bold font-mono text-white block mt-1">
                     PKR {Number(plReport.total_income || 0).toLocaleString()}
                   </span>
                 </div>
                 <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                   <span className="text-[10px] font-mono uppercase font-bold text-slate-400 block tracking-wider">Month Expenses</span>
-                  <span className="text-lg sm:text-xl font-bold font-mono text-rose-400 block mt-1">
+                  <span className="text-lg sm:text-xl font-bold font-mono text-white block mt-1">
                     PKR {Number(plReport.total_expense || 0).toLocaleString()}
                   </span>
                 </div>
                 <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                   <span className="text-[10px] font-mono uppercase font-bold text-slate-400 block tracking-wider">Net Profit</span>
                   <span className={`text-lg sm:text-xl font-bold font-mono block mt-1 ${
-                    Number(plReport.net_profit || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                    Number(plReport.net_profit || 0) < 0 ? 'text-rose-400' : 'text-white'
                   }`}>
                     PKR {Number(plReport.net_profit || 0).toLocaleString()}
                   </span>

@@ -735,10 +735,10 @@ export const FeeReversalsView: React.FC = () => {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
                       Total Collected
                     </span>
-                    <span className="text-sm sm:text-base font-mono font-bold text-emerald-400 mt-0.5 block">
+                    <span className="text-sm sm:text-base font-mono font-bold text-white mt-0.5 block">
                       PKR {totalCollected.toLocaleString()}
                     </span>
-                    <span className="text-[10px] text-emerald-300 mt-0.5 block truncate">
+                    <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
                       Realized Receipts
                     </span>
                   </div>
@@ -747,11 +747,7 @@ export const FeeReversalsView: React.FC = () => {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
                       Outstanding Balance
                     </span>
-                    <span
-                      className={`text-sm sm:text-base font-mono font-bold mt-0.5 block ${
-                        totalDue > 0 ? 'text-rose-400' : 'text-emerald-400'
-                      }`}
-                    >
+                    <span className="text-sm sm:text-base font-mono font-bold text-white mt-0.5 block">
                       PKR {totalDue.toLocaleString()}
                     </span>
                     <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
@@ -763,7 +759,7 @@ export const FeeReversalsView: React.FC = () => {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
                       Active Receipts
                     </span>
-                    <span className="text-sm sm:text-base font-mono font-bold text-slate-200 mt-0.5 block">
+                    <span className="text-sm sm:text-base font-mono font-bold text-white mt-0.5 block">
                       {displayedPayments.length} Receipt{displayedPayments.length !== 1 ? 's' : ''}
                     </span>
                     <span className="text-[10px] text-slate-400 mt-0.5 block truncate">

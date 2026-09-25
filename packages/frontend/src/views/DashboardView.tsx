@@ -468,7 +468,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Students</span>
-            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center">
               <Users className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -480,7 +480,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             <p className="text-[11px] text-slate-300 mt-1">
               {hasCapacity ? (
                 <>
-                  <span className="font-mono font-semibold text-amber-400">{capacityPct}%</span> capacity occupied
+                  <span className="font-mono font-semibold text-slate-200">{capacityPct}%</span> capacity occupied
                 </>
               ) : (
                 <span>—</span>
@@ -500,7 +500,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Collections</span>
-            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center">
               <CreditCard className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -511,11 +511,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               </span>
             </div>
             <p className="text-[11px] text-slate-300 mt-1 truncate">
-              <span className="font-mono font-semibold text-emerald-400">{feeRealizationPct}%</span> of {money(totalBilled)} billed
+              <span className="font-mono font-semibold text-slate-200">{feeRealizationPct}%</span> of {money(totalBilled)} billed
             </p>
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
-            <span className="text-rose-400 font-semibold font-mono">{overdueInvoices.length} Overdue</span>
+            <span className={`font-mono ${overdueInvoices.length > 0 ? 'text-rose-400 font-semibold' : 'text-slate-400'}`}>{overdueInvoices.length} Overdue</span>
             <span className="text-amber-400 font-semibold hover:underline">Cashier →</span>
           </div>
         </div>
@@ -527,7 +527,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Attendance</span>
-            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center">
               <CheckSquare className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -537,7 +537,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 {isAttendanceSubmittedToday ? `${attendanceRate}%` : 'Pending'}
               </span>
               {isAttendanceSubmittedToday && (
-                <span className="text-[11px] text-emerald-400 font-semibold font-mono">
+                <span className="text-[11px] text-slate-200 font-semibold font-mono">
                   {presentCount} Present
                 </span>
               )}
@@ -559,7 +559,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Staff present</span>
-            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center">
               <UserCheck className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -568,7 +568,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {presentStaffCount} <span className="text-sm font-normal text-slate-400 font-sans">/ {totalStaffCount}</span>
               </span>
-              <span className="text-[11px] text-amber-400 font-semibold font-mono">
+              <span className="text-[11px] text-slate-200 font-semibold font-mono">
                 {staffPresentPct}% Duty
               </span>
             </div>
@@ -947,7 +947,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Academic Diary</span>
-            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center">
               <BookOpen className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -981,7 +981,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Admissions Pipeline</span>
-            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center">
               <PhoneCall className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -1013,7 +1013,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Examinations</span>
-            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center">
               <FileText className="w-3.5 h-3.5" />
             </div>
           </div>

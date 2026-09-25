@@ -721,7 +721,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-indigo-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <Users className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -733,7 +733,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 Teaching Faculty
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {activeFacultyCount}
                 </span>
                 <span className="text-xs font-medium text-slate-400 leading-none">
@@ -741,7 +741,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <BookOpen className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -753,7 +753,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 Clocked-In Today
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-amber-400 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {presentTodayCount}
                 </span>
                 <span className="text-xs font-medium text-slate-400 leading-none">
@@ -761,7 +761,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <ShieldCheck className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -781,7 +781,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <CreditCard className="w-3.5 h-3.5" />
             </span>
           </div>

@@ -2233,45 +2233,45 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Total Students</span>
                       <span className="font-mono font-bold text-white text-base">{students.length}</span>
                     </div>
-                    <span className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center shrink-0">
+                    <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                       <Users className="w-3.5 h-3.5" />
                     </span>
                   </div>
                   <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
                       <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Active Enrolled</span>
-                      <span className="font-mono font-bold text-emerald-400 text-base">{students.filter(s => s.status === 'active').length}</span>
+                      <span className="font-mono font-bold text-white text-base">{students.filter(s => s.status === 'active').length}</span>
                     </div>
-                    <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0">
+                    <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                       <UserCheck className="w-3.5 h-3.5" />
                     </span>
                   </div>
                   <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
                       <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Inquiries</span>
-                      <span className="font-mono font-bold text-amber-400 text-base">{inquiries.length}</span>
+                      <span className="font-mono font-bold text-white text-base">{inquiries.length}</span>
                     </div>
-                    <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0">
+                    <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                       <HelpCircle className="w-3.5 h-3.5" />
                     </span>
                   </div>
                   <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
                       <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Defaulters</span>
-                      <span className="font-mono font-bold text-rose-400 text-base">
+                      <span className="font-mono font-bold text-white text-base">
                         {students.filter(s => s.fee_clearance_status === 'defaulter' || (Boolean(s.unpaid_balance) && s.unpaid_balance! > 0 && s.status === 'active')).length}
                       </span>
                     </div>
-                    <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0">
+                    <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                       <AlertCircle className="w-3.5 h-3.5" />
                     </span>
                   </div>
                   <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] col-span-2 sm:col-span-1">
                     <div>
                       <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Inactive / Alumni</span>
-                      <span className="font-mono font-bold text-slate-300 text-base">{students.filter(s => s.status !== 'active').length}</span>
+                      <span className="font-mono font-bold text-white text-base">{students.filter(s => s.status !== 'active').length}</span>
                     </div>
-                    <span className="w-7 h-7 rounded-lg bg-white/10 text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
+                    <span className="w-7 h-7 rounded-lg bg-white/[0.06] text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
                       <Archive className="w-3.5 h-3.5" />
                     </span>
                   </div>
