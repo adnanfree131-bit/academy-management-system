@@ -3326,95 +3326,89 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </div>
                 )}
 
-                {/* Enrolled Subjects Register (Strict 2-Column: Left = Compulsory/Core, Right = Electives) */}
-                {(enrollForm.program_id || (enrollmentType === 'batch' && enrollForm.batch_id && subjects.length > 0)) && (
-                  <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="w-3.5 h-3.5 text-slate-700" />
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
-                          Enrolled Course Subjects ({selectedEnrollSubjectIds.length} Selected)
-                        </h4>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="relative w-44 sm:w-52">
-                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                          <input
-                            type="text"
-                            placeholder="Search subjects..."
-                            value={subjectSearchQuery}
-                            onChange={e => setSubjectSearchQuery(e.target.value)}
-                            className="w-full pl-8 pr-2.5 py-1 text-[11px] bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                          />
-                        </div>
-                        <span className="text-[11px] text-slate-500 hidden sm:inline">Uncheck if partial</span>
-                      </div>
-                    </div>
+                {/* Enrolled Subjects Register */}
+                {(enrollForm.program_id || (enrollmentType === 'batch' && enrollForm.batch_id && subjects.length > 0)) && (() => {
+                  const hasElectiveTracks = enrollmentType === 'class' && electiveGroupsForEnroll.length > 0;
 
-                    {/* 2-Column Grid: Column 1 = Left (Core/Other), Column 2 = Right (Elective) */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start pt-1">
-                      {/* ========================================================================= */}
-                      {/* LEFT COLUMN: COMPULSORY CORE / BATCH CURRICULUM SUBJECTS                  */}
-                      {/* ========================================================================= */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                            <span>
-                              {enrollmentType === 'class'
-                                ? 'Compulsory Core Subjects'
-                                : `${selectedEnrollBatch?.name || 'Batch'} Curriculum Subjects`}
-                            </span>
+                  // Unified list for when class or batch has NO elective tracks
+                  const unifiedSubjectsList = enrollmentType === 'class'
+                    ? (compulsoryGroupForEnroll && compulsoryGroupForEnroll.subject_ids.length > 0
+                        ? compulsoryGroupForEnroll.subject_ids.map(id => subjects.find(s => s.id === id) || { id, name: id, code: 'CORE', is_core: true }).filter(Boolean)
+                        : subjects)
+                    : (selectedEnrollBatch?.subject_ids && selectedEnrollBatch.subject_ids.length > 0
+                        ? subjects.filter(s => selectedEnrollBatch.subject_ids!.includes(s.id))
+                        : subjects);
+
+                  const filteredUnifiedList = unifiedSubjectsList.filter((s: any) => {
+                    if (!subjectSearchQuery.trim()) return true;
+                    const q = subjectSearchQuery.toLowerCase();
+                    return s.name.toLowerCase().includes(q) || (s.code && s.code.toLowerCase().includes(q));
+                  });
+
+                  const allUnifiedIds = unifiedSubjectsList.map((s: any) => s.id);
+                  const isAllUnifiedSelected = allUnifiedIds.length > 0 && allUnifiedIds.every(id => selectedEnrollSubjectIds.includes(id));
+
+                  return (
+                    <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
+                        <div className="flex items-center gap-2">
+                          <BookOpen className="w-3.5 h-3.5 text-slate-700" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                            Enrolled Course Subjects ({selectedEnrollSubjectIds.length} Selected)
+                          </h4>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="relative w-44 sm:w-52">
+                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                            <input
+                              type="text"
+                              placeholder="Search subjects..."
+                              value={subjectSearchQuery}
+                              onChange={e => setSubjectSearchQuery(e.target.value)}
+                              className="w-full pl-8 pr-2.5 py-1 text-[11px] bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            />
                           </div>
-                          {enrollmentType === 'batch' && selectedEnrollBatch?.subject_ids && selectedEnrollBatch.subject_ids.length > 0 && (
+                          {!hasElectiveTracks && unifiedSubjectsList.length > 0 && (
                             <button
                               type="button"
-                              onClick={() => setSelectedEnrollSubjectIds(selectedEnrollBatch.subject_ids || [])}
-                              className="text-[10px] font-semibold text-amber-700 hover:text-amber-800 underline cursor-pointer"
+                              onClick={() => {
+                                if (isAllUnifiedSelected) {
+                                  setSelectedEnrollSubjectIds(prev => prev.filter(id => !allUnifiedIds.includes(id)));
+                                } else {
+                                  setSelectedEnrollSubjectIds(prev => [...new Set([...prev, ...allUnifiedIds])]);
+                                }
+                              }}
+                              className="text-[11px] font-semibold text-amber-700 hover:text-amber-800 underline cursor-pointer"
                             >
-                              Reset to Batch
+                              {isAllUnifiedSelected ? 'Deselect All' : 'Select All'}
                             </button>
                           )}
+                          <span className="text-[11px] text-slate-500 hidden sm:inline">Uncheck if partial</span>
                         </div>
+                      </div>
 
-                        <div className="space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200 min-h-[90px]">
-                          {(() => {
-                            const rawList = enrollmentType === 'class'
-                              ? (compulsoryGroupForEnroll && compulsoryGroupForEnroll.subject_ids.length > 0
-                                  ? compulsoryGroupForEnroll.subject_ids.map(id => subjects.find(s => s.id === id) || { id, name: id, code: 'CORE' })
-                                  : subjects.filter(s => s.is_core))
-                              : (selectedEnrollBatch?.subject_ids && selectedEnrollBatch.subject_ids.length > 0
-                                  ? subjects.filter(s => selectedEnrollBatch.subject_ids!.includes(s.id))
-                                  : subjects.filter(s => s.is_core));
-
-                            const filtered = rawList.filter((s: any) => {
-                              if (!subjectSearchQuery.trim()) return true;
-                              const q = subjectSearchQuery.toLowerCase();
-                              return s.name.toLowerCase().includes(q) || (s.code && s.code.toLowerCase().includes(q));
-                            });
-
-                            if (filtered.length === 0) {
-                              return (
-                                <div className="py-6 text-center text-xs text-slate-400">
-                                  {subjectSearchQuery.trim()
-                                    ? 'No matching compulsory subjects found.'
-                                    : 'No compulsory subjects assigned.'}
-                                </div>
-                              );
-                            }
-
-                            return filtered.map((s: any) => {
+                      {/* CASE 1: UNIFIED ROW-WISE GRID (When class or batch has NO elective tracks: 4 to 5 subjects per row) */}
+                      {!hasElectiveTracks && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 pt-1">
+                          {filteredUnifiedList.length === 0 ? (
+                            <div className="col-span-full py-8 text-center text-xs text-slate-400">
+                              {subjectSearchQuery.trim()
+                                ? 'No matching subjects found.'
+                                : 'No subjects available in catalog.'}
+                            </div>
+                          ) : (
+                            filteredUnifiedList.map((s: any) => {
                               const isChecked = selectedEnrollSubjectIds.includes(s.id);
                               return (
                                 <label
                                   key={s.id}
-                                  className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
+                                  className={`flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors text-xs border ${
                                     isChecked
-                                      ? 'bg-emerald-50/50 shadow-2xs border border-emerald-200'
-                                      : 'hover:bg-slate-50 border border-transparent'
+                                      ? 'bg-amber-50/70 border-amber-300 shadow-2xs'
+                                      : 'bg-white hover:bg-slate-50 border-slate-200'
                                   }`}
                                 >
-                                  <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                     <input
                                       type="checkbox"
                                       checked={isChecked}
@@ -3423,70 +3417,133 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                           prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id]
                                         );
                                       }}
-                                      className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 shrink-0"
+                                      className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 shrink-0 cursor-pointer"
                                     />
-                                    <div className="min-w-0">
-                                      <span className="font-semibold text-slate-900 truncate block">{s.name}</span>
-                                      {s.code && <span className="text-[10px] font-mono text-slate-500">({s.code})</span>}
+                                    <div className="min-w-0 flex-1">
+                                      <span className="font-semibold text-slate-900 truncate block text-xs">{s.name}</span>
+                                      {s.code && <span className="text-[10px] font-mono text-slate-500 block truncate">({s.code})</span>}
                                     </div>
                                   </div>
-                                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
-                                    {enrollmentType === 'class' ? 'Compulsory' : 'Curriculum'}
-                                  </span>
+                                  {s.is_core && (
+                                    <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200 shrink-0 ml-1">
+                                      Core
+                                    </span>
+                                  )}
                                 </label>
                               );
-                            });
-                          })()}
-                        </div>
-                      </div>
-
-                      {/* ========================================================================= */}
-                      {/* RIGHT COLUMN: ELECTIVE SUBJECTS & STREAM SELECTION                        */}
-                      {/* ========================================================================= */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
-                            <span>
-                              {enrollmentType === 'class'
-                                ? 'Elective Subjects'
-                                : 'Additional / Elective Catalog Subjects'}
-                            </span>
-                          </div>
-                          {enrollForm.elective_group_id && (
-                            <button
-                              type="button"
-                              onClick={() => setEnrollForm(prev => ({ ...prev, elective_group_id: '' }))}
-                              className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
-                            >
-                              Show All Streams
-                            </button>
+                            })
                           )}
                         </div>
+                      )}
 
-                        {/* Elective Track / Stream Selector directly embedded at the top of the right column */}
-                        {enrollmentType === 'class' && electiveGroupsForEnroll.length > 0 && (
-                          <div>
-                            <ModernSelect
-                              value={enrollForm.elective_group_id}
-                              onChange={val => setEnrollForm(prev => ({ ...prev, elective_group_id: val }))}
-                              placeholder="Select Elective Stream (Optional)"
-                              options={[
-                                { value: '', label: 'All Elective Streams' },
-                                ...electiveGroupsForEnroll.map(eg => ({
-                                  value: eg.id,
-                                  label: eg.name,
-                                })),
-                              ]}
-                            />
+                      {/* CASE 2: STRICT 2-COLUMN GRID (Only when class has elective tracks) */}
+                      {hasElectiveTracks && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start pt-1">
+                          {/* LEFT COLUMN: COMPULSORY CORE SUBJECTS */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                                <span>Compulsory Core Subjects</span>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200 min-h-[90px]">
+                              {(() => {
+                                const rawList = compulsoryGroupForEnroll && compulsoryGroupForEnroll.subject_ids.length > 0
+                                  ? compulsoryGroupForEnroll.subject_ids.map(id => subjects.find(s => s.id === id) || { id, name: id, code: 'CORE' })
+                                  : subjects.filter(s => s.is_core);
+
+                                const filtered = rawList.filter((s: any) => {
+                                  if (!subjectSearchQuery.trim()) return true;
+                                  const q = subjectSearchQuery.toLowerCase();
+                                  return s.name.toLowerCase().includes(q) || (s.code && s.code.toLowerCase().includes(q));
+                                });
+
+                                if (filtered.length === 0) {
+                                  return (
+                                    <div className="py-6 text-center text-xs text-slate-400">
+                                      {subjectSearchQuery.trim()
+                                        ? 'No matching compulsory subjects found.'
+                                        : 'No compulsory subjects assigned.'}
+                                    </div>
+                                  );
+                                }
+
+                                return filtered.map((s: any) => {
+                                  const isChecked = selectedEnrollSubjectIds.includes(s.id);
+                                  return (
+                                    <label
+                                      key={s.id}
+                                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
+                                        isChecked
+                                          ? 'bg-emerald-50/50 shadow-2xs border border-emerald-200'
+                                          : 'hover:bg-slate-50 border border-transparent'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => {
+                                            setSelectedEnrollSubjectIds(prev =>
+                                              prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id]
+                                            );
+                                          }}
+                                          className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 shrink-0"
+                                        />
+                                        <div className="min-w-0">
+                                          <span className="font-semibold text-slate-900 truncate block">{s.name}</span>
+                                          {s.code && <span className="text-[10px] font-mono text-slate-500">({s.code})</span>}
+                                        </div>
+                                      </div>
+                                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
+                                        Compulsory
+                                      </span>
+                                    </label>
+                                  );
+                                });
+                              })()}
+                            </div>
                           </div>
-                        )}
 
-                        <div className="space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200 min-h-[90px]">
-                          {(() => {
-                            let rawList: any[] = [];
-                            if (enrollmentType === 'class') {
-                              if (electiveGroupsForEnroll.length > 0) {
+                          {/* RIGHT COLUMN: ELECTIVE SUBJECTS & STREAM SELECTION */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+                                <span>Elective Subjects</span>
+                              </div>
+                              {enrollForm.elective_group_id && (
+                                <button
+                                  type="button"
+                                  onClick={() => setEnrollForm(prev => ({ ...prev, elective_group_id: '' }))}
+                                  className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                                >
+                                  Show All Streams
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Elective Track / Stream Selector directly embedded at the top of the right column */}
+                            <div>
+                              <ModernSelect
+                                value={enrollForm.elective_group_id}
+                                onChange={val => setEnrollForm(prev => ({ ...prev, elective_group_id: val }))}
+                                placeholder="Select Elective Stream (Optional)"
+                                options={[
+                                  { value: '', label: 'All Elective Streams' },
+                                  ...electiveGroupsForEnroll.map(eg => ({
+                                    value: eg.id,
+                                    label: eg.name,
+                                  })),
+                                ]}
+                              />
+                            </div>
+
+                            <div className="space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200 min-h-[90px]">
+                              {(() => {
+                                let rawList: any[] = [];
                                 if (enrollForm.elective_group_id) {
                                   const grp = electiveGroupsForEnroll.find(g => g.id === enrollForm.elective_group_id);
                                   if (grp) {
@@ -3508,79 +3565,71 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                   }
                                   rawList = Array.from(map.values());
                                 }
-                              } else {
-                                rawList = subjects.filter(s => !s.is_core);
-                              }
-                            } else {
-                              // Batch mode: show subjects not in batch curriculum
-                              const batchSubIds = selectedEnrollBatch?.subject_ids || [];
-                              rawList = subjects.filter(s => !batchSubIds.includes(s.id));
-                            }
 
-                            const filtered = rawList.filter((s: any) => {
-                              if (!subjectSearchQuery.trim()) return true;
-                              const q = subjectSearchQuery.toLowerCase();
-                              return s.name.toLowerCase().includes(q) || (s.code && s.code.toLowerCase().includes(q));
-                            });
+                                const filtered = rawList.filter((s: any) => {
+                                  if (!subjectSearchQuery.trim()) return true;
+                                  const q = subjectSearchQuery.toLowerCase();
+                                  return s.name.toLowerCase().includes(q) || (s.code && s.code.toLowerCase().includes(q));
+                                });
 
-                            if (filtered.length === 0) {
-                              return (
-                                <div className="py-6 text-center text-xs text-slate-400">
-                                  {subjectSearchQuery.trim()
-                                    ? 'No matching elective subjects found.'
-                                    : enrollmentType === 'class'
-                                    ? 'No elective subjects available for this class.'
-                                    : 'All catalog subjects already included in curriculum.'}
-                                </div>
-                              );
-                            }
-
-                            return filtered.map((s: any) => {
-                              const isChecked = selectedEnrollSubjectIds.includes(s.id);
-                              return (
-                                <label
-                                  key={s.id}
-                                  className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
-                                    isChecked
-                                      ? 'bg-indigo-50/50 shadow-2xs border border-indigo-200'
-                                      : 'hover:bg-slate-50 border border-transparent'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() => {
-                                        setSelectedEnrollSubjectIds(prev =>
-                                          prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id]
-                                        );
-                                      }}
-                                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 shrink-0"
-                                    />
-                                    <div className="min-w-0">
-                                      <span className="font-semibold text-slate-900 truncate block">{s.name}</span>
-                                      <div className="flex items-center gap-1.5">
-                                        {s.code && <span className="text-[10px] font-mono text-slate-500">({s.code})</span>}
-                                        {s.stream_name && (
-                                          <span className="text-[9px] text-slate-500 font-medium">
-                                            • {s.stream_name}
-                                          </span>
-                                        )}
-                                      </div>
+                                if (filtered.length === 0) {
+                                  return (
+                                    <div className="py-6 text-center text-xs text-slate-400">
+                                      {subjectSearchQuery.trim()
+                                        ? 'No matching elective subjects found.'
+                                        : 'No elective subjects available for this class.'}
                                     </div>
-                                  </div>
-                                  <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 shrink-0">
-                                    Elective
-                                  </span>
-                                </label>
-                              );
-                            });
-                          })()}
+                                  );
+                                }
+
+                                return filtered.map((s: any) => {
+                                  const isChecked = selectedEnrollSubjectIds.includes(s.id);
+                                  return (
+                                    <label
+                                      key={s.id}
+                                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
+                                        isChecked
+                                          ? 'bg-indigo-50/50 shadow-2xs border border-indigo-200'
+                                          : 'hover:bg-slate-50 border border-transparent'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => {
+                                            setSelectedEnrollSubjectIds(prev =>
+                                              prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id]
+                                            );
+                                          }}
+                                          className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 shrink-0"
+                                        />
+                                        <div className="min-w-0">
+                                          <span className="font-semibold text-slate-900 truncate block">{s.name}</span>
+                                          <div className="flex items-center gap-1.5">
+                                            {s.code && <span className="text-[10px] font-mono text-slate-500">({s.code})</span>}
+                                            {s.stream_name && (
+                                              <span className="text-[9px] text-slate-500 font-medium">
+                                                • {s.stream_name}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 shrink-0">
+                                        Elective
+                                      </span>
+                                    </label>
+                                  );
+                                });
+                              })()}
+                            </div>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* 2. Student Identity & Demographics */}
