@@ -171,16 +171,23 @@ export function academicRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
-      const { transfer_to_program_id } = (request.query || {}) as { transfer_to_program_id?: string };
-      const deleted = await store.deleteProgram(user.tenant_id, id, transfer_to_program_id);
-      if (!deleted) {
-        return reply.status(404).send({
+      try {
+        const deleted = await store.deleteProgram(user.tenant_id, id);
+        if (!deleted) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Program not found' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        return reply.send({ success: true, message: 'Class deleted successfully', timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
           success: false,
-          error: { code: 'NOT_FOUND', message: 'Program not found' },
+          error: { code: 'CLASS_HAS_STUDENTS', message: err.message || 'Cannot delete class with enrolled students' },
           timestamp: new Date().toISOString(),
         });
       }
-      return reply.send({ success: true, message: 'Program deleted successfully', timestamp: new Date().toISOString() });
     });
 
     // --- Subjects ---
@@ -434,16 +441,23 @@ export function academicRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
-      const { transfer_to_batch_id } = (request.query || {}) as { transfer_to_batch_id?: string };
-      const deleted = await store.deleteBatch(user.tenant_id, id, transfer_to_batch_id);
-      if (!deleted) {
-        return reply.status(404).send({
+      try {
+        const deleted = await store.deleteBatch(user.tenant_id, id);
+        if (!deleted) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Batch not found' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        return reply.send({ success: true, message: 'Batch deleted successfully', timestamp: new Date().toISOString() });
+      } catch (err: any) {
+        return reply.status(400).send({
           success: false,
-          error: { code: 'NOT_FOUND', message: 'Batch not found' },
+          error: { code: 'BATCH_HAS_STUDENTS', message: err.message || 'Cannot delete batch with enrolled students' },
           timestamp: new Date().toISOString(),
         });
       }
-      return reply.send({ success: true, message: 'Batch deleted successfully', timestamp: new Date().toISOString() });
     });
 
     // Student Class Promotion & Section Transfer

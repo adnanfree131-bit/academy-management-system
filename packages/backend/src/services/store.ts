@@ -253,7 +253,7 @@ export interface IDataStore {
   getPrograms(tenantId: string): Promise<AcademicProgram[]>;
   createProgram(data: Omit<AcademicProgram, 'id' | 'created_at' | 'updated_at'>): Promise<AcademicProgram>;
   updateProgram(tenantId: string, id: string, data: Partial<Omit<AcademicProgram, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>): Promise<AcademicProgram | null>;
-  deleteProgram(tenantId: string, id: string, transferToProgramId?: string): Promise<boolean>;
+  deleteProgram(tenantId: string, id: string): Promise<boolean>;
   reorderPrograms(tenantId: string, orderedIds: string[]): Promise<void>;
   
   getSubjects(tenantId: string): Promise<Subject[]>;
@@ -268,7 +268,7 @@ export interface IDataStore {
   getBatches(tenantId: string, programId?: string, cohortType?: 'section' | 'batch'): Promise<Batch[]>;
   createBatch(data: Omit<Batch, 'id' | 'created_at' | 'updated_at' | 'current_enrollment'>): Promise<Batch>;
   updateBatch(tenantId: string, id: string, data: Partial<Omit<Batch, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>): Promise<Batch | null>;
-  deleteBatch(tenantId: string, id: string, transferToBatchId?: string): Promise<boolean>;
+  deleteBatch(tenantId: string, id: string): Promise<boolean>;
 
   // Custom Fields (Phase 2)
   getCustomFields(tenantId: string, entityType: 'student' | 'inquiry'): Promise<CustomFieldDefinition[]>;
@@ -3178,30 +3178,48 @@ export class InMemoryDataStore implements IDataStore {
     return updated;
   }
 
-  async deleteProgram(tenantId: string, id: string, transferToProgramId?: string): Promise<boolean> {
-    const initLen = this.programs.length;
-    if (transferToProgramId) {
-      for (const s of this.students) {
-        if (s.tenant_id === tenantId && s.program_id === id) {
-          s.program_id = transferToProgramId;
-          s.updated_at = new Date().toISOString();
-        }
-      }
-    } else {
-      for (const s of this.students) {
-        if (s.tenant_id === tenantId && s.program_id === id) {
-          s.program_id = undefined as any;
-          s.batch_id = undefined as any;
-          s.updated_at = new Date().toISOString();
-        }
-      }
+  async deleteProgram(tenantId: string, id: string): Promise<boolean> {
+    const program = this.programs.find(p => p.tenant_id === tenantId && p.id === id);
+    if (!program) return false;
+
+    // Strict Institutional Rule: Block deletion if any student is currently enrolled
+    const enrolledStudents = this.students.filter(s => s.tenant_id === tenantId && s.program_id === id && s.status !== 'archived' && s.status !== 'withdrawn');
+    const enrolledInEnrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.program_id === id && e.status !== 'archived' && e.status !== 'withdrawn');
+    const childBatchIds = new Set(this.batches.filter(b => b.tenant_id === tenantId && b.program_id === id).map(b => b.id));
+    const batchStudents = this.students.filter(s => s.tenant_id === tenantId && childBatchIds.has(s.batch_id) && s.status !== 'archived' && s.status !== 'withdrawn');
+    const totalStudents = Math.max(enrolledStudents.length, enrolledInEnrollments.length, batchStudents.length);
+
+    if (totalStudents > 0) {
+      throw new Error(`Cannot delete class "${program.name}": There are ${totalStudents} student(s) currently enrolled. Please transfer or archive all students before deleting this class.`);
     }
-    // Cascade delete child batches and subject groups
+
+    // Clean up empty child batches and subject groups
     this.batches = this.batches.filter(b => !(b.tenant_id === tenantId && b.program_id === id));
     this.subjectGroups = this.subjectGroups.filter(g => !(g.tenant_id === tenantId && g.program_id === id));
 
+    // Clean up timetable periods referencing this program or child batches
+    if (this.timetable) {
+      this.timetable = this.timetable.filter(t => !(t.tenant_id === tenantId && (childBatchIds.has(t.batch_id) || (t as any).program_id === id)));
+    }
+
+    // Clean up faculty teaching assignments referencing this program or child batches
+    for (const u of this.users.values()) {
+      if (u.tenant_id === tenantId && u.metadata && Array.isArray(u.metadata.teaching_assignments)) {
+        u.metadata.teaching_assignments = u.metadata.teaching_assignments.filter((a: any) =>
+          a.program_id !== id && !childBatchIds.has(a.batch_id)
+        );
+      }
+    }
+
+    // Clean up template fee structures referencing child batches
+    if (this.feeStructures) {
+      this.feeStructures = this.feeStructures.filter(fs => !(fs.tenant_id === tenantId && childBatchIds.has(fs.batch_id)));
+    }
+
+    const initLen = this.programs.length;
     this.programs = this.programs.filter(p => !(p.tenant_id === tenantId && p.id === id));
     if (this.programs.length < initLen) {
+      this.recalculateBatchSeats(tenantId);
       this.persistQueued = true;
       await this.flushPersist();
       return true;
@@ -3340,25 +3358,42 @@ export class InMemoryDataStore implements IDataStore {
     return updated;
   }
 
-  async deleteBatch(tenantId: string, id: string, transferToBatchId?: string): Promise<boolean> {
-    const initLen = this.batches.length;
-    if (transferToBatchId) {
-      for (const s of this.students) {
-        if (s.tenant_id === tenantId && s.batch_id === id) {
-          s.batch_id = transferToBatchId;
-          s.updated_at = new Date().toISOString();
-        }
-      }
-    } else {
-      for (const s of this.students) {
-        if (s.tenant_id === tenantId && s.batch_id === id) {
-          s.batch_id = undefined as any;
-          s.updated_at = new Date().toISOString();
-        }
+  async deleteBatch(tenantId: string, id: string): Promise<boolean> {
+    const batch = this.batches.find(b => b.tenant_id === tenantId && b.id === id);
+    if (!batch) return false;
+
+    // Strict Institutional Rule: Block deletion if any student is currently assigned to this batch
+    const enrolledStudents = this.students.filter(s => s.tenant_id === tenantId && s.batch_id === id && s.status !== 'archived' && s.status !== 'withdrawn');
+    const enrolledInEnrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.batch_id === id && e.status !== 'archived' && e.status !== 'withdrawn');
+    const count = Math.max(enrolledStudents.length, enrolledInEnrollments.length);
+
+    if (count > 0) {
+      const isSec = (batch.cohort_type || (/section/i.test(batch.name) ? 'section' : 'batch')) === 'section';
+      const label = isSec ? 'section' : 'batch';
+      throw new Error(`Cannot delete ${label} "${batch.name}": There are ${count} student(s) currently enrolled. Please transfer or archive all students before deleting this ${label}.`);
+    }
+
+    // Clean up timetable periods referencing this batch
+    if (this.timetable) {
+      this.timetable = this.timetable.filter(t => !(t.tenant_id === tenantId && t.batch_id === id));
+    }
+
+    // Clean up faculty teaching assignments referencing this batch
+    for (const u of this.users.values()) {
+      if (u.tenant_id === tenantId && u.metadata && Array.isArray(u.metadata.teaching_assignments)) {
+        u.metadata.teaching_assignments = u.metadata.teaching_assignments.filter((a: any) => a.batch_id !== id);
       }
     }
+
+    // Clean up template fee structures referencing this batch
+    if (this.feeStructures) {
+      this.feeStructures = this.feeStructures.filter(fs => !(fs.tenant_id === tenantId && fs.batch_id === id));
+    }
+
+    const initLen = this.batches.length;
     this.batches = this.batches.filter(b => !(b.tenant_id === tenantId && b.id === id));
     if (this.batches.length < initLen) {
+      this.recalculateBatchSeats(tenantId);
       this.persistQueued = true;
       await this.flushPersist();
       return true;

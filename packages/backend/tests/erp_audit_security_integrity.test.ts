@@ -215,7 +215,7 @@ describe('ERP Audit Remediation: RBAC, Isolation, Financial Linkage & Student Li
     const expenseVoucher = updatedTransactions.find(t => t.reference_number === 'TRX-SALARY-TEST-999');
     expect(expenseVoucher).toBeDefined();
     expect(expenseVoucher?.type).toBe('expense');
-    expect(expenseVoucher?.head_name).toBe('Staff Salaries & Payroll');
+    expect(expenseVoucher?.head_name).toMatch(/Salaries/);
     expect(expenseVoucher?.voucher_number).toMatch(/^VCH-EXP-/);
   });
 

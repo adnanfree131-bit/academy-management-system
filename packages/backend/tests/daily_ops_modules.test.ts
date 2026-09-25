@@ -1087,7 +1087,9 @@ describe('Daily Ops Modules: Phase 0 (Persist, campus date, permissions)', () =>
         processed_by: 'finance-manager',
       });
 
-      // casual_used should have incremented by 1 (to 12, exhausting balance)
+      // casual_leave_deducted is recorded on payslip, and deducted upon markPayslipPaid
+      expect(slipCasual.casual_leave_deducted).toBe(1);
+      await store.markPayslipPaid(tenantId, slipCasual.id, 'cash', 'REF-CASUAL-1', 'finance-manager');
       expect((penaltyTeacher.metadata.leave_balance as any).casual_used).toBe(12);
 
       // The leftover 1 group became 1 unpaid day

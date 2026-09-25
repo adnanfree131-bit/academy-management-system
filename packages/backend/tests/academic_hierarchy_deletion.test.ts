@@ -49,6 +49,10 @@ describe('Academic Hierarchy: Permanent Class & Batch Deletion & No Resurrection
     });
     const programs = JSON.parse(res.body).data;
 
+    // Per institutional rule, programs cannot be deleted while active students are enrolled
+    store.students = store.students.filter(s => s.tenant_id !== tenantId);
+    store.studentEnrollments = store.studentEnrollments.filter(e => e.tenant_id !== tenantId);
+
     for (const prog of programs) {
       const delRes = await app.inject({
         method: 'DELETE',

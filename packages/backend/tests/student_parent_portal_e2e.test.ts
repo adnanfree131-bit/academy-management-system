@@ -224,6 +224,7 @@ describe('Student & Parent Portal End-to-End Operational Lifecycle Tests', () =>
         start_time: '09:00',
         end_time: '11:00',
         total_marks: 100,
+        short_total_marks: 100,
         passing_percentage: 40,
         status: 'GRADED',
       },
