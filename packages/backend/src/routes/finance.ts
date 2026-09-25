@@ -565,7 +565,7 @@ export function financeRoutes(store: IDataStore) {
       const schema = z.object({
         invoice_id: z.string().min(1),
         amount_paid: z.number().positive(),
-        payment_method: z.enum(['cash', 'bank_transfer', 'cheque', 'wallet', 'easypaisa', 'jazzcash']),
+        payment_method: z.enum(['cash', 'bank_transfer', 'cheque', 'wallet', 'easypaisa', 'jazzcash']).or(z.literal('meezan_bank').transform(() => 'bank_transfer' as const)),
         reference_number: z.string().optional(),
         bank_name: z.string().optional().nullable(),
         cheque_number: z.string().optional().nullable(),
@@ -618,7 +618,7 @@ export function financeRoutes(store: IDataStore) {
       if (!assertFeature(user, 'voucher', 'edit', reply)) return;
 
       const schema = z.object({
-        payment_method: z.enum(['cash', 'bank_transfer', 'cheque', 'wallet', 'easypaisa', 'jazzcash']),
+        payment_method: z.enum(['cash', 'bank_transfer', 'cheque', 'wallet', 'easypaisa', 'jazzcash']).or(z.literal('meezan_bank').transform(() => 'bank_transfer' as const)),
         reference_number: z.string().optional(),
         bank_name: z.string().optional().nullable(),
         cheque_number: z.string().optional().nullable(),

@@ -4858,7 +4858,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                           const isFull = !isCurrent && b.max_capacity > 0 && (b.current_enrollment || 0) >= b.max_capacity;
                           return (
                             <option key={b.id} value={b.id} disabled={isFull}>
-                              {b.name} ({b.shift}) {isFull ? `[Full: ${b.current_enrollment} of ${b.max_capacity}]` : `(${b.current_enrollment || 0} of ${b.max_capacity || 'Unlimited'})`}
+                              {b.name} ({b.shift}){isFull ? ' [Full]' : ''}
                             </option>
                           );
                         })}
@@ -5760,7 +5760,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     .filter(b => !addClassProgramId || b.program_id === addClassProgramId)
                     .map(b => (
                       <option key={b.id} value={b.id}>
-                        {b.name} ({b.shift ? b.shift.toUpperCase() : 'General'}) — [{b.current_enrollment || 0} of {b.max_capacity || 0} enrolled]
+                        {b.name}
                       </option>
                     ))}
                 </select>
@@ -6046,7 +6046,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                         const isFull = !isCurrent && b.max_capacity > 0 && (b.current_enrollment || 0) >= b.max_capacity;
                         return (
                           <option key={b.id} value={b.id} disabled={isFull}>
-                            {b.name} ({b.shift}) {isFull ? `[Full: ${b.current_enrollment} of ${b.max_capacity}]` : `(${b.current_enrollment || 0} of ${b.max_capacity || 'Unlimited'})`}
+                            {b.name} ({b.shift}){isFull ? ' [Full]' : ''}
                           </option>
                         );
                       })}

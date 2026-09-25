@@ -16,7 +16,6 @@ import {
   ChevronRight, 
   Receipt,
   Pencil,
-  ArrowRightLeft,
   GripVertical,
   DollarSign,
   SlidersHorizontal,
@@ -94,14 +93,6 @@ export const AcademicStructureView: React.FC = () => {
     is_core: true,
   });
 
-  // Smart Deletion with Bulk Student Transfer
-  const [showDeleteBatchModal, setShowDeleteBatchModal] = useState(false);
-  const [batchToDelete, setBatchToDelete] = useState<Batch | null>(null);
-  const [transferTargetBatchId, setTransferTargetBatchId] = useState<string>('');
-
-  const [showDeleteProgramModal, setShowDeleteProgramModal] = useState(false);
-  const [programToDelete, setProgramToDelete] = useState<AcademicProgram | null>(null);
-  const [transferTargetProgramId, setTransferTargetProgramId] = useState<string>('');
 
   // Dedicated Student Promotion / Section Transfer Modal
   const [showPromoteModal, setShowPromoteModal] = useState(false);
@@ -530,34 +521,30 @@ export const AcademicStructureView: React.FC = () => {
   };
 
   const initiateDeleteProgram = (p: AcademicProgram) => {
-    const enrolledStudents = students.filter(s => s.program_id === p.id);
-    if (enrolledStudents.length === 0) {
-      if (confirm(`Are you sure you want to delete class "${p.name}"? This will also remove associated sections and subjects.`)) {
-        executeDeleteProgram(p.id, p.name);
-      }
+    const enrolledStudents = students.filter(
+      s => s.program_id === p.id && s.status !== 'archived' && s.status !== 'withdrawn'
+    );
+    if (enrolledStudents.length > 0) {
+      alert(
+        `Cannot Delete Class "${p.name}"\n\nThere are currently ${enrolledStudents.length} student(s) enrolled in this class.\n\nPlease transfer them to another class or section using Section Transfer, or archive/delete them first.`
+      );
       return;
     }
 
-    setProgramToDelete(p);
-    const siblings = programs.filter(x => x.id !== p.id);
-    setTransferTargetProgramId(siblings[0]?.id || '');
-    setShowDeleteProgramModal(true);
+    if (confirm(`Are you sure you want to delete class "${p.name}"? This will also remove associated sections and subjects.`)) {
+      executeDeleteProgram(p.id, p.name);
+    }
   };
 
-  const executeDeleteProgram = async (id: string, name: string, transferProgId?: string) => {
+  const executeDeleteProgram = async (id: string, name: string) => {
     setIsSubmitting(true);
     try {
-      const url = transferProgId
-        ? `/api/v1/academic/programs/${id}?transfer_to_program_id=${transferProgId}`
-        : `/api/v1/academic/programs/${id}`;
-      const res = await fetch(url, {
+      const res = await fetch(`/api/v1/academic/programs/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        setShowDeleteProgramModal(false);
-        setProgramToDelete(null);
-        triggerSuccess(`Class "${name}" deleted${transferProgId ? ' and students transferred' : ''}.`);
+        triggerSuccess(`Class "${name}" deleted.`);
         fetchData();
       } else {
         const data = await res.json();
@@ -900,44 +887,35 @@ export const AcademicStructureView: React.FC = () => {
   };
 
   const initiateDeleteBatch = (b: Batch) => {
-    const enrolledStudents = students.filter(s => s.batch_id === b.id);
+    const enrolledStudents = students.filter(
+      s => s.batch_id === b.id && s.status !== 'archived' && s.status !== 'withdrawn'
+    );
     const isSection = (b.cohort_type || (/section/i.test(b.name) ? 'section' : 'batch')) === 'section';
-    const label = isSection ? 'section' : 'batch';
-    if (enrolledStudents.length === 0) {
-      if (confirm(`Are you sure you want to delete ${label} "${b.name}"?`)) {
-        executeDeleteBatch(b.id, b.name);
-      }
+    const label = isSection ? 'Section' : 'Batch';
+    if (enrolledStudents.length > 0) {
+      alert(
+        `Cannot Delete ${label} "${b.name}"\n\nThere are currently ${enrolledStudents.length} student(s) enrolled in this ${label.toLowerCase()}.\n\nPlease transfer them to another ${label.toLowerCase()} using Section Transfer, or archive/delete them first.`
+      );
       return;
     }
 
-    // Has students: open smart transfer modal
-    setBatchToDelete(b);
-    const siblings = batches.filter(x => {
-      if (x.program_id !== b.program_id || x.id !== b.id) return false;
-      const sibType = x.cohort_type || (/section/i.test(x.name) ? 'section' : 'batch');
-      return sibType === (isSection ? 'section' : 'batch');
-    });
-    setTransferTargetBatchId(siblings[0]?.id || '');
-    setShowDeleteBatchModal(true);
+    if (confirm(`Are you sure you want to delete ${label.toLowerCase()} "${b.name}"?`)) {
+      executeDeleteBatch(b.id, b.name);
+    }
   };
 
-  const executeDeleteBatch = async (batchId: string, batchName: string, transferBatchId?: string) => {
+  const executeDeleteBatch = async (batchId: string, batchName: string) => {
     setIsSubmitting(true);
     try {
-      const bObj = batches.find(x => x.id === batchId) || batchToDelete;
+      const bObj = batches.find(x => x.id === batchId);
       const isSec = (bObj?.cohort_type || (/section/i.test(batchName) ? 'section' : 'batch')) === 'section';
       const typeLabel = isSec ? 'Section' : 'Batch';
-      const url = transferBatchId 
-        ? `/api/v1/academic/batches/${batchId}?transfer_to_batch_id=${transferBatchId}`
-        : `/api/v1/academic/batches/${batchId}`;
-      const res = await fetch(url, {
+      const res = await fetch(`/api/v1/academic/batches/${batchId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
-        setShowDeleteBatchModal(false);
-        setBatchToDelete(null);
-        triggerSuccess(`${typeLabel} "${batchName}" deleted${transferBatchId ? ' and students transferred' : ''}.`);
+        triggerSuccess(`${typeLabel} "${batchName}" deleted.`);
         fetchData();
       } else {
         const data = await res.json();
@@ -1912,120 +1890,122 @@ export const AcademicStructureView: React.FC = () => {
                     <div className="space-y-4 pt-1">
                       {classDetailTab === 'all' && <div className="border-t border-slate-200/80 my-2" />}
 
-                      {/* Class Subjects */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
-                          <div className="flex items-center gap-2">
-                            <BookOpen className="w-3.5 h-3.5 text-slate-700" />
-                            <div>
-                              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                                Class Subjects
-                              </h4>
-                              <span className="text-[11px] text-slate-500">
-                                Standard subjects taught to students in this class.
-                              </span>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={openManageCompulsoryModal}
-                            className="px-2.5 py-1 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold transition-all shadow-2xs"
-                          >
-                            {activeCompulsoryGroup && activeCompulsoryGroup.subject_ids.length > 0 ? 'Edit Subjects' : '+ Assign Subjects'}
-                          </button>
-                        </div>
-
-                        {activeCompulsoryGroup && activeCompulsoryGroup.subject_ids.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5 pt-0.5">
-                            {activeCompulsoryGroup.subject_ids.map(subId => {
-                              const sub = subjects.find(s => s.id === subId);
-                              return (
-                                <span 
-                                  key={subId}
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 border border-slate-200 text-slate-800 rounded-lg text-xs font-medium shadow-2xs"
-                                >
-                                  <span className="font-mono text-[9px] bg-slate-200 px-1 py-0.2 rounded text-slate-700 font-bold">
-                                    {sub?.code || 'SUB'}
-                                  </span>
-                                  <span>{sub?.name || 'Subject'}</span>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+                        {/* LEFT COLUMN: Class Subjects (Compulsory Core) */}
+                        <div className="space-y-2 bg-slate-50/50 p-4 rounded-xl border border-slate-200/80">
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                            <div className="flex items-center gap-2">
+                              <BookOpen className="w-4 h-4 text-indigo-600" />
+                              <div>
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                                  Class Subjects (Core)
+                                </h4>
+                                <span className="text-[11px] text-slate-500">
+                                  Standard compulsory subjects taught to students in this class.
                                 </span>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="py-3 px-3.5 bg-slate-50/70 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-500">
-                            No subjects assigned to this class yet.
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Elective Groups */}
-                      <div className="space-y-2 pt-2">
-                        <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
-                          <div className="flex items-center gap-2">
-                            <Layers className="w-3.5 h-3.5 text-slate-700" />
-                            <div>
-                              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                                Elective Groups (Optional)
-                              </h4>
-                              <span className="text-[11px] text-slate-500">
-                                Optional subject groups for senior classes (e.g. Pre-Medical, Computer Science).
-                              </span>
+                              </div>
                             </div>
+                            <button
+                              type="button"
+                              onClick={openManageCompulsoryModal}
+                              className="px-2.5 py-1 border border-slate-200 hover:bg-white text-slate-700 rounded-lg text-xs font-semibold transition-all shadow-2xs cursor-pointer"
+                            >
+                              {activeCompulsoryGroup && activeCompulsoryGroup.subject_ids.length > 0 ? 'Edit Subjects' : '+ Assign Subjects'}
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={openAddElectiveTrackModal}
-                            className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-2xs"
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>Add Elective Group</span>
-                          </button>
+
+                          {activeCompulsoryGroup && activeCompulsoryGroup.subject_ids.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {activeCompulsoryGroup.subject_ids.map(subId => {
+                                const sub = subjects.find(s => s.id === subId);
+                                return (
+                                  <span 
+                                    key={subId}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 text-slate-800 rounded-lg text-xs font-medium shadow-2xs"
+                                  >
+                                    <span className="font-mono text-[9px] bg-slate-100 px-1 py-0.2 rounded text-slate-700 font-bold border border-slate-200">
+                                      {sub?.code || 'SUB'}
+                                    </span>
+                                    <span>{sub?.name || 'Subject'}</span>
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="py-4 px-3.5 bg-white/70 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-500">
+                              No subjects assigned to this class yet.
+                            </div>
+                          )}
                         </div>
 
-                        {activeElectiveTracks.length > 0 ? (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pt-0.5">
-                            {activeElectiveTracks.map(track => {
-                              const trackStudents = activeStudents.filter(s => s.elective_group_id === track.id);
-                              return (
-                                <div key={track.id} className="border border-slate-200 rounded-xl p-2.5 bg-slate-50/50 hover:bg-white hover:border-slate-300 transition-all">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div>
-                                      <span className="font-bold text-xs text-slate-900">{track.name}</span>
-                                      <div className="text-[10px] font-mono text-slate-500 font-medium mt-0.5">
-                                        {trackStudents.length} Students Enrolled
+                        {/* RIGHT COLUMN: Elective Groups */}
+                        <div className="space-y-2 bg-slate-50/50 p-4 rounded-xl border border-slate-200/80">
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                            <div className="flex items-center gap-2">
+                              <Layers className="w-4 h-4 text-amber-600" />
+                              <div>
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                                  Elective Groups
+                                </h4>
+                                <span className="text-[11px] text-slate-500">
+                                  Specialized tracks (e.g. Pre-Medical, Computer Science).
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={openAddElectiveTrackModal}
+                              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-2xs cursor-pointer"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Add Group</span>
+                            </button>
+                          </div>
+
+                          {activeElectiveTracks.length > 0 ? (
+                            <div className="space-y-2 pt-1">
+                              {activeElectiveTracks.map(track => {
+                                const trackStudents = activeStudents.filter(s => s.elective_group_id === track.id);
+                                return (
+                                  <div key={track.id} className="border border-slate-200 rounded-xl p-3 bg-white hover:border-slate-300 transition-all shadow-2xs">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div>
+                                        <span className="font-bold text-xs text-slate-900">{track.name}</span>
+                                        <div className="text-[10px] font-mono text-slate-500 font-medium mt-0.5">
+                                          {trackStudents.length} Students Enrolled
+                                        </div>
                                       </div>
+                                      <button
+                                        onClick={() => handleDeleteSubjectGroup(track.id, track.name)}
+                                        className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors cursor-pointer"
+                                        title="Delete Group"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
                                     </div>
-                                    <button
-                                      onClick={() => handleDeleteSubjectGroup(track.id, track.name)}
-                                      className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"
-                                      title="Delete Group"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+                                    <div className="mt-2 flex flex-wrap gap-1">
+                                      {track.subject_ids.map(subId => {
+                                        const sub = subjects.find(s => s.id === subId);
+                                        return (
+                                          <span
+                                            key={subId}
+                                            className="text-[10px] bg-slate-50 border border-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-medium shadow-2xs"
+                                          >
+                                            {sub?.name || 'Subject'}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
                                   </div>
-                                  <div className="mt-2 flex flex-wrap gap-1">
-                                    {track.subject_ids.map(subId => {
-                                      const sub = subjects.find(s => s.id === subId);
-                                      return (
-                                        <span
-                                          key={subId}
-                                          className="text-[10px] bg-white border border-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-medium shadow-2xs"
-                                        >
-                                          {sub?.name || 'Subject'}
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="py-3 px-3.5 bg-slate-50/70 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-500">
-                            No elective groups configured. All students in this class take standard class subjects.
-                          </div>
-                        )}
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="py-4 px-3.5 bg-white/70 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-500">
+                              No elective groups configured. All students in this class take standard class subjects.
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -3850,95 +3830,6 @@ export const AcademicStructureView: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL 4C: SMART DELETE SECTION / BATCH WITH BULK TRANSFER */}
-      {showDeleteBatchModal && batchToDelete && (() => {
-        const isDeleteTargetSection = (batchToDelete.cohort_type || (/section/i.test(batchToDelete.name) ? 'section' : 'batch')) === 'section';
-        const deleteLabel = isDeleteTargetSection ? 'Section' : 'Batch';
-        const deleteLabelLower = isDeleteTargetSection ? 'section' : 'batch';
-        const parentScopeLabel = isDeleteTargetSection ? 'class' : 'program';
-        const siblingDestinations = batches.filter(x => {
-          if (x.program_id !== batchToDelete.program_id || x.id === batchToDelete.id) return false;
-          const sibType = x.cohort_type || (/section/i.test(x.name) ? 'section' : 'batch');
-          return sibType === (isDeleteTargetSection ? 'section' : 'batch');
-        });
-        const activeStudentCount = students.filter(s => s.batch_id === batchToDelete.id).length;
-
-        return (
-          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
-            <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-2 rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
-                    <ArrowRightLeft className="w-4 h-4 text-amber-600" />
-                  </span>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">Transfer Students & Delete {deleteLabel}</h3>
-                    <p className="text-[11px] text-slate-500">{deleteLabel}: {batchToDelete.name}</p>
-                  </div>
-                </div>
-                <button onClick={() => setShowDeleteBatchModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="space-y-4 mt-4 text-xs">
-                <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 leading-relaxed">
-                  <strong>{activeStudentCount} active students</strong> are currently enrolled in <strong>{batchToDelete.name}</strong>.
-                  To prevent broken fee ledgers or orphaned student profiles, select a destination {deleteLabelLower} to transfer them to.
-                </div>
-
-                {siblingDestinations.length > 0 ? (
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1">
-                      Select Destination {deleteLabel} <span className="text-rose-500">*</span>
-                    </label>
-                    <select
-                      value={transferTargetBatchId}
-                      onChange={e => setTransferTargetBatchId(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    >
-                      {siblingDestinations.map(b => {
-                        const count = students.filter(s => s.batch_id === b.id).length;
-                        return (
-                          <option key={b.id} value={b.id}>
-                            {b.name} ({b.shift}) • {count}/{b.max_capacity} seats
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-600">
-                    There are no other {deleteLabelLower}s in this {parentScopeLabel}. Please create another {deleteLabelLower} first or reassign the students before deleting this {deleteLabelLower}.
-                  </div>
-                )}
-
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteBatchModal(false)}
-                    className="h-8.5 px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-xs cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  {siblingDestinations.length > 0 && (
-                    <button
-                      type="button"
-                      disabled={isSubmitting || !transferTargetBatchId}
-                      onClick={() => executeDeleteBatch(batchToDelete.id, batchToDelete.name, transferTargetBatchId)}
-                      className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-xs cursor-pointer"
-                    >
-                      <ArrowRightLeft className="w-3.5 h-3.5" />
-                      <span>{isSubmitting ? 'Transferring...' : `Transfer ${activeStudentCount} Students & Delete`}</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* MODAL 4E: STUDENT CLASS PROMOTION & SECTION TRANSFER */}
       {showPromoteModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
@@ -3975,14 +3866,11 @@ export const AcademicStructureView: React.FC = () => {
                       required
                     >
                       <option value="" disabled>Select Source Batch</option>
-                      {batches.map(b => {
-                        const count = students.filter(s => s.batch_id === b.id && s.status === 'active').length;
-                        return (
-                          <option key={b.id} value={b.id}>
-                            {b.name} ({b.shift} • {count} students)
-                          </option>
-                        );
-                      })}
+                      {batches.map(b => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.shift})
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -3999,14 +3887,11 @@ export const AcademicStructureView: React.FC = () => {
                       <option value="" disabled>Select Destination Batch</option>
                       {batches
                         .filter(b => b.id !== promoteSourceBatchId)
-                        .map(b => {
-                          const count = students.filter(s => s.batch_id === b.id && s.status === 'active').length;
-                          return (
-                            <option key={b.id} value={b.id}>
-                              {b.name} ({b.shift}{b.fee_amount ? ` • PKR ${b.fee_amount.toLocaleString()}` : ''} • {count}/{b.max_capacity} seats)
-                            </option>
-                          );
-                        })}
+                        .map(b => (
+                          <option key={b.id} value={b.id}>
+                            {b.name} ({b.shift})
+                          </option>
+                        ))}
                     </select>
                   </div>
                 </div>
@@ -4210,80 +4095,7 @@ export const AcademicStructureView: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL 4D: SMART DELETE CLASS WITH BULK TRANSFER */}
-      {showDeleteProgramModal && programToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <span className="p-2 rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
-                  <ArrowRightLeft className="w-4 h-4 text-rose-600" />
-                </span>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Transfer Students & Delete Class</h3>
-                  <p className="text-[11px] text-slate-500">Class: {programToDelete.name}</p>
-                </div>
-              </div>
-              <button onClick={() => setShowDeleteProgramModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            <div className="space-y-4 mt-4 text-xs">
-              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 leading-relaxed">
-                <strong>{students.filter(s => s.program_id === programToDelete.id).length} active students</strong> are currently enrolled in <strong>{programToDelete.name}</strong>.
-                Select a destination class to transfer them to before deleting.
-              </div>
-
-              {programs.filter(x => x.id !== programToDelete.id).length > 0 ? (
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">
-                    Select Destination Class <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={transferTargetProgramId}
-                    onChange={e => setTransferTargetProgramId(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-rose-500"
-                  >
-                    {programs
-                      .filter(x => x.id !== programToDelete.id)
-                      .map(p => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} • {students.filter(s => s.program_id === p.id).length} Students
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="p-3 bg-slate-100 border border-slate-200 rounded-xl text-slate-600">
-                  There are no other classes in the institution. Reassign or graduate students before deleting this class.
-                </div>
-              )}
-
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowDeleteProgramModal(false)}
-                  className="h-8.5 px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-xs cursor-pointer"
-                >
-                  Cancel
-                </button>
-                {programs.filter(x => x.id !== programToDelete.id).length > 0 && (
-                  <button
-                    type="button"
-                    disabled={isSubmitting || !transferTargetProgramId}
-                    onClick={() => executeDeleteProgram(programToDelete.id, programToDelete.name, transferTargetProgramId)}
-                    className="h-8.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <ArrowRightLeft className="w-3.5 h-3.5" />
-                    <span>{isSubmitting ? 'Transferring...' : `Transfer ${students.filter(s => s.program_id === programToDelete.id).length} Students & Delete`}</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* MODAL 5: ADD SUBJECT TO CATALOG */}
       {showSubjectModal && (
