@@ -223,8 +223,8 @@ export function academicRoutes(store: IDataStore) {
       const { id } = request.params as { id: string };
 
       const schema = z.object({
-        name: z.string().min(1).optional(),
-        code: z.string().optional(),
+        name: z.string().trim().min(1, 'Subject name cannot be empty').optional(),
+        code: z.string().trim().optional(),
         is_core: z.boolean().optional(),
       });
 
