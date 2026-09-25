@@ -530,20 +530,20 @@ export const HomeworkDesk: React.FC = () => {
               {/* Four Navy Counters in grid-cols-2 */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
-                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block truncate">Done</span>
-                  <span className="text-base font-bold font-mono text-emerald-400 mt-0.5 block">{checkStats.done}</span>
+                  <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold block truncate">Done</span>
+                  <span className="text-base font-bold font-mono text-white mt-0.5 block">{checkStats.done}</span>
                 </div>
                 <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
-                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block truncate">Incomplete</span>
-                  <span className="text-base font-bold font-mono text-amber-300 mt-0.5 block">{checkStats.incomplete}</span>
+                  <span className="text-[10px] font-mono uppercase text-amber-400 font-bold block truncate">Incomplete</span>
+                  <span className="text-base font-bold font-mono text-white mt-0.5 block">{checkStats.incomplete}</span>
                 </div>
                 <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
-                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block truncate">Missing</span>
-                  <span className="text-base font-bold font-mono text-rose-400 mt-0.5 block">{checkStats.missing}</span>
+                  <span className="text-[10px] font-mono uppercase text-rose-400 font-bold block truncate">Missing</span>
+                  <span className="text-base font-bold font-mono text-white mt-0.5 block">{checkStats.missing}</span>
                 </div>
                 <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                   <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block truncate">Not checked</span>
-                  <span className="text-base font-bold font-mono text-slate-300 mt-0.5 block">{checkStats.notChecked}</span>
+                  <span className="text-base font-bold font-mono text-white mt-0.5 block">{checkStats.notChecked}</span>
                 </div>
               </div>
 
@@ -766,23 +766,23 @@ export const HomeworkDesk: React.FC = () => {
                 </div>
               )}
 
-              {/* Progress Counters (Sidebar Dark Navy Design with Semantic Accents) */}
+              {/* Progress Counters (Sidebar Dark Navy Design) */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-                <div className="bg-[#081A2F] border border-[#173252] hover:border-emerald-500/50 hover:bg-[#0b213b] rounded-xl p-2.5 sm:p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
-                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block truncate">Done</span>
-                  <span className="text-base sm:text-lg font-bold font-mono text-emerald-400 mt-0.5 block">{checkStats.done}</span>
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 sm:p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                  <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold block truncate">Done</span>
+                  <span className="text-base sm:text-lg font-bold font-mono text-white mt-0.5 block">{checkStats.done}</span>
                 </div>
-                <div className="bg-[#081A2F] border border-[#173252] hover:border-amber-500/50 hover:bg-[#0b213b] rounded-xl p-2.5 sm:p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
-                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block truncate">Incomplete</span>
-                  <span className="text-base sm:text-lg font-bold font-mono text-amber-300 mt-0.5 block">{checkStats.incomplete}</span>
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 sm:p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                  <span className="text-[10px] font-mono uppercase text-amber-400 font-bold block truncate">Incomplete</span>
+                  <span className="text-base sm:text-lg font-bold font-mono text-white mt-0.5 block">{checkStats.incomplete}</span>
                 </div>
-                <div className="bg-[#081A2F] border border-[#173252] hover:border-rose-500/50 hover:bg-[#0b213b] rounded-xl p-2.5 sm:p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
-                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block truncate">Missing</span>
-                  <span className="text-base sm:text-lg font-bold font-mono text-rose-400 mt-0.5 block">{checkStats.missing}</span>
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 sm:p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                  <span className="text-[10px] font-mono uppercase text-rose-400 font-bold block truncate">Missing</span>
+                  <span className="text-base sm:text-lg font-bold font-mono text-white mt-0.5 block">{checkStats.missing}</span>
                 </div>
-                <div className="bg-[#081A2F] border border-[#173252] hover:border-slate-500/50 hover:bg-[#0b213b] rounded-xl p-2.5 sm:p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 sm:p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                   <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block truncate">Not checked</span>
-                  <span className="text-base sm:text-lg font-bold font-mono text-slate-300 mt-0.5 block">{checkStats.notChecked}</span>
+                  <span className="text-base sm:text-lg font-bold font-mono text-white mt-0.5 block">{checkStats.notChecked}</span>
                 </div>
               </div>
 

@@ -717,52 +717,56 @@ export const FeeReversalsView: React.FC = () => {
 
               {/* Collapsible Overview & Secondary Filters Container */}
               <div className={`${showFilters ? 'block' : 'hidden'} space-y-3 pt-2 border-t border-slate-100 animate-in fade-in duration-150`}>
-                {/* Metric Strip (Sidebar Dark Navy Design with Semantic Accents) */}
+                {/* Metric Strip (Sidebar Dark Navy Design) */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                  <div className="bg-[#081A2F] border border-[#173252] hover:border-sky-500/50 hover:bg-[#0b213b] rounded-xl p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
                       Total Invoiced
                     </span>
                     <span className="text-sm sm:text-base font-mono font-bold text-white mt-0.5 block">
                       PKR {totalInvoiced.toLocaleString()}
                     </span>
-                    <span className="text-[10px] text-sky-400/80 mt-0.5 block truncate">
+                    <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
                       {isSameBillingMonth(selectedMonth, currentMonthName) ? 'Current Month' : selectedMonth === 'all' ? 'All Months' : selectedMonth}
                     </span>
                   </div>
 
-                  <div className="bg-[#081A2F] border border-[#173252] hover:border-emerald-500/50 hover:bg-[#0b213b] rounded-xl p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
                       Total Collected
                     </span>
                     <span className="text-sm sm:text-base font-mono font-bold text-emerald-400 mt-0.5 block">
                       PKR {totalCollected.toLocaleString()}
                     </span>
-                    <span className="text-[10px] text-emerald-400/80 mt-0.5 block truncate">
+                    <span className="text-[10px] text-emerald-300 mt-0.5 block truncate">
                       Realized Receipts
                     </span>
                   </div>
 
-                  <div className="bg-[#081A2F] border border-[#173252] hover:border-amber-500/50 hover:bg-[#0b213b] rounded-xl p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
                       Outstanding Balance
                     </span>
-                    <span className="text-sm sm:text-base font-mono font-bold text-amber-300 mt-0.5 block">
+                    <span
+                      className={`text-sm sm:text-base font-mono font-bold mt-0.5 block ${
+                        totalDue > 0 ? 'text-rose-400' : 'text-emerald-400'
+                      }`}
+                    >
                       PKR {totalDue.toLocaleString()}
                     </span>
-                    <span className="text-[10px] text-amber-400/80 mt-0.5 block truncate">
+                    <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
                       Unpaid Dues
                     </span>
                   </div>
 
-                  <div className="bg-[#081A2F] border border-[#173252] hover:border-indigo-500/50 hover:bg-[#0b213b] rounded-xl p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-3 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block font-mono">
                       Active Receipts
                     </span>
-                    <span className="text-sm sm:text-base font-mono font-bold text-indigo-300 mt-0.5 block">
+                    <span className="text-sm sm:text-base font-mono font-bold text-slate-200 mt-0.5 block">
                       {displayedPayments.length} Receipt{displayedPayments.length !== 1 ? 's' : ''}
                     </span>
-                    <span className="text-[10px] text-indigo-400/80 mt-0.5 block truncate">
+                    <span className="text-[10px] text-slate-400 mt-0.5 block truncate">
                       Eligible for Reversal
                     </span>
                   </div>

@@ -740,7 +740,7 @@ export const ExamDeskView: React.FC = () => {
       {showOverviewMetrics && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-2.5 animate-in fade-in duration-150">
           {/* Card 1: Scheduled Exams */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-sky-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Scheduled Exams
@@ -749,72 +749,72 @@ export const ExamDeskView: React.FC = () => {
                 <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {exams.length}
                 </span>
-                <span className="text-xs font-medium text-sky-400/80 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Planned
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-indigo-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <FileCheck2 className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 2: Question Bank */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-indigo-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Question Bank
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-indigo-300 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base leading-none">
                   {bankQuestions.length}
                 </span>
-                <span className="text-xs font-medium text-indigo-400/80 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Items
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <BookOpen className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 3: Chapter Folders */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-purple-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Chapter Folders
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-purple-300 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-amber-400 text-sm sm:text-base leading-none">
                   {chapters.length}
                 </span>
-                <span className="text-xs font-medium text-purple-400/80 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Topics
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <FolderTree className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 4: Evaluations */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-emerald-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Evaluations
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-purple-400 text-sm sm:text-base leading-none">
                   {examEvaluations.length}
                 </span>
-                <span className="text-xs font-medium text-emerald-400/80 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Graded
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-purple-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <Award className="w-3.5 h-3.5" />
             </span>
           </div>

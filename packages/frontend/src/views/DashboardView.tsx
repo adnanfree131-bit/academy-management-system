@@ -11,7 +11,7 @@ import {
   CheckCircle2,
   BookOpen,
   UserCheck,
-  HelpCircle,
+  PhoneCall,
   FileText,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -464,23 +464,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         {/* Card 1: Active Enrollment */}
         <div
           onClick={() => onNavigate('enrollment')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-sky-500/50 hover:bg-[#0b213b] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between group"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Students</span>
-            <div className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <Users className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
               <span className="text-xl sm:text-2xl font-bold font-mono text-white">{activeStudents}</span>
-              <span className="text-[11px] font-mono text-sky-400/80 font-medium">/ {hasCapacity ? totalCapacity : '—'}</span>
+              <span className="text-[11px] font-mono text-slate-400">/ {hasCapacity ? totalCapacity : '—'}</span>
             </div>
             <p className="text-[11px] text-slate-300 mt-1">
               {hasCapacity ? (
                 <>
-                  <span className="font-mono font-semibold text-slate-200">{capacityPct}%</span> capacity occupied
+                  <span className="font-mono font-semibold text-amber-400">{capacityPct}%</span> capacity occupied
                 </>
               ) : (
                 <span>—</span>
@@ -489,55 +489,55 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
             <span>{batches.length} Batches</span>
-            <span className="text-amber-400 font-semibold group-hover:underline">Directory →</span>
+            <span className="text-amber-400 font-semibold hover:underline">Directory →</span>
           </div>
         </div>
 
         {/* Card 2: Fee Collections */}
         <div
           onClick={() => onNavigate('voucher')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-emerald-500/50 hover:bg-[#0b213b] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between group"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Collections</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <CreditCard className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-lg sm:text-2xl font-bold font-mono text-emerald-400 truncate">
+              <span className="text-lg sm:text-2xl font-bold font-mono text-white truncate">
                 {money(totalCollected)}
               </span>
             </div>
             <p className="text-[11px] text-slate-300 mt-1 truncate">
-              <span className="font-mono font-semibold text-slate-200">{feeRealizationPct}%</span> of {money(totalBilled)} billed
+              <span className="font-mono font-semibold text-emerald-400">{feeRealizationPct}%</span> of {money(totalBilled)} billed
             </p>
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
-            <span className={`font-mono ${overdueInvoices.length > 0 ? 'text-rose-400 font-semibold' : 'text-slate-400'}`}>{overdueInvoices.length} Overdue</span>
-            <span className="text-amber-400 font-semibold group-hover:underline">Cashier →</span>
+            <span className="text-rose-400 font-semibold font-mono">{overdueInvoices.length} Overdue</span>
+            <span className="text-amber-400 font-semibold hover:underline">Cashier →</span>
           </div>
         </div>
 
         {/* Card 3: Student Attendance Today */}
         <div
           onClick={() => onNavigate('attendance')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-indigo-500/50 hover:bg-[#0b213b] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between group"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Attendance</span>
-            <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <CheckSquare className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-bold font-mono text-indigo-300">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {isAttendanceSubmittedToday ? `${attendanceRate}%` : 'Pending'}
               </span>
               {isAttendanceSubmittedToday && (
-                <span className="text-[11px] text-indigo-200 font-semibold font-mono">
+                <span className="text-[11px] text-emerald-400 font-semibold font-mono">
                   {presentCount} Present
                 </span>
               )}
@@ -548,27 +548,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
             <span>{unmarkedBatches.length > 0 ? `${unmarkedBatches.length} Pending` : 'All Batches Marked'}</span>
-            <span className="text-amber-400 font-semibold group-hover:underline">Register →</span>
+            <span className="text-amber-400 font-semibold hover:underline">Register →</span>
           </div>
         </div>
 
         {/* Card 4: Faculty & Staff Roster */}
         <div
           onClick={() => onNavigate('geofence')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-amber-500/50 hover:bg-[#0b213b] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between group"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Staff present</span>
-            <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <UserCheck className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-bold font-mono text-amber-300">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {presentStaffCount} <span className="text-sm font-normal text-slate-400 font-sans">/ {totalStaffCount}</span>
               </span>
-              <span className="text-[11px] text-amber-200 font-semibold font-mono">
+              <span className="text-[11px] text-amber-400 font-semibold font-mono">
                 {staffPresentPct}% Duty
               </span>
             </div>
@@ -578,7 +578,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
             <span>{timetableSlots.length} Periods Today</span>
-            <span className="text-amber-400 font-semibold group-hover:underline">Roster →</span>
+            <span className="text-amber-400 font-semibold hover:underline">Roster →</span>
           </div>
         </div>
       </div>
@@ -938,25 +938,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Executive Desks Summary Bar: Homework, Admissions Pipeline, and Examinations (Sidebar Dark Navy Palette with Semantic Accents) */}
+      {/* Executive Desks Summary Bar: Homework, Admissions Pipeline, and Examinations (Sidebar Dark Navy Palette) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Desk 1: Homework Diary */}
         <div
           onClick={() => onNavigate('homework')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-indigo-500/50 hover:bg-[#0b213b] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between group"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Academic Diary</span>
-            <div className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <BookOpen className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-bold font-mono text-indigo-300">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {todayHomework.length > 0 ? todayHomework.length : homeworkList.length}
               </span>
-              <span className="text-xs text-indigo-400/80 font-medium">
+              <span className="text-xs text-slate-400 font-medium">
                 {todayHomework.length > 0 ? 'Tasks Assigned Today' : 'Tasks in Diary'}
               </span>
             </div>
@@ -970,27 +970,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
             <span>Diary & Notebooks</span>
-            <span className="text-amber-400 font-semibold group-hover:underline">Open Desk →</span>
+            <span className="text-amber-400 font-semibold hover:underline">Open Desk →</span>
           </div>
         </div>
 
         {/* Desk 2: Prospective Inquiries */}
         <div
           onClick={() => onNavigate('enrollment')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-amber-500/50 hover:bg-[#0b213b] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between group"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Admissions Pipeline</span>
-            <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <HelpCircle className="w-3.5 h-3.5" />
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
+              <PhoneCall className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-bold font-mono text-amber-300">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {inquiriesList.length}
               </span>
-              <span className="text-xs text-amber-400/80 font-medium">
+              <span className="text-xs text-slate-400 font-medium">
                 Active Inquiries
               </span>
             </div>
@@ -1002,27 +1002,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
           </div>
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
             <span>Prospects & Inquiries</span>
-            <span className="text-amber-400 font-semibold group-hover:underline">Review Pipeline →</span>
+            <span className="text-amber-400 font-semibold hover:underline">Review Pipeline →</span>
           </div>
         </div>
 
         {/* Desk 3: Examinations & Assessments */}
         <div
           onClick={() => onNavigate('exams')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-sky-500/50 hover:bg-[#0b213b] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between group"
+          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Examinations</span>
-            <div className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <div className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center">
               <FileText className="w-3.5 h-3.5" />
             </div>
           </div>
           <div className="my-2.5">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl sm:text-2xl font-bold font-mono text-sky-300">
+              <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {exams.length}
               </span>
-              <span className="text-xs text-sky-400/80 font-medium">
+              <span className="text-xs text-slate-400 font-medium">
                 Configured Papers
               </span>
             </div>

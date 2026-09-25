@@ -447,27 +447,27 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
       {showOverviewFilters && (
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-2.5 animate-in fade-in duration-150">
           {/* Card 1: Total Absentees */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-rose-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Total Absentees
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-rose-400 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {kpi.total_absentees}
                 </span>
-                <span className="text-xs font-medium text-rose-400/80 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Recorded
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <UserX className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 2: Contacted Rate */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-emerald-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Contacted Rate
@@ -476,72 +476,72 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base leading-none">
                   {kpi.contacted_percentage}%
                 </span>
-                <span className="text-xs font-medium text-emerald-400/80 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   ({kpi.contacted_count}/{kpi.total_absentees})
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <PhoneCall className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 3: Unreachable / Rings */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-amber-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Unreachable
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-amber-300 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-amber-400 text-sm sm:text-base leading-none">
                   {kpi.unreachable_count}
                 </span>
-                <span className="text-xs font-medium text-amber-400/80 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Retry
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <PhoneMissed className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 4: Pending Calls */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-indigo-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Pending Calls
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-indigo-300 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-sky-400 text-sm sm:text-base leading-none">
                   {kpi.pending_count}
                 </span>
-                <span className="text-xs font-medium text-indigo-400/80 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Awaiting
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <Clock className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 5: Excused Leaves */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-sky-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] col-span-2 sm:col-span-1 transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] col-span-2 sm:col-span-1">
             <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Excused Leaves
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-sky-300 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-purple-400 text-sm sm:text-base leading-none">
                   {kpi.excused_count}
                 </span>
-                <span className="text-xs font-medium text-sky-400/80 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Sanctioned
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-purple-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <ShieldCheck className="w-3.5 h-3.5" />
             </span>
           </div>
@@ -1528,21 +1528,21 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
           {/* 4-Card Summary Strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <div className="bg-[#081A2F] border border-[#173252] hover:border-rose-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+            <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
               <div>
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight">
                   Total Absences
                 </span>
-                <span className="font-mono font-bold text-rose-400 text-base leading-none block mt-1">
+                <span className="font-mono font-bold text-white text-base leading-none block mt-1">
                   {monthlyReport?.total_absences ?? 0}
                 </span>
               </div>
-              <span className="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/25 flex items-center justify-center shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0">
                 <UserX className="w-3.5 h-3.5" />
               </span>
             </div>
 
-            <div className="bg-[#081A2F] border border-[#173252] hover:border-emerald-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+            <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
               <div>
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight">
                   Follow-Up Rate
@@ -1551,35 +1551,35 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   {monthlyReport?.followup_rate ?? 0}%
                 </span>
               </div>
-              <span className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0">
                 <PhoneCall className="w-3.5 h-3.5" />
               </span>
             </div>
 
-            <div className="bg-[#081A2F] border border-[#173252] hover:border-sky-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+            <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
               <div>
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight">
                   Medical Converted
                 </span>
-                <span className="font-mono font-bold text-sky-300 text-base leading-none block mt-1">
+                <span className="font-mono font-bold text-purple-400 text-base leading-none block mt-1">
                   {monthlyReport?.medical_leave_converted ?? 0}
                 </span>
               </div>
-              <span className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/25 flex items-center justify-center shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-purple-400 border border-white/10 flex items-center justify-center shrink-0">
                 <ShieldCheck className="w-3.5 h-3.5" />
               </span>
             </div>
 
-            <div className="bg-[#081A2F] border border-[#173252] hover:border-amber-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+            <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
               <div>
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight">
                   Prevented Dropouts
                 </span>
-                <span className="font-mono font-bold text-amber-300 text-base leading-none block mt-1">
+                <span className="font-mono font-bold text-sky-400 text-base leading-none block mt-1">
                   {monthlyReport?.prevented_dropouts ?? 0}
                 </span>
               </div>
-              <span className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0">
+              <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0">
                 <Users className="w-3.5 h-3.5" />
               </span>
             </div>

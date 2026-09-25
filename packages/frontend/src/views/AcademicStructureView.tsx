@@ -1099,7 +1099,7 @@ export const AcademicStructureView: React.FC = () => {
       {showOverviewCards && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 animate-in fade-in duration-150">
           {/* Card 1: Classes / Grades */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-sky-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Classes / Grades
@@ -1108,73 +1108,73 @@ export const AcademicStructureView: React.FC = () => {
                 <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {programs.length}
                 </span>
-                <span className="text-xs font-medium text-sky-400/80 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Registered
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <GraduationCap className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 2: Class Sections */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-indigo-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Class Sections
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-indigo-300 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {actualSectionsCount}
                 </span>
-                <span className="text-xs font-medium text-indigo-400/80 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Active
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-sky-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <FolderTree className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 3: Total Students */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-emerald-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 block leading-tight truncate">
                 Total Students
               </span>
               <div className="flex items-baseline gap-1.5 mt-0.5">
-                <span className="font-mono font-bold text-emerald-400 text-sm sm:text-base leading-none">
+                <span className="font-mono font-bold text-white text-sm sm:text-base leading-none">
                   {totalEnrolled}
                 </span>
-                <span className="text-xs font-medium text-emerald-400/80 leading-none">
+                <span className="text-xs font-medium text-slate-400 leading-none">
                   Enrolled
                 </span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <Users className="w-3.5 h-3.5" />
             </span>
           </div>
 
           {/* Card 4: Total Occupancy */}
-          <div className="bg-[#081A2F] border border-[#173252] hover:border-amber-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all">
+          <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 leading-tight">
                 <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 truncate">
                   Total Occupancy
                 </span>
-                <span className="text-[10px] font-mono font-bold text-amber-300 bg-amber-500/15 px-1 py-0.5 rounded border border-amber-500/30">
+                <span className="text-[10px] font-mono font-bold text-amber-300 bg-white/10 px-1 py-0.5 rounded border border-white/10">
                   {Math.round(capacityPercent)}%
                 </span>
               </div>
               <div className="font-mono text-xs mt-0.5 leading-none">
-                <span className="font-bold text-amber-300 text-sm sm:text-base">{totalEnrolled}</span>
+                <span className="font-bold text-white text-sm sm:text-base">{totalEnrolled}</span>
                 <span className="font-normal text-slate-400 ml-1">/ {totalCapacity} Seats</span>
               </div>
             </div>
-            <span className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0 shadow-2xs">
+            <span className="w-7 h-7 rounded-lg bg-white/10 text-indigo-300 border border-white/10 flex items-center justify-center shrink-0 shadow-2xs">
               <Users className="w-3.5 h-3.5" />
             </span>
           </div>

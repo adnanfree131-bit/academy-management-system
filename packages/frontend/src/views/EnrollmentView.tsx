@@ -2493,92 +2493,53 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             {/* Overview Summary Cards (Controlled by Overview Cards slider item in menu) */}
             {showOverviewCards && (
               <div className="mt-3 pt-3 border-t border-slate-100 space-y-3 animate-in fade-in duration-150">
-                {/* 5-Card Metric Summary Strip (Elevated Institutional Semantic Design) */}
+                {/* 5-Card Metric Summary Strip (Sidebar Dark Navy Design) */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-                  <div 
-                    onClick={() => { setStatusFilter('all'); }}
-                    className="bg-[#081A2F] border border-[#173252] hover:border-sky-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all cursor-pointer group"
-                    title="Click to view all enrolled students"
-                  >
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
-                      <span className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400 block mb-0.5">Total Students</span>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-mono font-bold text-white text-lg sm:text-xl tracking-tight">{students.length}</span>
-                        <span className="text-[10px] text-sky-400/80 font-mono font-medium">All</span>
-                      </div>
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Total Students</span>
+                      <span className="font-mono font-bold text-white text-base">{students.length}</span>
                     </div>
-                    <span className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <Users className="w-4 h-4" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center shrink-0">
+                      <Users className="w-3.5 h-3.5" />
                     </span>
                   </div>
-
-                  <div 
-                    onClick={() => { setStatusFilter('active'); }}
-                    className="bg-[#081A2F] border border-[#173252] hover:border-emerald-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all cursor-pointer group"
-                    title="Click to filter by active enrolled"
-                  >
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
-                      <span className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400 block mb-0.5">Active Enrolled</span>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-mono font-bold text-emerald-400 text-lg sm:text-xl tracking-tight">{students.filter(s => s.status === 'active').length}</span>
-                        <span className="text-[10px] text-emerald-400/80 font-mono font-medium">Attending</span>
-                      </div>
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Active Enrolled</span>
+                      <span className="font-mono font-bold text-emerald-400 text-base">{students.filter(s => s.status === 'active').length}</span>
                     </div>
-                    <span className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <UserCheck className="w-4 h-4" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0">
+                      <UserCheck className="w-3.5 h-3.5" />
                     </span>
                   </div>
-
-                  <div 
-                    onClick={() => setActiveTab('inquiries')}
-                    className="bg-[#081A2F] border border-[#173252] hover:border-amber-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all cursor-pointer group"
-                    title="Click to open Inquiries Pipeline"
-                  >
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
-                      <span className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400 block mb-0.5">Inquiries</span>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-mono font-bold text-amber-300 text-lg sm:text-xl tracking-tight">{inquiries.length}</span>
-                        <span className="text-[10px] text-amber-400/80 font-mono font-medium">Pipeline</span>
-                      </div>
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Inquiries</span>
+                      <span className="font-mono font-bold text-amber-400 text-base">{inquiries.length}</span>
                     </div>
-                    <span className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <HelpCircle className="w-4 h-4" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0">
+                      <HelpCircle className="w-3.5 h-3.5" />
                     </span>
                   </div>
-
-                  <div 
-                    onClick={() => { if (onNavigate) { onNavigate('fee'); } }}
-                    className="bg-[#081A2F] border border-[#173252] hover:border-rose-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all cursor-pointer group"
-                    title="Click to open Fee Desk and view defaulters"
-                  >
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
                     <div>
-                      <span className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400 block mb-0.5">Defaulters</span>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-mono font-bold text-rose-400 text-lg sm:text-xl tracking-tight">
-                          {students.filter(s => s.fee_clearance_status === 'defaulter' || (Boolean(s.unpaid_balance) && s.unpaid_balance! > 0 && s.status === 'active')).length}
-                        </span>
-                        <span className="text-[10px] text-rose-400/80 font-mono font-medium">Overdue</span>
-                      </div>
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Defaulters</span>
+                      <span className="font-mono font-bold text-rose-400 text-base">
+                        {students.filter(s => s.fee_clearance_status === 'defaulter' || (Boolean(s.unpaid_balance) && s.unpaid_balance! > 0 && s.status === 'active')).length}
+                      </span>
                     </div>
-                    <span className="w-8 h-8 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <AlertCircle className="w-4 h-4" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0">
+                      <AlertCircle className="w-3.5 h-3.5" />
                     </span>
                   </div>
-
-                  <div 
-                    onClick={() => setStatusFilter('alumni')}
-                    className="bg-[#081A2F] border border-[#173252] hover:border-slate-500/50 hover:bg-[#0b213b] rounded-xl px-3.5 py-2.5 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] transition-all cursor-pointer group col-span-2 sm:col-span-1"
-                    title="Click to filter by alumni / inactive"
-                  >
+                  <div className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] col-span-2 sm:col-span-1">
                     <div>
-                      <span className="text-[10px] uppercase font-mono tracking-wider font-semibold text-slate-400 block mb-0.5">Inactive / Alumni</span>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-mono font-bold text-slate-300 text-lg sm:text-xl tracking-tight">{students.filter(s => s.status !== 'active').length}</span>
-                        <span className="text-[10px] text-slate-400 font-mono font-medium">Archived</span>
-                      </div>
+                      <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Inactive / Alumni</span>
+                      <span className="font-mono font-bold text-slate-300 text-base">{students.filter(s => s.status !== 'active').length}</span>
                     </div>
-                    <span className="w-8 h-8 rounded-lg bg-slate-500/10 text-slate-400 border border-slate-500/25 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                      <Archive className="w-4 h-4" />
+                    <span className="w-7 h-7 rounded-lg bg-white/10 text-slate-300 border border-white/10 flex items-center justify-center shrink-0">
+                      <Archive className="w-3.5 h-3.5" />
                     </span>
                   </div>
                 </div>
