@@ -258,6 +258,7 @@ export interface IDataStore {
   
   getSubjects(tenantId: string): Promise<Subject[]>;
   createSubject(data: Omit<Subject, 'id' | 'created_at'>): Promise<Subject>;
+  updateSubject(tenantId: string, id: string, data: Partial<Pick<Subject, 'name' | 'code' | 'is_core'>>): Promise<Subject | null>;
   deleteSubject(tenantId: string, id: string): Promise<boolean>;
 
   getSubjectGroups(tenantId: string, programId?: string): Promise<SubjectGroup[]>;
@@ -584,6 +585,7 @@ export interface IDataStore {
     override_reason?: string;
     allocations?: PaymentDistributionItem[];
     collected_by: string;
+    remarks?: string | null;
   }): Promise<{ payment: FeePayment; invoice: StudentInvoice }>;
   recordFamilyPayment(tenantId: string, data: {
     payment_method: PaymentMethod;
@@ -3221,6 +3223,24 @@ export class InMemoryDataStore implements IDataStore {
     this.persistQueued = true;
     await this.flushPersist();
     return subject;
+  }
+
+  async updateSubject(
+    tenantId: string,
+    id: string,
+    data: Partial<Pick<Subject, 'name' | 'code' | 'is_core'>>
+  ): Promise<Subject | null> {
+    const idx = this.subjects.findIndex(s => s.tenant_id === tenantId && s.id === id);
+    if (idx === -1) return null;
+    const existing = this.subjects[idx];
+    const updated: Subject = {
+      ...existing,
+      ...data,
+    };
+    this.subjects[idx] = updated;
+    this.persistQueued = true;
+    await this.flushPersist();
+    return updated;
   }
 
   async deleteSubject(tenantId: string, id: string): Promise<boolean> {
@@ -9215,6 +9235,7 @@ export class InMemoryDataStore implements IDataStore {
     override_reason?: string;
     allocations?: PaymentDistributionItem[];
     collected_by: string;
+    remarks?: string | null;
   }): Promise<{ payment: FeePayment; invoice: StudentInvoice }> {
     const invoice = this.invoices.find(i => i.id === data.invoice_id && i.tenant_id === tenantId);
     if (!invoice) throw new Error('Invoice not found');
@@ -9317,6 +9338,7 @@ export class InMemoryDataStore implements IDataStore {
       override_reason: data.override_reason || null,
       allocations,
       collected_by: data.collected_by,
+      remarks: data.remarks || null,
       status: 'paid',
       created_at: new Date().toISOString()
     };
@@ -9329,6 +9351,7 @@ export class InMemoryDataStore implements IDataStore {
     const voucherNumber = `VCH-INC-${year}-${txCount.toString().padStart(4, '0')}`;
     const headId = (allocations && allocations[0]?.fee_head_id) || invoice.items[0]?.fee_head_id || 'fee-tuition';
     const txAdm = invoice.admission_number || this.students.find(s => s.id === invoice.student_id)?.admission_number || invoice.roll_number;
+    const remarksSnippet = data.remarks ? ` [Notes: ${data.remarks}]` : '';
     const tx: FinancialTransaction = {
       id: crypto.randomUUID(),
       tenant_id: tenantId,
@@ -9343,7 +9366,7 @@ export class InMemoryDataStore implements IDataStore {
       date: payment.payment_date,
       paid_to_or_received_from: invoice.student_name,
       payee_payer: invoice.student_name,
-      description: `Tuition & Fee Collection: ${invoice.student_name} (${txAdm}) - Receipt #${receiptNumber} [Inv #${invoice.invoice_number}]`,
+      description: `Tuition & Fee Collection: ${invoice.student_name} (${txAdm}) - Receipt #${receiptNumber} [Inv #${invoice.invoice_number}]${remarksSnippet}`,
       recorded_by: data.collected_by || 'Cashier',
       created_at: new Date().toISOString(),
     };

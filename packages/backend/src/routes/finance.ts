@@ -571,6 +571,7 @@ export function financeRoutes(store: IDataStore) {
         cheque_number: z.string().optional().nullable(),
         clearing_date: z.string().optional().nullable(),
         payment_date: z.string().optional(),
+        remarks: z.string().optional().nullable(),
         is_override: z.boolean().default(false),
         override_reason: z.string().optional(),
         allocations: z.array(z.object({

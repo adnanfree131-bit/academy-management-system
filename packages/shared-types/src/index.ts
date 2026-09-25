@@ -495,6 +495,7 @@ export interface Batch {
   fee_schedule?: FeeScheduleItem[];
   class_teacher_id?: string | null;
   class_teacher_name?: string | null;
+  subject_ids?: string[];
   status?: 'active' | 'archived';
   created_at: string;
   updated_at: string;
@@ -1188,6 +1189,7 @@ export interface FeePayment {
   override_reason?: string | null;
   allocations: PaymentDistributionItem[];
   collected_by: string;
+  remarks?: string | null;
   status?: 'paid' | 'voided';
   voided_at?: string | null;
   voided_by?: string | null;

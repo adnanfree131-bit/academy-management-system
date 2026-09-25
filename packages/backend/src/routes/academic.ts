@@ -217,6 +217,38 @@ export function academicRoutes(store: IDataStore) {
       return reply.status(201).send({ success: true, data: subject, timestamp: new Date().toISOString() });
     });
 
+    fastify.put('/subjects/:id', async (request: any, reply) => {
+      const user = request.user as JWTPayload;
+      if (!assertFeature(user, 'classes', 'edit', reply)) return;
+      const { id } = request.params as { id: string };
+
+      const schema = z.object({
+        name: z.string().min(1).optional(),
+        code: z.string().optional(),
+        is_core: z.boolean().optional(),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid subject data', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const updated = await store.updateSubject(user.tenant_id, id, parseResult.data);
+      if (!updated) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Subject not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return reply.send({ success: true, data: updated, timestamp: new Date().toISOString() });
+    });
+
     fastify.delete('/subjects/:id', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
@@ -311,6 +343,7 @@ export function academicRoutes(store: IDataStore) {
         max_capacity: z.coerce.number().int().min(1).default(40),
         class_teacher_id: z.string().optional().nullable(),
         class_teacher_name: z.string().optional().nullable(),
+        subject_ids: z.array(z.string()).optional(),
         status: z.enum(['active', 'archived']).default('active'),
         fee_schedule: z.array(z.object({
           fee_head_id: z.string().optional(),
@@ -363,6 +396,7 @@ export function academicRoutes(store: IDataStore) {
         max_capacity: z.coerce.number().int().min(1).optional(),
         class_teacher_id: z.string().optional().nullable(),
         class_teacher_name: z.string().optional().nullable(),
+        subject_ids: z.array(z.string()).optional(),
         status: z.enum(['active', 'archived']).optional(),
         fee_schedule: z.array(z.object({
           fee_head_id: z.string().optional(),

@@ -366,8 +366,12 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   // Direct First Payment Collection at Admission
   const [collectInitialPayment, setCollectInitialPayment] = useState(false);
   const [initialPaymentAmount, setInitialPaymentAmount] = useState<number | ''>('');
+  const [initialPaymentDiscount, setInitialPaymentDiscount] = useState<number | ''>('');
+  const [initialPaymentDiscountReason, setInitialPaymentDiscountReason] = useState('');
+  const [initialPaymentRemarks, setInitialPaymentRemarks] = useState('');
   const [initialPaymentMethod, setInitialPaymentMethod] = useState<PaymentMethod>('cash');
   const [initialPaymentReference, setInitialPaymentReference] = useState('');
+  const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
 
   // Branded WhatsApp Receipt Modal State
   const [receiptModalData, setReceiptModalData] = useState<{
@@ -376,6 +380,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     invoice?: any;
     amountPaid: number;
     totalDue: number;
+    discountAmount?: number;
+    remarks?: string;
     billingMonth: string;
     items: { name: string; amount: number }[];
   } | null>(null);
@@ -1412,6 +1418,17 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       return;
     }
 
+    if (collectInitialPayment && typeof initialPaymentDiscount === 'number' && initialPaymentDiscount > 0) {
+      if (!initialPaymentDiscountReason.trim()) {
+        alert('Please provide a mandatory justification / approval reason for the desk discount.');
+        return;
+      }
+      if (initialPaymentDiscount > firstChallanDue) {
+        alert(`Desk discount (PKR ${initialPaymentDiscount.toLocaleString()}) cannot exceed total fee due (PKR ${firstChallanDue.toLocaleString()}).`);
+        return;
+      }
+    }
+
     const selectedBatch = batches.find(b => b.id === enrollForm.batch_id);
     if (selectedBatch && (selectedBatch.current_enrollment || 0) >= selectedBatch.max_capacity) {
       alert(`Section/batch "${selectedBatch.name}" has reached maximum capacity (${selectedBatch.current_enrollment}/${selectedBatch.max_capacity}). Please increase batch capacity in Academic Structure before enrolling.`);
@@ -1579,10 +1596,37 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         }
 
         let recordedPayment: any = null;
-        const payAmt = typeof initialPaymentAmount === 'number' && initialPaymentAmount > 0 ? initialPaymentAmount : firstChallanDue;
+        const deskDiscountVal = typeof initialPaymentDiscount === 'number' && initialPaymentDiscount > 0 ? initialPaymentDiscount : 0;
+
+        // Apply desk discount to the first invoice if requested
+        if (collectInitialPayment && result.data.first_invoice_id && deskDiscountVal > 0) {
+          try {
+            await fetch('/api/v1/finance/discounts', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                student_id: result.data.id,
+                invoice_id: result.data.first_invoice_id,
+                discount_type: 'flat',
+                discount_value: deskDiscountVal,
+                mandatory_reason: initialPaymentDiscountReason.trim() || 'Desk Admission Concession / Discount',
+              }),
+            });
+          } catch (discErr) {
+            console.error('Failed to post admission discount:', discErr);
+          }
+        }
+
+        const netPayableAfterDeskDiscount = Math.max(0, firstChallanDue - deskDiscountVal);
+        const payAmt = typeof initialPaymentAmount === 'number' && initialPaymentAmount > 0
+          ? Math.min(initialPaymentAmount, netPayableAfterDeskDiscount)
+          : netPayableAfterDeskDiscount;
 
         // Collect initial payment if requested and invoice exists
-        if (collectInitialPayment && result.data.first_invoice_id) {
+        if (collectInitialPayment && result.data.first_invoice_id && payAmt > 0) {
           try {
             const payRes = await fetch('/api/v1/finance/payments', {
               method: 'POST',
@@ -1595,6 +1639,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 amount_paid: payAmt,
                 payment_method: initialPaymentMethod,
                 reference_number: initialPaymentReference || undefined,
+                remarks: initialPaymentRemarks.trim() || undefined,
               }),
             });
             const payJson = await payRes.json();
@@ -1628,6 +1673,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           payment: recordedPayment,
           amountPaid: collectInitialPayment ? payAmt : 0,
           totalDue: firstChallanDue,
+          discountAmount: deskDiscountVal,
+          remarks: initialPaymentRemarks.trim() || undefined,
           billingMonth: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
           items: receiptItems,
         });
@@ -1667,6 +1714,9 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         setConcessionReason('');
         setCollectInitialPayment(false);
         setInitialPaymentAmount('');
+        setInitialPaymentDiscount('');
+        setInitialPaymentDiscountReason('');
+        setInitialPaymentRemarks('');
         setInitialPaymentReference('');
         setDob('');
         setGender('');
@@ -1825,7 +1875,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
   const availableBatchesForEnroll = useMemo(() => {
     if (!enrollForm.program_id) return [];
-    return batches.filter(b => b.program_id === enrollForm.program_id);
+    return batches.filter(b => b.program_id === enrollForm.program_id && b.cohort_type !== 'batch');
   }, [batches, enrollForm.program_id]);
 
   const compulsoryGroupForEnroll = useMemo(() => {
@@ -1869,6 +1919,16 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       setSelectedEnrollSubjectIds([...new Set([...compIds, ...elecIds])]);
     }
   }, [enrollForm.program_id, enrollForm.elective_group_id, subjectGroups]);
+
+  // Auto-sync selected subjects when standalone batch changes
+  useEffect(() => {
+    if (enrollmentType === 'batch' && enrollForm.batch_id) {
+      const b = batches.find(x => x.id === enrollForm.batch_id);
+      if (b && b.subject_ids && b.subject_ids.length > 0) {
+        setSelectedEnrollSubjectIds(b.subject_ids);
+      }
+    }
+  }, [enrollmentType, enrollForm.batch_id, batches]);
 
   // Auto-sync inquiry admission subjects when target batch or elective changes
   useEffect(() => {
@@ -2163,158 +2223,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   </span>
                 )}
               </button>
-
-              {/* Simple Button Parallel to Filter */}
-              <div ref={moduleContainerRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowModuleMenu(prev => !prev)}
-                  className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
-                    showModuleMenu
-                      ? 'bg-slate-100 text-slate-900 border-slate-300 shadow-2xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                  }`}
-                  title="Actions & Options"
-                  aria-label="Actions & Options"
-                >
-                  <MoreVertical className="w-4 h-4 text-slate-600" />
-                </button>
-
-                {/* Dropdown Menu containing all options */}
-                {showModuleMenu && (
-                  <div
-                    className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-50 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100"
-                  >
-                    {/* Primary Action */}
-                    <div className="p-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowModuleMenu(false);
-                          setActiveTab('new_admission');
-                        }}
-                        className="w-full px-3 py-2 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 font-semibold shadow-xs transition-colors cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-white" />
-                        <span>New Admission</span>
-                      </button>
-                    </div>
-
-                    {/* Navigation Section */}
-                    <div className="py-1">
-                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                        Views
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowModuleMenu(false);
-                          setActiveTab('directory');
-                        }}
-                        className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                          activeTab === 'directory' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Users className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Students Roster</span>
-                        </div>
-                        <span className="text-[11px] font-mono text-slate-400">{students.length}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowModuleMenu(false);
-                          setActiveTab('inquiries');
-                        }}
-                        className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                          (activeTab as string) === 'inquiries' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Inquiries Pipeline</span>
-                        </div>
-                        <span className="text-[11px] font-mono text-slate-400">{inquiries.length}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowModuleMenu(false);
-                          setActiveTab('id_cards');
-                        }}
-                        className={`w-full px-3 py-1.5 text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                          (activeTab as string) === 'id_cards' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <CreditCard className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Student ID Cards</span>
-                        </div>
-                      </button>
-                    </div>
-
-                    {/* Display Options Section (Slider Item) */}
-                    <div className="py-1">
-                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                        Display
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowOverviewCards(prev => !prev)}
-                        className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center justify-between transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2">
-                          <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Overview Cards</span>
-                        </div>
-                        <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                          showOverviewCards ? 'bg-amber-600' : 'bg-slate-300'
-                        }`}>
-                          <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
-                            showOverviewCards ? 'translate-x-4' : 'translate-x-0'
-                          }`} />
-                        </div>
-                      </button>
-                    </div>
-
-                    {/* Administrative Tools */}
-                    <div className="py-1">
-                      <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                        Tools
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowModuleMenu(false);
-                          setShowBulkImportModal(true);
-                          setBulkImportResult(null);
-                          setBulkImportCsvText('');
-                          if (batches.length > 0 && !bulkImportBatchId) setBulkImportBatchId(batches[0].id);
-                        }}
-                        className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
-                      >
-                        <Upload className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Bulk CSV Upload</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowModuleMenu(false);
-                          setIsAddingDocHead(true);
-                        }}
-                        className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
-                      >
-                        <FileText className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Physical Document Checklist</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Overview Summary Cards (Controlled by Overview Cards slider item in menu) */}
@@ -3320,7 +3228,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
-                          Section Batch <span className="text-rose-500">*</span>
+                          Section <span className="text-rose-500">*</span>
                         </label>
                         <ModernSelect
                           value={enrollForm.batch_id}
@@ -3358,7 +3266,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   ) : (
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-medium text-slate-700 mb-1">
-                        Section Batch <span className="text-rose-500">*</span>
+                        Batch / Course <span className="text-rose-500">*</span>
                       </label>
                       <ModernSelect
                         value={enrollForm.batch_id}
@@ -3370,13 +3278,16 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             program_id: b?.program_id || '',
                             elective_group_id: '',
                           }));
+                          if (b && b.subject_ids && b.subject_ids.length > 0) {
+                            setSelectedEnrollSubjectIds(b.subject_ids);
+                          }
                         }}
                         required
-                        placeholder="Select Batch"
+                        placeholder="Select Batch / Course"
                         options={[
-                          { value: '', label: 'Select Batch' },
+                          { value: '', label: 'Select Batch / Course' },
                           ...batches
-                            .filter(b => b.status === 'active')
+                            .filter(b => (b.cohort_type === 'batch' || !b.program_id) && b.cohort_type !== 'section' && b.status === 'active')
                             .map(b => {
                               const isFull = (b.current_enrollment || 0) >= b.max_capacity;
                               return {
@@ -3437,146 +3348,203 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 {/* Enrolled Subjects Register */}
                 {(enrollForm.program_id || (enrollmentType === 'batch' && enrollForm.batch_id && subjects.length > 0)) && (
                   <div className="bg-slate-50/70 p-3.5 rounded-xl border border-slate-200 space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 pb-2">
                       <div className="flex items-center gap-2">
                         <BookOpen className="w-3.5 h-3.5 text-slate-700" />
                         <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                           Enrolled Course Subjects ({selectedEnrollSubjectIds.length} Selected)
                         </h4>
                       </div>
-                      <span className="text-[11px] text-slate-500">Uncheck if student attends partial subjects</span>
+                      <div className="flex items-center gap-2">
+                        <div className="relative w-44 sm:w-52">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                          <input
+                            type="text"
+                            placeholder="Search subjects..."
+                            value={subjectSearchQuery}
+                            onChange={e => setSubjectSearchQuery(e.target.value)}
+                            className="w-full pl-8 pr-2.5 py-1 text-[11px] bg-white border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                          />
+                        </div>
+                        <span className="text-[11px] text-slate-500 hidden sm:inline">Uncheck if partial</span>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                      {/* Standalone Batch Subjects fallback */}
-                      {!compulsoryGroupForEnroll && electiveGroupsForEnroll.length === 0 && subjects.length > 0 && (
-                        <div className="space-y-1.5 sm:col-span-2">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
-                            <span>Available Subjects ({subjects.length})</span>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
-                            {subjects.map(s => {
-                              const isChecked = selectedEnrollSubjectIds.includes(s.id);
-                              return (
-                                <label
-                                  key={s.id}
-                                  className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
-                                    isChecked ? 'bg-indigo-50/50 shadow-2xs border border-indigo-200' : 'hover:bg-slate-50 border border-transparent'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2.5">
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() => {
-                                        setSelectedEnrollSubjectIds(prev =>
-                                          prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id]
-                                        );
-                                      }}
-                                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                                    />
-                                    <div>
-                                      <span className="font-semibold text-slate-900">{s.name}</span>
-                                      <span className="text-[10px] font-mono text-slate-500 ml-2">({s.code})</span>
-                                    </div>
-                                  </div>
-                                  {s.is_core && (
-                                    <span className="text-[10px] font-semibold text-slate-600 bg-slate-200/60 px-1.5 py-0.5 rounded">
-                                      Compulsory
-                                    </span>
-                                  )}
-                                </label>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+                      {/* Standalone Batch Subjects */}
+                      {enrollmentType === 'batch' && subjects.length > 0 && (() => {
+                        const batchCurriculumSubs = selectedEnrollBatch?.subject_ids && selectedEnrollBatch.subject_ids.length > 0
+                          ? subjects.filter(s => selectedEnrollBatch.subject_ids!.includes(s.id))
+                          : subjects;
+                        const filteredBatchSubs = batchCurriculumSubs.filter(s =>
+                          !subjectSearchQuery.trim() ||
+                          s.name.toLowerCase().includes(subjectSearchQuery.toLowerCase()) ||
+                          (s.code && s.code.toLowerCase().includes(subjectSearchQuery.toLowerCase()))
+                        );
 
-                      {/* Compulsory Subjects */}
-                      {compulsoryGroupForEnroll && (
+                        return (
+                          <div className="space-y-1.5 sm:col-span-2">
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                <span>
+                                  {selectedEnrollBatch?.name ? `${selectedEnrollBatch.name} Subjects` : 'Batch Subjects'}
+                                  {selectedEnrollBatch?.subject_ids && selectedEnrollBatch.subject_ids.length > 0
+                                    ? ` (${selectedEnrollBatch.subject_ids.length} in curriculum)`
+                                    : ` (${subjects.length} in catalog)`}
+                                </span>
+                              </span>
+                              {selectedEnrollBatch?.subject_ids && selectedEnrollBatch.subject_ids.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedEnrollSubjectIds(selectedEnrollBatch.subject_ids || [])}
+                                  className="text-[10px] font-semibold text-amber-700 hover:text-amber-800 underline cursor-pointer"
+                                >
+                                  Reset to Batch Curriculum
+                                </button>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
+                              {filteredBatchSubs.length === 0 ? (
+                                <div className="col-span-2 py-4 text-center text-xs text-slate-400">
+                                  No matching subjects found.
+                                </div>
+                              ) : (
+                                filteredBatchSubs.map(s => {
+                                  const isChecked = selectedEnrollSubjectIds.includes(s.id);
+                                  return (
+                                    <label
+                                      key={s.id}
+                                      className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
+                                        isChecked ? 'bg-amber-50/50 shadow-2xs border border-amber-200' : 'hover:bg-slate-50 border border-transparent'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => {
+                                            setSelectedEnrollSubjectIds(prev =>
+                                              prev.includes(s.id) ? prev.filter(id => id !== s.id) : [...prev, s.id]
+                                            );
+                                          }}
+                                          className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 shrink-0"
+                                        />
+                                        <div className="min-w-0">
+                                          <span className="font-semibold text-slate-900 truncate block">{s.name}</span>
+                                          {s.code && <span className="text-[10px] font-mono text-slate-500">({s.code})</span>}
+                                        </div>
+                                      </div>
+                                      <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 shrink-0">
+                                        Batch Subject
+                                      </span>
+                                    </label>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Compulsory Subjects for Academic Classes */}
+                      {enrollmentType === 'class' && compulsoryGroupForEnroll && (
                         <div className="space-y-1.5">
                           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                             <span>Compulsory Subjects</span>
                           </div>
                           <div className="space-y-1 bg-white p-2.5 rounded-lg border border-slate-200">
-                            {compulsoryGroupForEnroll.subject_ids.map(subId => {
-                              const sub = subjects.find(s => s.id === subId);
-                              const isChecked = selectedEnrollSubjectIds.includes(subId);
-                              return (
-                                <label
-                                  key={subId}
-                                  className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
-                                    isChecked ? 'bg-emerald-50/50 shadow-2xs border border-emerald-200' : 'hover:bg-slate-50 border border-transparent'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2.5">
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() => {
-                                        setSelectedEnrollSubjectIds(prev =>
-                                          prev.includes(subId) ? prev.filter(id => id !== subId) : [...prev, subId]
-                                        );
-                                      }}
-                                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                                    />
-                                    <div>
-                                      <span className="font-semibold text-slate-900">{sub?.name || subId}</span>
-                                      <span className="text-[10px] font-mono text-slate-500 ml-2">({sub?.code || 'CORE'})</span>
+                            {compulsoryGroupForEnroll.subject_ids
+                              .map(subId => ({ subId, sub: subjects.find(s => s.id === subId) }))
+                              .filter(({ sub, subId }) => {
+                                if (!subjectSearchQuery.trim()) return true;
+                                const name = sub?.name || subId;
+                                const code = sub?.code || '';
+                                return name.toLowerCase().includes(subjectSearchQuery.toLowerCase()) || code.toLowerCase().includes(subjectSearchQuery.toLowerCase());
+                              })
+                              .map(({ subId, sub }) => {
+                                const isChecked = selectedEnrollSubjectIds.includes(subId);
+                                return (
+                                  <label
+                                    key={subId}
+                                    className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
+                                      isChecked ? 'bg-emerald-50/50 shadow-2xs border border-emerald-200' : 'hover:bg-slate-50 border border-transparent'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          setSelectedEnrollSubjectIds(prev =>
+                                            prev.includes(subId) ? prev.filter(id => id !== subId) : [...prev, subId]
+                                          );
+                                        }}
+                                        className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 shrink-0"
+                                      />
+                                      <div className="min-w-0">
+                                        <span className="font-semibold text-slate-900 truncate block">{sub?.name || subId}</span>
+                                        <span className="text-[10px] font-mono text-slate-500">({sub?.code || 'CORE'})</span>
+                                      </div>
                                     </div>
-                                  </div>
-                                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                    Compulsory
-                                  </span>
-                                </label>
-                              );
-                            })}
+                                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
+                                      Compulsory
+                                    </span>
+                                  </label>
+                                );
+                              })}
                           </div>
                         </div>
                       )}
 
-                      {/* Elective Track Subjects */}
-                      {electiveGroupsForEnroll.map(eg => (
+                      {/* Elective Track Subjects for Academic Classes */}
+                      {enrollmentType === 'class' && electiveGroupsForEnroll.map(eg => (
                         <div key={eg.id} className="space-y-1.5">
                           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
                             <span>{eg.name} Group</span>
                           </div>
                           <div className="space-y-1 bg-white p-2.5 rounded-lg border border-slate-200">
-                            {eg.subject_ids.map(subId => {
-                              const sub = subjects.find(s => s.id === subId);
-                              const isChecked = selectedEnrollSubjectIds.includes(subId);
-                              return (
-                                <label
-                                  key={subId}
-                                  className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
-                                    isChecked ? 'bg-indigo-50/50 shadow-2xs border border-indigo-200' : 'hover:bg-slate-50 border border-transparent'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2.5">
-                                    <input
-                                      type="checkbox"
-                                      checked={isChecked}
-                                      onChange={() => {
-                                        setSelectedEnrollSubjectIds(prev =>
-                                          prev.includes(subId) ? prev.filter(id => id !== subId) : [...prev, subId]
-                                        );
-                                      }}
-                                      className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                                    />
-                                    <div>
-                                      <span className="font-semibold text-slate-900">{sub?.name || subId}</span>
-                                      <span className="text-[10px] font-mono text-slate-500 ml-2">({sub?.code || 'ELEC'})</span>
+                            {eg.subject_ids
+                              .map(subId => ({ subId, sub: subjects.find(s => s.id === subId) }))
+                              .filter(({ sub, subId }) => {
+                                if (!subjectSearchQuery.trim()) return true;
+                                const name = sub?.name || subId;
+                                const code = sub?.code || '';
+                                return name.toLowerCase().includes(subjectSearchQuery.toLowerCase()) || code.toLowerCase().includes(subjectSearchQuery.toLowerCase());
+                              })
+                              .map(({ subId, sub }) => {
+                                const isChecked = selectedEnrollSubjectIds.includes(subId);
+                                return (
+                                  <label
+                                    key={subId}
+                                    className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors text-xs ${
+                                      isChecked ? 'bg-indigo-50/50 shadow-2xs border border-indigo-200' : 'hover:bg-slate-50 border border-transparent'
+                                    }`}
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                          setSelectedEnrollSubjectIds(prev =>
+                                            prev.includes(subId) ? prev.filter(id => id !== subId) : [...prev, subId]
+                                          );
+                                        }}
+                                        className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 shrink-0"
+                                      />
+                                      <div className="min-w-0">
+                                        <span className="font-semibold text-slate-900 truncate block">{sub?.name || subId}</span>
+                                        <span className="text-[10px] font-mono text-slate-500">({sub?.code || 'ELECTIVE'})</span>
+                                      </div>
                                     </div>
-                                  </div>
-                                  <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">
-                                    Elective
-                                  </span>
-                                </label>
-                              );
-                            })}
+                                    <span className="text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 shrink-0">
+                                      Elective
+                                    </span>
+                                  </label>
+                                );
+                              })}
                           </div>
                         </div>
                       ))}
@@ -5152,20 +5120,58 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
                   {collectInitialPayment && (
                     <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-2.5 text-xs">
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                          Amount Collected (PKR) <span className="text-rose-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={firstChallanDue || undefined}
-                          required={collectInitialPayment}
-                          value={initialPaymentAmount === '' ? '' : initialPaymentAmount}
-                          onChange={e => setInitialPaymentAmount(e.target.value === '' ? '' : Number(e.target.value))}
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            Amount Collected (PKR) <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={Math.max(0, firstChallanDue - (Number(initialPaymentDiscount) || 0))}
+                            required={collectInitialPayment}
+                            value={initialPaymentAmount === '' ? '' : initialPaymentAmount}
+                            onChange={e => setInitialPaymentAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                            className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            Desk Discount (PKR) <span className="text-slate-400 font-normal">(Optional)</span>
+                          </label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={firstChallanDue}
+                            value={initialPaymentDiscount === '' ? '' : initialPaymentDiscount}
+                            onChange={e => {
+                              const val = e.target.value === '' ? '' : Number(e.target.value);
+                              setInitialPaymentDiscount(val);
+                              const disc = Number(val) || 0;
+                              setInitialPaymentAmount(Math.max(0, firstChallanDue - disc));
+                            }}
+                            placeholder="0"
+                            className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono text-emerald-800 font-semibold"
+                          />
+                        </div>
                       </div>
+
+                      {typeof initialPaymentDiscount === 'number' && initialPaymentDiscount > 0 && (
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
+                            Discount Approval Reason <span className="text-rose-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            required
+                            value={initialPaymentDiscountReason}
+                            onChange={e => setInitialPaymentDiscountReason(e.target.value)}
+                            placeholder="e.g. Approved by Director for upfront payment"
+                            className="w-full px-2.5 py-1.5 bg-white border border-amber-300 rounded-lg text-xs"
+                          />
+                        </div>
+                      )}
 
                       <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">
@@ -5192,8 +5198,21 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           type="text"
                           value={initialPaymentReference}
                           onChange={e => setInitialPaymentReference(e.target.value)}
-                          placeholder=""
+                          placeholder="e.g. REC-1029 or Cash Slip #42"
                           className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 mb-1">
+                          Payment Remarks / Internal Notes
+                        </label>
+                        <input
+                          type="text"
+                          value={initialPaymentRemarks}
+                          onChange={e => setInitialPaymentRemarks(e.target.value)}
+                          placeholder="e.g. Paid in full at desk, verified by cashier"
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs"
                         />
                       </div>
                     </div>
@@ -6013,26 +6032,48 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       <td className="py-1.5 px-3">Total Billed</td>
                       <td className="py-1.5 px-3 text-right font-mono text-slate-900">PKR {receiptModalData.totalDue.toLocaleString()}</td>
                     </tr>
+                    {receiptModalData.discountAmount && receiptModalData.discountAmount > 0 && (
+                      <tr>
+                        <td className="py-1.5 px-3 text-indigo-700">Desk Discount Applied</td>
+                        <td className="py-1.5 px-3 text-right font-mono text-indigo-700">- PKR {receiptModalData.discountAmount.toLocaleString()}</td>
+                      </tr>
+                    )}
                     {receiptModalData.amountPaid > 0 && (
                       <tr>
                         <td className="py-1.5 px-3 text-emerald-700">Amount Received</td>
                         <td className="py-1.5 px-3 text-right font-mono text-emerald-700">PKR {receiptModalData.amountPaid.toLocaleString()}</td>
                       </tr>
                     )}
-                    {receiptModalData.totalDue - receiptModalData.amountPaid > 0 && (
-                      <tr>
-                        <td className="py-1.5 px-3 text-rose-700">Balance Due</td>
-                        <td className="py-1.5 px-3 text-right font-mono text-rose-700">PKR {(receiptModalData.totalDue - receiptModalData.amountPaid).toLocaleString()}</td>
-                      </tr>
-                    )}
+                    {(() => {
+                      const finalBalance = Math.max(0, receiptModalData.totalDue - (receiptModalData.discountAmount || 0) - receiptModalData.amountPaid);
+                      return (
+                        <tr>
+                          <td className={`py-1.5 px-3 ${finalBalance > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                            {finalBalance > 0 ? 'Balance Due' : 'Balance Status'}
+                          </td>
+                          <td className={`py-1.5 px-3 text-right font-mono ${finalBalance > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                            {finalBalance > 0 ? `PKR ${finalBalance.toLocaleString()}` : 'PKR 0 (Cleared)'}
+                          </td>
+                        </tr>
+                      );
+                    })()}
                   </tfoot>
                 </table>
               </div>
 
-              {receiptModalData.payment?.receipt_number && (
-                <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 text-[11px] text-emerald-800 flex items-center justify-between font-mono">
-                  <span>Receipt #{receiptModalData.payment.receipt_number}</span>
-                  <span className="capitalize">{receiptModalData.payment.payment_method?.replace('_', ' ')}</span>
+              {(receiptModalData.payment?.receipt_number || receiptModalData.remarks) && (
+                <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 text-[11px] text-emerald-800 space-y-1 font-mono">
+                  {receiptModalData.payment?.receipt_number && (
+                    <div className="flex items-center justify-between">
+                      <span>Receipt #{receiptModalData.payment.receipt_number}</span>
+                      <span className="capitalize">{receiptModalData.payment.payment_method?.replace('_', ' ')}</span>
+                    </div>
+                  )}
+                  {receiptModalData.remarks && (
+                    <div className="text-[10px] text-emerald-700 font-sans border-t border-emerald-200/60 pt-1">
+                      <strong>Remarks:</strong> {receiptModalData.remarks}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -6051,6 +6092,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   onClick={() => {
                     const cleanPhone = cleanPhoneForWhatsApp(receiptModalData.student.guardian_whatsapp || receiptModalData.student.guardian_phone);
                     const academyTitle = tenant?.name || 'Apex Academy';
+                    const finalBalance = Math.max(0, receiptModalData.totalDue - (receiptModalData.discountAmount || 0) - receiptModalData.amountPaid);
                     const lines = [
                       `*${academyTitle.toUpperCase()}*`,
                       `*OFFICIAL ADMISSION & FEE RECEIPT*`,
@@ -6064,9 +6106,11 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       ...receiptModalData.items.map(i => `• ${i.name}: PKR ${i.amount.toLocaleString()}`),
                       `---------------------------`,
                       `Total Billed: PKR ${receiptModalData.totalDue.toLocaleString()}`,
+                      receiptModalData.discountAmount ? `Desk Discount: - PKR ${receiptModalData.discountAmount.toLocaleString()}` : ``,
                       receiptModalData.amountPaid > 0 ? `Amount Received: PKR ${receiptModalData.amountPaid.toLocaleString()}` : `Payment Status: Due`,
-                      receiptModalData.totalDue - receiptModalData.amountPaid > 0 ? `Balance Due: PKR ${(receiptModalData.totalDue - receiptModalData.amountPaid).toLocaleString()}` : ``,
+                      finalBalance > 0 ? `Balance Due: PKR ${finalBalance.toLocaleString()}` : `Balance Due: PKR 0 (Cleared)`,
                       receiptModalData.payment?.receipt_number ? `Receipt No: ${receiptModalData.payment.receipt_number}` : ``,
+                      receiptModalData.remarks ? `Notes: ${receiptModalData.remarks}` : ``,
                       ``,
                       `Thank you. For any inquiries, please contact the academy administration.`
                     ].filter(Boolean).join('\n');
@@ -6083,6 +6127,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   type="button"
                   onClick={() => {
                     const academyTitle = tenant?.name || 'Apex Academy';
+                    const finalBalance = Math.max(0, receiptModalData.totalDue - (receiptModalData.discountAmount || 0) - receiptModalData.amountPaid);
                     const lines = [
                       `*${academyTitle.toUpperCase()}*`,
                       `*OFFICIAL ADMISSION & FEE RECEIPT*`,
@@ -6096,9 +6141,11 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       ...receiptModalData.items.map(i => `• ${i.name}: PKR ${i.amount.toLocaleString()}`),
                       `---------------------------`,
                       `Total Billed: PKR ${receiptModalData.totalDue.toLocaleString()}`,
+                      receiptModalData.discountAmount ? `Desk Discount: - PKR ${receiptModalData.discountAmount.toLocaleString()}` : ``,
                       receiptModalData.amountPaid > 0 ? `Amount Received: PKR ${receiptModalData.amountPaid.toLocaleString()}` : `Payment Status: Due`,
-                      receiptModalData.amountPaid > 0 ? `Balance Due: PKR ${Math.max(0, receiptModalData.totalDue - receiptModalData.amountPaid).toLocaleString()}` : ``,
+                      finalBalance > 0 ? `Balance Due: PKR ${finalBalance.toLocaleString()}` : `Balance Due: PKR 0 (Cleared)`,
                       receiptModalData.payment?.receipt_number ? `Receipt No: ${receiptModalData.payment.receipt_number}` : ``,
+                      receiptModalData.remarks ? `Notes: ${receiptModalData.remarks}` : ``,
                       ``,
                       `Thank you. For any inquiries, please contact the academy administration.`
                     ].filter(Boolean).join('\n');

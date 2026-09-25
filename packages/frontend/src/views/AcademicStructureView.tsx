@@ -86,6 +86,13 @@ export const AcademicStructureView: React.FC = () => {
   const [showSectionModal, setShowSectionModal] = useState(false);
   const [showEditSectionModal, setShowEditSectionModal] = useState(false);
   const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [showEditSubjectModal, setShowEditSubjectModal] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
+  const [editSubjectForm, setEditSubjectForm] = useState({
+    name: '',
+    code: '',
+    is_core: true,
+  });
 
   // Smart Deletion with Bulk Student Transfer
   const [showDeleteBatchModal, setShowDeleteBatchModal] = useState(false);
@@ -139,6 +146,7 @@ export const AcademicStructureView: React.FC = () => {
     academic_session: tenant?.academic_session || '2026-2027',
     max_capacity: 40 as number | '',
     class_teacher_id: '',
+    subject_ids: [] as string[],
   });
 
   const [editingBatch, setEditingBatch] = useState<Batch | null>(null);
@@ -156,6 +164,7 @@ export const AcademicStructureView: React.FC = () => {
     academic_session: tenant?.academic_session || '2026-2027',
     max_capacity: 40 as number | '',
     class_teacher_id: '',
+    subject_ids: [] as string[],
   });
 
   // Forms: Section (Embedded in Class Structure)
@@ -761,8 +770,8 @@ export const AcademicStructureView: React.FC = () => {
 
   // Handlers: Batches
   const openAddBatchModal = (programId?: string) => {
-    const targetProgId = programId || activeProgram?.id || programs[0]?.id || '';
-    const prog = programs.find(p => p.id === targetProgId);
+    const targetProgId = programId || '';
+    const prog = targetProgId ? programs.find(p => p.id === targetProgId) : null;
     const tuitionAmount = prog?.fee_schedule?.find(f => f.fee_type === 'tuition')?.amount || '';
 
     setBatchForm({
@@ -779,22 +788,23 @@ export const AcademicStructureView: React.FC = () => {
       academic_session: tenant?.academic_session || '2026-2027',
       max_capacity: 40,
       class_teacher_id: '',
+      subject_ids: [],
     });
     setShowBatchModal(true);
   };
 
   const handleCreateBatch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token || !batchForm.program_id || !batchForm.name.trim()) return;
+    if (!token || !batchForm.name.trim()) return;
     setIsSubmitting(true);
     try {
       const teacher = teachers.find(t => t.id === batchForm.class_teacher_id);
-      const targetProg = programs.find(p => p.id === batchForm.program_id);
+      const targetProg = batchForm.program_id ? programs.find(p => p.id === batchForm.program_id) : null;
       const res = await fetch('/api/v1/academic/batches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          program_id: batchForm.program_id,
+          program_id: batchForm.program_id || undefined,
           name: batchForm.name.trim(),
           cohort_type: 'batch',
           shift: batchForm.shift,
@@ -809,6 +819,7 @@ export const AcademicStructureView: React.FC = () => {
           max_capacity: Number(batchForm.max_capacity) || 40,
           class_teacher_id: batchForm.class_teacher_id || undefined,
           class_teacher_name: teacher ? teacher.full_name : undefined,
+          subject_ids: batchForm.subject_ids,
           fee_schedule: targetProg?.fee_schedule || [],
         }),
       });
@@ -841,6 +852,7 @@ export const AcademicStructureView: React.FC = () => {
       academic_session: b.academic_session || tenant?.academic_session || '2026-2027',
       max_capacity: b.max_capacity || 40,
       class_teacher_id: b.class_teacher_id || '',
+      subject_ids: b.subject_ids || [],
     });
     setShowEditBatchModal(true);
   };
@@ -855,7 +867,7 @@ export const AcademicStructureView: React.FC = () => {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          program_id: editBatchForm.program_id || editingBatch.program_id,
+          program_id: editBatchForm.program_id || editingBatch.program_id || null,
           name: editBatchForm.name.trim(),
           cohort_type: 'batch',
           shift: editBatchForm.shift,
@@ -870,6 +882,7 @@ export const AcademicStructureView: React.FC = () => {
           max_capacity: Number(editBatchForm.max_capacity) || 40,
           class_teacher_id: editBatchForm.class_teacher_id || null,
           class_teacher_name: teacher ? teacher.full_name : null,
+          subject_ids: editBatchForm.subject_ids,
         }),
       });
       const data = await res.json();
@@ -1039,6 +1052,44 @@ export const AcademicStructureView: React.FC = () => {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const openEditSubjectModal = (s: Subject) => {
+    setEditingSubject(s);
+    setEditSubjectForm({
+      name: s.name,
+      code: s.code || '',
+      is_core: s.is_core ?? true,
+    });
+    setShowEditSubjectModal(true);
+  };
+
+  const handleUpdateSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !editingSubject || !editSubjectForm.name.trim()) return;
+    setIsSubmitting(true);
+    try {
+      const res = await fetch(`/api/v1/academic/subjects/${editingSubject.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: editSubjectForm.name.trim(),
+          code: editSubjectForm.code.trim(),
+          is_core: editSubjectForm.is_core,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error?.message || 'Failed to update subject');
+
+      setShowEditSubjectModal(false);
+      setEditingSubject(null);
+      triggerSuccess(`Subject "${data.data.name}" updated successfully.`);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Error updating subject');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -2301,6 +2352,19 @@ export const AcademicStructureView: React.FC = () => {
                           <span className="block text-[10px] font-mono text-slate-400 font-normal">
                             Session: {b.academic_session}
                           </span>
+                          {b.subject_ids && b.subject_ids.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {b.subject_ids.map((subId: string) => {
+                                const sub = subjects.find(s => s.id === subId);
+                                if (!sub) return null;
+                                return (
+                                  <span key={subId} className="inline-block px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-[9px] font-medium text-indigo-700">
+                                    {sub.name}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
                         </td>
                         <td className="py-2.5 px-3.5">
                           <span className="capitalize font-semibold text-slate-800 block">
@@ -2455,39 +2519,39 @@ export const AcademicStructureView: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {filteredCatalogSubjects.map(s => {
-              // Find which groups use this subject
-              const usingGroups = subjectGroups.filter(g => g.subject_ids.includes(s.id));
-
-              return (
-                <div key={s.id} className="border border-slate-200 rounded-xl p-3.5 bg-white hover:border-slate-300 hover:shadow-xs transition-all flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        {s.code && (
-                          <span className="font-mono text-[10px] bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded">
-                            {s.code}
-                          </span>
-                        )}
-                        <h4 className="text-xs font-bold text-slate-900 mt-1">{s.name}</h4>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteSubject(s.id, s.name)}
-                        className="text-slate-400 hover:text-rose-600 p-1 rounded transition-colors"
-                        title="Delete Subject"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="mt-3 pt-2 border-t border-slate-100 text-[10px] text-slate-500">
-                      Used in <strong className="text-slate-800 font-mono">{usingGroups.length}</strong> academic tracks/groups
-                    </div>
-                  </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            {filteredCatalogSubjects.map(s => (
+              <div key={s.id} className="border border-slate-200 rounded-lg p-2.5 bg-white hover:border-slate-300 hover:shadow-xs transition-all flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  {s.code ? (
+                    <span className="font-mono text-[10px] bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded shrink-0">
+                      {s.code}
+                    </span>
+                  ) : (
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
+                  )}
+                  <h4 className="text-xs font-semibold text-slate-900 truncate" title={s.name}>{s.name}</h4>
                 </div>
-              );
-            })}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => openEditSubjectModal(s)}
+                    className="text-slate-400 hover:text-amber-600 p-1 rounded hover:bg-amber-50 transition-colors"
+                    title="Edit Subject"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSubject(s.id, s.name)}
+                    className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition-colors"
+                    title="Delete Subject"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
 
             {isLoading ? (
               <div className="col-span-full">
@@ -3475,6 +3539,41 @@ export const AcademicStructureView: React.FC = () => {
                 </select>
               </div>
 
+              {/* Batch Subjects (Course Curriculum) */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Enrolled Subjects / Course Curriculum <span className="text-slate-400 font-normal text-[10px]">(Select subjects taught in this batch)</span>
+                </label>
+                <div className="border border-slate-200 rounded-xl p-2.5 bg-slate-50 max-h-36 overflow-y-auto space-y-1.5">
+                  {subjects.length === 0 ? (
+                    <p className="text-[11px] text-slate-400 italic">No subjects in catalog. Add subjects in Master Subject Catalog first.</p>
+                  ) : (
+                    subjects.map(s => {
+                      const isChecked = (batchForm.subject_ids || []).includes(s.id);
+                      return (
+                        <label key={s.id} className="flex items-center gap-2 p-1.5 bg-white rounded-lg border border-slate-100 hover:border-slate-200 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={e => {
+                              const cur = batchForm.subject_ids || [];
+                              if (e.target.checked) {
+                                setBatchForm({ ...batchForm, subject_ids: [...cur, s.id] });
+                              } else {
+                                setBatchForm({ ...batchForm, subject_ids: cur.filter(id => id !== s.id) });
+                              }
+                            }}
+                            className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                          />
+                          <span className="font-medium text-slate-800">{s.name}</span>
+                          {s.code && <span className="text-[10px] text-slate-400 font-mono">({s.code})</span>}
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
               <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-2">
                 <button
                   type="button"
@@ -3693,6 +3792,41 @@ export const AcademicStructureView: React.FC = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* Batch Subjects (Course Curriculum) */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Enrolled Subjects / Course Curriculum <span className="text-slate-400 font-normal text-[10px]">(Select subjects taught in this batch)</span>
+                </label>
+                <div className="border border-slate-200 rounded-xl p-2.5 bg-slate-50 max-h-36 overflow-y-auto space-y-1.5">
+                  {subjects.length === 0 ? (
+                    <p className="text-[11px] text-slate-400 italic">No subjects in catalog. Add subjects in Master Subject Catalog first.</p>
+                  ) : (
+                    subjects.map(s => {
+                      const isChecked = (editBatchForm.subject_ids || []).includes(s.id);
+                      return (
+                        <label key={s.id} className="flex items-center gap-2 p-1.5 bg-white rounded-lg border border-slate-100 hover:border-slate-200 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={e => {
+                              const cur = editBatchForm.subject_ids || [];
+                              if (e.target.checked) {
+                                setEditBatchForm({ ...editBatchForm, subject_ids: [...cur, s.id] });
+                              } else {
+                                setEditBatchForm({ ...editBatchForm, subject_ids: cur.filter(id => id !== s.id) });
+                              }
+                            }}
+                            className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                          />
+                          <span className="font-medium text-slate-800">{s.name}</span>
+                          {s.code && <span className="text-[10px] text-slate-400 font-mono">({s.code})</span>}
+                        </label>
+                      );
+                    })
+                  )}
+                </div>
               </div>
 
               <div className="pt-3 border-t border-slate-100 flex flex-col-reverse sm:flex-row items-center justify-end gap-2">
@@ -4209,6 +4343,71 @@ export const AcademicStructureView: React.FC = () => {
                   className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 shadow-xs cursor-pointer"
                 >
                   {isSubmitting ? 'Saving...' : 'Add to Catalog'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT SUBJECT */}
+      {showEditSubjectModal && editingSubject && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="mobile-sheet-card bg-white rounded-t-xl sm:rounded-xl max-w-sm w-full p-3.5 sm:p-5 shadow-xl border border-slate-200 animate-in fade-in zoom-in-95 max-h-[92dvh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 rounded-xl bg-slate-900 text-white">
+                  <Pencil className="w-4 h-4 text-amber-400" />
+                </span>
+                <div>
+                  <SectionInfo title="Edit Subject" description="Update subject code and name in catalog" />
+                </div>
+              </div>
+              <button onClick={() => setShowEditSubjectModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateSubject} className="space-y-4 mt-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Subject Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editSubjectForm.name}
+                  onChange={e => setEditSubjectForm({ ...editSubjectForm, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Subject Code <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={editSubjectForm.code}
+                  onChange={e => setEditSubjectForm({ ...editSubjectForm, code: e.target.value.toUpperCase() })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEditSubjectModal(false)}
+                  className="h-8.5 px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-100 rounded-lg font-medium text-xs cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-bold text-xs transition-colors disabled:opacity-50 shadow-xs cursor-pointer"
+                >
+                  {isSubmitting ? 'Saving...' : 'Update Subject'}
                 </button>
               </div>
             </form>
