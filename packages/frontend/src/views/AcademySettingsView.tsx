@@ -29,6 +29,7 @@ import { AcademicSession, TenantSettings, defaultAcademicSessions, DocumentCheck
 import { compressImageFile } from '../components/LoginModal';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const AcademySettingsView: React.FC = () => {
   const { token, tenant, user, applySession, refreshSession } = useAuth();
@@ -594,10 +595,7 @@ export const AcademySettingsView: React.FC = () => {
       )}
 
       {isLoading ? (
-        <div className="p-12 text-center text-slate-400">
-          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
-          <p className="text-xs font-mono">Loading academy settings...</p>
-        </div>
+        <InstitutionalLoader variant="card" label="Loading academy operational profile..." />
       ) : (
         <div className="space-y-6">
           {/* Institutional Navigation Tabs - Native Segmented Control */}

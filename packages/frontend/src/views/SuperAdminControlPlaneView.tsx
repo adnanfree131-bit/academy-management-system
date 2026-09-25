@@ -33,6 +33,7 @@ import {
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
 import { useMobileOverlay } from '../lib/mobileOverlay';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const SuperAdminControlPlaneView: React.FC = () => {
   const { token } = useAuth();
@@ -844,12 +845,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
   };
 
   if (loading) {
-    return (
-      <div className="p-8 text-center text-slate-500">
-        <div className="w-6 h-6 border-2 border-slate-700 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-        <p className="text-xs font-medium">Loading platform records...</p>
-      </div>
-    );
+    return <InstitutionalLoader variant="page" label="Loading platform records..." />;
   }
 
   const tenants: SuperAdminTenantSummary[] = overview?.tenants || [];

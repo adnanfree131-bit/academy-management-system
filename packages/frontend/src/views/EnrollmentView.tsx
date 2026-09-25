@@ -53,6 +53,7 @@ import {
   DocumentChecklistHead
 } from '@apex/shared-types';
 import { StudentProfileModal } from '../components/StudentProfileModal';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 import { StudentIDCardDesk } from './StudentIDCardDesk';
 import { ModernSelect } from '../components/ModernSelect';
 import { localISODate } from '../lib/localDate';
@@ -2283,12 +2284,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 </thead>
                 <tbody className="divide-y divide-slate-200/70">
                   {isLoading ? (
-                    <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400 font-mono">
-                        <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                        Loading student records...
-                      </td>
-                    </tr>
+                    <InstitutionalLoader variant="table" colSpan={7} label="Loading student records..." />
                   ) : filteredStudents.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="py-8 text-center text-slate-400">
@@ -2510,10 +2506,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           {/* Mobile Box Cards List (< 768px) - 100% Full Width Directly on Page */}
           <div className="md:hidden space-y-2.5" data-testid="mobile-student-roster">
             {isLoading ? (
-              <div className="py-12 text-center text-slate-400 bg-white rounded-xl border border-slate-200 shadow-2xs">
-                <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                <span className="text-xs font-mono">Loading student records...</span>
-              </div>
+              <InstitutionalLoader variant="card" label="Loading student records..." />
             ) : filteredStudents.length === 0 ? (
               <div className="py-12 text-center text-slate-400 bg-white rounded-xl border border-slate-200 shadow-2xs p-4">
                 <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />

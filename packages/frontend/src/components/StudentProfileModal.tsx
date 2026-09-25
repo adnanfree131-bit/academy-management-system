@@ -45,6 +45,7 @@ import {
   StudentEnrollmentStatus
 } from '@apex/shared-types';
 import { StudentIDCardModal } from './StudentIDCardModal';
+import { InstitutionalLoader } from './InstitutionalLoader';
 
 interface StudentProfileModalProps {
   student: Student;
@@ -2542,10 +2543,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 </div>
 
                 {isLoadingAttendance ? (
-                  <div className="p-8 text-center text-slate-400">
-                    <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                    <p className="text-xs font-mono">Loading live attendance records...</p>
-                  </div>
+                  <InstitutionalLoader variant="inline" label="Loading live attendance records..." />
                 ) : attendanceLogs.length === 0 ? (
                   <div className="p-8 text-center text-slate-400">
                     <Clock className="w-6 h-6 mx-auto mb-2 text-slate-300" />
@@ -5448,10 +5446,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
             <div className="p-5 overflow-y-auto space-y-4 text-xs">
               {loadingAuditLogs ? (
-                <div className="py-12 text-center text-slate-400">
-                  <div className="w-6 h-6 border-2 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  <p className="text-xs">Loading student audit history...</p>
-                </div>
+                <InstitutionalLoader variant="inline" label="Loading student audit history..." />
               ) : auditLogs.length === 0 ? (
                 <div className="py-12 text-center text-slate-400">
                   <History className="w-8 h-8 mx-auto text-slate-300 mb-2" />

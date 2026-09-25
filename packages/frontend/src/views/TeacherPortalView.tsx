@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { TeacherPortalOverview, TimetableSlot, Batch, Exam } from '@apex/shared-types';
 import { campusToday, campusMinutes, parseTimeToMinutes } from '../lib/campusDate';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 import { 
   Clock, 
   CheckCircle2, 
@@ -134,12 +135,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
   }, [token]);
 
   if (loading) {
-    return (
-      <div className="p-8 text-center text-slate-400">
-        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-        <p className="text-xs">Loading…</p>
-      </div>
-    );
+    return <InstitutionalLoader variant="page" label="Loading teacher portal..." />;
   }
 
   const schedule: TimetableSlot[] = overview?.today_schedule || [];

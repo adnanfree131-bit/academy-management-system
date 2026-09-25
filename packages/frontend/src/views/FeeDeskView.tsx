@@ -49,6 +49,7 @@ import {
   PaymentMethod,
   FeePayment
 } from '@apex/shared-types';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 import { SectionInfo } from '../components/SectionInfo';
 import { localISODate, addLocalDays } from '../lib/localDate';
 import { normalizeBillingMonth } from './FeeChallansView';
@@ -77,6 +78,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
   const [batches, setBatches] = useState<any[]>([]);
   const [programs, setPrograms] = useState<any[]>([]);
   const [academySettings, setAcademySettings] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedBatch, setSelectedBatch] = useState<string>('all');
@@ -369,6 +371,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
   // Fetch Core Data
   const fetchData = async () => {
     if (!token) return;
+    setIsLoading(true);
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
@@ -429,6 +432,8 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
       if (progRes && progRes.ok) setPrograms((await progRes.json()).data || []);
     } catch (err) {
       console.error('Failed to load fee data:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -2637,7 +2642,13 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
           {/* When No Student Selected: Active Dues Register */}
           {!selectedStudent && (
             <div className="space-y-2.5 sm:space-y-3">
-              {allUnpaidStudents.length === 0 ? (
+              {isLoading ? (
+                <InstitutionalLoader
+                  variant="card"
+                  label="Loading fee register & outstanding accounts..."
+                  hint="Retrieving students, invoice ledgers, and cashier heads"
+                />
+              ) : allUnpaidStudents.length === 0 ? (
                 <div className="bg-white border border-slate-200 rounded-xl shadow-2xs py-8 text-center text-slate-400 text-xs">
                   <CheckCircle2 className="w-7 h-7 mx-auto mb-1.5 text-emerald-500" />
                   <p className="font-semibold text-slate-700">All student fees are fully cleared</p>
@@ -4073,8 +4084,26 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
           </div>
 
           {/* Defaulters Table & List Container */}
+          {isLoading && (
+            <div className="sm:hidden">
+              <InstitutionalLoader
+                variant="card"
+                label="Loading fee defaulters register..."
+                hint="Computing overdue aging and balance totals"
+              />
+            </div>
+          )}
+          {!isLoading && defaultersList.length === 0 && (
+            <div className="sm:hidden bg-white border border-slate-200 rounded-xl shadow-2xs py-8 px-4 text-center space-y-1.5">
+              <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto opacity-80" />
+              <p className="text-sm font-bold text-slate-800">
+                {duesView === 'overdue' ? 'No Overdue Defaulters' : duesView === 'current' ? 'No Current Month Unpaid Dues' : 'No Outstanding Fee Dues Found'}
+              </p>
+              <p className="text-xs text-slate-400">All active student fee challans are cleared.</p>
+            </div>
+          )}
           {/* Mobile Native Defaulter Cards (< 640px) - 100% Full Width Directly on Page */}
-          {defaultersList.length > 0 && (
+          {!isLoading && defaultersList.length > 0 && (
             <div className="sm:hidden space-y-2.5" data-testid="mobile-defaulters-list">
               {defaultersList.map(def => {
                 const stud = students.find(s => s.id === def.student_id);
@@ -4216,7 +4245,14 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {defaultersList.length === 0 ? (
+                  {isLoading ? (
+                    <InstitutionalLoader
+                      variant="table"
+                      colSpan={9}
+                      label="Loading fee defaulters register..."
+                      hint="Computing overdue aging and balance totals"
+                    />
+                  ) : defaultersList.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="py-12 text-center">
                         <div className="max-w-sm mx-auto text-center space-y-1.5">
@@ -4376,8 +4412,8 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
               </p>
             </div>
             {isGeneratingPdf && (
-              <span className="text-xs font-semibold text-indigo-600 flex items-center gap-1.5 self-start sm:self-auto bg-indigo-50 px-3 py-1.5 rounded-xl">
-                <div className="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin shrink-0" />
+              <span className="text-xs font-semibold text-amber-800 flex items-center gap-1.5 self-start sm:self-auto bg-amber-50 border border-amber-200/80 px-3 py-1.5 rounded-xl">
+                <div className="w-3.5 h-3.5 border-2 border-amber-600 border-t-transparent rounded-full animate-spin shrink-0" />
                 Rendering PDF document...
               </span>
             )}
@@ -6472,7 +6508,13 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
 
             {/* Search Results List */}
             <div className="overflow-y-auto space-y-2 flex-1 pr-1">
-              {cashierFilteredStudents.length === 0 ? (
+              {isLoading ? (
+                <InstitutionalLoader
+                  variant="inline"
+                  label="Loading student accounts..."
+                  hint="Indexing name, admission #, and contact info"
+                />
+              ) : cashierFilteredStudents.length === 0 ? (
                 <div className="py-12 text-center text-slate-400">
                   <Search className="w-8 h-8 mx-auto mb-2 text-slate-300" />
                   <p className="text-xs font-semibold text-slate-600">No students found matching "{cashierSearch}"</p>

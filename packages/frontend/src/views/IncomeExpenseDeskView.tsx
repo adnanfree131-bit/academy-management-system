@@ -14,7 +14,6 @@ import {
   Printer,
   Trash2,
   X,
-  RefreshCw,
   PieChart,
   SlidersHorizontal,
   MoreVertical,
@@ -25,6 +24,7 @@ import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } 
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
 import { useMobileOverlay } from '../lib/mobileOverlay';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const IncomeExpenseDeskView: React.FC = () => {
   const { token, tenant } = useAuth();
@@ -655,10 +655,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
 
           {/* Table */}
           {isLoading ? (
-            <div className="p-8 text-center text-slate-400">
-              <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-500" />
-              <p className="text-xs font-mono">Loading transaction ledger...</p>
-            </div>
+            <InstitutionalLoader variant="card" label="Loading transaction ledger..." />
           ) : filteredTransactions.length === 0 ? (
             <div className="p-8 text-center text-slate-400">
               <Wallet className="w-7 h-7 mx-auto mb-2 text-slate-300" />

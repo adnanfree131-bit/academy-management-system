@@ -8,7 +8,6 @@ import {
   CheckCircle2, 
   UserCheck, 
   X, 
-  RefreshCw,
   Building2,
   BookOpen,
   Edit2,
@@ -27,6 +26,7 @@ import {
 import { PageHeading } from '../components/PageHeading';
 import { useMobileOverlay } from '../lib/mobileOverlay';
 import { campusToday, campusDayOfWeek } from '../lib/campusDate';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 const DAYS: { id: DayOfWeek; label: string }[] = [
   { id: 'monday', label: 'Monday' },
@@ -548,10 +548,7 @@ export const TimetableDesk: React.FC = () => {
 
       {/* Slots Display Grid */}
       {isLoading ? (
-        <div className="p-12 text-center text-slate-400 bg-white border border-slate-200 rounded-2xl">
-          <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-500" />
-          <p className="text-xs font-mono">Loading class schedule...</p>
-        </div>
+        <InstitutionalLoader variant="card" label="Loading class schedule..." />
       ) : filteredSlots.length === 0 ? (
         <div className="p-12 text-center bg-white border border-slate-200 rounded-2xl">
           <Calendar className="w-8 h-8 text-slate-300 mx-auto mb-2" />
@@ -824,10 +821,7 @@ export const TimetableDesk: React.FC = () => {
 
               {/* Pre-Flight Collision Alert Banner */}
               {isCheckingCollision ? (
-                <div className="p-3 rounded-xl bg-slate-50 text-slate-500 text-xs flex items-center gap-2">
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-500" />
-                  <span>Checking for schedule conflicts...</span>
-                </div>
+                <InstitutionalLoader variant="inline" size="sm" label="Checking for schedule conflicts..." />
               ) : collisionState?.has_conflict ? (
                 <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />

@@ -11,6 +11,7 @@ import {
   DayOfWeek 
 } from '@apex/shared-types';
 import { campusToday, campusDayOfWeek } from '../lib/campusDate';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 import { 
   Clock, 
   BookOpen, 
@@ -456,12 +457,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   };
 
   if (loading && !overview) {
-    return (
-      <div className="p-16 text-center text-slate-500 space-y-3">
-        <div className="w-8 h-8 border-3 border-slate-900 border-t-transparent rounded-full animate-spin mx-auto" />
-        <p className="text-xs font-semibold">Opening Parent & Student Portal...</p>
-      </div>
-    );
+    return <InstitutionalLoader variant="page" label="Opening Parent & Student Portal..." />;
   }
 
   if (fetchError && !overview) {

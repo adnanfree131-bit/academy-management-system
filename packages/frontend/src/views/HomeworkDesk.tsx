@@ -26,6 +26,7 @@ import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
 import { useMobileOverlay } from '../lib/mobileOverlay';
 import { campusToday } from '../lib/campusDate';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const HomeworkDesk: React.FC = () => {
   const { token, user } = useAuth();
@@ -438,10 +439,7 @@ export const HomeworkDesk: React.FC = () => {
             </div>
 
             {isLoading ? (
-              <div className="p-8 text-center text-slate-400">
-                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-500" />
-                <p className="text-xs font-mono">Loading assignments...</p>
-              </div>
+              <InstitutionalLoader variant="card" label="Loading assignments..." />
             ) : assignments.length === 0 ? (
               <div className="p-8 text-center text-slate-400">
                 <BookOpen className="w-6 h-6 mx-auto mb-2 text-slate-300" />
@@ -673,10 +671,7 @@ export const HomeworkDesk: React.FC = () => {
           </div>
 
           {isLoading ? (
-            <div className="p-8 text-center text-slate-400">
-              <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-500" />
-              <p className="text-xs font-mono">Loading assignments...</p>
-            </div>
+            <InstitutionalLoader variant="card" label="Loading assignments..." />
           ) : assignments.length === 0 ? (
             <div className="p-8 text-center text-slate-400">
               <BookOpen className="w-6 h-6 mx-auto mb-2 text-slate-300" />

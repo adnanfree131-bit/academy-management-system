@@ -32,6 +32,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { PageHeading } from '../components/PageHeading';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 import { useMobileOverlay } from '../lib/mobileOverlay';
 import {
   CampusGeofenceConfig,
@@ -398,7 +399,7 @@ export const StaffClockInView: React.FC = () => {
   // Faculty Personal Monthly Attendance Record Desk
   const [facultySelectedMonth, setFacultySelectedMonth] = useState<string>(todayStr.slice(0, 7));
   const [facultyMonthlyRecords, setFacultyMonthlyRecords] = useState<StaffAttendanceRecord[]>([]);
-  const [loadingFacultyRecords, setLoadingFacultyRecords] = useState<boolean>(false);
+  const [loadingFacultyRecords, setLoadingFacultyRecords] = useState<boolean>(true);
 
   // Active user-defined heads list: operational views use persisted config; fallback to form state if not saved yet
   const activeHeads = useMemo(() => {
@@ -1960,12 +1961,7 @@ export const StaffClockInView: React.FC = () => {
   }, [dailyRoster, selectedStaffId]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center p-16 text-slate-500">
-        <RefreshCw className="w-6 h-6 animate-spin mr-2 text-slate-700" />
-        <span className="text-sm font-medium">Loading staff attendance...</span>
-      </div>
-    );
+    return <InstitutionalLoader variant="page" label="Loading staff attendance desk..." />;
   }
 
   // =========================================================================
@@ -2324,11 +2320,7 @@ export const StaffClockInView: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
                 {loadingFacultyRecords ? (
-                  <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400 font-mono">
-                      Loading monthly attendance register...
-                    </td>
-                  </tr>
+                  <InstitutionalLoader variant="table" colSpan={8} label="Loading monthly attendance register..." />
                 ) : facultyMonthlyRecords.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="py-8 text-center text-slate-400 font-mono">
@@ -4053,12 +4045,7 @@ export const StaffClockInView: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
                   {loadingPersonalHistory ? (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">
-                        <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
-                        Loading personal history...
-                      </td>
-                    </tr>
+                    <InstitutionalLoader variant="table" colSpan={6} label="Loading personal history..." />
                   ) : filteredStaffPersonalRecords.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-slate-400 font-mono">
@@ -4098,10 +4085,7 @@ export const StaffClockInView: React.FC = () => {
             {/* Phone Statement Cards (< 768px) */}
             <div className="md:hidden divide-y divide-slate-100">
               {loadingPersonalHistory ? (
-                <div className="p-8 text-center text-slate-400 font-mono text-xs">
-                  <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
-                  Loading personal history...
-                </div>
+                <InstitutionalLoader variant="card" label="Loading personal history..." />
               ) : filteredStaffPersonalRecords.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 font-mono text-xs">
                   No recorded attendance logs match current filter criteria.

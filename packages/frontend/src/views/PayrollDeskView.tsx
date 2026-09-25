@@ -27,6 +27,7 @@ import {
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const PayrollDeskView: React.FC = () => {
   const { token, tenant } = useAuth();
@@ -722,9 +723,7 @@ export const PayrollDeskView: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {loading ? (
-                <tr>
-                  <td colSpan={9} className="py-6 text-center text-slate-400">Loading payroll records...</td>
-                </tr>
+                <InstitutionalLoader variant="table" colSpan={9} label="Loading payroll records..." />
               ) : payslips.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-6 text-center text-slate-400">No payslips processed for {selectedMonth}.</td>
@@ -786,7 +785,7 @@ export const PayrollDeskView: React.FC = () => {
         {/* Mobile Native Payslip Cards (< 768px) - Flat, zero card-in-card */}
         <div className="md:hidden divide-y divide-slate-100">
           {loading ? (
-            <div className="py-6 text-center text-slate-400 text-xs font-mono">Loading payroll records...</div>
+            <InstitutionalLoader variant="card" label="Loading payroll records..." />
           ) : payslips.length === 0 ? (
             <div className="py-6 text-center text-slate-400 text-xs">No payslips processed for {selectedMonth}.</div>
           ) : (

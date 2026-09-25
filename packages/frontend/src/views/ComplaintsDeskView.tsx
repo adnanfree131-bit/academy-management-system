@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import { 
   MessageSquare, 
   Plus, 
-  RefreshCw, 
   CheckCircle2, 
   User,
   X,
@@ -20,6 +19,7 @@ import {
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
 import { resolveUserAccessMap, can } from '../lib/access';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const ComplaintsDeskView: React.FC = () => {
   const { token, user } = useAuth();
@@ -350,10 +350,7 @@ export const ComplaintsDeskView: React.FC = () => {
 
       {/* Tickets List */}
       {isLoading ? (
-        <div className="p-12 text-center text-slate-400 bg-white border border-slate-200 rounded-xl shadow-2xs">
-          <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-500" />
-          <p className="text-xs font-mono">Loading feedback tickets...</p>
-        </div>
+        <InstitutionalLoader variant="card" label="Loading feedback tickets..." />
       ) : filteredTickets.length === 0 ? (
         <div className="p-12 text-center bg-white border border-slate-200 rounded-xl shadow-2xs">
           <MessageSquare className="w-7 h-7 text-slate-300 mx-auto mb-2" />

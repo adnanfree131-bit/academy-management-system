@@ -17,6 +17,7 @@ import {
 import { StudentInvoice, FeePayment } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
 import { isSameBillingMonth, normalizeBillingMonth } from './FeeChallansView';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const FeeReversalsView: React.FC = () => {
   const { token } = useAuth();
@@ -31,7 +32,7 @@ export const FeeReversalsView: React.FC = () => {
   const [invoices, setInvoices] = useState<StudentInvoice[]>([]);
   const [payments, setPayments] = useState<FeePayment[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [_isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Primary Operational Filters (Default month is current month)
   const currentMonthName = useMemo(() => {
@@ -876,7 +877,9 @@ export const FeeReversalsView: React.FC = () => {
             </div>
 
             {/* Register Data Table */}
-            {displayedInvoices.length === 0 ? (
+            {isLoading ? (
+              <InstitutionalLoader variant="card" label="Loading fee invoices and receipts..." />
+            ) : displayedInvoices.length === 0 ? (
               <div className="py-12 text-center text-slate-400 text-xs space-y-2">
                 <p className="font-semibold text-slate-600">No fee records found matching the selected filters.</p>
                 <p className="text-[11px] text-slate-400">
@@ -1306,7 +1309,9 @@ export const FeeReversalsView: React.FC = () => {
           </div>
 
           {/* High-Density Audit Table */}
-          {displayedLogs.length === 0 ? (
+          {isLoading ? (
+            <InstitutionalLoader variant="card" label="Loading fee reversal audit logs..." />
+          ) : displayedLogs.length === 0 ? (
             <div className="py-16 text-center text-slate-400 text-xs">
               <History className="w-8 h-8 mx-auto mb-2 text-slate-300" />
               <p className="font-semibold text-slate-600">No audit log records found matching selected filters.</p>

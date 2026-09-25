@@ -41,6 +41,7 @@ import {
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
 import { campusToday } from '../lib/campusDate';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const AbsenteeRetentionDeskView: React.FC = () => {
   const { token, tenant } = useAuth();
@@ -75,7 +76,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
   const [showAbsenteeModuleMenu, setShowAbsenteeModuleMenu] = useState(false);
   const [showAbsenteeFilters, setShowAbsenteeFilters] = useState(false);
   const absenteeModuleContainerRef = useRef<HTMLDivElement>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -974,9 +975,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-800">
                   {loading ? (
-                    <tr>
-                      <td colSpan={7} className="p-8 text-center text-slate-400">Loading absentees roster...</td>
-                    </tr>
+                    <InstitutionalLoader variant="table" colSpan={7} label="Loading absentees roster..." />
                   ) : followups.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="p-8 text-center text-slate-500">
@@ -1604,9 +1603,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-slate-800">
                   {loadingReport ? (
-                    <tr>
-                      <td colSpan={3} className="p-6 text-center text-slate-400">Loading monthly report...</td>
-                    </tr>
+                    <InstitutionalLoader variant="table" colSpan={3} label="Loading monthly report..." />
                   ) : (
                     [
                       { category: 'MEDICAL', label: 'Medical / Illness' },
@@ -1635,7 +1632,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
             {/* Mobile Reason Breakdown List (< md) */}
             <div className="md:hidden divide-y divide-slate-100">
               {loadingReport ? (
-                <div className="p-6 text-center text-slate-400 text-xs">Loading monthly report...</div>
+                <InstitutionalLoader variant="card" label="Loading monthly report..." />
               ) : (
                 [
                   { category: 'MEDICAL', label: 'Medical / Illness' },

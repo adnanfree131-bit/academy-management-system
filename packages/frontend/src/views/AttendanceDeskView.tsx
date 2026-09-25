@@ -40,6 +40,7 @@ import { SectionInfo } from '../components/SectionInfo';
 import { ModernSelect } from '../components/ModernSelect';
 import { hapticLight, hapticSuccess, hapticSelection } from '../lib/haptics';
 import { campusToday } from '../lib/campusDate';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export type DeskAttendanceStatus = AttendanceStatus | 'unmarked';
 
@@ -1200,10 +1201,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
           {/* Student Roster Table */}
           <div className="bg-white border border-slate-200 rounded-xl shadow-2xs overflow-hidden">
             {isLoading ? (
-              <div className="p-8 text-center text-slate-400">
-                <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-xs font-mono">Loading batch student roster...</p>
-              </div>
+              <InstitutionalLoader variant="card" label="Loading batch student roster..." />
             ) : batches.length === 0 ? (
               <div className="p-8 text-center text-slate-400 space-y-3">
                 <Users className="w-8 h-8 mx-auto text-slate-300" />

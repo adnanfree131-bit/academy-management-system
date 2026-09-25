@@ -26,7 +26,6 @@ import {
   Search,
   X,
   ShieldCheck,
-  RefreshCw,
   Check,
   Edit2,
   Trash2,
@@ -48,6 +47,7 @@ import {
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
 import { useMobileOverlay } from '../lib/mobileOverlay';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 const DEPARTMENTS: StaffDepartment[] = [
   'Science',
@@ -1002,10 +1002,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* High-Density Tabular Register */}
       <div className="bg-white border border-slate-200/80 rounded-xl shadow-2xs min-h-[300px] pb-6">
         {loading ? (
-          <div className="p-8 text-center text-slate-400 text-sm">
-            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-slate-600" />
-            Loading staff directory…
-          </div>
+          <InstitutionalLoader variant="card" label="Loading staff directory..." />
         ) : filteredRows.length === 0 ? (
           <div className="p-8 text-center text-slate-500 text-sm">
             <Users className="w-7 h-7 text-slate-300 mx-auto mb-2" />

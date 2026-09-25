@@ -12,6 +12,7 @@ import {
 import { Student, Batch, AcademicProgram } from '@apex/shared-types';
 import { SectionInfo } from '../components/SectionInfo';
 import { StudentIDCardItem, computeCardValidUntil } from '../components/StudentIDCardItem';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 import { buildStudentIdCardPdf, fetchLogoBytes } from '../lib/idCardPdf';
 
 export interface StudentIDCardDeskProps {
@@ -33,7 +34,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
   const [internalStudents, setInternalStudents] = useState<Student[]>([]);
   const [internalBatches, setInternalBatches] = useState<Batch[]>([]);
   const [internalPrograms, setInternalPrograms] = useState<AcademicProgram[]>([]);
-  const [_isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(!propStudents);
 
   const students = propStudents || internalStudents;
   const batches = propBatches || internalBatches;
@@ -388,7 +389,13 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
           </div>
 
           <div className="font-mono text-slate-600 text-xs">
-            <span className="font-semibold text-slate-900">{activeSelectedStudents.length}</span> of {students.length} students selected
+            {isLoading ? (
+              <span className="text-slate-400">Loading roster...</span>
+            ) : (
+              <>
+                <span className="font-semibold text-slate-900">{activeSelectedStudents.length}</span> of {students.length} students selected
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -398,11 +405,13 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
         {/* Left Column: Student Roster Checklist (5 cols) */}
         <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-3 shadow-xs space-y-2 max-h-[620px] overflow-y-auto">
           <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-1 pb-1 border-b border-slate-100 flex justify-between">
-            <span>Student Roster ({filteredStudents.length})</span>
+            <span>Student Roster ({isLoading ? '…' : filteredStudents.length})</span>
             <span>Status</span>
           </div>
 
-          {filteredStudents.length === 0 ? (
+          {isLoading ? (
+            <InstitutionalLoader variant="inline" label="Loading student cards roster..." />
+          ) : filteredStudents.length === 0 ? (
             <div className="py-8 text-center text-xs text-slate-400">
               No students match the selected filter criteria.
             </div>
@@ -511,7 +520,9 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
           </div>
 
           <div className="flex-1 bg-slate-50/80 border border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center min-h-[380px] max-h-[550px] overflow-y-auto">
-            {activeSelectedStudents.length === 0 ? (
+            {isLoading ? (
+              <InstitutionalLoader variant="page" label="Loading identity card preview..." />
+            ) : activeSelectedStudents.length === 0 ? (
               <div className="text-center space-y-2 py-12">
                 <CreditCard className="w-8 h-8 text-slate-300 mx-auto" />
                 <p className="text-xs text-slate-500">

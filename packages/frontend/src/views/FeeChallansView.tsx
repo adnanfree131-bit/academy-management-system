@@ -26,6 +26,7 @@ import {
   ChallanItem 
 } from '../lib/feeReportsPdf';
 import { academyLetterheadFromAuth } from '../lib/officialDocumentPdf';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 function formatLocalDate(year: number, monthIdx: number, day: number): string {
   const m = String(monthIdx + 1).padStart(2, '0');
@@ -71,6 +72,7 @@ export const FeeChallansView: React.FC = () => {
   const [feeStructures, setFeeStructures] = useState<StudentFeeStructure[]>([]);
   const [feeHeads, setFeeHeads] = useState<FeeHead[]>([]);
   const [academySettings, setAcademySettings] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -175,6 +177,7 @@ export const FeeChallansView: React.FC = () => {
   // Fetch Core Data
   const fetchData = useCallback(async () => {
     if (!token) return;
+    setIsLoading(true);
     try {
       const [invRes, studRes, progRes, batchRes, structRes, settRes, headsRes] = await Promise.all([
         fetch('/api/v1/finance/invoices', { headers: { authorization: `Bearer ${token}` } }),
@@ -200,6 +203,8 @@ export const FeeChallansView: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to load challan data:', err);
+    } finally {
+      setIsLoading(false);
     }
   }, [token]);
 
@@ -616,8 +621,12 @@ export const FeeChallansView: React.FC = () => {
       {/* =========================================================================
           SECTION 1: CHALLAN GENERATION
           ========================================================================= */}
-      {activeTab === 'generate' && (
-        <div className="max-w-2xl space-y-3">
+      {isLoading ? (
+        <InstitutionalLoader variant="page" label="Loading fee challans desk..." />
+      ) : (
+        <>
+          {activeTab === 'generate' && (
+            <div className="max-w-2xl space-y-3">
           {/* Generation Setup Card */}
           <div className="space-y-3">
             <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 sm:p-4 shadow-2xs space-y-3">
@@ -941,10 +950,15 @@ export const FeeChallansView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleGenerateSingleChallan}
-                  disabled={isGenerating || !matchedSingleStudent || Boolean(singleStudentDuplicateChallan)}
+                  disabled={isLoading || isGenerating || !matchedSingleStudent || Boolean(singleStudentDuplicateChallan)}
                   className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white text-xs font-semibold rounded-xl transition-all shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
-                  {isGenerating ? (
+                  {isLoading ? (
+                    <>
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin shrink-0" />
+                      <span>Loading Student Roster...</span>
+                    </>
+                  ) : isGenerating ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
                       <span>Generating Challan...</span>
@@ -960,10 +974,15 @@ export const FeeChallansView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleGenerateChallans}
-                  disabled={isGenerating || eligibleGenerationStudents.length === 0 || unbilledStudents.length === 0}
+                  disabled={isLoading || isGenerating || eligibleGenerationStudents.length === 0 || unbilledStudents.length === 0}
                   className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 active:scale-[0.98] text-white text-xs font-semibold rounded-xl transition-all shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                 >
-                  {isGenerating ? (
+                  {isLoading ? (
+                    <>
+                      <div className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin shrink-0" />
+                      <span>Loading Student Roster & Fee Dues...</span>
+                    </>
+                  ) : isGenerating ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
                       <span>Generating Challans...</span>
@@ -1307,6 +1326,8 @@ export const FeeChallansView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* In-Portal PDF Viewer Modal */}

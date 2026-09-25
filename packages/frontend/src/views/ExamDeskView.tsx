@@ -36,6 +36,7 @@ import {
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const ExamDeskView: React.FC = () => {
   const { tenant, token } = useAuth();
@@ -51,7 +52,7 @@ export const ExamDeskView: React.FC = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [programs, setPrograms] = useState<AcademicProgram[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(true);
 
   // Selected filters for Question Bank
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
@@ -904,68 +905,80 @@ export const ExamDeskView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredExams.map(exam => (
-                  <tr key={exam.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-2 px-3 font-semibold text-slate-900">
-                      {exam.title}
-                      <span className="block text-[10px] font-mono text-slate-400 font-normal">ID: {exam.id}</span>
-                    </td>
-                    <td className="py-2 px-3">
-                      <span className="font-semibold text-slate-800">{exam.subject_name || 'Physics'}</span>
-                      <span className="block text-[10px] text-slate-500">{exam.batch_name || 'Batch A'}</span>
-                    </td>
-                    <td className="py-2 px-3">{exam.exam_date}</td>
-                    <td className="py-2 px-3">{exam.duration_minutes} Mins</td>
-                    <td className="py-2 px-3 text-center">
-                      <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold mr-1">
-                        MCQs: {exam.mcq_total_marks || (exam.mcq_count * exam.mcq_marks_per_q)}
-                      </span>
-                      <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded text-[10px] font-bold mr-1">
-                        Short: {exam.short_total_marks}
-                      </span>
-                      <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] font-bold">
-                        Long: {exam.long_total_marks}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3 text-right font-semibold font-mono text-slate-900">{exam.total_marks} Marks</td>
-                    <td className="py-2 px-3 text-center">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        exam.status === 'GRADED' ? 'bg-emerald-100 text-emerald-800' :
-                        exam.status === 'PUBLISHED' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'
-                      }`}>
-                        {exam.status}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3 text-right space-x-1.5">
-                      <button
-                        onClick={() => {
-                          setSelectedExamForPaper(exam);
-                          setShowPrintPaperModal(true);
-                        }}
-                        className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded text-[11px] inline-flex items-center gap-1 cursor-pointer"
-                        title="Print Exam Test Paper"
-                      >
-                        <Printer className="w-3.5 h-3.5 text-slate-600" /> Print Paper
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEvalSelectedExamId(exam.id);
-                          setActiveTab('evaluate');
-                        }}
-                        className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold rounded text-[11px] inline-flex items-center gap-1 border border-amber-200/60 transition-colors cursor-pointer"
-                      >
-                        <PenTool className="w-3.5 h-3.5" /> Grade
-                      </button>
+                {loading ? (
+                  <InstitutionalLoader variant="table" colSpan={8} label="Loading scheduled examinations..." />
+                ) : filteredExams.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="p-8 text-center text-slate-400 text-xs font-mono">
+                      No scheduled exams found.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredExams.map(exam => (
+                    <tr key={exam.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-2 px-3 font-semibold text-slate-900">
+                        {exam.title}
+                        <span className="block text-[10px] font-mono text-slate-400 font-normal">ID: {exam.id}</span>
+                      </td>
+                      <td className="py-2 px-3">
+                        <span className="font-semibold text-slate-800">{exam.subject_name || 'Physics'}</span>
+                        <span className="block text-[10px] text-slate-500">{exam.batch_name || 'Batch A'}</span>
+                      </td>
+                      <td className="py-2 px-3">{exam.exam_date}</td>
+                      <td className="py-2 px-3">{exam.duration_minutes} Mins</td>
+                      <td className="py-2 px-3 text-center">
+                        <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px] font-bold mr-1">
+                          MCQs: {exam.mcq_total_marks || (exam.mcq_count * exam.mcq_marks_per_q)}
+                        </span>
+                        <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded text-[10px] font-bold mr-1">
+                          Short: {exam.short_total_marks}
+                        </span>
+                        <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] font-bold">
+                          Long: {exam.long_total_marks}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-right font-semibold font-mono text-slate-900">{exam.total_marks} Marks</td>
+                      <td className="py-2 px-3 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          exam.status === 'GRADED' ? 'bg-emerald-100 text-emerald-800' :
+                          exam.status === 'PUBLISHED' ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {exam.status}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-right space-x-1.5">
+                        <button
+                          onClick={() => {
+                            setSelectedExamForPaper(exam);
+                            setShowPrintPaperModal(true);
+                          }}
+                          className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded text-[11px] inline-flex items-center gap-1 cursor-pointer"
+                          title="Print Exam Test Paper"
+                        >
+                          <Printer className="w-3.5 h-3.5 text-slate-600" /> Print Paper
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEvalSelectedExamId(exam.id);
+                            setActiveTab('evaluate');
+                          }}
+                          className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-semibold rounded text-[11px] inline-flex items-center gap-1 border border-amber-200/60 transition-colors cursor-pointer"
+                        >
+                          <PenTool className="w-3.5 h-3.5" /> Grade
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
 
           {/* Mobile Native Exam Cards (< 768px) */}
           <div className="md:hidden divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
-            {filteredExams.length === 0 ? (
+            {loading ? (
+              <InstitutionalLoader variant="card" label="Loading scheduled examinations..." />
+            ) : filteredExams.length === 0 ? (
               <div className="p-8 text-center text-slate-400 text-xs">No scheduled exams found.</div>
             ) : (
               filteredExams.map(exam => (
@@ -1165,7 +1178,9 @@ export const ExamDeskView: React.FC = () => {
 
               {/* Questions List */}
               <div className="space-y-3">
-                {filteredQuestions.length === 0 ? (
+                {loading ? (
+                  <InstitutionalLoader variant="card" label="Loading question bank..." />
+                ) : filteredQuestions.length === 0 ? (
                   <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-xl text-slate-400 text-xs">
                     No questions found matching your filter criteria.
                   </div>
@@ -1325,7 +1340,9 @@ export const ExamDeskView: React.FC = () => {
             </div>
           )}
 
-          {currentExam ? (
+          {loading ? (
+            <InstitutionalLoader variant="card" label="Loading examination evaluations..." />
+          ) : currentExam ? (
             eligibleStudents.length === 0 ? (
               <div className="p-8 text-center bg-white rounded-xl border border-slate-200 space-y-2">
                 <p className="text-xs font-semibold text-slate-700">No active students in this batch are enrolled in this subject.</p>

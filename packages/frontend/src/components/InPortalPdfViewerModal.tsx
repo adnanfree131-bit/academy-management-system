@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { X, Download, Printer, Loader2, FileText } from 'lucide-react';
+import { X, Download, Printer, FileText } from 'lucide-react';
+import { InstitutionalLoader } from './InstitutionalLoader';
 import { useMobileOverlay } from '../lib/mobileOverlay';
 
 interface InPortalPdfViewerModalProps {
@@ -152,10 +153,7 @@ export const InPortalPdfViewerModal: React.FC<InPortalPdfViewerModalProps> = ({
         {/* PDF Viewer Body */}
         <div className="flex-1 bg-slate-100 relative overflow-hidden flex items-center justify-center">
           {loading ? (
-            <div className="flex flex-col items-center gap-2 text-slate-500">
-              <Loader2 className="w-7 h-7 animate-spin text-indigo-600" />
-              <span className="text-xs font-medium">Rendering vector document...</span>
-            </div>
+            <InstitutionalLoader variant="page" label="Rendering official document..." />
           ) : blobUrl ? (
             <iframe
               src={`${blobUrl}#toolbar=0&navpanes=0&scrollbar=1`}

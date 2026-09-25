@@ -26,6 +26,7 @@ import {
 import { AcademicProgram, Batch, Subject, SubjectGroup, Student, FeeHead } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
+import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const AcademicStructureView: React.FC = () => {
   const { token, tenant } = useAuth();
@@ -43,6 +44,7 @@ export const AcademicStructureView: React.FC = () => {
   const [feeHeads, setFeeHeads] = useState<FeeHead[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Selected Program for Class View
   const [selectedProgramId, setSelectedProgramId] = useState<string>('');
@@ -185,6 +187,7 @@ export const AcademicStructureView: React.FC = () => {
   // Fetch all academic data
   const fetchData = async () => {
     if (!token) return;
+    setIsLoading(true);
     setError(null);
 
     const headers = { Authorization: `Bearer ${token}` };
@@ -229,6 +232,8 @@ export const AcademicStructureView: React.FC = () => {
     } catch (err: any) {
       console.error('Error fetching academic data:', err);
       setError('Failed to fetch academic hierarchy from server.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -1479,77 +1484,81 @@ export const AcademicStructureView: React.FC = () => {
             </div>
 
             <div className="space-y-1 max-h-[640px] overflow-y-auto pr-0.5">
-              {filteredPrograms.map(p => {
-                const isSelected = p.id === activeProgram?.id;
-                const isDragged = draggedProgramId === p.id;
-                const isDragOver = dragOverProgramId === p.id;
-                const classSections = batches.filter(b => b.program_id === p.id && (b.cohort_type === 'section' || (!b.cohort_type && /section/i.test(b.name))));
-                const classStudentCount = students.filter(s => s.program_id === p.id).length;
-
-                return (
-                  <div
-                    key={p.id}
-                    draggable={!searchClassQuery}
-                    onDragStart={e => handleProgramDragStart(e, p.id)}
-                    onDragOver={e => handleProgramDragOver(e, p.id)}
-                    onDragLeave={handleProgramDragLeave}
-                    onDrop={e => handleProgramDrop(e, p.id)}
-                    onClick={() => setSelectedProgramId(p.id)}
-                    className={`group relative flex items-center gap-2 px-2.5 py-2 rounded-xl transition-all border cursor-pointer select-none text-xs ${
-                      isDragged
-                        ? 'opacity-40 border-dashed border-slate-400 bg-slate-50'
-                        : isDragOver
-                        ? 'border-amber-500 ring-2 ring-amber-200 bg-amber-50/50'
-                        : isSelected
-                        ? 'bg-amber-50/70 border-amber-400 text-amber-950 shadow-2xs'
-                        : 'bg-white border-slate-200/80 hover:bg-slate-50 hover:border-slate-300 text-slate-700'
-                    }`}
-                  >
-                    {!searchClassQuery && (
-                      <div
-                        className="text-slate-300 group-hover:text-slate-500 cursor-grab active:cursor-grabbing shrink-0"
-                        title="Drag to reorder class"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <GripVertical className="w-3 h-3" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1.5">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className={`truncate text-xs ${isSelected ? 'font-bold text-slate-900' : 'font-semibold text-slate-800'}`}>
-                            {p.name}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className={`font-mono text-[10px] px-1.5 py-0.2 rounded ${
-                            isSelected ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-slate-100 text-slate-500 font-medium'
-                          }`}>
-                            {classStudentCount} std
-                          </span>
-                          <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isSelected ? 'text-amber-600 translate-x-0.5' : 'text-slate-300'}`} />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 mt-1 text-[10px] text-slate-400 font-medium">
-                        <span>{classSections.length} {classSections.length === 1 ? 'section' : 'sections'}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {filteredPrograms.length === 0 && (
+              {isLoading ? (
+                <InstitutionalLoader variant="inline" label="Loading classes..." />
+              ) : filteredPrograms.length === 0 ? (
                 <div className="text-center py-6 text-slate-400 text-xs">
                   No classes found.
                 </div>
+              ) : (
+                filteredPrograms.map(p => {
+                  const isSelected = p.id === activeProgram?.id;
+                  const isDragged = draggedProgramId === p.id;
+                  const isDragOver = dragOverProgramId === p.id;
+                  const classSections = batches.filter(b => b.program_id === p.id && (b.cohort_type === 'section' || (!b.cohort_type && /section/i.test(b.name))));
+                  const classStudentCount = students.filter(s => s.program_id === p.id).length;
+
+                  return (
+                    <div
+                      key={p.id}
+                      draggable={!searchClassQuery}
+                      onDragStart={e => handleProgramDragStart(e, p.id)}
+                      onDragOver={e => handleProgramDragOver(e, p.id)}
+                      onDragLeave={handleProgramDragLeave}
+                      onDrop={e => handleProgramDrop(e, p.id)}
+                      onClick={() => setSelectedProgramId(p.id)}
+                      className={`group relative flex items-center gap-2 px-2.5 py-2 rounded-xl transition-all border cursor-pointer select-none text-xs ${
+                        isDragged
+                          ? 'opacity-40 border-dashed border-slate-400 bg-slate-50'
+                          : isDragOver
+                          ? 'border-amber-500 ring-2 ring-amber-200 bg-amber-50/50'
+                          : isSelected
+                          ? 'bg-amber-50/70 border-amber-400 text-amber-950 shadow-2xs'
+                          : 'bg-white border-slate-200/80 hover:bg-slate-50 hover:border-slate-300 text-slate-700'
+                      }`}
+                    >
+                      {!searchClassQuery && (
+                        <div
+                          className="text-slate-300 group-hover:text-slate-500 cursor-grab active:cursor-grabbing shrink-0"
+                          title="Drag to reorder class"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <GripVertical className="w-3 h-3" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`truncate text-xs ${isSelected ? 'font-bold text-slate-900' : 'font-semibold text-slate-800'}`}>
+                              {p.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className={`font-mono text-[10px] px-1.5 py-0.2 rounded ${
+                              isSelected ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-slate-100 text-slate-500 font-medium'
+                            }`}>
+                              {classStudentCount} std
+                            </span>
+                            <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isSelected ? 'text-amber-600 translate-x-0.5' : 'text-slate-300'}`} />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 mt-1 text-[10px] text-slate-400 font-medium">
+                          <span>{classSections.length} {classSections.length === 1 ? 'section' : 'sections'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
 
           {/* RIGHT 9 COLS: Unified Class Workspace Console */}
           <div className="lg:col-span-9">
-            {activeProgram ? (
+            {isLoading ? (
+              <InstitutionalLoader variant="card" label="Loading class academic structure & curriculum..." />
+            ) : activeProgram ? (
               <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden flex flex-col">
                 {/* Top Class Banner & Quick Controls */}
                 <div className="px-4 py-3 bg-white border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -2169,7 +2178,9 @@ export const AcademicStructureView: React.FC = () => {
 
           {/* Mobile Native Batches Cards (< 640px) */}
           <div className="sm:hidden divide-y divide-slate-100 bg-white border border-slate-200 rounded-xl overflow-hidden">
-            {filteredBatches.length === 0 ? (
+            {isLoading ? (
+              <InstitutionalLoader variant="card" label="Loading batches directory..." />
+            ) : filteredBatches.length === 0 ? (
               <div className="py-8 text-center text-slate-400 text-xs">
                 No batches match your filters.
               </div>
@@ -2261,7 +2272,9 @@ export const AcademicStructureView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredBatches.length === 0 ? (
+                {isLoading ? (
+                  <InstitutionalLoader variant="table" colSpan={10} label="Loading batches directory..." />
+                ) : filteredBatches.length === 0 ? (
                   <tr>
                     <td colSpan={10} className="py-12 text-center text-slate-400">
                       <FolderTree className="w-8 h-8 mx-auto text-slate-300 mb-2" />
@@ -2476,11 +2489,15 @@ export const AcademicStructureView: React.FC = () => {
               );
             })}
 
-            {filteredCatalogSubjects.length === 0 && (
+            {isLoading ? (
+              <div className="col-span-full">
+                <InstitutionalLoader variant="card" label="Loading master course catalog..." />
+              </div>
+            ) : filteredCatalogSubjects.length === 0 ? (
               <div className="col-span-full py-10 text-center text-slate-400 text-xs">
                 No subjects found. Click "+ Add Subject" to expand the catalog.
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       )}
