@@ -521,12 +521,13 @@ export const AcademicStructureView: React.FC = () => {
   };
 
   const initiateDeleteProgram = (p: AcademicProgram) => {
-    const enrolledStudents = students.filter(
-      s => s.program_id === p.id && s.status !== 'archived' && s.status !== 'withdrawn'
+    const childBatchIds = new Set(batches.filter(b => b.program_id === p.id).map(b => b.id));
+    const linkedStudents = students.filter(
+      s => s.program_id === p.id || (s.batch_id && childBatchIds.has(s.batch_id))
     );
-    if (enrolledStudents.length > 0) {
+    if (linkedStudents.length > 0) {
       alert(
-        `Cannot Delete Class "${p.name}"\n\nThere are currently ${enrolledStudents.length} student(s) enrolled in this class.\n\nPlease transfer them to another class or section using Section Transfer, or archive/delete them first.`
+        `Cannot Delete Class "${p.name}"\n\nThere are currently ${linkedStudents.length} student record(s) linked to this class.\n\nPlease transfer them to another class or section using Section Transfer, or delete all student records before deleting this class.`
       );
       return;
     }
@@ -887,14 +888,12 @@ export const AcademicStructureView: React.FC = () => {
   };
 
   const initiateDeleteBatch = (b: Batch) => {
-    const enrolledStudents = students.filter(
-      s => s.batch_id === b.id && s.status !== 'archived' && s.status !== 'withdrawn'
-    );
+    const linkedStudents = students.filter(s => s.batch_id === b.id);
     const isSection = (b.cohort_type || (/section/i.test(b.name) ? 'section' : 'batch')) === 'section';
     const label = isSection ? 'Section' : 'Batch';
-    if (enrolledStudents.length > 0) {
+    if (linkedStudents.length > 0) {
       alert(
-        `Cannot Delete ${label} "${b.name}"\n\nThere are currently ${enrolledStudents.length} student(s) enrolled in this ${label.toLowerCase()}.\n\nPlease transfer them to another ${label.toLowerCase()} using Section Transfer, or archive/delete them first.`
+        `Cannot Delete ${label} "${b.name}"\n\nThere are currently ${linkedStudents.length} student record(s) assigned to this ${label.toLowerCase()}.\n\nPlease transfer them to another ${label.toLowerCase()} using Section Transfer, or delete all student records before deleting this ${label.toLowerCase()}.`
       );
       return;
     }

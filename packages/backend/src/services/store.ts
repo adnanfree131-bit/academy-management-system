@@ -1180,7 +1180,9 @@ export class InMemoryDataStore implements IDataStore {
           student_id: student.id,
           program_id: student.program_id || batch?.program_id || null,
           batch_id: student.batch_id || '',
+          admission_number: student.admission_number || null,
           roll_number: student.roll_number || null,
+          academic_session: batch?.academic_session || '2026-2027',
           subjects: Array.isArray(student.subjects) ? [...student.subjects] : [],
           elective_group_id: student.elective_group_id || null,
           status,
@@ -3182,15 +3184,15 @@ export class InMemoryDataStore implements IDataStore {
     const program = this.programs.find(p => p.tenant_id === tenantId && p.id === id);
     if (!program) return false;
 
-    // Strict Institutional Rule: Block deletion if any student is currently enrolled
-    const enrolledStudents = this.students.filter(s => s.tenant_id === tenantId && s.program_id === id && s.status !== 'archived' && s.status !== 'withdrawn');
-    const enrolledInEnrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.program_id === id && e.status !== 'archived' && e.status !== 'withdrawn');
+    // Strict Institutional Rule: Block deletion if any student record is linked to this class
+    const enrolledStudents = this.students.filter(s => s.tenant_id === tenantId && s.program_id === id);
+    const enrolledInEnrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.program_id === id);
     const childBatchIds = new Set(this.batches.filter(b => b.tenant_id === tenantId && b.program_id === id).map(b => b.id));
-    const batchStudents = this.students.filter(s => s.tenant_id === tenantId && childBatchIds.has(s.batch_id) && s.status !== 'archived' && s.status !== 'withdrawn');
+    const batchStudents = this.students.filter(s => s.tenant_id === tenantId && childBatchIds.has(s.batch_id));
     const totalStudents = Math.max(enrolledStudents.length, enrolledInEnrollments.length, batchStudents.length);
 
     if (totalStudents > 0) {
-      throw new Error(`Cannot delete class "${program.name}": There are ${totalStudents} student(s) currently enrolled. Please transfer or archive all students before deleting this class.`);
+      throw new Error(`Cannot delete class "${program.name}": There are ${totalStudents} student record(s) currently linked to this class. Please transfer or delete all student records before deleting this class.`);
     }
 
     // Clean up empty child batches and subject groups
@@ -3362,15 +3364,15 @@ export class InMemoryDataStore implements IDataStore {
     const batch = this.batches.find(b => b.tenant_id === tenantId && b.id === id);
     if (!batch) return false;
 
-    // Strict Institutional Rule: Block deletion if any student is currently assigned to this batch
-    const enrolledStudents = this.students.filter(s => s.tenant_id === tenantId && s.batch_id === id && s.status !== 'archived' && s.status !== 'withdrawn');
-    const enrolledInEnrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.batch_id === id && e.status !== 'archived' && e.status !== 'withdrawn');
+    // Strict Institutional Rule: Block deletion if any student record is currently assigned to this batch
+    const enrolledStudents = this.students.filter(s => s.tenant_id === tenantId && s.batch_id === id);
+    const enrolledInEnrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.batch_id === id);
     const count = Math.max(enrolledStudents.length, enrolledInEnrollments.length);
 
     if (count > 0) {
       const isSec = (batch.cohort_type || (/section/i.test(batch.name) ? 'section' : 'batch')) === 'section';
       const label = isSec ? 'section' : 'batch';
-      throw new Error(`Cannot delete ${label} "${batch.name}": There are ${count} student(s) currently enrolled. Please transfer or archive all students before deleting this ${label}.`);
+      throw new Error(`Cannot delete ${label} "${batch.name}": There are ${count} student record(s) currently assigned to this ${label}. Please transfer or delete all student records before deleting this ${label}.`);
     }
 
     // Clean up timetable periods referencing this batch
@@ -3606,14 +3608,21 @@ export class InMemoryDataStore implements IDataStore {
     const batchStudents = this.students.filter(s => s.tenant_id === data.tenant_id && s.batch_id === data.batch_id);
     const tenant = this.tenants.get(data.tenant_id);
     if (tenant) this.ensureTenantSessions(tenant);
-    const sessionYear = activeSessionStartYear(tenant?.settings);
-    const admPrefix = `ADM-${sessionYear}-`;
-    const seq = this.students.filter(s => s.tenant_id === data.tenant_id && String(s.admission_number || '').startsWith(admPrefix)).length + 1;
 
     const batch = this.batches.find(b => b.id === data.batch_id && b.tenant_id === data.tenant_id);
     if (batch && batch.current_enrollment >= batch.max_capacity) {
       throw new Error(`Batch "${batch.name}" has reached maximum capacity (${batch.current_enrollment}/${batch.max_capacity}). Please increase batch capacity in Academic Structure before enrolling new students.`);
     }
+
+    let sessionYear: number;
+    const batchSessionMatch = String(batch?.academic_session || '').match(/^(\d{4})/);
+    if (batchSessionMatch) {
+      sessionYear = parseInt(batchSessionMatch[1], 10);
+    } else {
+      sessionYear = activeSessionStartYear(tenant?.settings);
+    }
+    const admPrefix = `ADM-${sessionYear}-`;
+    const seq = this.students.filter(s => s.tenant_id === data.tenant_id && String(s.admission_number || '').startsWith(admPrefix)).length + 1;
 
     const rawGuardianCnic = (data as any).guardian_id_card?.trim()
       || ((data as any).primary_contact === 'mother' ? (data as any).mother_cnic?.trim() : (data as any).father_cnic?.trim())
@@ -3858,7 +3867,9 @@ export class InMemoryDataStore implements IDataStore {
       student_id: student.id,
       program_id: student.program_id || batch?.program_id || null,
       batch_id: student.batch_id || '',
+      admission_number: student.admission_number,
       roll_number: student.roll_number,
+      academic_session: batch?.academic_session || tenant?.settings?.academic_session || '2026-2027',
       subjects: Array.isArray(student.subjects) ? [...student.subjects] : [],
       elective_group_id: student.elective_group_id || null,
       status: (isWaitlisted ? 'withdrawn' : (['active', 'on_leave', 'suspended', 'withdrawn', 'completed', 'archived'].includes(student.status) ? student.status : 'active')) as StudentEnrollmentStatus,
@@ -4248,8 +4259,15 @@ export class InMemoryDataStore implements IDataStore {
       e => e.tenant_id === tenantId && e.student_id === studentId
     );
 
-    // 1. Validate batch capacity BEFORE mutating student state if reactivating
+    // 1. Validate batch existence and capacity BEFORE mutating student state if reactivating
     if (!wasHoldingSeat && willHoldSeat) {
+      if (student.batch_id) {
+        const assignedBatch = this.batches.find(b => b.id === student.batch_id && b.tenant_id === tenantId);
+        if (!assignedBatch) {
+          throw new Error(`Cannot reactivate student "${student.full_name}": Their assigned section no longer exists (it was deleted). Please assign the student to an active section before reactivating.`);
+        }
+      }
+
       const enrollmentsToReactivate = studentEnrollments.filter(
         e => e.is_primary || e.status === (previousStatus as any) || e.status === 'archived' || e.status === 'withdrawn'
       );
@@ -4258,7 +4276,10 @@ export class InMemoryDataStore implements IDataStore {
       }
       for (const enr of enrollmentsToReactivate) {
         const batch = this.batches.find(b => b.id === enr.batch_id && b.tenant_id === tenantId);
-        if (batch && batch.current_enrollment >= batch.max_capacity) {
+        if (!batch) {
+          throw new Error(`Cannot reactivate student "${student.full_name}": Assigned section for enrollment no longer exists. Please update student enrollment before reactivating.`);
+        }
+        if (batch.current_enrollment >= batch.max_capacity) {
           throw new Error(`Cannot reactivate student: Batch "${batch.name}" is already at full capacity (${batch.current_enrollment}/${batch.max_capacity}). Expand batch capacity first.`);
         }
       }
@@ -4875,6 +4896,22 @@ export class InMemoryDataStore implements IDataStore {
       };
       student.updated_at = nowIso;
       affectedStudents.push(student);
+
+      // CRITICAL INTEGRITY SYNC: Also update matching studentEnrollments so batch fee invoicing pulls revised fees
+      for (const enr of this.studentEnrollments) {
+        if (enr.tenant_id === tenantId && enr.student_id === student.id && (enr.status === 'active' || enr.status === 'on_leave')) {
+          if (params.scope === 'batch' && params.batch_id && enr.batch_id !== params.batch_id) continue;
+          if (params.scope === 'program' && params.program_id && enr.program_id !== params.program_id) continue;
+
+          enr.fee_structure = {
+            ...(enr.fee_structure || curFee),
+            base_tuition: newBase,
+            net_tuition: newNet,
+            recurring_monthly: newNet,
+          };
+          enr.updated_at = nowIso;
+        }
+      }
     }
 
     const roundAmt = (value: number) => {
