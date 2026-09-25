@@ -29,6 +29,7 @@ import {
   Building2,
   ExternalLink,
   FileSpreadsheet,
+  Share2,
 } from 'lucide-react';
 import { PageHeading } from '../components/PageHeading';
 import { useMobileOverlay } from '../lib/mobileOverlay';
@@ -378,11 +379,18 @@ export const StaffClockInView: React.FC = () => {
   const [isSubmittingReg, setIsSubmittingReg] = useState<boolean>(false);
   const [regFeedback, setRegFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isReviewingRegId, setIsReviewingRegId] = useState<string | null>(null);
+  const [shareSheetData, setShareSheetData] = useState<{
+    title: string;
+    onPdf?: () => void;
+    onCsv?: () => void;
+    isPdfLoading?: boolean;
+  } | null>(null);
 
-  useMobileOverlay('sheet', Boolean(isRegModalOpen || isHeadModalOpen || editingEntry), () => {
+  useMobileOverlay('sheet', Boolean(isRegModalOpen || isHeadModalOpen || editingEntry || shareSheetData), () => {
     setIsRegModalOpen(false);
     setIsHeadModalOpen(false);
     setEditingEntry(null);
+    setShareSheetData(null);
   });
 
   // Faculty Personal Monthly Attendance Record Desk
@@ -2034,13 +2042,13 @@ export const StaffClockInView: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-2 flex flex-wrap items-center gap-3">
+          <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
             {!personalClockInRecord?.clock_in_time ? (
               <button
                 type="button"
                 onClick={() => handlePersonalAction('in')}
                 disabled={isPersonalClocking || isLocatingSelf}
-                className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+                className="w-full sm:w-auto min-h-11 sm:min-h-0 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 {isPersonalClocking ? <RefreshCw className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
                 Clock In
@@ -2050,14 +2058,14 @@ export const StaffClockInView: React.FC = () => {
                 type="button"
                 onClick={() => handlePersonalAction('out')}
                 disabled={isPersonalClocking || isLocatingSelf}
-                className="px-5 py-2.5 bg-rose-700 hover:bg-rose-800 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-xs flex items-center gap-2 transition-all cursor-pointer"
+                className="w-full sm:w-auto min-h-11 sm:min-h-0 px-5 py-2.5 bg-rose-700 hover:bg-rose-800 disabled:opacity-50 text-white font-bold text-sm rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
               >
                 {isPersonalClocking ? <RefreshCw className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
                 Clock Out {personalClockInRecord.sessions && personalClockInRecord.sessions.length > 1 ? `(Session ${personalClockInRecord.sessions.length})` : ''}
               </button>
             ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs rounded-xl flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                <div className="px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs rounded-xl flex items-center justify-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   Shift recorded for today ({todayStr})
                 </div>
@@ -2065,7 +2073,7 @@ export const StaffClockInView: React.FC = () => {
                   type="button"
                   onClick={() => handlePersonalAction('in')}
                   disabled={isPersonalClocking || isLocatingSelf}
-                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  className="w-full sm:w-auto min-h-11 sm:min-h-0 px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                   title="Clock in for evening batch or additional session"
                 >
                   {isPersonalClocking ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <LogIn className="w-3.5 h-3.5" />}
@@ -2078,7 +2086,7 @@ export const StaffClockInView: React.FC = () => {
               type="button"
               onClick={locateSelf}
               disabled={isLocatingSelf}
-              className="px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+              className="w-full sm:w-auto min-h-11 sm:min-h-0 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLocatingSelf ? 'animate-spin' : ''}`} />
               Recalibrate GPS
@@ -2093,7 +2101,7 @@ export const StaffClockInView: React.FC = () => {
                 setRegFeedback(null);
                 setIsRegModalOpen(true);
               }}
-              className="px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+              className="w-full sm:w-auto min-h-11 sm:min-h-0 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer"
             >
               <Edit3 className="w-3.5 h-3.5" />
               Request Regularization
@@ -2364,8 +2372,9 @@ export const StaffClockInView: React.FC = () => {
 
         {/* Regularization Request Modal */}
         {isRegModalOpen && createPortal(
-          <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto mobile-sheet">
-            <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-5 my-0 sm:my-auto animate-in fade-in zoom-in-95 duration-150 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
+          <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+            <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
+              <div className="sm:hidden mx-auto -mt-1 mb-2 h-1 w-10 rounded-full bg-slate-300" />
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Administrative Request</span>
@@ -2389,7 +2398,7 @@ export const StaffClockInView: React.FC = () => {
                     type="date"
                     value={regDate}
                     onChange={e => setRegDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none cursor-pointer"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none cursor-pointer min-h-11 sm:min-h-0"
                     required
                   />
                 </div>
@@ -2399,7 +2408,7 @@ export const StaffClockInView: React.FC = () => {
                   <select
                     value={regReasonType}
                     onChange={e => setRegReasonType(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none cursor-pointer"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none cursor-pointer min-h-11 sm:min-h-0"
                   >
                     <option value="Official Academy Duty">Official Academy Duty (Off-Campus Assignment)</option>
                     <option value="Field Assignment / External Lecture">Field Assignment / External Lecture</option>
@@ -2427,7 +2436,7 @@ export const StaffClockInView: React.FC = () => {
                       type="time"
                       value={regClockIn}
                       onChange={e => setRegClockIn(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none cursor-pointer"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none cursor-pointer min-h-11 sm:min-h-0"
                     />
                   </div>
 
@@ -2448,7 +2457,7 @@ export const StaffClockInView: React.FC = () => {
                       type="time"
                       value={regClockOut}
                       onChange={e => setRegClockOut(e.target.value)}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none cursor-pointer"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none cursor-pointer min-h-11 sm:min-h-0"
                     />
                   </div>
                 </div>
@@ -2480,18 +2489,18 @@ export const StaffClockInView: React.FC = () => {
                   </div>
                 )}
 
-                <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+                <div className="sticky bottom-0 bg-white border-t p-3 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 flex gap-2">
                   <button
                     type="button"
                     onClick={() => setIsRegModalOpen(false)}
-                    className="h-8.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
+                    className="flex-1 min-h-11 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all cursor-pointer flex items-center justify-center"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmittingReg}
-                    className="h-8.5 px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition-all cursor-pointer"
+                    className="flex-1 min-h-11 px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center"
                   >
                     {isSubmittingReg ? 'Submitting...' : 'Submit Request'}
                   </button>
@@ -2518,96 +2527,103 @@ export const StaffClockInView: React.FC = () => {
 
       {/* Tab Navigation Bar */}
       <div className="bg-white border border-slate-200 rounded-2xl p-2 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-1 overflow-x-auto min-w-0 whitespace-nowrap pb-1 sm:pb-0 w-full md:w-auto">
           <button
             type="button"
             onClick={() => setActiveTab('daily')}
-            className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`shrink-0 min-h-11 md:min-h-0 px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'daily'
                 ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <CalendarDays className="w-3.5 h-3.5" />
-            Daily Attendance
+            <span className="md:hidden">Today</span>
+            <span className="hidden md:inline">Daily Attendance</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('monthly')}
-            className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`shrink-0 min-h-11 md:min-h-0 px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'monthly'
                 ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            Monthly Summary
+            <span className="md:hidden">Month</span>
+            <span className="hidden md:inline">Monthly Summary</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('reports')}
-            className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`shrink-0 min-h-11 md:min-h-0 px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'reports'
                 ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <Printer className="w-3.5 h-3.5" />
-            Reports Catalog
+            <span className="md:hidden">Reports</span>
+            <span className="hidden md:inline">Reports Catalog</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('ledger')}
-            className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`shrink-0 min-h-11 md:min-h-0 px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'ledger'
                 ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            Staff Ledger
+            <span className="md:hidden">Ledger</span>
+            <span className="hidden md:inline">Staff Ledger</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('exceptions')}
-            className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`shrink-0 min-h-11 md:min-h-0 px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'exceptions'
                 ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <AlertTriangle className="w-3.5 h-3.5" />
-            Exceptions ({exceptionRecords.length})
+            <span className="md:hidden">Exceptions{exceptionRecords.length ? ` (${exceptionRecords.length})` : ''}</span>
+            <span className="hidden md:inline">Exceptions ({exceptionRecords.length})</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('audit_logs')}
-            className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`shrink-0 min-h-11 md:min-h-0 px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'audit_logs'
                 ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
-            Audit Log ({auditLogs.length})
+            <span className="md:hidden">History</span>
+            <span className="hidden md:inline">Audit Log ({auditLogs.length})</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('settings')}
-            className={`px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
+            className={`shrink-0 min-h-11 md:min-h-0 px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === 'settings'
                 ? 'bg-amber-600 text-white shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <Sliders className="w-3.5 h-3.5" />
-            Attendance Heads & Settings
+            <span className="md:hidden">Rules</span>
+            <span className="hidden md:inline">Attendance Heads & Settings</span>
           </button>
         </div>
       </div>
@@ -2617,32 +2633,34 @@ export const StaffClockInView: React.FC = () => {
       {/* =================================================================== */}
       {activeTab === 'daily' && (
         <div className="space-y-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 w-full md:w-auto">
               <button
                 type="button"
                 onClick={() => handleDateStep(-1)}
-                className="p-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-all cursor-pointer"
+                className="w-11 h-11 flex items-center justify-center bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-all cursor-pointer shrink-0"
                 title="Previous Day"
+                aria-label="Previous Day"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
 
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl">
-                <CalendarDays className="w-4 h-4 text-slate-700" />
+              <div className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3 min-h-11 md:min-h-0 bg-slate-50 border border-slate-200 rounded-xl">
+                <CalendarDays className="w-4 h-4 text-slate-700 shrink-0" />
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={e => setSelectedDate(e.target.value)}
-                  className="text-xs font-bold text-slate-900 bg-transparent outline-none cursor-pointer"
+                  className="text-xs font-bold text-slate-900 bg-transparent outline-none cursor-pointer text-center"
                 />
               </div>
 
               <button
                 type="button"
                 onClick={() => handleDateStep(1)}
-                className="p-2 bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-all cursor-pointer"
+                className="w-11 h-11 flex items-center justify-center bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-all cursor-pointer shrink-0"
                 title="Next Day"
+                aria-label="Next Day"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
@@ -2651,29 +2669,45 @@ export const StaffClockInView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedDate(todayStr)}
-                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all"
+                  className="min-h-11 md:min-h-0 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all shrink-0 flex items-center justify-center"
                 >
                   Today
                 </button>
               )}
+
+              {/* Phone Share button */}
+              <button
+                type="button"
+                onClick={() => setShareSheetData({
+                  title: `Daily Attendance (${selectedDate})`,
+                  onPdf: () => handlePreviewDailyPdf(),
+                  onCsv: handleExportDailyCsv,
+                  isPdfLoading: isExportingPdf && generatingReportId === 'daily_muster_roll',
+                })}
+                className="md:hidden w-11 h-11 flex items-center justify-center bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-all cursor-pointer shrink-0 ml-auto"
+                title="Export or Share"
+                aria-label="Export or Share"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-none">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Search staff or code..."
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 outline-none w-44"
+                  className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 outline-none w-full sm:w-44 min-h-11 sm:min-h-0"
                 />
               </div>
 
               <select
                 value={selectedDept}
                 onChange={e => setSelectedDept(e.target.value)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none cursor-pointer"
+                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none cursor-pointer min-h-11 sm:min-h-0"
               >
                 {departmentOptions.map(d => (
                   <option key={d.id} value={d.id}>{d.label}</option>
@@ -2683,7 +2717,7 @@ export const StaffClockInView: React.FC = () => {
               <select
                 value={selectedDailyHead}
                 onChange={e => setSelectedDailyHead(e.target.value)}
-                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none cursor-pointer"
+                className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 outline-none cursor-pointer min-h-11 sm:min-h-0"
               >
                 <option value="all">All Heads</option>
                 {activeHeads.map(h => (
@@ -2693,31 +2727,121 @@ export const StaffClockInView: React.FC = () => {
                 ))}
               </select>
 
-              <button
-                type="button"
-                onClick={() => handlePreviewDailyPdf()}
-                disabled={isExportingPdf}
-                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                title="Preview Official PDF Document in New Tab"
-              >
-                {isExportingPdf && generatingReportId === 'daily_muster_roll' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
-                Official PDF
-              </button>
+              <div className="hidden md:flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePreviewDailyPdf()}
+                  disabled={isExportingPdf}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Preview Official PDF Document in New Tab"
+                >
+                  {isExportingPdf && generatingReportId === 'daily_muster_roll' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
+                  Official PDF
+                </button>
 
-              <button
-                type="button"
-                onClick={handleExportDailyCsv}
-                className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                title="Export CSV"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                CSV
-              </button>
+                <button
+                  type="button"
+                  onClick={handleExportDailyCsv}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Export CSV"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  CSV
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Statistics Strip with interactive quick filter toggles */}
-          <div className="grid grid-cols-2 sm:grid-cols-7 gap-2.5">
+          {/* Phone Status Filter Chip Row (< 768px) */}
+          <div className="md:hidden flex items-center gap-1.5 overflow-x-auto min-w-0 whitespace-nowrap pb-1">
+            <button
+              type="button"
+              onClick={() => setSelectedDailyHead('all')}
+              className={`shrink-0 min-h-11 px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                selectedDailyHead === 'all'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-slate-700'
+              }`}
+            >
+              <span>All</span>
+              <span className="font-mono text-[11px] opacity-80">({rosterStats.total})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDailyHead('on_time')}
+              className={`shrink-0 min-h-11 px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                selectedDailyHead === 'on_time'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-emerald-800'
+              }`}
+            >
+              <span>On time</span>
+              <span className="font-mono text-[11px] opacity-80">({rosterStats.present})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDailyHead('late')}
+              className={`shrink-0 min-h-11 px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                selectedDailyHead === 'late'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-amber-800'
+              }`}
+            >
+              <span>Late</span>
+              <span className="font-mono text-[11px] opacity-80">({rosterStats.late})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDailyHead('half_day')}
+              className={`shrink-0 min-h-11 px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                selectedDailyHead === 'half_day'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-amber-800'
+              }`}
+            >
+              <span>Half day</span>
+              <span className="font-mono text-[11px] opacity-80">({rosterStats.half_day})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDailyHead('on_leave')}
+              className={`shrink-0 min-h-11 px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                selectedDailyHead === 'on_leave'
+                  ? 'bg-slate-700 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-slate-700'
+              }`}
+            >
+              <span>Leave</span>
+              <span className="font-mono text-[11px] opacity-80">({rosterStats.leave})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDailyHead('absent')}
+              className={`shrink-0 min-h-11 px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                selectedDailyHead === 'absent'
+                  ? 'bg-rose-700 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-rose-800'
+              }`}
+            >
+              <span>Absent</span>
+              <span className="font-mono text-[11px] opacity-80">({rosterStats.absent})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedDailyHead('not_marked')}
+              className={`shrink-0 min-h-11 px-3 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer ${
+                selectedDailyHead === 'not_marked'
+                  ? 'bg-slate-600 text-white shadow-xs'
+                  : 'bg-white border border-slate-200 text-slate-600'
+              }`}
+            >
+              <span>Not marked</span>
+              <span className="font-mono text-[11px] opacity-80">({rosterStats.not_marked})</span>
+            </button>
+          </div>
+
+          {/* Statistics Strip with interactive quick filter toggles (>= 768px) */}
+          <div className="hidden md:grid grid-cols-2 sm:grid-cols-7 gap-2.5">
             <button
               type="button"
               onClick={() => setSelectedDailyHead('all')}
@@ -2973,14 +3097,16 @@ export const StaffClockInView: React.FC = () => {
                     </div>
 
                     {/* Regularize / Edit Action */}
-                    <div className="flex justify-end pt-1">
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[11px] text-slate-500 font-medium">Arrival: <strong className="text-slate-900 font-mono">{formatIsoToTime(entry.clock_in_time)}</strong></span>
                       <button
                         type="button"
                         onClick={() => openEditModal(entry)}
-                        className="px-3 py-1.5 text-xs font-bold text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg inline-flex items-center gap-1.5 transition-colors"
+                        className="w-11 h-11 text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl flex items-center justify-center transition-colors cursor-pointer"
+                        title="Regularize / Edit"
+                        aria-label="Regularize / Edit"
                       >
-                        <Edit3 className="w-3.5 h-3.5 text-slate-600" />
-                        <span>Regularize / Edit</span>
+                        <Edit3 className="w-4 h-4 text-slate-700" />
                       </button>
                     </div>
                   </div>
@@ -3054,28 +3180,45 @@ export const StaffClockInView: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => handlePreviewMonthlyPdf()}
-                disabled={isExportingPdf}
-                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                title="Preview Official PDF Document in New Tab"
+                onClick={() => setShareSheetData({
+                  title: `Monthly Register (${selectedMonth})`,
+                  onPdf: () => handlePreviewMonthlyPdf(),
+                  onCsv: handleExportMonthlyCsv,
+                  isPdfLoading: isExportingPdf && generatingReportId === 'monthly_register',
+                })}
+                className="md:hidden w-11 h-11 flex items-center justify-center bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-all cursor-pointer ml-auto"
+                title="Export or Share"
+                aria-label="Export or Share"
               >
-                {isExportingPdf && generatingReportId === 'monthly_register' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
-                Official Monthly PDF
+                <Share2 className="w-4 h-4" />
               </button>
 
-              <button
-                type="button"
-                onClick={handleExportMonthlyCsv}
-                className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                Export CSV
-              </button>
+              <div className="hidden md:flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePreviewMonthlyPdf()}
+                  disabled={isExportingPdf}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  title="Preview Official PDF Document in New Tab"
+                >
+                  {isExportingPdf && generatingReportId === 'monthly_register' ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ExternalLink className="w-3.5 h-3.5" />}
+                  Official Monthly PDF
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportMonthlyCsv}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Export CSV
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -3152,6 +3295,61 @@ export const StaffClockInView: React.FC = () => {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Phone Month Cards (< 768px) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredMonthlySummary.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 font-mono text-xs">
+                  No monthly records found for {selectedMonth}.
+                </div>
+              ) : (
+                filteredMonthlySummary.map(r => {
+                  const pct = calculateAttendancePct(r);
+                  return (
+                    <div key={r.staff_id} className="p-3.5 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                              {r.employee_code}
+                            </span>
+                            <h4 className="font-bold text-slate-900 text-sm">{r.staff_name}</h4>
+                          </div>
+                          <span className="text-[11px] text-slate-500">{r.department}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded font-mono font-bold text-xs ${
+                          pct >= 90 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : pct >= 75 ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                        }`}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-5 gap-1.5 p-2 bg-slate-50 rounded-xl border border-slate-100 text-center font-mono">
+                        <div>
+                          <span className="text-[9px] font-semibold text-emerald-700 uppercase block">Pres</span>
+                          <span className="text-xs font-bold text-slate-900">{r.present_days}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-semibold text-amber-700 uppercase block">Late</span>
+                          <span className="text-xs font-bold text-slate-900">{r.late_days}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-semibold text-amber-700 uppercase block">Half</span>
+                          <span className="text-xs font-bold text-slate-900">{r.half_days}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-semibold text-slate-600 uppercase block">Leave</span>
+                          <span className="text-xs font-bold text-slate-900">{r.leave_days}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] font-semibold text-rose-700 uppercase block">Abs</span>
+                          <span className="text-xs font-bold text-slate-900">{r.absent_days}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
@@ -3650,12 +3848,12 @@ export const StaffClockInView: React.FC = () => {
           <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 w-full sm:w-auto">
                   <label className="text-xs font-medium text-slate-700">Staff Member:</label>
                   <select
                     value={selectedStaffId}
                     onChange={e => setSelectedStaffId(e.target.value)}
-                    className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none cursor-pointer min-w-[220px]"
+                    className="w-full min-h-11 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none cursor-pointer sm:w-auto sm:min-h-0 sm:py-1.5"
                   >
                     {dailyRoster.map(r => (
                       <option key={r.staff_id} value={r.staff_id}>
@@ -3720,35 +3918,57 @@ export const StaffClockInView: React.FC = () => {
                     const customLabel = ledgerStartDate && ledgerEndDate
                       ? `${ledgerStartDate} to ${ledgerEndDate}`
                       : (ledgerStartDate || ledgerEndDate || selectedMonth);
-                    handlePreviewStaffCardPdf(selectedStaffId, selectedMonth, filteredStaffPersonalRecords, customLabel);
+                    setShareSheetData({
+                      title: `${selectedStaffMember?.staff_name || 'Staff'} Attendance Card`,
+                      onPdf: () => handlePreviewStaffCardPdf(selectedStaffId, selectedMonth, filteredStaffPersonalRecords, customLabel),
+                      onCsv: handleExportLedgerCsv,
+                      isPdfLoading: isExportingPdf
+                    });
                   }}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  className="md:hidden w-11 h-11 flex items-center justify-center bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-all cursor-pointer shrink-0"
+                  title="Share or Export"
                 >
-                  <Printer className="w-3.5 h-3.5" />
-                  Staff Attendance Card (PDF)
+                  <Share2 className="w-4 h-4" />
                 </button>
-                <button
-                  type="button"
-                  disabled={isExportingPdf || !selectedStaffId}
-                  onClick={() => {
-                    const customLabel = ledgerStartDate && ledgerEndDate
-                      ? `${ledgerStartDate} to ${ledgerEndDate}`
-                      : (ledgerStartDate || ledgerEndDate || selectedMonth);
-                    handleDownloadStaffCardPdf(selectedStaffId, selectedMonth, filteredStaffPersonalRecords, customLabel);
-                  }}
-                  className="p-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-all cursor-pointer"
-                  title="Download PDF File"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={handleExportLedgerCsv}
-                  className="p-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-all cursor-pointer"
-                  title="Export Ledger CSV"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                </button>
+
+                <div className="hidden md:flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    disabled={isExportingPdf || !selectedStaffId}
+                    onClick={() => {
+                      const customLabel = ledgerStartDate && ledgerEndDate
+                        ? `${ledgerStartDate} to ${ledgerEndDate}`
+                        : (ledgerStartDate || ledgerEndDate || selectedMonth);
+                      handlePreviewStaffCardPdf(selectedStaffId, selectedMonth, filteredStaffPersonalRecords, customLabel);
+                    }}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Staff Attendance Card (PDF)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isExportingPdf || !selectedStaffId}
+                    onClick={() => {
+                      const customLabel = ledgerStartDate && ledgerEndDate
+                        ? `${ledgerStartDate} to ${ledgerEndDate}`
+                        : (ledgerStartDate || ledgerEndDate || selectedMonth);
+                      handleDownloadStaffCardPdf(selectedStaffId, selectedMonth, filteredStaffPersonalRecords, customLabel);
+                    }}
+                    className="p-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-all cursor-pointer"
+                    title="Download PDF File"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportLedgerCsv}
+                    className="p-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-all cursor-pointer"
+                    title="Export Ledger CSV"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -3762,6 +3982,47 @@ export const StaffClockInView: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {/* Mobile Month Figures Card for Selected Staff (< md) */}
+            {(() => {
+              const staffMonthlyStat = monthlySummary.find(m => m.staff_id === selectedStaffId);
+              if (!staffMonthlyStat) return null;
+              const pct = calculateAttendancePct(staffMonthlyStat);
+              return (
+                <div className="md:hidden p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700">Month Summary ({selectedMonth})</span>
+                    <span className={`px-2 py-0.5 rounded font-mono font-bold text-xs ${
+                      pct >= 90 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : pct >= 75 ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}>
+                      {pct}%
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5 p-2 bg-white rounded-xl border border-slate-100 text-center font-mono">
+                    <div>
+                      <span className="text-[9px] font-semibold text-emerald-700 uppercase block">Pres</span>
+                      <span className="text-xs font-bold text-slate-900">{staffMonthlyStat.present_days}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-semibold text-amber-700 uppercase block">Late</span>
+                      <span className="text-xs font-bold text-slate-900">{staffMonthlyStat.late_days}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-semibold text-amber-700 uppercase block">Half</span>
+                      <span className="text-xs font-bold text-slate-900">{staffMonthlyStat.half_days}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-semibold text-slate-600 uppercase block">Leave</span>
+                      <span className="text-xs font-bold text-slate-900">{staffMonthlyStat.leave_days}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-semibold text-rose-700 uppercase block">Abs</span>
+                      <span className="text-xs font-bold text-slate-900">{staffMonthlyStat.absent_days}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
@@ -3774,7 +4035,7 @@ export const StaffClockInView: React.FC = () => {
               </span>
             </div>
 
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -3829,6 +4090,58 @@ export const StaffClockInView: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Phone Statement Cards (< 768px) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {loadingPersonalHistory ? (
+                <div className="p-8 text-center text-slate-400 font-mono text-xs">
+                  <RefreshCw className="w-4 h-4 animate-spin inline mr-2" />
+                  Loading personal history...
+                </div>
+              ) : filteredStaffPersonalRecords.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 font-mono text-xs">
+                  No recorded attendance logs match current filter criteria.
+                </div>
+              ) : (
+                filteredStaffPersonalRecords.map(r => (
+                  <div key={r.id} className="p-3.5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-slate-900 text-xs">{r.date}</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        r.status === 'on_time'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : r.status === 'late' || r.status === 'half_day'
+                          ? 'bg-amber-50 text-amber-700'
+                          : r.status === 'on_leave'
+                          ? 'bg-blue-50 text-blue-700'
+                          : 'bg-rose-50 text-rose-700'
+                      }`}>
+                        {(r.head_name || r.status || 'PRESENT').toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-xs font-mono text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                      <div>
+                        <span className="text-[9px] text-slate-400 uppercase block font-sans">Arrival</span>
+                        <span>{formatIsoToTime(r.clock_in_time)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-400 uppercase block font-sans">Departure</span>
+                        <span>{formatIsoToTime(r.clock_out_time)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-400 uppercase block font-sans">Duration</span>
+                        <span>{formatMinutesToHours(r.work_duration_minutes)}</span>
+                      </div>
+                    </div>
+                    {r.admin_adjustment_notes && (
+                      <p className="text-[11px] text-slate-500 italic">
+                        {r.admin_adjustment_notes}
+                      </p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -3856,60 +4169,112 @@ export const StaffClockInView: React.FC = () => {
               </div>
 
               <div className="bg-white border border-amber-200/80 rounded-xl overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-amber-50/50 border-b border-amber-200/60 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                      <th className="py-2.5 px-3">Date</th>
-                      <th className="py-2.5 px-3">Staff Member</th>
-                      <th className="py-2.5 px-3">Reason Type</th>
-                      <th className="py-2.5 px-3">Requested Timings</th>
-                      <th className="py-2.5 px-3">Justification Notes</th>
-                      <th className="py-2.5 px-3 text-right">Review Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
-                    {regularizationRequests
-                      .filter(r => r.status === 'pending')
-                      .map(req => (
-                        <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
-                          <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{req.date}</td>
-                          <td className="py-2.5 px-3">
-                            <span className="font-bold text-slate-900 block">{req.staff_name}</span>
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-amber-50/50 border-b border-amber-200/60 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                        <th className="py-2.5 px-3">Date</th>
+                        <th className="py-2.5 px-3">Staff Member</th>
+                        <th className="py-2.5 px-3">Reason Type</th>
+                        <th className="py-2.5 px-3">Requested Timings</th>
+                        <th className="py-2.5 px-3">Justification Notes</th>
+                        <th className="py-2.5 px-3 text-right">Review Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
+                      {regularizationRequests
+                        .filter(r => r.status === 'pending')
+                        .map(req => (
+                          <tr key={req.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="py-2.5 px-3 font-mono font-bold text-slate-900">{req.date}</td>
+                            <td className="py-2.5 px-3">
+                              <span className="font-bold text-slate-900 block">{req.staff_name}</span>
+                              <span className="text-[10px] text-slate-500">{req.employee_code || ''} · {req.department || ''}</span>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-800 rounded font-semibold text-[11px]">
+                                {req.reason_type}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px]">
+                              {req.clock_in_time ? formatIsoToTime(req.clock_in_time) : '—'} → {req.clock_out_time ? formatIsoToTime(req.clock_out_time) : '—'}
+                            </td>
+                            <td className="py-2.5 px-3 text-[11px] text-slate-600">
+                              {req.notes || '—'}
+                            </td>
+                            <td className="py-2.5 px-3 text-right space-x-1.5">
+                              <button
+                                type="button"
+                                disabled={isReviewingRegId === req.id}
+                                onClick={() => handleReviewRegularization(req.id, 'approved')}
+                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isReviewingRegId === req.id}
+                                onClick={() => handleReviewRegularization(req.id, 'rejected')}
+                                className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 disabled:opacity-50 text-slate-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Phone Regularization Cards (< 768px) */}
+                <div className="md:hidden divide-y divide-amber-100">
+                  {regularizationRequests
+                    .filter(r => r.status === 'pending')
+                    .map(req => (
+                      <div key={req.id} className="p-3.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-bold text-slate-900 text-sm block">{req.staff_name}</span>
                             <span className="text-[10px] text-slate-500">{req.employee_code || ''} · {req.department || ''}</span>
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-800 rounded font-semibold text-[11px]">
-                              {req.reason_type}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 font-mono text-[11px]">
+                          </div>
+                          <span className="font-mono text-xs font-bold text-slate-700 bg-amber-100/60 px-2 py-0.5 rounded">
+                            {req.date}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-600 flex flex-wrap gap-1.5 items-center">
+                          <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-800 rounded font-semibold text-[11px]">
+                            {req.reason_type}
+                          </span>
+                          <span className="font-mono text-[11px] text-slate-500">
                             {req.clock_in_time ? formatIsoToTime(req.clock_in_time) : '—'} → {req.clock_out_time ? formatIsoToTime(req.clock_out_time) : '—'}
-                          </td>
-                          <td className="py-2.5 px-3 text-[11px] text-slate-600">
-                            {req.notes || '—'}
-                          </td>
-                          <td className="py-2.5 px-3 text-right space-x-1.5">
-                            <button
-                              type="button"
-                              disabled={isReviewingRegId === req.id}
-                              onClick={() => handleReviewRegularization(req.id, 'approved')}
-                              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              type="button"
-                              disabled={isReviewingRegId === req.id}
-                              onClick={() => handleReviewRegularization(req.id, 'rejected')}
-                              className="px-2.5 py-1 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 disabled:opacity-50 text-slate-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
-                            >
-                              Reject
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
+                          </span>
+                        </div>
+                        {req.notes && (
+                          <p className="text-[11px] text-slate-600 italic">
+                            {req.notes}
+                          </p>
+                        )}
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            disabled={isReviewingRegId === req.id}
+                            onClick={() => handleReviewRegularization(req.id, 'approved')}
+                            className="flex-1 min-h-11 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs flex items-center justify-center"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isReviewingRegId === req.id}
+                            onClick={() => handleReviewRegularization(req.id, 'rejected')}
+                            className="flex-1 min-h-11 bg-white border border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-300 disabled:opacity-50 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
               </div>
             </div>
           )}
@@ -3993,21 +4358,39 @@ export const StaffClockInView: React.FC = () => {
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  disabled={isExportingPdf}
-                  onClick={handlePreviewExceptionsPdf}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  onClick={() => {
+                    setShareSheetData({
+                      title: `Exceptions Roster (${selectedDate})`,
+                      onPdf: handlePreviewExceptionsPdf,
+                      onCsv: handleExportExceptionsCsv,
+                      isPdfLoading: isExportingPdf
+                    });
+                  }}
+                  className="md:hidden w-11 h-11 flex items-center justify-center bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-all cursor-pointer shrink-0"
+                  title="Share or Export"
                 >
-                  <Printer className="w-3.5 h-3.5" />
-                  Exceptions Roster (PDF)
+                  <Share2 className="w-4 h-4" />
                 </button>
-                <button
-                  type="button"
-                  onClick={handleExportExceptionsCsv}
-                  className="p-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-all cursor-pointer"
-                  title="Export Exceptions CSV"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                </button>
+
+                <div className="hidden md:flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    disabled={isExportingPdf}
+                    onClick={handlePreviewExceptionsPdf}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Exceptions Roster (PDF)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportExceptionsCsv}
+                    className="p-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl transition-all cursor-pointer"
+                    title="Export Exceptions CSV"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -4020,60 +4403,110 @@ export const StaffClockInView: React.FC = () => {
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="py-3 px-3">#</th>
-                  <th className="py-3 px-3">Code</th>
-                  <th className="py-3 px-4">Staff Member</th>
-                  <th className="py-3 px-3">Department</th>
-                  <th className="py-3 px-3">Status</th>
-                  <th className="py-3 px-3">Arrival Time</th>
-                  <th className="py-3 px-4">Notes</th>
-                  <th className="py-3 px-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
-                {exceptionRecords.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400 font-mono">
-                      No attendance exceptions found matching the selected filters.
-                    </td>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="py-3 px-3">#</th>
+                    <th className="py-3 px-3">Code</th>
+                    <th className="py-3 px-4">Staff Member</th>
+                    <th className="py-3 px-3">Department</th>
+                    <th className="py-3 px-3">Status</th>
+                    <th className="py-3 px-3">Arrival Time</th>
+                    <th className="py-3 px-4">Notes</th>
+                    <th className="py-3 px-4 text-right">Action</th>
                   </tr>
-                ) : (
-                  exceptionRecords.map((r, i) => (
-                    <tr key={r.staff_id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-3 text-slate-400 font-mono text-[11px]">{i + 1}</td>
-                      <td className="py-3 px-3 font-mono font-bold text-slate-900 text-[11px]">{r.employee_code}</td>
-                      <td className="py-3 px-4 font-bold text-slate-900">{r.staff_name}</td>
-                      <td className="py-3 px-3 text-slate-500">{r.department}</td>
-                      <td className="py-3 px-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          r.status === 'late' || r.status === 'half_day' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                        }`}>
-                          {(r.status || 'not_marked').toUpperCase()}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 font-mono font-bold text-slate-900">
-                        {formatIsoToTime(r.clock_in_time)}
-                      </td>
-                      <td className="py-3 px-4 text-slate-500 text-[11px]">
-                        {r.admin_adjustment_notes || '—'}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(r)}
-                          className="px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 border border-slate-200 rounded-lg transition-all cursor-pointer"
-                        >
-                          Edit
-                        </button>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
+                  {exceptionRecords.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-400 font-mono">
+                        No attendance exceptions found matching the selected filters.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    exceptionRecords.map((r, i) => (
+                      <tr key={r.staff_id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 px-3 text-slate-400 font-mono text-[11px]">{i + 1}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-slate-900 text-[11px]">{r.employee_code}</td>
+                        <td className="py-3 px-4 font-bold text-slate-900">{r.staff_name}</td>
+                        <td className="py-3 px-3 text-slate-500">{r.department}</td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            r.status === 'late' || r.status === 'half_day' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                          }`}>
+                            {(r.status || 'not_marked').toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-mono font-bold text-slate-900">
+                          {formatIsoToTime(r.clock_in_time)}
+                        </td>
+                        <td className="py-3 px-4 text-slate-500 text-[11px]">
+                          {r.admin_adjustment_notes || '—'}
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(r)}
+                            className="px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 border border-slate-200 rounded-lg transition-all cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Phone Exceptions Cards (< 768px) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {exceptionRecords.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 font-mono text-xs">
+                  No attendance exceptions found matching the selected filters.
+                </div>
+              ) : (
+                exceptionRecords.map(r => (
+                  <div key={r.staff_id} className="p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[10px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                            {r.employee_code}
+                          </span>
+                          <h4 className="font-bold text-slate-900 text-sm">{r.staff_name}</h4>
+                        </div>
+                        <span className="text-[11px] text-slate-500">{r.department}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(r)}
+                        className="w-11 h-11 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all cursor-pointer shrink-0"
+                        title="Edit Attendance"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        r.status === 'late' || r.status === 'half_day' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}>
+                        {(r.status || 'not_marked').toUpperCase()}
+                      </span>
+                      <span className="text-slate-700 font-bold">
+                        Arrival: {formatIsoToTime(r.clock_in_time)}
+                      </span>
+                    </div>
+                    {r.admin_adjustment_notes && (
+                      <p className="text-[11px] text-slate-500 italic">
+                        {r.admin_adjustment_notes}
+                      </p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -4096,22 +4529,40 @@ export const StaffClockInView: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => handlePreviewAuditPdf(selectedMonth)}
-                disabled={isExportingPdf}
-                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                onClick={() => {
+                  setShareSheetData({
+                    title: `Attendance Audit Log (${selectedMonth})`,
+                    onPdf: () => handlePreviewAuditPdf(selectedMonth),
+                    onCsv: handleExportAuditCsv,
+                    isPdfLoading: isExportingPdf
+                  });
+                }}
+                className="md:hidden w-11 h-11 flex items-center justify-center bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl transition-all cursor-pointer shrink-0"
+                title="Share or Export"
               >
-                {isExportingPdf ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                Audit PDF
+                <Share2 className="w-4 h-4" />
               </button>
 
-              <button
-                type="button"
-                onClick={handleExportAuditCsv}
-                className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                Audit CSV
-              </button>
+              <div className="hidden md:flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePreviewAuditPdf(selectedMonth)}
+                  disabled={isExportingPdf}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  {isExportingPdf ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                  Audit PDF
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportAuditCsv}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Audit CSV
+                </button>
+              </div>
             </div>
 
             {/* Filter Bar */}
@@ -4164,56 +4615,85 @@ export const StaffClockInView: React.FC = () => {
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  <th className="py-3 px-3">#</th>
-                  <th className="py-3 px-4">Timestamp</th>
-                  <th className="py-3 px-4">Staff Member</th>
-                  <th className="py-3 px-3">Target Date</th>
-                  <th className="py-3 px-3">Action</th>
-                  <th className="py-3 px-3">Transition</th>
-                  <th className="py-3 px-4">Reason Head & Note</th>
-                  <th className="py-3 px-3">Adjusted By</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
-                {filteredAuditLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400 font-mono">
-                      No administrative modifications recorded matching current filter.
-                    </td>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="py-3 px-3">#</th>
+                    <th className="py-3 px-4">Timestamp</th>
+                    <th className="py-3 px-4">Staff Member</th>
+                    <th className="py-3 px-3">Target Date</th>
+                    <th className="py-3 px-3">Action</th>
+                    <th className="py-3 px-3">Transition</th>
+                    <th className="py-3 px-4">Reason Head & Note</th>
+                    <th className="py-3 px-3">Adjusted By</th>
                   </tr>
-                ) : (
-                  filteredAuditLogs.map((log, i) => (
-                    <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3 px-3 text-slate-400 font-mono text-[11px]">{i + 1}</td>
-                      <td className="py-3 px-4 font-mono text-[11px] text-slate-500">
-                        {new Date(log.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-slate-900">{log.staff_name}</td>
-                      <td className="py-3 px-3 font-mono font-bold text-slate-900">{log.date}</td>
-                      <td className="py-3 px-3">
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-mono uppercase font-bold">
-                          {log.action}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 font-mono text-[11px]">
-                        <span className="text-slate-400">{log.previous_status || 'NONE'}</span>
-                        <span className="mx-1 text-slate-300">→</span>
-                        <span className="font-bold text-slate-900">{log.new_status}</span>
-                      </td>
-                      <td className="py-3 px-4 text-slate-600 text-[11px]">
-                        {log.reason_head}
-                      </td>
-                      <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
-                        {log.adjusted_by}
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
+                  {filteredAuditLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-400 font-mono">
+                        No administrative modifications recorded matching current filter.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    filteredAuditLogs.map((log, i) => (
+                      <tr key={log.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3 px-3 text-slate-400 font-mono text-[11px]">{i + 1}</td>
+                        <td className="py-3 px-4 font-mono text-[11px] text-slate-500">
+                          {new Date(log.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-900">{log.staff_name}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-slate-900">{log.date}</td>
+                        <td className="py-3 px-3">
+                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-mono uppercase font-bold">
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 font-mono text-[11px]">
+                          <span className="text-slate-400">{log.previous_status || 'NONE'}</span>
+                          <span className="mx-1 text-slate-300">→</span>
+                          <span className="font-bold text-slate-900">{log.new_status}</span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 text-[11px]">
+                          {log.reason_head}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-[11px] text-slate-500">
+                          {log.adjusted_by}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Phone Audit Cards (< 768px) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {filteredAuditLogs.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 font-mono text-xs">
+                  No administrative modifications recorded matching current filter.
+                </div>
+              ) : (
+                filteredAuditLogs.map(log => (
+                  <div key={log.id} className="p-3.5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-900 text-sm">{log.staff_name}</span>
+                      <span className="font-mono text-xs text-slate-500">{log.date}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-mono">
+                      <span className="text-slate-400">{log.previous_status || 'NONE'}</span>
+                      <span className="text-slate-300">→</span>
+                      <span className="font-bold text-slate-900">{log.new_status}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+                      <span>{log.reason_head || log.action}</span>
+                      <span className="font-mono">By: {log.adjusted_by}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -4464,126 +4944,200 @@ export const StaffClockInView: React.FC = () => {
 
             {/* Heads Table */}
             <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                    <th className="py-2.5 px-3 w-12 text-center">Rank</th>
-                    <th className="py-2.5 px-3">Head Name & Code</th>
-                    <th className="py-2.5 px-3">Classification</th>
-                    <th className="py-2.5 px-4">Evaluation Condition</th>
-                    <th className="py-2.5 px-3">Status Category</th>
-                    <th className="py-2.5 px-3">Payroll Treatment</th>
-                    <th className="py-2.5 px-2 text-center">Priority</th>
-                    <th className="py-2.5 px-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
-                  {settingsForm.heads.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="py-8 text-center text-slate-400 font-mono">
-                        No attendance heads configured yet. Click "Apply Shift Schedule to Rules" or "Add Custom Head" to begin.
-                      </td>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      <th className="py-2.5 px-3 w-12 text-center">Rank</th>
+                      <th className="py-2.5 px-3">Head Name & Code</th>
+                      <th className="py-2.5 px-3">Classification</th>
+                      <th className="py-2.5 px-4">Evaluation Condition</th>
+                      <th className="py-2.5 px-3">Status Category</th>
+                      <th className="py-2.5 px-3">Payroll Treatment</th>
+                      <th className="py-2.5 px-2 text-center">Priority</th>
+                      <th className="py-2.5 px-3 text-right">Action</th>
                     </tr>
-                  ) : (
-                    settingsForm.heads.map((head, idx) => {
-                      const category = head.category || (head.kind === 'leave' ? 'leave' : 'present');
-                      return (
-                        <tr key={head.id} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-400 text-[11px]">
-                            #{idx + 1}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-slate-900">{head.name}</span>
-                              <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded text-[10px] font-mono font-bold">
-                                {head.code || '—'}
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs text-slate-700 font-medium">
+                    {settingsForm.heads.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-slate-400 font-mono">
+                          No attendance heads configured yet. Click "Apply Shift Schedule to Rules" or "Add Custom Head" to begin.
+                        </td>
+                      </tr>
+                    ) : (
+                      settingsForm.heads.map((head, idx) => {
+                        const category = head.category || (head.kind === 'leave' ? 'leave' : 'present');
+                        return (
+                          <tr key={head.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="py-2.5 px-3 text-center font-mono font-bold text-slate-400 text-[11px]">
+                              #{idx + 1}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-900">{head.name}</span>
+                                <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded text-[10px] font-mono font-bold">
+                                  {head.code || '—'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                head.kind === 'leave'
+                                  ? 'bg-slate-100 text-slate-700 border border-slate-200'
+                                  : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                              }`}>
+                                {head.kind === 'leave' ? 'Leave Type' : 'Punch Rule'}
                               </span>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                              head.kind === 'leave'
-                                ? 'bg-slate-100 text-slate-700 border border-slate-200'
-                                : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                            }`}>
-                              {head.kind === 'leave' ? 'Leave Type' : 'Punch Rule'}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-4 font-mono text-[11px] text-slate-700">
-                            {formatTriggerDescription(head)}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                              category === 'present'
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : category === 'late'
-                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                : category === 'half_day'
-                                ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                : category === 'leave'
-                                ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                : 'bg-rose-50 text-rose-700 border border-rose-200'
-                            }`}>
-                              {category}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                              head.paid !== false
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                : 'bg-slate-100 text-slate-600 border border-slate-200'
-                            }`}>
-                              {head.paid !== false ? 'Paid Duty' : 'Unpaid'}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-2 text-center">
-                            <div className="inline-flex items-center gap-1">
-                              <button
-                                type="button"
-                                disabled={idx === 0}
-                                onClick={() => handleMoveHead(idx, 'up')}
-                                className="p-1 text-slate-400 hover:text-slate-800 disabled:opacity-20 transition-colors cursor-pointer"
-                                title="Increase Priority"
-                              >
-                                <ArrowUp className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                disabled={idx === settingsForm.heads.length - 1}
-                                onClick={() => handleMoveHead(idx, 'down')}
-                                className="p-1 text-slate-400 hover:text-slate-800 disabled:opacity-20 transition-colors cursor-pointer"
-                                title="Decrease Priority"
-                              >
-                                <ArrowDown className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3 text-right">
-                            <div className="inline-flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditHeadModal(idx)}
-                                className="p-1 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
-                                title="Edit Head"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteHead(head.id)}
-                                className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                                title="Remove Head"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                            </td>
+                            <td className="py-2.5 px-4 font-mono text-[11px] text-slate-700">
+                              {formatTriggerDescription(head)}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                category === 'present'
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : category === 'late'
+                                  ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                  : category === 'half_day'
+                                  ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                  : category === 'leave'
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+                              }`}>
+                                {category}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                head.paid !== false
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                  : 'bg-slate-100 text-slate-600 border border-slate-200'
+                              }`}>
+                                {head.paid !== false ? 'Paid Duty' : 'Unpaid'}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-2 text-center">
+                              <div className="inline-flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  disabled={idx === 0}
+                                  onClick={() => handleMoveHead(idx, 'up')}
+                                  className="p-1 text-slate-400 hover:text-slate-800 disabled:opacity-20 transition-colors cursor-pointer"
+                                  title="Increase Priority"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={idx === settingsForm.heads.length - 1}
+                                  onClick={() => handleMoveHead(idx, 'down')}
+                                  className="p-1 text-slate-400 hover:text-slate-800 disabled:opacity-20 transition-colors cursor-pointer"
+                                  title="Decrease Priority"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 text-right">
+                              <div className="inline-flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditHeadModal(idx)}
+                                  className="p-1 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+                                  title="Edit Head"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteHead(head.id)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                  title="Remove Head"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Phone Heads Cards (< 768px) */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {settingsForm.heads.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 font-mono text-xs">
+                    No attendance heads configured yet. Click "Apply Shift Schedule to Rules" or "Add Custom Head" to begin.
+                  </div>
+                ) : (
+                  settingsForm.heads.map((head, idx) => {
+                    return (
+                      <div key={head.id} className="p-3.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-900 text-sm">{head.name}</span>
+                            {head.code && (
+                              <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded text-[10px] font-mono font-bold">
+                                {head.code}
+                              </span>
+                            )}
+                          </div>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            head.paid !== false
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-600 border border-slate-200'
+                          }`}>
+                            {head.paid !== false ? 'Paid' : 'Unpaid'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-600 font-mono">
+                          {formatTriggerDescription(head)}
+                        </div>
+                        <div className="flex items-center justify-end gap-1 pt-1">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMoveHead(idx, 'up')}
+                            className="w-11 h-11 flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-200 rounded-xl disabled:opacity-25 transition-colors cursor-pointer"
+                            title="Increase Priority"
+                          >
+                            <ArrowUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === settingsForm.heads.length - 1}
+                            onClick={() => handleMoveHead(idx, 'down')}
+                            className="w-11 h-11 flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-200 rounded-xl disabled:opacity-25 transition-colors cursor-pointer"
+                            title="Decrease Priority"
+                          >
+                            <ArrowDown className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditHeadModal(idx)}
+                            className="w-11 h-11 flex items-center justify-center text-slate-500 hover:text-slate-900 border border-slate-200 rounded-xl transition-colors cursor-pointer"
+                            title="Edit Head"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteHead(head.id)}
+                            className="w-11 h-11 flex items-center justify-center text-slate-500 hover:text-rose-600 border border-slate-200 rounded-xl transition-colors cursor-pointer"
+                            title="Remove Head"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
 
@@ -4668,6 +5222,18 @@ export const StaffClockInView: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Sticky Save Changes on Phone (< md) */}
+          <div className="sticky bottom-0 z-10 bg-white border-t border-slate-200 p-3 -mx-4 md:hidden shadow-lg">
+            <button
+              type="submit"
+              disabled={isSavingSettings}
+              className="w-full min-h-11 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              {isSavingSettings ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Save Changes
+            </button>
+          </div>
         </form>
       )}
 
@@ -4675,8 +5241,9 @@ export const StaffClockInView: React.FC = () => {
       {/* ADD / EDIT ATTENDANCE HEAD MODAL (SENTENCE-STYLE BUILDER)           */}
       {/* =================================================================== */}
       {isHeadModalOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto mobile-sheet">
-          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-5 my-0 sm:my-auto animate-in fade-in zoom-in-95 duration-150 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto flex flex-col">
+            <div className="sm:hidden mx-auto -mt-1 mb-2 h-1 w-10 rounded-full bg-slate-300" />
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
@@ -4694,6 +5261,7 @@ export const StaffClockInView: React.FC = () => {
                 type="button"
                 onClick={() => setIsHeadModalOpen(false)}
                 className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -4981,19 +5549,19 @@ export const StaffClockInView: React.FC = () => {
               </div>
 
               {/* Footer Actions */}
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100">
+              <div className="sticky bottom-0 bg-white border-t border-slate-100 pt-3 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setIsHeadModalOpen(false)}
-                  className="h-8.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
+                  className="flex-1 min-h-11 px-4 py-2 border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-all cursor-pointer flex items-center justify-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-8.5 px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  className="flex-1 min-h-11 px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  <Check className="w-3.5 h-3.5" />
+                  <Check className="w-4 h-4" />
                   {editingHeadIndex !== null ? 'Save Changes' : 'Add Rule'}
                 </button>
               </div>
@@ -5004,11 +5572,12 @@ export const StaffClockInView: React.FC = () => {
       )}
 
       {/* =================================================================== */}
-      {/* EDIT ATTENDANCE MODAL (PORTAL WITH DEEP BLUR)                       */}
+      {/* EDIT ATTENDANCE MODAL                                               */}
       {/* =================================================================== */}
       {editingEntry && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto mobile-sheet">
-          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-5 my-0 sm:my-auto animate-in fade-in zoom-in-95 duration-150 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto flex flex-col">
+            <div className="sm:hidden mx-auto -mt-1 mb-2 h-1 w-10 rounded-full bg-slate-300" />
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Daily Attendance</span>
@@ -5020,6 +5589,7 @@ export const StaffClockInView: React.FC = () => {
                 type="button"
                 onClick={closeEditModal}
                 className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
+                aria-label="Close"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -5138,24 +5708,85 @@ export const StaffClockInView: React.FC = () => {
                 </div>
               )}
 
-              <div className="pt-2 flex items-center justify-end gap-2">
+              <div className="sticky bottom-0 bg-white border-t border-slate-100 pt-3 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 flex gap-2">
                 <button
                   type="button"
                   onClick={closeEditModal}
-                  className="h-8.5 px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
+                  className="flex-1 min-h-11 px-4 py-2 border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-all cursor-pointer flex items-center justify-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingEdit}
-                  className="h-8.5 px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-lg shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  className="flex-1 min-h-11 px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   {isSubmittingEdit ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   Save Changes
                 </button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Share / Export Sheet */}
+      {shareSheetData && createPortal(
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto flex flex-col">
+            <div className="sm:hidden mx-auto -mt-1 mb-2 h-1 w-10 rounded-full bg-slate-300" />
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900">
+                {shareSheetData.title}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShareSheetData(null)}
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-2 py-2">
+              {shareSheetData.onPdf && (
+                <button
+                  type="button"
+                  disabled={shareSheetData.isPdfLoading}
+                  onClick={() => {
+                    shareSheetData.onPdf?.();
+                    setShareSheetData(null);
+                  }}
+                  className="w-full min-h-11 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  {shareSheetData.isPdfLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                  Preview PDF Document
+                </button>
+              )}
+              {shareSheetData.onCsv && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    shareSheetData.onCsv?.();
+                    setShareSheetData(null);
+                  }}
+                  className="w-full min-h-11 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  <FileText className="w-4 h-4" />
+                  Download CSV Data
+                </button>
+              )}
+            </div>
+            <div className="sticky bottom-0 bg-white border-t border-slate-100 pt-3 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 p-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShareSheetData(null)}
+                className="w-full min-h-11 px-4 py-2 border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-all cursor-pointer flex items-center justify-center"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>,
         document.body

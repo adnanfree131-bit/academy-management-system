@@ -224,7 +224,7 @@ export const ComplaintsDeskView: React.FC = () => {
         <button
           type="button"
           onClick={() => setShowFilters(!showFilters)}
-          className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs flex items-center justify-center relative cursor-pointer shrink-0 ${
+          className={`w-11 h-11 sm:w-8 sm:h-8 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs flex items-center justify-center relative cursor-pointer shrink-0 ${
             showFilters ? 'border-primary-500 bg-primary-50/30' : ''
           }`}
           title="Filters"
@@ -242,8 +242,56 @@ export const ComplaintsDeskView: React.FC = () => {
       </div>
 
       {/* Collapsible Filters Container */}
-      <div className={showFilters ? 'block' : 'hidden sm:block'}>
-        <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs flex flex-wrap items-center gap-4">
+      <div className={showFilters ? 'block' : 'hidden md:block'}>
+        {/* Mobile Filter Stack (< md) */}
+        <div className="md:hidden bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Category</label>
+            <select
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+              className="w-full min-h-11 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 font-medium text-slate-800 focus:outline-none"
+            >
+              <option value="all">All Categories</option>
+              <option value="facility">Campus Facilities</option>
+              <option value="teaching_quality">Teaching Quality</option>
+              <option value="fee_billing">Fee & Billing</option>
+              <option value="disciplinary">Disciplinary</option>
+              <option value="general">General</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+            <select
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              className="w-full min-h-11 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 font-medium text-slate-800 focus:outline-none"
+            >
+              <option value="all">All Statuses</option>
+              <option value="open">Open</option>
+              <option value="under_investigation">Under Investigation</option>
+              <option value="action_taken">Action Taken</option>
+              <option value="resolved">Resolved</option>
+            </select>
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={() => {
+                setCategoryFilter('all');
+                setStatusFilter('all');
+              }}
+              className="w-full min-h-11 text-xs text-rose-600 hover:text-rose-700 font-semibold cursor-pointer border border-rose-100 rounded-lg bg-rose-50/50"
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
+
+        {/* Desktop Filters Strip (md+) */}
+        <div className="hidden md:flex bg-white border border-slate-200 rounded-xl p-3 shadow-2xs items-center gap-4">
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-slate-700">Category:</span>
             <select
@@ -375,7 +423,7 @@ export const ComplaintsDeskView: React.FC = () => {
                 )}
               </div>
 
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-end">
+              <div className="pt-2 border-t border-slate-100 flex items-center md:justify-end">
                 <button
                   type="button"
                   onClick={() => {
@@ -384,7 +432,7 @@ export const ComplaintsDeskView: React.FC = () => {
                     setResolutionReply(ticket.resolution_reply || '');
                     setInternalNotes(ticket.internal_notes || '');
                   }}
-                  className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
+                  className="w-full md:w-auto min-h-11 md:min-h-0 mt-2 md:mt-0 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold transition-all cursor-pointer shadow-2xs flex items-center justify-center gap-1.5"
                 >
                   {ticket.status === 'resolved' ? (
                     <Eye className="w-3.5 h-3.5" />
@@ -401,103 +449,106 @@ export const ComplaintsDeskView: React.FC = () => {
 
       {/* New Ticket Modal */}
       {showNewModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
-          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden mobile-sheet-card max-h-[92dvh] overflow-y-auto">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden mobile-sheet-card max-h-[92dvh] flex flex-col">
+            <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
               <SectionInfo
                 title="Submit Ticket"
                 description="Tell the office what happened."
               />
-              <button onClick={() => setShowNewModal(false)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg">
+              <button onClick={() => setShowNewModal(false)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitTicket} className="p-5 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleSubmitTicket} className="p-5 space-y-4 overflow-y-auto flex-1 flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Category</label>
+                    <select
+                      value={newForm.category}
+                      onChange={e => setNewForm(prev => ({ ...prev, category: e.target.value as ComplaintCategory }))}
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800"
+                    >
+                      <option value="facility">Campus Facility</option>
+                      <option value="teaching_quality">Teaching Quality</option>
+                      <option value="fee_billing">Fee & Billing</option>
+                      <option value="disciplinary">Disciplinary</option>
+                      <option value="general">General</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Priority</label>
+                    <select
+                      value={newForm.priority}
+                      onChange={e => setNewForm(prev => ({ ...prev, priority: e.target.value as ComplaintPriority }))}
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800 capitalize"
+                    >
+                      <option value="normal">Normal</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                  </div>
+                </div>
+
+                {isStaff && (
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Student <span className="font-normal text-slate-400">(Optional)</span>
+                    </label>
+                    <select
+                      value={newForm.student_id}
+                      onChange={e => setNewForm(prev => ({ ...prev, student_id: e.target.value }))}
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-800"
+                    >
+                      <option value="">No specific student (General)</option>
+                      {students.map((s: any) => (
+                        <option key={s.id} value={s.id}>
+                          {s.full_name} {s.roll_number ? `(${s.roll_number})` : ''} {s.batch_name ? `• ${s.batch_name}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Category</label>
-                  <select
-                    value={newForm.category}
-                    onChange={e => setNewForm(prev => ({ ...prev, category: e.target.value as ComplaintCategory }))}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800"
-                  >
-                    <option value="facility">Campus Facility</option>
-                    <option value="teaching_quality">Teaching Quality</option>
-                    <option value="fee_billing">Fee & Billing</option>
-                    <option value="disciplinary">Disciplinary</option>
-                    <option value="general">General</option>
-                  </select>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Ticket Subject</label>
+                  <input
+                    type="text"
+                    value={newForm.subject}
+                    onChange={e => setNewForm(prev => ({ ...prev, subject: e.target.value }))}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                    required
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Priority</label>
-                  <select
-                    value={newForm.priority}
-                    onChange={e => setNewForm(prev => ({ ...prev, priority: e.target.value as ComplaintPriority }))}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800 capitalize"
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Issue Details</label>
+                  <textarea
+                    value={newForm.description}
+                    onChange={e => setNewForm(prev => ({ ...prev, description: e.target.value }))}
+                    rows={3}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                    required
+                  />
                 </div>
               </div>
 
-              {isStaff && (
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Student <span className="font-normal text-slate-400">(Optional)</span>
-                  </label>
-                  <select
-                    value={newForm.student_id}
-                    onChange={e => setNewForm(prev => ({ ...prev, student_id: e.target.value }))}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-800"
-                  >
-                    <option value="">No specific student (General)</option>
-                    {students.map((s: any) => (
-                      <option key={s.id} value={s.id}>
-                        {s.full_name} {s.roll_number ? `(${s.roll_number})` : ''} {s.batch_name ? `• ${s.batch_name}` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Ticket Subject</label>
-                <input
-                  type="text"
-                  value={newForm.subject}
-                  onChange={e => setNewForm(prev => ({ ...prev, subject: e.target.value }))}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Issue Details</label>
-                <textarea
-                  value={newForm.description}
-                  onChange={e => setNewForm(prev => ({ ...prev, description: e.target.value }))}
-                  rows={3}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
-                  required
-                />
-              </div>
-
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="sticky bottom-0 bg-white border-t p-3 -mx-5 -mb-5 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setShowNewModal(false)}
-                  className="h-8.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  className="flex-1 min-h-11 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="h-8.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors cursor-pointer"
+                  className="flex-1 min-h-11 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isSubmitting ? 'Filing...' : 'Submit Ticket'}
                 </button>
@@ -509,135 +560,140 @@ export const ComplaintsDeskView: React.FC = () => {
 
       {/* Update / Resolve Modal */}
       {selectedTicket && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
-          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden mobile-sheet-card max-h-[92dvh] overflow-y-auto">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden mobile-sheet-card max-h-[92dvh] flex flex-col">
+            <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
               <SectionInfo
                 title={canEdit ? 'Manage Resolution' : 'Ticket Details & Resolution'}
                 description={canEdit ? 'Update ticket status and provide official resolution notes' : 'View ticket status and official administration reply'}
               />
-              <button onClick={() => setSelectedTicket(null)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg">
+              <button onClick={() => setSelectedTicket(null)} className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2">
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {canEdit ? (
-              <form onSubmit={handleUpdateStatus} className="p-5 space-y-4">
-                <div className="bg-slate-50 border border-slate-200/70 p-3 rounded-xl text-xs space-y-1">
-                  <p className="font-bold text-slate-900">{selectedTicket.subject}</p>
-                  <p className="text-slate-600 text-[11px]">{selectedTicket.description}</p>
-                  {(selectedTicket.student_name || selectedTicket.batch_name) && (
-                    <div className="text-[11px] text-slate-500 pt-1">
-                      {selectedTicket.student_name && <span>Student: <strong className="text-slate-700">{selectedTicket.student_name}</strong> </span>}
-                      {selectedTicket.batch_name && <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded font-semibold">{selectedTicket.batch_name}</span>}
-                    </div>
-                  )}
+              <form onSubmit={handleUpdateStatus} className="p-5 space-y-4 overflow-y-auto flex-1 flex flex-col justify-between">
+                <div className="space-y-4">
+                  <div className="bg-slate-50 border border-slate-200/70 p-3 rounded-xl text-xs space-y-1">
+                    <p className="font-bold text-slate-900">{selectedTicket.subject}</p>
+                    <p className="text-slate-600 text-[11px]">{selectedTicket.description}</p>
+                    {(selectedTicket.student_name || selectedTicket.batch_name) && (
+                      <div className="text-[11px] text-slate-500 pt-1">
+                        {selectedTicket.student_name && <span>Student: <strong className="text-slate-700">{selectedTicket.student_name}</strong> </span>}
+                        {selectedTicket.batch_name && <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded font-semibold">{selectedTicket.batch_name}</span>}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Update Status</label>
+                    <select
+                      value={targetStatus}
+                      onChange={e => setTargetStatus(e.target.value as ComplaintStatus)}
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-800 capitalize"
+                    >
+                      <option value="open">Open</option>
+                      <option value="under_investigation">Under Investigation</option>
+                      <option value="action_taken">Action Taken</option>
+                      <option value="resolved">Resolved</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Reply to parent</label>
+                    <textarea
+                      value={resolutionReply}
+                      onChange={e => setResolutionReply(e.target.value)}
+                      rows={3}
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Office notes</label>
+                    <input
+                      type="text"
+                      value={internalNotes}
+                      onChange={e => setInternalNotes(e.target.value)}
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Update Status</label>
-                  <select
-                    value={targetStatus}
-                    onChange={e => setTargetStatus(e.target.value as ComplaintStatus)}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-medium text-slate-800 capitalize"
-                  >
-                    <option value="open">Open</option>
-                    <option value="under_investigation">Under Investigation</option>
-                    <option value="action_taken">Action Taken</option>
-                    <option value="resolved">Resolved</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Reply to parent</label>
-                  <textarea
-                    value={resolutionReply}
-                    onChange={e => setResolutionReply(e.target.value)}
-                    rows={3}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Office notes</label>
-                  <input
-                    type="text"
-                    value={internalNotes}
-                    onChange={e => setInternalNotes(e.target.value)}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
-                  />
-                </div>
-
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+                <div className="sticky bottom-0 bg-white border-t p-3 -mx-5 -mb-5 flex gap-2">
                   <button
                     type="button"
                     onClick={() => setSelectedTicket(null)}
-                    className="h-8.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                    className="flex-1 min-h-11 px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isUpdating}
-                    className="h-8.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer transition-colors"
+                    className="flex-1 min-h-11 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer transition-colors disabled:opacity-50"
                   >
                     {isUpdating ? 'Saving...' : 'Save Resolution'}
                   </button>
                 </div>
               </form>
             ) : (
-              <div className="p-5 space-y-4">
-                <div className="bg-slate-50 border border-slate-200/70 p-4 rounded-xl text-xs space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white border border-slate-200 font-bold uppercase text-slate-700">
-                      {selectedTicket.category.replace('_', ' ')}
-                    </span>
-                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md uppercase ${
-                      selectedTicket.status === 'resolved'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : selectedTicket.status === 'action_taken'
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : selectedTicket.status === 'under_investigation'
-                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                        : 'bg-slate-100 text-slate-700'
-                    }`}>
-                      {selectedTicket.status.replace('_', ' ')}
-                    </span>
+              <div className="p-5 space-y-4 overflow-y-auto flex-1 flex flex-col justify-between">
+                <div className="space-y-4">
+                  <div className="bg-slate-50 border border-slate-200/70 p-4 rounded-xl text-xs space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white border border-slate-200 font-bold uppercase text-slate-700">
+                        {selectedTicket.category.replace('_', ' ')}
+                      </span>
+                      <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md uppercase ${
+                        selectedTicket.status === 'resolved'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : selectedTicket.status === 'action_taken'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                          : selectedTicket.status === 'under_investigation'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}>
+                        {selectedTicket.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-slate-900 text-sm">{selectedTicket.subject}</h4>
+                    <p className="text-slate-600 text-xs leading-relaxed">{selectedTicket.description}</p>
+                    {(selectedTicket.student_name || selectedTicket.batch_name) && (
+                      <div className="text-[11px] text-slate-500 pt-1">
+                        {selectedTicket.student_name && <span>Student: <strong className="text-slate-700">{selectedTicket.student_name}</strong> </span>}
+                        {selectedTicket.batch_name && <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded font-semibold">{selectedTicket.batch_name}</span>}
+                      </div>
+                    )}
+                    <div className="pt-2 border-t border-slate-200/60 text-[10px] text-slate-400 font-mono">
+                      Submitted on: {new Date(selectedTicket.created_at).toLocaleString()}
+                    </div>
                   </div>
-                  <h4 className="font-bold text-slate-900 text-sm">{selectedTicket.subject}</h4>
-                  <p className="text-slate-600 text-xs leading-relaxed">{selectedTicket.description}</p>
-                  {(selectedTicket.student_name || selectedTicket.batch_name) && (
-                    <div className="text-[11px] text-slate-500 pt-1">
-                      {selectedTicket.student_name && <span>Student: <strong className="text-slate-700">{selectedTicket.student_name}</strong> </span>}
-                      {selectedTicket.batch_name && <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1 py-0.5 rounded font-semibold">{selectedTicket.batch_name}</span>}
+
+                  {selectedTicket.resolution_reply ? (
+                    <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Reply to parent:</span>
+                      </div>
+                      <p className="text-emerald-950 text-xs leading-relaxed">
+                        {selectedTicket.resolution_reply}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl text-xs text-slate-500 text-center">
+                      The office has not replied yet.
                     </div>
                   )}
-                  <div className="pt-2 border-t border-slate-200/60 text-[10px] text-slate-400 font-mono">
-                    Submitted on: {new Date(selectedTicket.created_at).toLocaleString()}
-                  </div>
                 </div>
 
-                {selectedTicket.resolution_reply ? (
-                  <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-xl text-xs space-y-1.5">
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-800">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Reply to parent:</span>
-                    </div>
-                    <p className="text-emerald-950 text-xs leading-relaxed">
-                      {selectedTicket.resolution_reply}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-4 bg-slate-50 border border-slate-200/60 rounded-xl text-xs text-slate-500 text-center">
-                    The office has not replied yet.
-                  </div>
-                )}
-
-                <div className="pt-2 border-t border-slate-100 flex items-center justify-end">
+                <div className="sticky bottom-0 bg-white border-t p-3 -mx-5 -mb-5 flex">
                   <button
                     type="button"
                     onClick={() => setSelectedTicket(null)}
-                    className="h-8.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 cursor-pointer shadow-2xs transition-colors"
+                    className="w-full min-h-11 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 cursor-pointer shadow-2xs transition-colors"
                   >
                     Close
                   </button>

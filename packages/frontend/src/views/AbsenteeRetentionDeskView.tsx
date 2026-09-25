@@ -586,7 +586,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowAbsenteeFilters(prev => !prev)}
-              className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+              className={`w-11 h-11 md:w-8 md:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
                 showAbsenteeFilters || selectedBatchId !== 'ALL' || selectedStatusFilter !== 'ALL'
                   ? 'bg-amber-50 text-amber-900 border-amber-300'
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -605,7 +605,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setShowAbsenteeModuleMenu(prev => !prev)}
-                className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
+                className={`w-11 h-11 md:w-8 md:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
                   showAbsenteeModuleMenu
                     ? 'bg-slate-100 text-slate-900 border-slate-300 shadow-2xs'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -616,9 +616,9 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <MoreVertical className="w-4 h-4 text-slate-600" />
               </button>
 
-              {/* Dropdown Menu */}
+              {/* Desktop Dropdown Menu (>= md) */}
               {showAbsenteeModuleMenu && (
-                <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100">
+                <div className="hidden md:block absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left">
                   {/* Primary Action */}
                   <div className="p-1.5">
                     <button
@@ -729,53 +729,231 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* Mobile Actions Sheet (< md) */}
+              {showAbsenteeModuleMenu && (
+                <div className="md:hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet bg-slate-900/60">
+                  <div className="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[92dvh] flex flex-col mobile-sheet-card border border-slate-200 shadow-xl overflow-hidden">
+                    <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
+                    <div className="flex items-center justify-between p-4 border-b border-slate-200">
+                      <h3 className="font-bold text-slate-900 text-sm">Actions</h3>
+                      <button
+                        type="button"
+                        onClick={() => setShowAbsenteeModuleMenu(false)}
+                        className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="p-4 space-y-2 overflow-y-auto">
+                      {/* Start calls */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAbsenteeModuleMenu(false);
+                          setRapidQueueIndex(0);
+                          setRapidQueueOpen(true);
+                        }}
+                        disabled={followups.length === 0}
+                        className="w-full min-h-11 px-4 text-xs text-emerald-900 bg-emerald-50 hover:bg-emerald-100 rounded-xl flex items-center gap-2.5 font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        <Zap className="w-4 h-4 text-emerald-700" />
+                        <span>Start calls</span>
+                      </button>
+
+                      {/* Absentee list */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAbsenteeModuleMenu(false);
+                          setActiveTab('roster');
+                        }}
+                        className={`w-full min-h-11 px-4 text-xs rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
+                          activeTab === 'roster' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <PhoneForwarded className="w-4 h-4 text-slate-500" />
+                          <span>Absentee list ({followups.length})</span>
+                        </div>
+                      </button>
+
+                      {/* Repeat absences */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAbsenteeModuleMenu(false);
+                          setActiveTab('retention');
+                        }}
+                        className={`w-full min-h-11 px-4 text-xs rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
+                          (activeTab as string) === 'retention' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Users className="w-4 h-4 text-slate-500" />
+                          <span>Repeat absences ({retentionCases.length})</span>
+                        </div>
+                      </button>
+
+                      {/* Templates */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAbsenteeModuleMenu(false);
+                          setActiveTab('templates');
+                        }}
+                        className={`w-full min-h-11 px-4 text-xs rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
+                          (activeTab as string) === 'templates' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <MessageCircle className="w-4 h-4 text-slate-500" />
+                          <span>Templates ({templates.length})</span>
+                        </div>
+                      </button>
+
+                      {/* This month's report */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAbsenteeModuleMenu(false);
+                          fetchMonthlyReport();
+                          setActiveTab('report');
+                        }}
+                        className={`w-full min-h-11 px-4 text-xs rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
+                          (activeTab as string) === 'report' ? 'text-amber-800 font-bold bg-amber-50/50' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <FileText className="w-4 h-4 text-slate-500" />
+                          <span>This month's report</span>
+                        </div>
+                      </button>
+
+                      {/* Overview switch */}
+                      <button
+                        type="button"
+                        onClick={() => setShowOverviewFilters(prev => !prev)}
+                        className="w-full min-h-11 px-4 text-xs text-slate-700 hover:bg-slate-50 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <SlidersHorizontal className="w-4 h-4 text-slate-500" />
+                          <span>Overview Cards</span>
+                        </div>
+                        <div className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                          showOverviewFilters ? 'bg-amber-600' : 'bg-slate-200'
+                        }`}>
+                          <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                            showOverviewFilters ? 'translate-x-4' : 'translate-x-0'
+                          }`} />
+                        </div>
+                      </button>
+                    </div>
+                    <div className="sticky bottom-0 bg-white border-t p-3 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowAbsenteeModuleMenu(false)}
+                        className="flex-1 min-h-11 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Collapsible Filter Panel */}
           {showAbsenteeFilters && (
-            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex flex-wrap items-center gap-3 text-xs animate-in fade-in duration-100">
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                <span className="font-semibold text-slate-700">Date:</span>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={e => setSelectedDate(e.target.value)}
-                  className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-mono"
-                />
+            <>
+              {/* Desktop Filter Row (>= md) */}
+              <div className="hidden md:flex bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex-wrap items-center gap-3 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                  <span className="font-semibold text-slate-700">Date:</span>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={e => setSelectedDate(e.target.value)}
+                    className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-mono"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-slate-700">Batch:</span>
+                  <select
+                    value={selectedBatchId}
+                    onChange={e => setSelectedBatchId(e.target.value)}
+                    className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-medium"
+                  >
+                    <option value="ALL">All Batches</option>
+                    {batches.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-slate-700">Status:</span>
+                  <select
+                    value={selectedStatusFilter}
+                    onChange={e => setSelectedStatusFilter(e.target.value)}
+                    className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-medium"
+                  >
+                    <option value="ALL">All Statuses</option>
+                    <option value="PENDING">Pending Calls</option>
+                    <option value="CONTACTED">Contacted</option>
+                    <option value="UNREACHABLE">Unreachable / Rings</option>
+                    <option value="RESOLVED_EXCUSED">Excused / Medical Leave</option>
+                    <option value="SNOOZED">Snoozed</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-slate-700">Batch:</span>
-                <select
-                  value={selectedBatchId}
-                  onChange={e => setSelectedBatchId(e.target.value)}
-                  className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-medium"
-                >
-                  <option value="ALL">All Batches</option>
-                  {batches.map(b => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
-              </div>
+              {/* Mobile Stacked Filters (< md) */}
+              <div className="md:hidden bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-3 text-xs">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={e => setSelectedDate(e.target.value)}
+                    className="w-full min-h-11 px-3 bg-white border border-slate-300 rounded-xl text-xs font-mono"
+                  />
+                </div>
 
-              <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-slate-700">Status:</span>
-                <select
-                  value={selectedStatusFilter}
-                  onChange={e => setSelectedStatusFilter(e.target.value)}
-                  className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-medium"
-                >
-                  <option value="ALL">All Statuses</option>
-                  <option value="PENDING">Pending Calls</option>
-                  <option value="CONTACTED">Contacted</option>
-                  <option value="UNREACHABLE">Unreachable / Rings</option>
-                  <option value="RESOLVED_EXCUSED">Excused / Medical Leave</option>
-                  <option value="SNOOZED">Snoozed</option>
-                </select>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Class</label>
+                  <select
+                    value={selectedBatchId}
+                    onChange={e => setSelectedBatchId(e.target.value)}
+                    className="w-full min-h-11 px-3 bg-white border border-slate-300 rounded-xl text-xs font-medium"
+                  >
+                    <option value="ALL">All Batches</option>
+                    {batches.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+                  <select
+                    value={selectedStatusFilter}
+                    onChange={e => setSelectedStatusFilter(e.target.value)}
+                    className="w-full min-h-11 px-3 bg-white border border-slate-300 rounded-xl text-xs font-medium"
+                  >
+                    <option value="ALL">All Statuses</option>
+                    <option value="PENDING">Pending Calls</option>
+                    <option value="CONTACTED">Contacted</option>
+                    <option value="UNREACHABLE">Unreachable / Rings</option>
+                    <option value="RESOLVED_EXCUSED">Excused / Medical Leave</option>
+                    <option value="SNOOZED">Snoozed</option>
+                  </select>
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           {/* Absentee Follow-Up Table */}
@@ -1010,22 +1188,24 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Guardian & Contact - Flat line, NO box-in-box! */}
-                      <div className="flex items-center justify-between text-xs py-0.5">
-                        <div className="min-w-0 flex-1 truncate">
+                      {/* Guardian & Contact */}
+                      <div className="text-xs py-0.5 space-y-1.5">
+                        <div className="min-w-0 truncate">
                           <span className="text-[11px] text-slate-400 font-normal">Guardian: </span>
                           <span className="font-medium text-slate-700">{item.guardian_name || 'Parent'}</span>
                           <span className="text-[11px] font-mono text-slate-400 ml-1.5">{activePhone || 'No Phone'}</span>
                         </div>
                         {hasBackup && (
-                          <select
-                            value={currentPhoneChoice}
-                            onChange={e => setPhoneSelectionMap(prev => ({ ...prev, [item.id]: e.target.value as 'PRIMARY' | 'BACKUP' }))}
-                            className="text-[10px] bg-slate-50 border border-slate-200 rounded-md px-1.5 py-0.5 text-slate-700 font-medium shrink-0 ml-2"
-                          >
-                            <option value="PRIMARY">Primary</option>
-                            <option value="BACKUP">Backup</option>
-                          </select>
+                          <div className="pt-0.5">
+                            <select
+                              value={currentPhoneChoice}
+                              onChange={e => setPhoneSelectionMap(prev => ({ ...prev, [item.id]: e.target.value as 'PRIMARY' | 'BACKUP' }))}
+                              className="w-full min-h-11 text-xs bg-slate-50 border border-slate-300 rounded-xl px-3 text-slate-700 font-medium"
+                            >
+                              <option value="PRIMARY">Primary: {item.guardian_phone}</option>
+                              <option value="BACKUP">Backup: {item.backup_phone}</option>
+                            </select>
+                          </div>
                         )}
                       </div>
 
@@ -1043,40 +1223,40 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Action Triggers: Sleek Icons */}
-                      <div className="flex items-center justify-between pt-1.5 border-t border-slate-100">
-                        <div className="flex items-center gap-1.5">
+                      {/* Action Triggers */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
                             disabled={!item.guardian_phone}
                             onClick={() => handleOpenWhatsAppModal(item)}
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                            className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors border ${
                               !item.guardian_phone
-                                ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400'
-                                : 'bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 cursor-pointer'
+                                ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200'
+                                : 'bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 cursor-pointer border-emerald-200'
                             }`}
                             title={!item.guardian_phone ? 'No guardian phone on file' : 'WhatsApp Notification'}
                             aria-label="WhatsApp"
                           >
-                            <MessageCircle className="w-4 h-4" />
+                            <MessageCircle className="w-5 h-5" />
                           </button>
                           <a
                             href={`tel:${activePhone}`}
-                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 flex items-center justify-center transition-colors"
+                            className="w-11 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 flex items-center justify-center transition-colors border border-slate-200"
                             title={`Call: ${activePhone}`}
                             aria-label="Call"
                           >
-                            <Phone className="w-4 h-4" />
+                            <Phone className="w-5 h-5" />
                           </a>
                         </div>
 
                         <button
                           type="button"
                           onClick={() => handleOpenLogModal(item)}
-                          className="h-8 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                          className="flex-1 min-h-11 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
                           title="Log Call Response / Medical Leave"
                         >
-                          <FileCheck className="w-3.5 h-3.5" />
+                          <FileCheck className="w-4 h-4" />
                           <span>Log Call</span>
                         </button>
                       </div>
@@ -1157,7 +1337,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   </div>
                 )}
 
-                <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100">
                   <div className="text-xs">
                     <span className="text-slate-500">Status: </span>
                     <strong className="uppercase text-slate-900 font-bold">{c.status}</strong>
@@ -1170,10 +1350,10 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
                   <button
                     onClick={() => setActiveRetentionCase(c)}
-                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1 transition-colors"
+                    className="w-full md:w-auto min-h-11 md:min-h-0 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Calendar className="w-3.5 h-3.5" />
-                    Schedule Meeting
+                    <span>Set meeting</span>
                   </button>
                 </div>
               </div>
@@ -1186,16 +1366,16 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           TAB 3: WHATSAPP TEMPLATES & AUDIT HISTORY
           ===================================================================== */}
       {activeTab === 'templates' && (
-        <div className="space-y-5">
-          <div className="flex justify-between items-center">
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => setActiveTab('roster')}
-                className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                className="w-11 h-11 sm:w-auto p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer transition-colors shrink-0"
                 title="Back to Absentee Roster"
               >
-                <ArrowLeft className="w-3.5 h-3.5" />
+                <ArrowLeft className="w-4 h-4" />
                 <span className="hidden sm:inline">Back to Roster</span>
               </button>
               <div>
@@ -1207,7 +1387,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
             </div>
             <button
               onClick={() => setShowCreateTemplateModal(true)}
-              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-colors"
+              className="w-full sm:w-auto min-h-11 sm:min-h-0 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
             >
               <Plus className="w-4 h-4" /> New Template
             </button>
@@ -1232,7 +1412,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 font-mono text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 font-mono text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed line-clamp-2 md:line-clamp-none">
                   {tmpl.body}
                 </div>
               </div>
@@ -1243,52 +1423,80 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           <div className="pt-4 border-t border-slate-200">
             <h3 className="font-bold text-slate-900 text-sm mb-3">WhatsApp Dispatches Audit Trail</h3>
             <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
-                    <th className="p-3">Dispatched Time</th>
-                    <th className="p-3">Student Name</th>
-                    <th className="p-3">Recipient Phone</th>
-                    <th className="p-3">Type</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3">Dispatched By</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-slate-700">
-                  {auditLogs.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-6 text-center text-slate-400">No WhatsApp messages dispatched yet.</td>
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="p-3">Dispatched Time</th>
+                      <th className="p-3">Student Name</th>
+                      <th className="p-3">Recipient Phone</th>
+                      <th className="p-3">Type</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3">Dispatched By</th>
                     </tr>
-                  ) : (
-                    auditLogs.map(log => (
-                      <tr key={log.id} className="hover:bg-slate-50">
-                        <td className="p-3 font-mono text-[11px] text-slate-500">
-                          {new Date(log.dispatched_at).toLocaleString()}
-                        </td>
-                        <td className="p-3 font-bold text-slate-900">
-                          {log.student_name || 'Student'}
-                        </td>
-                        <td className="p-3 font-mono text-slate-700">
-                          {log.recipient_phone}
-                        </td>
-                        <td className="p-3">
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-bold">
-                            {log.phone_type}
-                          </span>
-                        </td>
-                        <td className="p-3">
-                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold">
-                            {log.status}
-                          </span>
-                        </td>
-                        <td className="p-3 font-medium text-slate-600">
-                          {log.dispatched_by_name || 'Staff'}
-                        </td>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
+                    {auditLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-6 text-center text-slate-400">No WhatsApp messages dispatched yet.</td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      auditLogs.map(log => (
+                        <tr key={log.id} className="hover:bg-slate-50">
+                          <td className="p-3 font-mono text-[11px] text-slate-500">
+                            {new Date(log.dispatched_at).toLocaleString()}
+                          </td>
+                          <td className="p-3 font-bold text-slate-900">
+                            {log.student_name || 'Student'}
+                          </td>
+                          <td className="p-3 font-mono text-slate-700">
+                            {log.recipient_phone}
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-bold">
+                              {log.phone_type}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold">
+                              {log.status}
+                            </span>
+                          </td>
+                          <td className="p-3 font-medium text-slate-600">
+                            {log.dispatched_by_name || 'Staff'}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card List (< md) */}
+              <div className="md:hidden divide-y divide-slate-100">
+                {auditLogs.length === 0 ? (
+                  <div className="p-6 text-center text-slate-400 text-xs">No WhatsApp messages dispatched yet.</div>
+                ) : (
+                  auditLogs.map(log => (
+                    <div key={log.id} className="p-3.5 space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-slate-900">{log.student_name || 'Student'}</span>
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold">
+                          {log.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-600">
+                        <span className="font-mono text-[11px]">{log.recipient_phone} ({log.phone_type})</span>
+                        <span className="text-[10px] text-slate-500 font-mono">{new Date(log.dispatched_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        By: <span className="font-medium text-slate-600">{log.dispatched_by_name || 'Staff'}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1384,7 +1592,8 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
               <h4 className="text-xs font-bold text-slate-800">Absence Reason Breakdown</h4>
               <span className="text-[11px] text-slate-500 font-mono">Categorized Parent Responses</span>
             </div>
-            <div className="overflow-x-auto">
+            {/* Desktop Reason Breakdown Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/60 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
@@ -1422,6 +1631,38 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Reason Breakdown List (< md) */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {loadingReport ? (
+                <div className="p-6 text-center text-slate-400 text-xs">Loading monthly report...</div>
+              ) : (
+                [
+                  { category: 'MEDICAL', label: 'Medical / Illness' },
+                  { category: 'EMERGENCY', label: 'Family Emergency / Out of City' },
+                  { category: 'TRANSPORT', label: 'Transportation / Weather' },
+                  { category: 'FEE_DISPUTE', label: 'Fee Dispute / Financial' },
+                  { category: 'TRUANCY', label: 'Woke Up Late / Truancy' },
+                  { category: 'OTHER', label: 'Other / Unspecified' }
+                ].map(item => {
+                  const count = monthlyReport?.reason_breakdown?.[item.category as AbsenteeReasonCategory] ?? 0;
+                  const total = monthlyReport?.total_absences || 1;
+                  const pct = Math.round((count / total) * 100);
+                  return (
+                    <div key={item.category} className="p-3.5 flex items-center justify-between text-xs">
+                      <div>
+                        <div className="font-semibold text-slate-800">{item.label}</div>
+                        <div className="text-[10px] text-slate-400 font-mono">{item.category}</div>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono font-bold text-slate-900">{count}</span>
+                        <span className="text-[11px] font-mono text-slate-500 ml-2">({pct}%)</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1430,110 +1671,117 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           MODAL: WHATSAPP 1-CLICK DISPATCH & LIVE PREVIEW
           ===================================================================== */}
       {activeWhatsAppFollowup && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto mobile-sheet">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+        <div className="fixed inset-0 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-lg w-full shadow-2xl flex flex-col mobile-sheet-card max-h-[92dvh] overflow-hidden">
+            <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
+            <div className="flex justify-between items-center p-4 border-b border-slate-200">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-emerald-600" />
                 Dispatch WhatsApp Alert
               </h3>
-              <button onClick={() => setActiveWhatsAppFollowup(null)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setActiveWhatsAppFollowup(null)}
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {duplicateWarning && (
-              <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs font-semibold flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>{duplicateWarning}</span>
-              </div>
-            )}
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Select Message Template:</label>
-                <select
-                  value={selectedTemplateId}
-                  onChange={e => setSelectedTemplateId(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
-                >
-                  {templates.map(t => (
-                    <option key={t.id} value={t.id}>{t.title} ({t.category})</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Target Phone Switcher */}
-              <div className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
-                <div>
-                  <span className="font-bold text-slate-700 block">Recipient Phone:</span>
-                  <span className="font-mono text-slate-600">
-                    {(phoneSelectionMap[activeWhatsAppFollowup.id] || 'PRIMARY') === 'BACKUP' && activeWhatsAppFollowup.backup_phone
-                      ? activeWhatsAppFollowup.backup_phone
-                      : activeWhatsAppFollowup.guardian_phone}
-                  </span>
+            <div className="p-4 space-y-4 overflow-y-auto flex-1">
+              {duplicateWarning && (
+                <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-xl text-amber-900 text-xs font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>{duplicateWarning}</span>
                 </div>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setPhoneSelectionMap(prev => ({ ...prev, [activeWhatsAppFollowup.id]: 'PRIMARY' }))}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
-                      (phoneSelectionMap[activeWhatsAppFollowup.id] || 'PRIMARY') === 'PRIMARY'
-                        ? 'bg-amber-600 text-white shadow-xs'
-                        : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
-                    }`}
+              )}
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Select Message Template:</label>
+                  <select
+                    value={selectedTemplateId}
+                    onChange={e => setSelectedTemplateId(e.target.value)}
+                    className="w-full min-h-11 px-3 border border-slate-300 rounded-xl text-xs bg-white"
                   >
-                    Primary
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!activeWhatsAppFollowup.backup_phone}
-                    onClick={() => setPhoneSelectionMap(prev => ({ ...prev, [activeWhatsAppFollowup.id]: 'BACKUP' }))}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-colors ${
-                      !activeWhatsAppFollowup.backup_phone
-                        ? 'opacity-40 cursor-not-allowed bg-slate-100'
-                        : (phoneSelectionMap[activeWhatsAppFollowup.id] || 'PRIMARY') === 'BACKUP'
+                    {templates.map(t => (
+                      <option key={t.id} value={t.id}>{t.title} ({t.category})</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Target Phone Switcher */}
+                <div className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                  <div>
+                    <span className="font-bold text-slate-700 block">Recipient Phone:</span>
+                    <span className="font-mono text-slate-600">
+                      {(phoneSelectionMap[activeWhatsAppFollowup.id] || 'PRIMARY') === 'BACKUP' && activeWhatsAppFollowup.backup_phone
+                        ? activeWhatsAppFollowup.backup_phone
+                        : activeWhatsAppFollowup.guardian_phone}
+                    </span>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setPhoneSelectionMap(prev => ({ ...prev, [activeWhatsAppFollowup.id]: 'PRIMARY' }))}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                        (phoneSelectionMap[activeWhatsAppFollowup.id] || 'PRIMARY') === 'PRIMARY'
                           ? 'bg-amber-600 text-white shadow-xs'
                           : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    Backup
-                  </button>
+                      }`}
+                    >
+                      Primary
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!activeWhatsAppFollowup.backup_phone}
+                      onClick={() => setPhoneSelectionMap(prev => ({ ...prev, [activeWhatsAppFollowup.id]: 'BACKUP' }))}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                        !activeWhatsAppFollowup.backup_phone
+                          ? 'opacity-40 cursor-not-allowed bg-slate-100'
+                          : (phoneSelectionMap[activeWhatsAppFollowup.id] || 'PRIMARY') === 'BACKUP'
+                            ? 'bg-amber-600 text-white shadow-xs'
+                            : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      Backup
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Native WhatsApp Chat Bubble Preview */}
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Live Chat Bubble Preview:
-                </label>
-                <div className="p-4 bg-[#e5ddd5] rounded-xl border border-slate-300">
-                  <div className="bg-white rounded-xl rounded-tl-xs p-3.5 shadow-xs max-w-sm space-y-2 text-xs text-slate-900 font-sans">
-                    <p className="whitespace-pre-wrap leading-relaxed">{customMessageText}</p>
-                    <div className="flex justify-end items-center gap-1 text-[10px] text-slate-400">
-                      <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
+                {/* Native WhatsApp Chat Bubble Preview */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Live Chat Bubble Preview:
+                  </label>
+                  <div className="p-4 bg-[#e5ddd5] rounded-xl border border-slate-300">
+                    <div className="bg-white rounded-xl rounded-tl-xs p-3.5 shadow-xs max-w-sm space-y-2 text-xs text-slate-900 font-sans">
+                      <p className="whitespace-pre-wrap leading-relaxed">{customMessageText}</p>
+                      <div className="flex justify-end items-center gap-1 text-[10px] text-slate-400">
+                        <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-200">
+            <div className="sticky bottom-0 bg-white border-t p-3 flex gap-2">
               <button
                 type="button"
                 onClick={() => setActiveWhatsAppFollowup(null)}
-                className="h-8.5 px-3.5 py-1.5 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 text-xs cursor-pointer"
+                className="flex-1 min-h-11 px-4 border border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 text-xs cursor-pointer flex items-center justify-center"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => handleDispatchWhatsApp(activeWhatsAppFollowup, customMessageText)}
-                className="h-8.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-xs flex items-center gap-1.5 text-xs cursor-pointer"
+                className="flex-1 min-h-11 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-xs flex items-center justify-center gap-1.5 text-xs cursor-pointer"
               >
-                <Send className="w-3.5 h-3.5" />
-                Open WhatsApp Web / App
+                <Send className="w-4 h-4" />
+                <span>Open WhatsApp</span>
               </button>
             </div>
           </div>
@@ -1544,108 +1792,115 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           MODAL: LOG PARENT RESPONSE & 1-CLICK MEDICAL LEAVE
           ===================================================================== */}
       {activeLogFollowup && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto mobile-sheet">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+        <div className="fixed inset-0 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-md w-full shadow-2xl flex flex-col mobile-sheet-card max-h-[92dvh] overflow-hidden">
+            <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
+            <div className="flex justify-between items-center p-4 border-b border-slate-200">
               <SectionInfo
                 title="Log Call Outcome"
                 description="Record parent communication and optional medical leave conversion"
               />
-              <button onClick={() => setActiveLogFollowup(null)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg">
-                <X className="w-4 h-4" />
+              <button
+                type="button"
+                onClick={() => setActiveLogFollowup(null)}
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveLogResponse} className="space-y-3.5 text-xs">
-              <div>
-                <span className="text-slate-500 block text-[11px]">Student:</span>
-                <span className="font-bold text-slate-900 text-sm">{activeLogFollowup.student_name} (Adm: {activeLogFollowup.admission_number || activeLogFollowup.roll_number || '—'})</span>
-              </div>
+            <form onSubmit={handleSaveLogResponse} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 space-y-3.5 text-xs overflow-y-auto flex-1">
+                <div>
+                  <span className="text-slate-500 block text-[11px]">Student:</span>
+                  <span className="font-bold text-slate-900 text-sm">{activeLogFollowup.student_name} (Adm: {activeLogFollowup.admission_number || activeLogFollowup.roll_number || '—'})</span>
+                </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Call Outcome:</label>
-                <select
-                  value={logCallOutcome}
-                  onChange={e => setLogCallOutcome(e.target.value as AbsenteeCallOutcome)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                >
-                  <option value="CONNECTED">Connected & Spoke with Parent</option>
-                  <option value="NO_ANSWER">Ringing / No Answer</option>
-                  <option value="SWITCHED_OFF">Phone Switched Off / Busy</option>
-                  <option value="WHATSAPP_SENT">WhatsApp Message Sent</option>
-                </select>
-              </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Call Outcome:</label>
+                  <select
+                    value={logCallOutcome}
+                    onChange={e => setLogCallOutcome(e.target.value as AbsenteeCallOutcome)}
+                    className="w-full min-h-11 px-3 border border-slate-300 rounded-xl bg-white"
+                  >
+                    <option value="CONNECTED">Connected & Spoke with Parent</option>
+                    <option value="NO_ANSWER">Ringing / No Answer</option>
+                    <option value="SWITCHED_OFF">Phone Switched Off / Busy</option>
+                    <option value="WHATSAPP_SENT">WhatsApp Message Sent</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Reason Category:</label>
-                <select
-                  value={logReasonCategory}
-                  onChange={e => setLogReasonCategory(e.target.value as AbsenteeReasonCategory)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
-                >
-                  <option value="MEDICAL">Medical / Sick</option>
-                  <option value="EMERGENCY">Family Emergency / Out of City</option>
-                  <option value="TRANSPORT">Transportation / Rain</option>
-                  <option value="FEE_DISPUTE">Fee Dispute / Thinking of Leaving</option>
-                  <option value="TRUANCY">Woke up Late / Truancy</option>
-                  <option value="OTHER">Other Reason</option>
-                </select>
-              </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Reason Category:</label>
+                  <select
+                    value={logReasonCategory}
+                    onChange={e => setLogReasonCategory(e.target.value as AbsenteeReasonCategory)}
+                    className="w-full min-h-11 px-3 border border-slate-300 rounded-xl bg-white"
+                  >
+                    <option value="MEDICAL">Medical / Sick</option>
+                    <option value="EMERGENCY">Family Emergency / Out of City</option>
+                    <option value="TRANSPORT">Transportation / Rain</option>
+                    <option value="FEE_DISPUTE">Fee Dispute / Thinking of Leaving</option>
+                    <option value="TRUANCY">Woke up Late / Truancy</option>
+                    <option value="OTHER">Other Reason</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Parent Remarks / Notes:</label>
-                <textarea
-                  rows={2}
-                  value={logParentRemarks}
-                  onChange={e => setLogParentRemarks(e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  Expected Return Date (Smart Snooze):
-                </label>
-                <input
-                  type="date"
-                  value={logExpectedReturn}
-                  onChange={e => setLogExpectedReturn(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-xs"
-                />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Setting an expected return date automatically snoozes daily calls until that date.
-                </p>
-              </div>
-
-              {/* 1-Click Conversion to Medical Leave */}
-              <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl space-y-1.5">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={logConvertToMedical}
-                    onChange={e => setLogConvertToMedical(e.target.checked)}
-                    className="w-4 h-4 text-purple-600 rounded border-purple-300 focus:ring-purple-500"
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Parent Remarks / Notes:</label>
+                  <textarea
+                    rows={2}
+                    value={logParentRemarks}
+                    onChange={e => setLogParentRemarks(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl"
                   />
-                  <span className="font-bold text-purple-900 text-xs">
-                    Convert to Approved Medical Leave
-                  </span>
-                </label>
-                <p className="text-[10px] text-purple-700 pl-6">
-                  Updates today's attendance status from absent to excused leave.
-                </p>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Expected Return Date (Smart Snooze):
+                  </label>
+                  <input
+                    type="date"
+                    value={logExpectedReturn}
+                    onChange={e => setLogExpectedReturn(e.target.value)}
+                    className="w-full min-h-11 px-3 border border-slate-300 rounded-xl font-mono text-xs bg-white"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Setting an expected return date automatically snoozes daily calls until that date.
+                  </p>
+                </div>
+
+                {/* 1-Click Conversion to Medical Leave */}
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl space-y-1.5">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={logConvertToMedical}
+                      onChange={e => setLogConvertToMedical(e.target.checked)}
+                      className="w-4 h-4 text-purple-600 rounded border-purple-300 focus:ring-purple-500"
+                    />
+                    <span className="font-bold text-purple-900 text-xs">
+                      Convert to Approved Medical Leave
+                    </span>
+                  </label>
+                  <p className="text-[10px] text-purple-700 pl-6">
+                    Updates today's attendance status from absent to excused leave.
+                  </p>
+                </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+              <div className="sticky bottom-0 bg-white border-t p-3 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveLogFollowup(null)}
-                  className="h-8.5 px-3.5 py-1.5 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 text-xs cursor-pointer"
+                  className="flex-1 min-h-11 px-4 border border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 text-xs cursor-pointer flex items-center justify-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold rounded-lg shadow-xs transition-colors text-xs cursor-pointer"
+                  className="flex-1 min-h-11 px-4 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold rounded-xl shadow-xs transition-colors text-xs cursor-pointer flex items-center justify-center"
                 >
                   Save Call Record
                 </button>
@@ -1659,9 +1914,10 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           MODAL: WHATSAPP RAPID QUEUE MODE
           ===================================================================== */}
       {rapidQueueOpen && rapidCurrentItem && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto mobile-sheet">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-xl w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+        <div className="fixed inset-0 bg-slate-900/70 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-xl w-full shadow-2xl flex flex-col mobile-sheet-card max-h-[92dvh] overflow-hidden">
+            <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
+            <div className="flex justify-between items-center p-4 border-b border-slate-200">
               <div className="flex items-center gap-2">
                 <Zap className="w-5 h-5 text-emerald-600" />
                 <h3 className="font-bold text-slate-900 text-sm">
@@ -1672,83 +1928,90 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <span className="px-2.5 py-0.5 bg-slate-100 text-slate-800 font-mono font-bold rounded text-xs">
                   {rapidQueueIndex + 1} of {followups.length}
                 </span>
-                <button onClick={() => setRapidQueueOpen(false)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setRapidQueueOpen(false)}
+                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Student details header */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center">
-              <div>
-                <h4 className="font-bold text-slate-900 text-sm">{rapidCurrentItem.student_name}</h4>
-                <p className="text-xs text-slate-500 font-mono">Adm: {rapidCurrentItem.admission_number || rapidCurrentItem.roll_number || '—'} • {rapidCurrentItem.batch_name}</p>
-                <p className="text-xs text-slate-700 mt-1">Guardian: <strong>{rapidCurrentItem.guardian_name}</strong></p>
-              </div>
-              <div className="text-right">
-                {rapidCurrentItem.consecutive_days >= 3 ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                    Day {rapidCurrentItem.consecutive_days}
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block">
-                    Day {rapidCurrentItem.consecutive_days}
-                  </span>
-                )}
-                <span className="text-[11px] font-mono text-slate-500 block mt-1">
-                  {rapidCurrentItem.guardian_phone}
-                </span>
-              </div>
-            </div>
-
-            {/* Message Bubble Preview */}
-            <div className="p-4 bg-[#e5ddd5] rounded-xl border border-slate-300">
-              <div className="bg-white rounded-xl rounded-tl-xs p-3.5 shadow-xs text-xs text-slate-900 font-sans space-y-1">
-                <p className="whitespace-pre-wrap leading-relaxed">
-                  {buildDynamicMessage(
-                    templates.find(t => t.id === selectedTemplateId)?.body || templates[0]?.body || 'Dear Parent, your child was marked absent today.',
-                    rapidCurrentItem
+            <div className="p-4 space-y-4 overflow-y-auto flex-1">
+              {/* Student details header */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center">
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">{rapidCurrentItem.student_name}</h4>
+                  <p className="text-xs text-slate-500 font-mono">Adm: {rapidCurrentItem.admission_number || rapidCurrentItem.roll_number || '—'} • {rapidCurrentItem.batch_name}</p>
+                  <p className="text-xs text-slate-700 mt-1">Guardian: <strong>{rapidCurrentItem.guardian_name}</strong></p>
+                </div>
+                <div className="text-right">
+                  {rapidCurrentItem.consecutive_days >= 3 ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-300 animate-pulse">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                      Day {rapidCurrentItem.consecutive_days}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 block">
+                      Day {rapidCurrentItem.consecutive_days}
+                    </span>
                   )}
-                </p>
-                <div className="flex justify-end text-[10px] text-slate-400">
-                  <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  <span className="text-[11px] font-mono text-slate-500 block mt-1">
+                    {rapidCurrentItem.guardian_phone}
+                  </span>
+                </div>
+              </div>
+
+              {/* Message Bubble Preview */}
+              <div className="p-4 bg-[#e5ddd5] rounded-xl border border-slate-300">
+                <div className="bg-white rounded-xl rounded-tl-xs p-3.5 shadow-xs text-xs text-slate-900 font-sans space-y-1">
+                  <p className="whitespace-pre-wrap leading-relaxed">
+                    {buildDynamicMessage(
+                      templates.find(t => t.id === selectedTemplateId)?.body || templates[0]?.body || 'Dear Parent, your child was marked absent today.',
+                      rapidCurrentItem
+                    )}
+                  </p>
+                  <div className="flex justify-end text-[10px] text-slate-400">
+                    <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+            <div className="sticky bottom-0 bg-white border-t p-3 flex items-center justify-between gap-2">
               <button
                 type="button"
                 disabled={rapidQueueIndex === 0}
                 onClick={() => setRapidQueueIndex(prev => prev - 1)}
-                className="h-8.5 px-3 py-1.5 border border-slate-300 text-slate-700 disabled:opacity-30 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                className="min-h-11 px-3 border border-slate-300 text-slate-700 disabled:opacity-30 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
               >
-                <ChevronLeft className="w-4 h-4" /> Previous
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">Previous</span>
               </button>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const msg = buildDynamicMessage(templates.find(t => t.id === selectedTemplateId)?.body || templates[0]?.body || '', rapidCurrentItem);
-                    handleDispatchWhatsApp(rapidCurrentItem, msg);
-                  }}
-                  className="h-8.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-xs text-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Send className="w-4 h-4" /> Open WhatsApp
-                </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const msg = buildDynamicMessage(templates.find(t => t.id === selectedTemplateId)?.body || templates[0]?.body || '', rapidCurrentItem);
+                  handleDispatchWhatsApp(rapidCurrentItem, msg);
+                }}
+                className="flex-1 min-h-11 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-xs text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Send className="w-4 h-4" />
+                <span>Open WhatsApp</span>
+              </button>
 
-                <button
-                  type="button"
-                  disabled={rapidQueueIndex >= followups.length - 1}
-                  onClick={() => setRapidQueueIndex(prev => prev + 1)}
-                  className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-30 text-white font-semibold rounded-lg shadow-xs text-xs flex items-center gap-1 transition-colors cursor-pointer"
-                >
-                  Next Student <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+              <button
+                type="button"
+                disabled={rapidQueueIndex >= followups.length - 1}
+                onClick={() => setRapidQueueIndex(prev => prev + 1)}
+                className="min-h-11 px-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:opacity-30 text-white font-semibold rounded-xl shadow-xs text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer"
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -1758,60 +2021,67 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           MODAL: SCHEDULE PARENT COUNSELING MEETING
           ===================================================================== */}
       {activeRetentionCase && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto mobile-sheet">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+        <div className="fixed inset-0 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-md w-full shadow-2xl flex flex-col mobile-sheet-card max-h-[92dvh] overflow-hidden">
+            <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
+            <div className="flex justify-between items-center p-4 border-b border-slate-200">
               <SectionInfo
                 title="Call parent"
                 description="Set a meeting with the parent."
               />
-              <button onClick={() => setActiveRetentionCase(null)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setActiveRetentionCase(null)}
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleScheduleMeeting} className="space-y-3.5 text-xs">
-              <div>
-                <span className="text-slate-500 block text-[11px]">Student:</span>
-                <span className="font-bold text-slate-900 text-sm">{activeRetentionCase.student_name} (Adm: {activeRetentionCase.admission_number || activeRetentionCase.roll_number || '—'})</span>
-                <span className="text-rose-600 font-semibold block text-[11px] mt-0.5">
-                  Monthly Attendance: {activeRetentionCase.monthly_attendance_pct}% • {activeRetentionCase.consecutive_absences} Consecutive Absences
-                </span>
+            <form onSubmit={handleScheduleMeeting} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 space-y-3.5 text-xs overflow-y-auto flex-1">
+                <div>
+                  <span className="text-slate-500 block text-[11px]">Student:</span>
+                  <span className="font-bold text-slate-900 text-sm">{activeRetentionCase.student_name} (Adm: {activeRetentionCase.admission_number || activeRetentionCase.roll_number || '—'})</span>
+                  <span className="text-rose-600 font-semibold block text-[11px] mt-0.5">
+                    Monthly Attendance: {activeRetentionCase.monthly_attendance_pct}% • {activeRetentionCase.consecutive_absences} Consecutive Absences
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Meeting Date & Time:</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={meetingDate}
+                    onChange={e => setMeetingDate(e.target.value)}
+                    className="w-full min-h-11 px-3 border border-slate-300 rounded-xl font-mono text-xs bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Director / Counselor Agenda Notes:</label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={meetingNotes}
+                    onChange={e => setMeetingNotes(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl text-xs"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Meeting Date & Time:</label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={meetingDate}
-                  onChange={e => setMeetingDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Director / Counselor Agenda Notes:</label>
-                <textarea
-                  rows={3}
-                  required
-                  value={meetingNotes}
-                  onChange={e => setMeetingNotes(e.target.value)}
-                  className="w-full p-2.5 border border-slate-300 rounded-lg text-xs"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+              <div className="sticky bottom-0 bg-white border-t p-3 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setActiveRetentionCase(null)}
-                  className="h-8.5 px-3.5 py-1.5 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 text-xs cursor-pointer"
+                  className="flex-1 min-h-11 px-4 border border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 text-xs cursor-pointer flex items-center justify-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold rounded-lg shadow-xs transition-colors text-xs cursor-pointer"
+                  className="flex-1 min-h-11 px-4 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold rounded-xl shadow-xs transition-colors text-xs cursor-pointer flex items-center justify-center"
                 >
                   Confirm & Schedule
                 </button>
@@ -1825,69 +2095,76 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
           MODAL: CREATE NEW WHATSAPP TEMPLATE
           ===================================================================== */}
       {showCreateTemplateModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 overflow-y-auto mobile-sheet">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-lg w-full p-4 sm:p-6 shadow-2xl space-y-4 my-0 sm:my-8 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+        <div className="fixed inset-0 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 z-50 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl max-w-lg w-full shadow-2xl flex flex-col mobile-sheet-card max-h-[92dvh] overflow-hidden">
+            <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
+            <div className="flex justify-between items-center p-4 border-b border-slate-200">
               <SectionInfo
                 title="WhatsApp Template"
                 description="Create a message template with dynamic placeholders"
               />
-              <button onClick={() => setShowCreateTemplateModal(false)} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setShowCreateTemplateModal(false)}
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateTemplate} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Template Title:</label>
-                <input
-                  type="text"
-                  required
-                  value={newTmplTitle}
-                  onChange={e => setNewTmplTitle(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
-                />
-              </div>
+            <form onSubmit={handleCreateTemplate} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-4 space-y-3.5 text-xs overflow-y-auto flex-1">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Template Title:</label>
+                  <input
+                    type="text"
+                    required
+                    value={newTmplTitle}
+                    onChange={e => setNewTmplTitle(e.target.value)}
+                    className="w-full min-h-11 px-3 border border-slate-300 rounded-xl text-xs bg-white"
+                  />
+                </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Category:</label>
-                <select
-                  value={newTmplCategory}
-                  onChange={e => setNewTmplCategory(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs"
-                >
-                  <option value="ABSENCE">Absence Alert</option>
-                  <option value="FEE_REMINDER">Fee Reminder</option>
-                  <option value="EXAM_RESULT">Exam Result</option>
-                  <option value="GENERAL">General Announcement</option>
-                </select>
-              </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Category:</label>
+                  <select
+                    value={newTmplCategory}
+                    onChange={e => setNewTmplCategory(e.target.value as any)}
+                    className="w-full min-h-11 px-3 border border-slate-300 rounded-xl text-xs bg-white"
+                  >
+                    <option value="ABSENCE">Absence Alert</option>
+                    <option value="FEE_REMINDER">Fee Reminder</option>
+                    <option value="EXAM_RESULT">Exam Result</option>
+                    <option value="GENERAL">General Announcement</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Message Body (Supports WhatsApp *bold* and {`{tags}`}):</label>
-                <textarea
-                  rows={4}
-                  required
-                  value={newTmplBody}
-                  onChange={e => setNewTmplBody(e.target.value)}
-                  className="w-full p-3 font-mono border border-slate-300 rounded-lg text-xs"
-                />
-                <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg mt-1 text-[10px] text-slate-500 font-mono">
-                  Supported tags: {`{student_name}, {admission_number}, {batch_name}, {guardian_name}, {current_date}, {academy_name}, {academy_phone}`}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Message Body (Supports WhatsApp *bold* and {`{tags}`}):</label>
+                  <textarea
+                    rows={4}
+                    required
+                    value={newTmplBody}
+                    onChange={e => setNewTmplBody(e.target.value)}
+                    className="w-full p-3 font-mono border border-slate-300 rounded-xl text-xs"
+                  />
+                  <div className="p-2 bg-slate-50 border border-slate-200 rounded-lg mt-1 text-[10px] text-slate-500 font-mono">
+                    Supported tags: {`{student_name}, {admission_number}, {batch_name}, {guardian_name}, {current_date}, {academy_name}, {academy_phone}`}
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
+              <div className="sticky bottom-0 bg-white border-t p-3 flex gap-2">
                 <button
                   type="button"
                   onClick={() => setShowCreateTemplateModal(false)}
-                  className="h-8.5 px-3.5 py-1.5 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 text-xs cursor-pointer"
+                  className="flex-1 min-h-11 px-4 border border-slate-300 text-slate-700 font-semibold rounded-xl hover:bg-slate-50 text-xs cursor-pointer flex items-center justify-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-8.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-xs text-xs cursor-pointer"
+                  className="flex-1 min-h-11 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-xs text-xs cursor-pointer flex items-center justify-center"
                 >
                   Save Template
                 </button>

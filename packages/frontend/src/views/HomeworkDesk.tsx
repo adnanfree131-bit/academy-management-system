@@ -10,7 +10,8 @@ import {
   Clock,
   X,
   Pencil,
-  Trash2
+  Trash2,
+  ChevronLeft
 } from 'lucide-react';
 import { 
   AcademicProgram,
@@ -36,6 +37,7 @@ export const HomeworkDesk: React.FC = () => {
   const [selectedBatchId, setSelectedBatchId] = useState<string>('');
   const [assignments, setAssignments] = useState<HomeworkAssignment[]>([]);
   const [selectedAssignment, setSelectedAssignment] = useState<HomeworkAssignment | null>(null);
+  const [phonePane, setPhonePane] = useState<'list' | 'check'>('list');
   
   // Checking State
   const [students, setStudents] = useState<Student[]>([]);
@@ -392,8 +394,244 @@ export const HomeworkDesk: React.FC = () => {
         </button>
       </PageHeading>
 
-      {/* Main Grid: Left col Assignments, Right col Notebook Inspection */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* Mobile Layout (< md): One screen at a time */}
+      <div className="md:hidden">
+        {phonePane === 'list' || !selectedAssignment ? (
+          /* Phone List Pane */
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-4">
+            <div className="space-y-1">
+              <label className="block text-xs font-semibold text-slate-600">Class</label>
+              <select
+                value={selectedBatchId}
+                onChange={e => setSelectedBatchId(e.target.value)}
+                className="w-full min-h-11 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 font-medium text-slate-800 focus:outline-none"
+              >
+                {scopedBatches.map(b => {
+                  const progName = programs.find(p => p.id === b.program_id)?.name;
+                  return (
+                    <option key={b.id} value={b.id}>
+                      {progName ? `${progName} • ` : ''}{b.name}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {isLoading ? (
+              <div className="p-8 text-center text-slate-400">
+                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-500" />
+                <p className="text-xs font-mono">Loading assignments...</p>
+              </div>
+            ) : assignments.length === 0 ? (
+              <div className="p-8 text-center text-slate-400">
+                <BookOpen className="w-6 h-6 mx-auto mb-2 text-slate-300" />
+                <p className="text-xs font-bold text-slate-700">No homework assigned yet</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Click "Assign Homework" above.</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {assignments.map(hw => (
+                  <div
+                    key={hw.id}
+                    onClick={() => {
+                      setSelectedAssignment(hw);
+                      setPhonePane('check');
+                    }}
+                    className="p-3.5 rounded-xl border border-slate-200/70 bg-slate-50/50 hover:bg-slate-50 cursor-pointer transition-all"
+                  >
+                    <div className="flex items-center justify-between mb-1 gap-1">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white border border-slate-200/80 font-bold text-slate-700 truncate">
+                        {hw.subject_name || 'Subject'}
+                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="text-[10px] font-mono text-slate-500 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          Due {hw.due_date}
+                        </span>
+                        <button
+                          type="button"
+                          title="Edit Homework"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditModal(hw);
+                          }}
+                          className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white transition-colors cursor-pointer"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Delete Homework"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteAssignment(hw);
+                          }}
+                          className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-white transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <h3 className="text-xs font-bold text-slate-900 line-clamp-1">{hw.title}</h3>
+                    <p className="text-[11px] text-slate-500 mt-1 line-clamp-2">{hw.description}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Phone Check Pane */
+          <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden flex flex-col">
+            {/* Top Bar with Back Chevron */}
+            <div className="p-3 border-b border-slate-100 flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Back"
+                onClick={() => {
+                  setPhonePane('list');
+                  setSelectedAssignment(null);
+                }}
+                className="w-11 h-11 flex items-center justify-center text-slate-600 hover:text-slate-900 rounded-lg touch-press shrink-0"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <h2 className="text-sm font-bold text-slate-900 truncate flex-1">
+                {selectedAssignment.title}
+              </h2>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {saveSuccessMessage && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{saveSuccessMessage}</span>
+                </div>
+              )}
+
+              {/* Four Navy Counters in grid-cols-2 */}
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                  <span className="text-[10px] font-mono uppercase text-emerald-400 font-bold block truncate">Done</span>
+                  <span className="text-base font-bold font-mono text-white mt-0.5 block">{checkStats.done}</span>
+                </div>
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                  <span className="text-[10px] font-mono uppercase text-amber-400 font-bold block truncate">Incomplete</span>
+                  <span className="text-base font-bold font-mono text-white mt-0.5 block">{checkStats.incomplete}</span>
+                </div>
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                  <span className="text-[10px] font-mono uppercase text-rose-400 font-bold block truncate">Missing</span>
+                  <span className="text-base font-bold font-mono text-white mt-0.5 block">{checkStats.missing}</span>
+                </div>
+                <div className="bg-[#081A2F] border border-[#173252] rounded-xl p-2.5 shadow-[0_2px_8px_rgba(8,26,47,0.18)]">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block truncate">Not checked</span>
+                  <span className="text-base font-bold font-mono text-white mt-0.5 block">{checkStats.notChecked}</span>
+                </div>
+              </div>
+
+              {/* Student Rows */}
+              <div className="border border-slate-100 rounded-xl divide-y divide-slate-100 bg-white">
+                {students.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400">
+                    <p className="text-xs font-semibold text-slate-700">No students found in this batch</p>
+                  </div>
+                ) : (
+                  students.map(student => {
+                    const check = checks[student.id];
+                    const currentStatus = check?.status;
+
+                    return (
+                      <div key={student.id} className="p-3 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-slate-900 text-xs truncate">{student.full_name}</span>
+                          <span className="font-mono text-[10px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                            {student.roll_number ? `${student.roll_number} • ` : ''}{student.admission_number}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setChecks(prev => ({
+                              ...prev,
+                              [student.id]: { ...prev[student.id], status: 'done', remarks: prev[student.id]?.remarks || '' },
+                            }))}
+                            className={`min-h-11 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              currentStatus === 'done'
+                                ? 'bg-emerald-600 text-white shadow-2xs'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            Done
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setChecks(prev => ({
+                              ...prev,
+                              [student.id]: { ...prev[student.id], status: 'incomplete', remarks: prev[student.id]?.remarks || '' },
+                            }))}
+                            className={`min-h-11 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              currentStatus === 'incomplete'
+                                ? 'bg-amber-600 text-white shadow-2xs'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            Incomplete
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setChecks(prev => ({
+                              ...prev,
+                              [student.id]: { ...prev[student.id], status: 'missing', remarks: prev[student.id]?.remarks || '' },
+                            }))}
+                            className={`min-h-11 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              currentStatus === 'missing'
+                                ? 'bg-rose-600 text-white shadow-2xs'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            Missing
+                          </button>
+                        </div>
+
+                        <input
+                          type="text"
+                          placeholder="Optional notebook remarks..."
+                          value={check?.remarks || ''}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setChecks(prev => ({
+                              ...prev,
+                              [student.id]: { ...prev[student.id], remarks: val },
+                            }));
+                          }}
+                          className="w-full min-h-11 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 text-slate-800 focus:outline-none"
+                        />
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Save bar: sticky bottom-0 z-10 bg-white border-t px-3 py-2 */}
+            <div className="sticky bottom-0 z-10 bg-white border-t px-3 py-2">
+              <button
+                type="button"
+                onClick={handleSaveChecks}
+                disabled={isSavingChecks || checkStats.setRows === 0}
+                className="w-full min-h-11 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all disabled:bg-slate-300 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {isSavingChecks ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                <span>{isSavingChecks ? 'Saving...' : 'Save notebook check'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Main Grid: Left col Assignments, Right col Notebook Inspection (Desktop md+) */}
+      <div className="hidden md:grid md:grid-cols-3 gap-5">
         {/* Left Column: Assignments List */}
         <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3 min-w-0">
@@ -727,9 +965,10 @@ export const HomeworkDesk: React.FC = () => {
 
       {/* New / Edit Homework Modal */}
       {showNewHwModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
-          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden mobile-sheet-card max-h-[92dvh] overflow-y-auto">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+        <div className="fixed inset-0 bg-slate-900/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white border border-slate-200 rounded-t-2xl sm:rounded-2xl w-full max-w-md shadow-xl overflow-hidden mobile-sheet-card max-h-[92dvh] flex flex-col">
+            <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
               <SectionInfo
                 title={editingAssignmentId ? "Edit Homework" : "Assign Homework"}
                 description={editingAssignmentId ? "Update homework topic details" : "Add homework for this class."}
@@ -746,110 +985,112 @@ export const HomeworkDesk: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmitAssignment} className="p-5 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Target Batch</label>
-                  <select
-                    value={newHwForm.batch_id}
-                    onChange={e => setNewHwForm(prev => ({ ...prev, batch_id: e.target.value }))}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800"
-                    required
-                  >
-                    {scopedBatches.map(b => {
-                      const progName = programs.find(p => p.id === b.program_id)?.name;
-                      return (
-                        <option key={b.id} value={b.id}>
-                          {progName ? `${progName} • ` : ''}{b.name}
-                        </option>
-                      );
-                    })}
-                  </select>
+            <form onSubmit={handleSubmitAssignment} className="p-5 space-y-4 overflow-y-auto flex-1 flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Target Batch</label>
+                    <select
+                      value={newHwForm.batch_id}
+                      onChange={e => setNewHwForm(prev => ({ ...prev, batch_id: e.target.value }))}
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800"
+                      required
+                    >
+                      {scopedBatches.map(b => {
+                        const progName = programs.find(p => p.id === b.program_id)?.name;
+                        return (
+                          <option key={b.id} value={b.id}>
+                            {progName ? `${progName} • ` : ''}{b.name}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Subject</label>
+                    <select
+                      value={newHwForm.subject_id}
+                      onChange={e => setNewHwForm(prev => ({ ...prev, subject_id: e.target.value }))}
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800"
+                      required
+                    >
+                      {subjects.map(s => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Subject</label>
-                  <select
-                    value={newHwForm.subject_id}
-                    onChange={e => setNewHwForm(prev => ({ ...prev, subject_id: e.target.value }))}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-medium text-slate-800"
-                    required
-                  >
-                    {subjects.map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Assignment Title</label>
-                <input
-                  type="text"
-                  value={newHwForm.title}
-                  onChange={e => setNewHwForm(prev => ({ ...prev, title: e.target.value }))}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">Physical Checking Instructions</label>
-                <textarea
-                  value={newHwForm.description}
-                  onChange={e => setNewHwForm(prev => ({ ...prev, description: e.target.value }))}
-                  rows={3}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Assigned Date</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Assignment Title</label>
                   <input
-                    type="date"
-                    value={newHwForm.assigned_date}
-                    onChange={e => {
-                      const newAssigned = e.target.value;
-                      setNewHwForm(prev => ({
-                        ...prev,
-                        assigned_date: newAssigned,
-                        due_date: prev.due_date < newAssigned ? newAssigned : prev.due_date,
-                      }));
-                    }}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-mono text-slate-800"
+                    type="text"
+                    value={newHwForm.title}
+                    onChange={e => setNewHwForm(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
                     required
                   />
                 </div>
+
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    value={newHwForm.due_date}
-                    min={newHwForm.assigned_date}
-                    onChange={e => setNewHwForm(prev => ({ ...prev, due_date: e.target.value }))}
-                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-mono text-slate-800"
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Physical Checking Instructions</label>
+                  <textarea
+                    value={newHwForm.description}
+                    onChange={e => setNewHwForm(prev => ({ ...prev, description: e.target.value }))}
+                    rows={3}
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800"
                     required
                   />
                 </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Assigned Date</label>
+                    <input
+                      type="date"
+                      value={newHwForm.assigned_date}
+                      onChange={e => {
+                        const newAssigned = e.target.value;
+                        setNewHwForm(prev => ({
+                          ...prev,
+                          assigned_date: newAssigned,
+                          due_date: prev.due_date < newAssigned ? newAssigned : prev.due_date,
+                        }));
+                      }}
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-mono text-slate-800"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Due Date</label>
+                    <input
+                      type="date"
+                      value={newHwForm.due_date}
+                      min={newHwForm.assigned_date}
+                      onChange={e => setNewHwForm(prev => ({ ...prev, due_date: e.target.value }))}
+                      className="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-2 font-mono text-slate-800"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+              <div className="sticky bottom-0 bg-white border-t p-3 -mx-5 -mb-5 flex gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     setShowNewHwModal(false);
                     setEditingAssignmentId(null);
                   }}
-                  className="h-8.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
+                  className="flex-1 min-h-11 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-100 border border-slate-200 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingHw}
-                  className="h-8.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer disabled:opacity-50"
+                  className="flex-1 min-h-11 px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {isSubmittingHw ? (editingAssignmentId ? 'Saving...' : 'Assigning...') : 'Confirm Assignment'}
                 </button>

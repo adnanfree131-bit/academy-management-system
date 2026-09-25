@@ -136,6 +136,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   const [archiveReason, setArchiveReason] = useState<string>('Relieved on mutual agreement');
 
   const [deleteTarget, setDeleteTarget] = useState<StaffMemberRecord | null>(null);
+  const [mobileMoreStaff, setMobileMoreStaff] = useState<StaffMemberRecord | null>(null);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(null);
   const [showOverviewCards, setShowOverviewCards] = useState<boolean>(false);
   const [showStaffFilters, setShowStaffFilters] = useState<boolean>(false);
@@ -166,7 +167,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       idCardStaff ||
       appointmentStaff ||
       archiveTarget ||
-      deleteTarget
+      deleteTarget ||
+      mobileMoreStaff
     ),
     () => {
       setDossierModalOpen(false);
@@ -177,6 +179,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       setAppointmentStaff(null);
       setArchiveTarget(null);
       setDeleteTarget(null);
+      setMobileMoreStaff(null);
     }
   );
 
@@ -997,7 +1000,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       </div>
 
       {/* High-Density Tabular Register */}
-      <div className="bg-white border border-slate-200/80 rounded-xl overflow-x-auto shadow-2xs min-h-[300px] pb-6">
+      <div className="bg-white border border-slate-200/80 rounded-xl shadow-2xs min-h-[300px] pb-6">
         {loading ? (
           <div className="p-8 text-center text-slate-400 text-sm">
             <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-slate-600" />
@@ -1349,17 +1352,18 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 </span>
               </div>
 
-              {/* Contact & Actions Row - Sleek 32px Icon Buttons */}
+              {/* Contact & Actions Row - 44px Touch Targets */}
               <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
                 <div className="flex items-center gap-1.5">
                   {row.phone && (
                     <a
                       href={`tel:${row.phone}`}
                       onClick={e => e.stopPropagation()}
-                      className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
+                      className="w-11 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 flex items-center justify-center transition-colors border border-slate-200"
                       title="Call staff"
+                      aria-label="Call staff"
                     >
-                      <Phone className="w-3.5 h-3.5 text-slate-600" />
+                      <Phone className="w-5 h-5 text-slate-700" />
                     </a>
                   )}
                   {row.whatsapp && (
@@ -1368,10 +1372,11 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                       target="_blank"
                       rel="noreferrer"
                       onClick={e => e.stopPropagation()}
-                      className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors"
+                      className="w-11 h-11 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-colors"
                       title="WhatsApp"
+                      aria-label="WhatsApp"
                     >
-                      <MessageSquare className="w-3.5 h-3.5 text-emerald-700" />
+                      <MessageSquare className="w-5 h-5 text-emerald-700" />
                     </a>
                   )}
                 </div>
@@ -1381,29 +1386,165 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      openEditModal(row);
+                      setMobileMoreStaff(row);
                     }}
-                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
-                    title="Edit Dossier"
-                  >
-                    <Edit2 className="w-3.5 h-3.5 text-slate-600" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveActionMenuId(activeActionMenuId === row.id ? null : row.id);
-                    }}
-                    className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                    className="w-11 h-11 rounded-xl bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
                     title="More Options"
+                    aria-label="More Options"
                   >
-                    <MoreVertical className="w-3.5 h-3.5 text-slate-600" />
+                    <MoreVertical className="w-5 h-5 text-slate-700" />
                   </button>
                 </div>
               </div>
             </div>
           ))}
         </div>
+
+        {/* Mobile More Actions Sheet (< md) */}
+        {mobileMoreStaff && (
+          <div className="md:hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet bg-slate-900/60">
+            <div className="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[92dvh] flex flex-col mobile-sheet-card border border-slate-200 shadow-xl overflow-hidden">
+              <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
+              <div className="flex items-center justify-between p-4 border-b border-slate-200">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">{mobileMoreStaff.full_name}</h3>
+                  <p className="text-xs text-slate-500 font-mono mt-0.5">{mobileMoreStaff.employee_code} • {mobileMoreStaff.designation}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileMoreStaff(null)}
+                  className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-4 space-y-2 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const s = mobileMoreStaff;
+                    setMobileMoreStaff(null);
+                    openTeachingModal(s);
+                  }}
+                  className="w-full min-h-11 px-3 text-xs text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                >
+                  <BookOpen className="w-4 h-4 text-indigo-600 shrink-0" />
+                  <span>Classes they teach</span>
+                </button>
+
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const s = mobileMoreStaff;
+                      setMobileMoreStaff(null);
+                      openAccessDrawer(s);
+                    }}
+                    className="w-full min-h-11 px-3 text-xs text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>What they can open</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const s = mobileMoreStaff;
+                    setMobileMoreStaff(null);
+                    setIdCardStaff(s);
+                  }}
+                  className="w-full min-h-11 px-3 text-xs text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                >
+                  <CreditCard className="w-4 h-4 text-slate-600 shrink-0" />
+                  <span>ID card</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const s = mobileMoreStaff;
+                    setMobileMoreStaff(null);
+                    setAppointmentStaff(s);
+                  }}
+                  className="w-full min-h-11 px-3 text-xs text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                >
+                  <FileText className="w-4 h-4 text-slate-600 shrink-0" />
+                  <span>Appointment letter</span>
+                </button>
+
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const s = mobileMoreStaff;
+                      setMobileMoreStaff(null);
+                      openResetPasswordModal(s);
+                    }}
+                    className="w-full min-h-11 px-3 text-xs text-slate-700 hover:bg-slate-50 rounded-xl flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                  >
+                    <Key className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Reset password</span>
+                  </button>
+                )}
+
+                {isAdmin && (
+                  <>
+                    {mobileMoreStaff.status === 'archived' ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const s = mobileMoreStaff;
+                          setMobileMoreStaff(null);
+                          executeRestore(s);
+                        }}
+                        className="w-full min-h-11 px-3 text-xs text-emerald-700 hover:bg-emerald-50 rounded-xl flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Restore Active</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const s = mobileMoreStaff;
+                          setMobileMoreStaff(null);
+                          setArchiveTarget(s);
+                        }}
+                        className="w-full min-h-11 px-3 text-xs text-amber-700 hover:bg-amber-50 rounded-xl flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                      >
+                        <Archive className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Soft Archive</span>
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const s = mobileMoreStaff;
+                        setMobileMoreStaff(null);
+                        setDeleteTarget(s);
+                      }}
+                      className="w-full min-h-11 px-3 text-xs text-rose-600 hover:bg-rose-50 rounded-xl flex items-center gap-2.5 font-medium transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4 text-rose-500 shrink-0" />
+                      <span>Delete Staff</span>
+                    </button>
+                  </>
+                )}
+              </div>
+              <div className="sticky bottom-0 bg-white border-t p-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMobileMoreStaff(null)}
+                  className="flex-1 min-h-11 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         </>
       )}
       </div>
@@ -1412,13 +1553,14 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 1: ADD / EDIT STAFF DOSSIER                                         */}
       {/* ========================================================================= */}
       {dossierModalOpen && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
           <form
             onSubmit={saveDossier}
             className="w-full max-w-3xl bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl flex flex-col max-h-[92dvh] overflow-hidden mobile-sheet-card"
           >
+            <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900">
                   {editingStaff ? `Edit Staff: ${editingStaff.full_name}` : 'Add Staff'}
@@ -1428,21 +1570,21 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setDossierModalOpen(false)}
-                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 touch-press -mr-2"
+                className="w-11 h-11 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg touch-press -mr-2 cursor-pointer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Navigation Tabs */}
-            <div className="px-6 border-b border-slate-200 flex gap-2 overflow-x-auto bg-white">
+            <div className="px-4 sm:px-6 border-b border-slate-200 flex gap-2 overflow-x-auto min-w-0 whitespace-nowrap bg-white py-1">
               <button
                 type="button"
                 onClick={() => setDossierTab('personal')}
-                className={`py-2.5 px-3 text-xs font-semibold border-b-2 whitespace-nowrap transition-all ${
+                className={`py-2 px-3 text-xs font-semibold rounded-lg shrink-0 transition-all ${
                   dossierTab === 'personal'
-                    ? 'border-slate-900 text-slate-900'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 Personal
@@ -1450,10 +1592,10 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setDossierTab('employment')}
-                className={`py-2.5 px-3 text-xs font-semibold border-b-2 whitespace-nowrap transition-all ${
+                className={`py-2 px-3 text-xs font-semibold rounded-lg shrink-0 transition-all ${
                   dossierTab === 'employment'
-                    ? 'border-slate-900 text-slate-900'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 Employment
@@ -1461,10 +1603,10 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setDossierTab('compensation')}
-                className={`py-2.5 px-3 text-xs font-semibold border-b-2 whitespace-nowrap transition-all ${
+                className={`py-2 px-3 text-xs font-semibold rounded-lg shrink-0 transition-all ${
                   dossierTab === 'compensation'
-                    ? 'border-slate-900 text-slate-900'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
                 Compensation
@@ -1473,10 +1615,10 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => setDossierTab('access')}
-                  className={`py-2.5 px-3 text-xs font-semibold border-b-2 whitespace-nowrap transition-all ${
+                  className={`py-2 px-3 text-xs font-semibold rounded-lg shrink-0 transition-all ${
                     dossierTab === 'access'
-                      ? 'border-slate-900 text-slate-900'
-                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
                 >
                   Portal Access
@@ -2064,21 +2206,21 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
-              <span className="text-[11px] text-slate-500 font-medium">
+            <div className="sticky bottom-0 bg-white border-t p-3 sm:px-6 sm:py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
                 {Object.keys(form.access || {}).length} of {ALL_FEATURE_IDS.length} features granted
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setDossierModalOpen(false)}
-                  className="h-8.5 px-3.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  className="flex-1 sm:flex-none min-h-11 sm:min-h-0 px-4 py-2 text-xs font-medium rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer flex items-center justify-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="h-8.5 px-4 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer"
+                  className="flex-1 sm:flex-none min-h-11 sm:min-h-0 px-4 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer flex items-center justify-center"
                 >
                   {editingStaff ? 'Update Staff Dossier' : 'Save Staff Member'}
                 </button>
@@ -2092,8 +2234,9 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* DRAWER: QUICK PORTAL ACCESS TOGGLES                                       */}
       {/* ========================================================================= */}
       {accessDrawerStaff && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/40 backdrop-blur-sm flex items-end sm:items-stretch sm:justify-end mobile-sheet">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-stretch sm:justify-end mobile-sheet">
           <div className="w-full max-w-lg max-h-[92dvh] sm:max-h-full h-full bg-white rounded-t-2xl sm:rounded-none sm:border-l border-slate-200 flex flex-col shadow-2xl mobile-sheet-card">
+            <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
             {/* Drawer Header */}
             <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between bg-slate-50">
               <div>
@@ -2236,16 +2379,16 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
             </div>
 
             {/* Drawer Footer */}
-            <div className="px-5 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <div className="sticky bottom-0 px-4 sm:px-5 py-3 border-t border-slate-200 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-500">
                 <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span>Takes effect on next request</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setAccessDrawerStaff(null)}
-                  className="h-8.5 px-3.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                  className="flex-1 sm:flex-none min-h-11 sm:min-h-0 px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer flex items-center justify-center"
                 >
                   Cancel
                 </button>
@@ -2253,7 +2396,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                   type="button"
                   disabled={savingAccessId === accessDrawerStaff.id}
                   onClick={() => saveDrawerAccess(accessDrawerStaff, drawerAccess)}
-                  className="h-8.5 px-4 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs disabled:opacity-50 cursor-pointer"
+                  className="flex-1 sm:flex-none min-h-11 sm:min-h-0 px-4 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs disabled:opacity-50 cursor-pointer flex items-center justify-center"
                 >
                   {savingAccessId === accessDrawerStaff.id ? 'Saving...' : 'Save Access'}
                 </button>
@@ -2267,9 +2410,10 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 2: ASSIGN CLASSES & SUBJECTS                                        */}
       {/* ========================================================================= */}
       {teachingModalStaff && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
           <div className="w-full max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl flex flex-col max-h-[92dvh] overflow-hidden mobile-sheet-card">
-            <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div className="sm:hidden mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300" />
+            <div className="px-4 sm:px-6 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900">
                   Teaching Workload
@@ -2426,20 +2570,20 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               </div>
             </div>
 
-            <div className="px-5 py-3 border-t border-slate-200 flex items-center justify-end gap-2 bg-slate-50">
+            <div className="sticky bottom-0 bg-white border-t p-3 flex gap-2">
               <button
                 type="button"
                 onClick={() => setTeachingModalStaff(null)}
-                className="h-8.5 px-3.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="flex-1 min-h-11 px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer flex items-center justify-center"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={saveTeachingAssignments}
-                className="h-8.5 px-4 py-1.5 text-xs font-bold rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer"
+                className="flex-1 min-h-11 px-4 py-2 text-xs font-bold rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs cursor-pointer flex items-center justify-center"
               >
-                Save Teaching Allocations
+                Save Allocations
               </button>
             </div>
           </div>
@@ -2450,8 +2594,9 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 3: RESET PASSWORD                                                   */}
       {/* ========================================================================= */}
       {resetPwdStaff && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
-          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl p-6 space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl p-4 sm:p-6 space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
+            <div className="sm:hidden mx-auto -mt-1 mb-2 h-1 w-10 rounded-full bg-slate-300" />
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Key className="w-5 h-5 text-amber-600" />
@@ -2482,9 +2627,9 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                     setCopiedPwd(true);
                     setTimeout(() => setCopiedPwd(false), 2500);
                   }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold h-8"
+                  className="inline-flex items-center justify-center gap-1.5 px-4 min-h-11 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold cursor-pointer"
                 >
-                  <Copy className="w-3.5 h-3.5" />
+                  <Copy className="w-4 h-4" />
                   {copiedPwd ? 'Copied to Clipboard!' : 'Copy Password'}
                 </button>
                 <p className="text-[10px] text-emerald-700">
@@ -2496,18 +2641,18 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={executePasswordReset}
-                  className="w-full h-8.5 px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs cursor-pointer"
+                  className="w-full min-h-11 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center"
                 >
                   Generate Secure Temporary Password
                 </button>
               </div>
             )}
 
-            <div className="flex justify-end pt-2 border-t border-slate-100">
+            <div className="pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setResetPwdStaff(null)}
-                className="h-8.5 px-3.5 py-1.5 text-xs font-medium rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="w-full min-h-11 px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer flex items-center justify-center"
               >
                 Done
               </button>
@@ -2520,7 +2665,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 4: PRINTABLE STAFF ID CARD (CR-80 DUPLEX)                           */}
       {/* ========================================================================= */}
       {idCardStaff && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto no-sheet-overlay">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto mobile-sheet no-sheet-overlay">
           <style>{`
             @media print {
               body * {
@@ -2547,7 +2692,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               }
             }
           `}</style>
-          <div className="w-full max-w-2xl bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-6 print:border-none print:shadow-none print:p-0">
+          <div className="w-full max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-2xl p-4 sm:p-6 space-y-4 sm:space-y-6 print:border-none print:shadow-none print:p-0 mobile-sheet-card">
+            <div className="sm:hidden mx-auto -mt-1 mb-2 h-1 w-10 rounded-full bg-slate-300 no-print" />
             <div className="flex items-center justify-between border-b border-slate-200 pb-3 no-print">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-slate-900">
@@ -2559,7 +2705,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs cursor-pointer h-8"
+                  className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs cursor-pointer h-8"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   Print ID Card
@@ -2574,8 +2720,39 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               </div>
             </div>
 
+            {/* Phone Summary & Print Action */}
+            <div className="md:hidden space-y-3 no-print">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center space-y-1">
+                <div className="w-14 h-14 rounded-full bg-slate-200 text-slate-700 font-bold text-lg flex items-center justify-center mx-auto mb-2 overflow-hidden border border-slate-300">
+                  {idCardStaff.avatar_url ? (
+                    <img src={idCardStaff.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    idCardStaff.full_name.charAt(0)
+                  )}
+                </div>
+                <h4 className="font-bold text-slate-900 text-sm">{idCardStaff.full_name}</h4>
+                <p className="text-xs font-semibold text-indigo-800">{idCardStaff.designation}</p>
+                <p className="text-[11px] text-slate-500">{idCardStaff.department} · {idCardStaff.employee_code}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="w-full min-h-11 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                Print ID Card
+              </button>
+              <button
+                type="button"
+                onClick={() => setIdCardStaff(null)}
+                className="w-full min-h-11 px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer flex items-center justify-center"
+              >
+                Close
+              </button>
+            </div>
+
             {/* Side-by-side or Stacked Preview */}
-            <div id="printable-staff-id-card-area" className="flex flex-col sm:flex-row items-center justify-center gap-6 py-4 bg-slate-100/70 p-2 sm:p-6 rounded-2xl border border-slate-200 print:bg-white print:border-none print:p-0">
+            <div id="printable-staff-id-card-area" className="hidden md:flex print:flex flex-col sm:flex-row items-center justify-center gap-6 py-4 bg-slate-100/70 p-2 sm:p-6 rounded-2xl border border-slate-200 print:bg-white print:border-none print:p-0">
               {/* FRONT OF CARD */}
               <div className="w-[320px] h-[202px] bg-white rounded-xl border border-slate-300 shadow-md flex flex-col justify-between overflow-hidden select-none relative">
                 {/* Official Institutional Header */}
@@ -2689,7 +2866,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 5: PRINTABLE APPOINTMENT LETTER                                     */}
       {/* ========================================================================= */}
       {appointmentStaff && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto no-sheet-overlay">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto print:p-0 print:bg-white print:static print:inset-auto mobile-sheet no-sheet-overlay">
           <style>{`
             @media print {
               body * {
@@ -2716,7 +2893,8 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               }
             }
           `}</style>
-          <div className="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 space-y-6 max-h-[90vh] overflow-y-auto print:border-none print:shadow-none print:p-0 print:max-h-none print:overflow-visible">
+          <div className="w-full max-w-3xl bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-2xl p-4 sm:p-6 space-y-4 sm:space-y-6 max-h-[92dvh] overflow-y-auto print:border-none print:shadow-none print:p-0 print:max-h-none print:overflow-visible mobile-sheet-card">
+            <div className="sm:hidden mx-auto -mt-1 mb-2 h-1 w-10 rounded-full bg-slate-300 no-print" />
             <div className="flex items-center justify-between border-b border-slate-200 pb-3 no-print">
               <div className="flex items-center gap-2">
                 <h3 className="text-sm font-bold text-slate-900">
@@ -2728,7 +2906,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs cursor-pointer h-8"
+                  className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs cursor-pointer h-8"
                 >
                   <Printer className="w-3.5 h-3.5" />
                   Print Letter
@@ -2743,8 +2921,33 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               </div>
             </div>
 
+            {/* Phone Summary & Print Action */}
+            <div className="md:hidden space-y-3 no-print">
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1.5 text-center">
+                <FileText className="w-8 h-8 text-amber-600 mx-auto mb-1" />
+                <h4 className="font-bold text-slate-900 text-sm">{appointmentStaff.full_name}</h4>
+                <p className="text-xs font-semibold text-indigo-800">{appointmentStaff.designation}</p>
+                <p className="text-[11px] text-slate-500">{appointmentStaff.department} · Joining: {appointmentStaff.joining_date || 'Today'}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="w-full min-h-11 px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                Print Letter
+              </button>
+              <button
+                type="button"
+                onClick={() => setAppointmentStaff(null)}
+                className="w-full min-h-11 px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer flex items-center justify-center"
+              >
+                Close
+              </button>
+            </div>
+
             {/* A4 Letter Sheet Preview */}
-            <div id="printable-staff-letter-area" className="bg-white border border-slate-300 p-4 sm:p-8 rounded-xl space-y-6 text-slate-900 font-sans shadow-sm print:border-none print:shadow-none print:p-0">
+            <div id="printable-staff-letter-area" className="hidden md:block print:block bg-white border border-slate-300 p-4 sm:p-8 rounded-xl space-y-6 text-slate-900 font-sans shadow-sm print:border-none print:shadow-none print:p-0">
               {/* Header Letterhead */}
               <div className="border-b-2 border-slate-900 pb-4 flex items-center justify-between">
                 <div>
@@ -2858,8 +3061,9 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 6: SOFT ARCHIVE CONFIRMATION                                        */}
       {/* ========================================================================= */}
       {archiveTarget && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
-          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl p-6 space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl p-4 sm:p-6 space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
+            <div className="sm:hidden mx-auto -mt-1 mb-2 h-1 w-10 rounded-full bg-slate-300" />
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2 text-amber-600">
                 <Archive className="w-5 h-5" />
@@ -2895,22 +3099,22 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                 type="text"
                 value={archiveReason}
                 onChange={e => setArchiveReason(e.target.value)}
-                className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-slate-900 min-h-11"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setArchiveTarget(null)}
-                className="h-8.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="flex-1 min-h-11 px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer flex items-center justify-center"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={executeArchive}
-                className="h-8.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-rose-600 hover:bg-rose-700 text-white cursor-pointer"
+                className="flex-1 min-h-11 px-4 py-2 text-xs font-semibold rounded-xl bg-rose-600 hover:bg-rose-700 text-white cursor-pointer flex items-center justify-center"
               >
                 Archive Staff
               </button>
@@ -2923,8 +3127,9 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       {/* MODAL 7: HARD DELETE CONFIRMATION                                         */}
       {/* ========================================================================= */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-[80] bg-slate-900/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
-          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl p-6 space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="w-full max-w-md bg-white rounded-t-2xl sm:rounded-2xl border border-slate-200 shadow-xl p-4 sm:p-6 space-y-4 mobile-sheet-card max-h-[92dvh] overflow-y-auto">
+            <div className="sm:hidden mx-auto -mt-1 mb-2 h-1 w-10 rounded-full bg-slate-300" />
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2 text-rose-600">
                 <Trash2 className="w-5 h-5" />
@@ -2952,18 +3157,18 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               evaluations. For staff with historical records, use <em>Archive</em> instead.
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+            <div className="flex gap-2 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="h-8.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer"
+                className="flex-1 min-h-11 px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 cursor-pointer flex items-center justify-center"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={executeDelete}
-                className="h-8.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-rose-700 hover:bg-rose-800 text-white cursor-pointer"
+                className="flex-1 min-h-11 px-4 py-2 text-xs font-semibold rounded-xl bg-rose-700 hover:bg-rose-800 text-white cursor-pointer flex items-center justify-center"
               >
                 Delete Staff
               </button>

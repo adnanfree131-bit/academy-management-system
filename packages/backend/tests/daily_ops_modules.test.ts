@@ -1248,13 +1248,14 @@ describe('Daily Ops Modules: Phase 0 (Persist, campus date, permissions)', () =>
 
     it('excludes snoozed rows by default, includes with status=SNOOZED or include_snoozed=1', async () => {
       // Seed item af-2 is snoozed until 2099-12-31
-      const defaultList = await store.getAbsenteeFollowups(tenantId, { date: '2026-09-24' });
+      const testDate = store.absenteeFollowups.find(f => f.id === 'af-2')?.date || campusToday();
+      const defaultList = await store.getAbsenteeFollowups(tenantId, { date: testDate });
       expect(defaultList.some(f => f.id === 'af-2')).toBe(false);
 
-      const snoozedList = await store.getAbsenteeFollowups(tenantId, { date: '2026-09-24', status: 'SNOOZED' });
+      const snoozedList = await store.getAbsenteeFollowups(tenantId, { date: testDate, status: 'SNOOZED' });
       expect(snoozedList.some(f => f.id === 'af-2')).toBe(true);
 
-      const allIncludedList = await store.getAbsenteeFollowups(tenantId, { date: '2026-09-24', include_snoozed: true });
+      const allIncludedList = await store.getAbsenteeFollowups(tenantId, { date: testDate, include_snoozed: true });
       expect(allIncludedList.some(f => f.id === 'af-2')).toBe(true);
     });
 
@@ -3399,7 +3400,7 @@ describe('Daily Ops Modules: Phase 0 (Persist, campus date, permissions)', () =>
       // Call /me again
       const meAfterRes = await app.inject({
         method: 'GET',
-        url: '/api/v1/geofence/attendance/staff/me?date=2026-09-24',
+        url: `/api/v1/geofence/attendance/staff/me?date=${campusToday()}`,
         headers: { authorization: `Bearer ${teacherToken}` },
       });
       expect(meAfterRes.statusCode).toBe(200);
