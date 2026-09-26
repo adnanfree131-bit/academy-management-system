@@ -9,8 +9,9 @@ interface PagesContext {
 
 export const onRequest = async (context: PagesContext): Promise<Response> => {
   const url = new URL(context.request.url);
-  const targetHost = 'https://apex-academy-backend-f0lg.onrender.com';
+  const targetHost = context.env.BACKEND_API_URL || 'https://wexnnnk2o5ofejgoyr0ym2fh.47.128.148.81.sslip.io';
   const targetUrl = `${targetHost}${url.pathname}${url.search}`;
+  const targetHostname = new URL(targetHost).host;
 
   // Preflight OPTIONS handling
   if (context.request.method === 'OPTIONS') {
@@ -27,7 +28,7 @@ export const onRequest = async (context: PagesContext): Promise<Response> => {
 
   // Clone headers and rewrite Host
   const reqHeaders = new Headers(context.request.headers);
-  reqHeaders.set('Host', 'apex-academy-backend-f0lg.onrender.com');
+  reqHeaders.set('Host', targetHostname);
 
   const init: RequestInit = {
     method: context.request.method,
