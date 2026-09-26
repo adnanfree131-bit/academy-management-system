@@ -38,7 +38,11 @@ import {
   ArrowLeft,
   Clock,
   History,
-  Edit
+  Edit,
+  Calendar,
+  ChevronLeft,
+  PhoneCall,
+  Table
 } from 'lucide-react';
 import { useMobileOverlay } from '../lib/mobileOverlay';
 import { 
@@ -106,9 +110,21 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [selectedProgramFilter, setSelectedProgramFilter] = useState<string>('all');
   const [selectedBatchFilter, setSelectedBatchFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [inquiryStatusTab, setInquiryStatusTab] = useState<'active' | 'follow_up' | 'new' | 'admitted' | 'closed' | 'all'>('active');
+  const currentMonthYearStr = useMemo(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }, []);
+  const [inquirySelectedMonth, setInquirySelectedMonth] = useState<string>(currentMonthYearStr);
+  const [inquiryStatusTab, setInquiryStatusTab] = useState<'active' | 'follow_up' | 'aging' | 'new' | 'admitted' | 'closed' | 'all'>('active');
   const [inquirySearchQuery, setInquirySearchQuery] = useState('');
   const [inquiryProgramFilter, setInquiryProgramFilter] = useState<string>('all');
+  const [showInquiryMatrix, setShowInquiryMatrix] = useState<boolean>(false);
+  const [inquiryQuickFollowUpModal, setInquiryQuickFollowUpModal] = useState<StudentInquiry | null>(null);
+  const [quickFollowUpOutcome, setQuickFollowUpOutcome] = useState('spoke_with_parent');
+  const [quickFollowUpNote, setQuickFollowUpNote] = useState('');
+  const [quickFollowUpNextDate, setQuickFollowUpNextDate] = useState('');
+  const [isSubmittingQuickFollowUp, setIsSubmittingQuickFollowUp] = useState(false);
+  const [showPrintCallingSheetModal, setShowPrintCallingSheetModal] = useState<boolean>(false);
   const [inquiryPage, setInquiryPage] = useState(1);
   const INQUIRY_PAGE_SIZE = 25;
   const [editingInquiry, setEditingInquiry] = useState<StudentInquiry | null>(null);
@@ -239,6 +255,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   useMobileOverlay('sheet', Boolean(activeTimelineInquiry), () => setActiveTimelineInquiry(null));
   useMobileOverlay('sheet', Boolean(closeInquiryModal), () => setCloseInquiryModal(null));
   useMobileOverlay('sheet', Boolean(inquiryToDelete), () => setInquiryToDelete(null));
+  useMobileOverlay('sheet', Boolean(inquiryQuickFollowUpModal), () => setInquiryQuickFollowUpModal(null));
+  useMobileOverlay('sheet', Boolean(showPrintCallingSheetModal), () => setShowPrintCallingSheetModal(false));
 
   // New & Edit Inquiry Modal
   const [showNewInquiryModal, setShowNewInquiryModal] = useState(false);
@@ -713,21 +731,84 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
   const todayStr = useMemo(() => localISODate(), []);
 
+  const distinctInquiryMonths = useMemo(() => {
+    const set = new Set<string>();
+    set.add(currentMonthYearStr);
+    inquiries.forEach(i => {
+      const ym = (i.created_at || '').substring(0, 7);
+      if (/^\d{4}-\d{2}$/.test(ym)) {
+        set.add(ym);
+      }
+    });
+    return Array.from(set).sort().reverse();
+  }, [inquiries, currentMonthYearStr]);
+
+  const formatMonthLabel = (ym: string) => {
+    if (ym === 'all') return 'All Time';
+    try {
+      const [y, m] = ym.split('-').map(Number);
+      if (!y || !m) return ym;
+      const d = new Date(y, m - 1, 1);
+      return d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+    } catch {
+      return ym;
+    }
+  };
+
+  const handlePrevMonth = () => {
+    if (inquirySelectedMonth === 'all') {
+      setInquirySelectedMonth(currentMonthYearStr);
+      setInquiryPage(1);
+      return;
+    }
+    const [y, m] = inquirySelectedMonth.split('-').map(Number);
+    const prevDate = new Date(y, m - 2, 1);
+    const prevStr = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, '0')}`;
+    setInquirySelectedMonth(prevStr);
+    setInquiryPage(1);
+  };
+
+  const handleNextMonth = () => {
+    if (inquirySelectedMonth === 'all') {
+      setInquirySelectedMonth(currentMonthYearStr);
+      setInquiryPage(1);
+      return;
+    }
+    const [y, m] = inquirySelectedMonth.split('-').map(Number);
+    const nextDate = new Date(y, m, 1);
+    const nextStr = `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
+    setInquirySelectedMonth(nextStr);
+    setInquiryPage(1);
+  };
+
   const inquiryKPIs = useMemo(() => {
-    const total = inquiries.length;
-    const active = inquiries.filter(i => i.stage !== 'admitted' && i.stage !== 'closed').length;
-    const newCount = inquiries.filter(i => i.stage === 'new').length;
-    const followUpAction = inquiries.filter(i => 
+    // 1. Overall Aging Backlog: all unresolved inquiries opened prior to currentMonthYearStr
+    const agingBacklog = inquiries.filter(i => 
+      (i.created_at || '').substring(0, 7) < currentMonthYearStr && 
+      i.stage !== 'admitted' && 
+      i.stage !== 'closed'
+    ).length;
+
+    // 2. Period scoped inquiries (by selected month or all)
+    const periodInquiries = inquiries.filter(i => 
+      inquirySelectedMonth === 'all' || (i.created_at || '').substring(0, 7) === inquirySelectedMonth
+    );
+
+    const total = periodInquiries.length;
+    const active = periodInquiries.filter(i => i.stage !== 'admitted' && i.stage !== 'closed').length;
+    const newCount = periodInquiries.filter(i => i.stage === 'new').length;
+    const followUpAction = periodInquiries.filter(i => 
       i.stage !== 'admitted' && 
       i.stage !== 'closed' && 
       ((Boolean(i.next_follow_up_date) && i.next_follow_up_date! <= todayStr) || i.stage === 'follow_up')
     ).length;
-    const converted = inquiries.filter(i => i.stage === 'admitted').length;
-    const closed = inquiries.filter(i => i.stage === 'closed').length;
-    return { total, active, newCount, followUpAction, converted, closed };
-  }, [inquiries, todayStr]);
+    const converted = periodInquiries.filter(i => i.stage === 'admitted').length;
+    const closed = periodInquiries.filter(i => i.stage === 'closed').length;
 
-  // Clean, Decoupled Filtered Inquiries
+    return { total, active, newCount, followUpAction, converted, closed, agingBacklog };
+  }, [inquiries, inquirySelectedMonth, currentMonthYearStr, todayStr]);
+
+  // Clean, Multi-Dimensional Filtered Inquiries
   const filteredInquiries = useMemo(() => {
     return inquiries.filter(i => {
       // 1. Independent inquiry search (no bleed from directory searchQuery)
@@ -746,7 +827,19 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         return false;
       }
 
-      // 3. Status tab filter
+      // 3. Status Tab & Temporal Logic
+      const createdMonth = (i.created_at || '').substring(0, 7);
+
+      // SPECIAL COHORT: Aging Backlog (Prior Months' Open Inquiries)
+      if (inquiryStatusTab === 'aging') {
+        return createdMonth < currentMonthYearStr && i.stage !== 'admitted' && i.stage !== 'closed';
+      }
+
+      // Month Filter (applied when not in aging tab)
+      if (inquirySelectedMonth !== 'all' && createdMonth !== inquirySelectedMonth) {
+        return false;
+      }
+
       const isDueOrOverdue = Boolean(i.next_follow_up_date) && i.next_follow_up_date! <= todayStr;
       if (inquiryStatusTab === 'active') {
         return i.stage !== 'admitted' && i.stage !== 'closed';
@@ -762,7 +855,194 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
       return true; // 'all'
     });
-  }, [inquiries, inquirySearchQuery, inquiryProgramFilter, inquiryStatusTab, todayStr]);
+  }, [inquiries, inquirySearchQuery, inquiryProgramFilter, inquiryStatusTab, inquirySelectedMonth, currentMonthYearStr, todayStr]);
+
+  // Admissions Performance Matrix Aggregation
+  const admissionsMatrixData = useMemo(() => {
+    const rows = programs.map(p => {
+      const classInquiries = inquiries.filter(i => i.program_id === p.id);
+      const periodInquiries = classInquiries.filter(i => 
+        inquirySelectedMonth === 'all' || (i.created_at || '').substring(0, 7) === inquirySelectedMonth
+      );
+      const total = periodInquiries.length;
+      const active = periodInquiries.filter(i => i.stage !== 'admitted' && i.stage !== 'closed').length;
+      const followUp = periodInquiries.filter(i => 
+        i.stage !== 'admitted' && 
+        i.stage !== 'closed' && 
+        ((Boolean(i.next_follow_up_date) && i.next_follow_up_date! <= todayStr) || i.stage === 'follow_up')
+      ).length;
+      const admitted = periodInquiries.filter(i => i.stage === 'admitted').length;
+      const closed = periodInquiries.filter(i => i.stage === 'closed').length;
+      const conversionRate = total > 0 ? ((admitted / total) * 100).toFixed(1) + '%' : '0.0%';
+      const agingBacklog = classInquiries.filter(i => 
+        (i.created_at || '').substring(0, 7) < currentMonthYearStr && 
+        i.stage !== 'admitted' && 
+        i.stage !== 'closed'
+      ).length;
+
+      return {
+        id: p.id,
+        name: p.name,
+        total,
+        active,
+        followUp,
+        admitted,
+        closed,
+        conversionRate,
+        agingBacklog,
+      };
+    });
+
+    // Unassigned / General inquiries
+    const unassignedInquiries = inquiries.filter(i => !i.program_id);
+    const unassignedPeriod = unassignedInquiries.filter(i => 
+      inquirySelectedMonth === 'all' || (i.created_at || '').substring(0, 7) === inquirySelectedMonth
+    );
+    if (unassignedPeriod.length > 0 || unassignedInquiries.length > 0) {
+      const uTotal = unassignedPeriod.length;
+      const uActive = unassignedPeriod.filter(i => i.stage !== 'admitted' && i.stage !== 'closed').length;
+      const uFollowUp = unassignedPeriod.filter(i => 
+        i.stage !== 'admitted' && 
+        i.stage !== 'closed' && 
+        ((Boolean(i.next_follow_up_date) && i.next_follow_up_date! <= todayStr) || i.stage === 'follow_up')
+      ).length;
+      const uAdmitted = unassignedPeriod.filter(i => i.stage === 'admitted').length;
+      const uClosed = unassignedPeriod.filter(i => i.stage === 'closed').length;
+      const uAging = unassignedInquiries.filter(i => 
+        (i.created_at || '').substring(0, 7) < currentMonthYearStr && 
+        i.stage !== 'admitted' && 
+        i.stage !== 'closed'
+      ).length;
+      rows.push({
+        id: 'unassigned',
+        name: 'Unassigned / General',
+        total: uTotal,
+        active: uActive,
+        followUp: uFollowUp,
+        admitted: uAdmitted,
+        closed: uClosed,
+        conversionRate: uTotal > 0 ? ((uAdmitted / uTotal) * 100).toFixed(1) + '%' : '0.0%',
+        agingBacklog: uAging,
+      });
+    }
+
+    return rows;
+  }, [inquiries, programs, inquirySelectedMonth, currentMonthYearStr, todayStr]);
+
+  // Export Filtered Inquiries to CSV
+  const handleExportInquiriesCsv = () => {
+    if (filteredInquiries.length === 0) {
+      alert('No inquiries to export with current filters.');
+      return;
+    }
+    const headers = [
+      'Inquiry Number',
+      'Date Created',
+      'Candidate Name',
+      'Contact Phone',
+      'Email',
+      'Father/Guardian',
+      'Guardian Phone',
+      'Guardian CNIC',
+      'Program/Class',
+      'Batch Preference',
+      'Source',
+      'Priority',
+      'Stage',
+      'Next Follow-Up',
+      'Previous Institution',
+      'Previous Marks',
+      'Closed Reason',
+      'Notes'
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const s = String(val).replace(/"/g, '""');
+      return `"${s}"`;
+    };
+
+    const rows = filteredInquiries.map(i => [
+      escapeCsv(i.inquiry_number),
+      escapeCsv(i.created_at ? new Date(i.created_at).toLocaleDateString('en-GB') : ''),
+      escapeCsv(i.student_name),
+      escapeCsv(i.phone),
+      escapeCsv(i.email || ''),
+      escapeCsv(i.guardian_name || ''),
+      escapeCsv(i.guardian_phone || ''),
+      escapeCsv(i.guardian_id_card || ''),
+      escapeCsv(i.program_id ? getProgramName(i.program_id) : 'General'),
+      escapeCsv(i.batch_id ? getBatchName(i.batch_id) : ''),
+      escapeCsv(i.source || ''),
+      escapeCsv(i.priority || ''),
+      escapeCsv(i.stage || ''),
+      escapeCsv(i.next_follow_up_date || ''),
+      escapeCsv(i.custom_field_values?.previous_school || ''),
+      escapeCsv(i.custom_field_values?.previous_marks || ''),
+      escapeCsv(i.closed_reason || ''),
+      escapeCsv(i.notes || '')
+    ]);
+
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `inquiries_${inquirySelectedMonth}_${inquiryStatusTab}_${new Date().toISOString().substring(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Open Quick Follow-Up Modal
+  const handleOpenQuickFollowUp = (inq: StudentInquiry) => {
+    setInquiryQuickFollowUpModal(inq);
+    setQuickFollowUpOutcome('spoke_with_parent');
+    setQuickFollowUpNextDate(inq.next_follow_up_date || '');
+    setQuickFollowUpNote('');
+  };
+
+  // Save Quick Follow-Up
+  const handleSaveQuickFollowUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inquiryQuickFollowUpModal) return;
+    setIsSubmittingQuickFollowUp(true);
+    try {
+      const outcomeText = 
+        quickFollowUpOutcome === 'spoke_with_parent' ? 'Spoke with Parent — Interested / Visiting Campus' :
+        quickFollowUpOutcome === 'fee_discussion' ? 'Fee Discussion / Concession Review' :
+        quickFollowUpOutcome === 'trial_scheduled' ? 'Demo / Trial Class Scheduled' :
+        quickFollowUpOutcome === 'no_answer' ? 'No Answer / Phone Switched Off' :
+        quickFollowUpOutcome === 'dropped' ? 'Not Interested / Dropped' : quickFollowUpOutcome;
+
+      const res = await fetch(`/api/v1/sis/inquiries/${inquiryQuickFollowUpModal.id}/follow-ups`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          notes: quickFollowUpNote ? `${outcomeText}: ${quickFollowUpNote}` : outcomeText,
+          outcome: outcomeText,
+          next_date: quickFollowUpNextDate || undefined,
+          recorded_by_name: user?.full_name || 'Front Desk',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setInquiries(prev => prev.map(item => item.id === inquiryQuickFollowUpModal.id ? data.data : item));
+        setInquiryQuickFollowUpModal(null);
+      } else {
+        alert(data.error?.message || 'Failed to record follow-up');
+      }
+    } catch (err: any) {
+      console.error('Quick follow-up error:', err);
+      alert('Network error while saving follow-up note');
+    } finally {
+      setIsSubmittingQuickFollowUp(false);
+    }
+  };
 
   const totalInquiryPages = Math.max(1, Math.ceil(filteredInquiries.length / INQUIRY_PAGE_SIZE));
   const paginatedInquiries = useMemo(() => {
@@ -3147,8 +3427,110 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       {/* ========================================================================= */}
       {activeTab === 'inquiries' && (
         <div className="space-y-4">
-          {/* Inquiries Executive KPI Status Tabs */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+          {/* 1. Temporal Month Navigation Bar & Operational Quick Tools */}
+          <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+            {/* Month Navigator Controls */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  className="p-1.5 hover:bg-white text-slate-700 rounded-md transition-colors cursor-pointer"
+                  title="Previous Month"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-1.5 px-2.5 py-1">
+                  <Calendar className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                  <select
+                    value={inquirySelectedMonth}
+                    onChange={e => {
+                      setInquirySelectedMonth(e.target.value);
+                      if (inquiryStatusTab === 'aging') setInquiryStatusTab('active');
+                      setInquiryPage(1);
+                    }}
+                    className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer pr-1"
+                  >
+                    {distinctInquiryMonths.map(m => (
+                      <option key={m} value={m}>
+                        {formatMonthLabel(m)}
+                      </option>
+                    ))}
+                    <option value="all">All-Time Intake Archive</option>
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  className="p-1.5 hover:bg-white text-slate-700 rounded-md transition-colors cursor-pointer"
+                  title="Next Month"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {inquirySelectedMonth !== currentMonthYearStr && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInquirySelectedMonth(currentMonthYearStr);
+                    if (inquiryStatusTab === 'aging') setInquiryStatusTab('active');
+                    setInquiryPage(1);
+                  }}
+                  className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+                >
+                  Current Month
+                </button>
+              )}
+
+              {inquiryStatusTab === 'aging' && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300">
+                  <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  <span>Viewing Aging Backlog (Pre-{formatMonthLabel(currentMonthYearStr)})</span>
+                </span>
+              )}
+            </div>
+
+            {/* Utility Tools: Matrix Toggle, Printable Calling Sheet, CSV Export */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setShowInquiryMatrix(prev => !prev)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  showInquiryMatrix 
+                    ? 'bg-indigo-50 border-indigo-300 text-indigo-800' 
+                    : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
+                }`}
+                title="Toggle Class-wise Admissions Intake Matrix"
+              >
+                <Table className="w-3.5 h-3.5 text-slate-500" />
+                <span>{showInquiryMatrix ? 'Hide Class Matrix' : 'Class Intake Matrix'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowPrintCallingSheetModal(true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Print Daily Calling Roster for Front Desk"
+              >
+                <Printer className="w-3.5 h-3.5 text-slate-500" />
+                <span>Print Calling Sheet</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportInquiriesCsv}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Download CSV for Current Filter"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-500" />
+                <span>Export CSV</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 2. Inquiries Executive KPI Status Tabs (6 Cohort Cards) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
             <div 
               onClick={() => { setInquiryStatusTab('active'); setInquiryPage(1); }}
               className={`rounded-xl px-3 py-2 flex items-center justify-between transition-all cursor-pointer ${
@@ -3184,6 +3566,32 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 inquiryStatusTab === 'follow_up' ? 'bg-rose-500/20 text-rose-400 border-rose-500/40' : 'bg-white/10 text-rose-400 border-white/10'
               }`}>
                 <Clock className="w-3.5 h-3.5" />
+              </span>
+            </div>
+
+            <div 
+              onClick={() => { setInquiryStatusTab('aging'); setInquiryPage(1); }}
+              className={`rounded-xl px-3 py-2 flex items-center justify-between transition-all cursor-pointer ${
+                inquiryStatusTab === 'aging'
+                  ? 'bg-[#0E2A4D] border-2 border-amber-400 shadow-[0_2px_12px_rgba(245,158,11,0.35)]'
+                  : 'bg-[#081A2F] border border-[#173252] hover:border-slate-500 shadow-[0_2px_8px_rgba(8,26,47,0.18)]'
+              }`}
+            >
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Aging Backlog</span>
+                  {inquiryKPIs.agingBacklog > 0 && (
+                    <span className="px-1 py-0.2 rounded text-[8.5px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Prior
+                    </span>
+                  )}
+                </div>
+                <span className="font-mono font-bold text-amber-300 text-base">{inquiryKPIs.agingBacklog}</span>
+              </div>
+              <span className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+                inquiryStatusTab === 'aging' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-white/10 text-amber-300 border-white/10'
+              }`}>
+                <AlertTriangle className="w-3.5 h-3.5" />
               </span>
             </div>
 
@@ -3227,7 +3635,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
             <div 
               onClick={() => { setInquiryStatusTab('all'); setInquiryPage(1); }}
-              className={`rounded-xl px-3 py-2 flex items-center justify-between transition-all col-span-2 sm:col-span-1 cursor-pointer ${
+              className={`rounded-xl px-3 py-2 flex items-center justify-between transition-all cursor-pointer ${
                 inquiryStatusTab === 'all'
                   ? 'bg-[#0E2A4D] border-2 border-slate-300 shadow-[0_2px_12px_rgba(255,255,255,0.15)]'
                   : 'bg-[#081A2F] border border-[#173252] hover:border-slate-500 shadow-[0_2px_8px_rgba(8,26,47,0.18)]'
@@ -3244,6 +3652,183 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </span>
             </div>
           </div>
+
+          {/* 3. Admissions Performance & Class-wise Intake Matrix (Collapsible) */}
+          {showInquiryMatrix && (
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Table className="w-4 h-4 text-slate-700" />
+                    <h3 className="font-bold text-slate-900 text-xs sm:text-sm">
+                      Class-Wise Admissions Performance Matrix
+                    </h3>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      Period: {formatMonthLabel(inquirySelectedMonth)}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Click any class to isolate leads. Click "Aging Backlog" to audit unresolved prospects from prior months.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowInquiryMatrix(false)}
+                  className="text-xs text-slate-500 hover:text-slate-800 p-1 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[10px] border-y border-slate-200">
+                      <th className="py-2 px-3">Class / Program</th>
+                      <th className="py-2 px-3 text-right">Total Intake</th>
+                      <th className="py-2 px-3 text-right">Active</th>
+                      <th className="py-2 px-3 text-right">Due / Follow-up</th>
+                      <th className="py-2 px-3 text-right">Admitted</th>
+                      <th className="py-2 px-3 text-right">Closed</th>
+                      <th className="py-2 px-3 text-right">Conversion %</th>
+                      <th className="py-2 px-3 text-right text-amber-700">Aging Backlog</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-mono">
+                    {admissionsMatrixData.map(row => (
+                      <tr 
+                        key={row.id} 
+                        className={`hover:bg-slate-50/70 transition-colors ${inquiryProgramFilter === row.id ? 'bg-amber-50/40' : ''}`}
+                      >
+                        <td className="py-2 px-3 font-sans font-semibold text-slate-800">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInquiryProgramFilter(inquiryProgramFilter === row.id ? 'all' : row.id);
+                              setInquiryPage(1);
+                            }}
+                            className="hover:underline text-left cursor-pointer flex items-center gap-1.5"
+                          >
+                            <span>{row.name}</span>
+                            {inquiryProgramFilter === row.id && (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 font-bold font-mono">
+                                Filtered
+                              </span>
+                            )}
+                          </button>
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-slate-900">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInquiryProgramFilter(row.id);
+                              setInquiryStatusTab('all');
+                              setInquiryPage(1);
+                            }}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {row.total}
+                          </button>
+                        </td>
+                        <td className="py-2 px-3 text-right font-medium text-slate-700">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInquiryProgramFilter(row.id);
+                              setInquiryStatusTab('active');
+                              setInquiryPage(1);
+                            }}
+                            className="hover:underline cursor-pointer text-amber-700 font-bold"
+                          >
+                            {row.active}
+                          </button>
+                        </td>
+                        <td className="py-2 px-3 text-right font-medium text-rose-600">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInquiryProgramFilter(row.id);
+                              setInquiryStatusTab('follow_up');
+                              setInquiryPage(1);
+                            }}
+                            className="hover:underline cursor-pointer font-bold"
+                          >
+                            {row.followUp}
+                          </button>
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-emerald-600">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInquiryProgramFilter(row.id);
+                              setInquiryStatusTab('admitted');
+                              setInquiryPage(1);
+                            }}
+                            className="hover:underline cursor-pointer"
+                          >
+                            {row.admitted}
+                          </button>
+                        </td>
+                        <td className="py-2 px-3 text-right text-slate-500">
+                          {row.closed}
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-indigo-700 font-mono">
+                          {row.conversionRate}
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold">
+                          {row.agingBacklog > 0 ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setInquiryProgramFilter(row.id);
+                                setInquiryStatusTab('aging');
+                                setInquiryPage(1);
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200 cursor-pointer text-[11px]"
+                            >
+                              {row.agingBacklog}
+                            </button>
+                          ) : (
+                            <span className="text-slate-400 font-normal">0</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="border-t-2 border-slate-200 bg-slate-50/70 font-mono text-xs font-bold text-slate-900">
+                    <tr>
+                      <td className="py-2 px-3 font-sans">Institutional Total</td>
+                      <td className="py-2 px-3 text-right">{inquiryKPIs.total}</td>
+                      <td className="py-2 px-3 text-right text-amber-700">{inquiryKPIs.active}</td>
+                      <td className="py-2 px-3 text-right text-rose-600">{inquiryKPIs.followUpAction}</td>
+                      <td className="py-2 px-3 text-right text-emerald-600">{inquiryKPIs.converted}</td>
+                      <td className="py-2 px-3 text-right text-slate-600">{inquiryKPIs.closed}</td>
+                      <td className="py-2 px-3 text-right text-indigo-700">
+                        {inquiryKPIs.total > 0 ? ((inquiryKPIs.converted / inquiryKPIs.total) * 100).toFixed(1) + '%' : '0.0%'}
+                      </td>
+                      <td className="py-2 px-3 text-right">
+                        {inquiryKPIs.agingBacklog > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setInquiryProgramFilter('all');
+                              setInquiryStatusTab('aging');
+                              setInquiryPage(1);
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200 hover:bg-amber-200 cursor-pointer text-[11px]"
+                          >
+                            {inquiryKPIs.agingBacklog}
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 font-normal">0</span>
+                        )}
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Inquiries Main Control Panel Card */}
           <div className="bg-white border border-slate-200 rounded-xl shadow-2xs relative z-20">
@@ -3480,6 +4065,17 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                               {inq.stage !== 'admitted' && (
                                 <button
                                   type="button"
+                                  onClick={() => handleOpenQuickFollowUp(inq)}
+                                  className="w-7 h-7 rounded bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center transition-colors cursor-pointer"
+                                  title="Quick Call / Outreach Note"
+                                >
+                                  <PhoneCall className="w-3 h-3" />
+                                </button>
+                              )}
+
+                              {inq.stage !== 'admitted' && (
+                                <button
+                                  type="button"
                                   onClick={() => handleOpenAdmitInquiryModal(inq)}
                                   className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1 cursor-pointer"
                                   title="Direct Admission and Fee Challan"
@@ -3557,7 +4153,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                         )}
                       </div>
 
-                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-50">
+                      <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-50 flex-wrap">
                         {inq.phone && (
                           <a
                             href={`tel:${inq.phone}`}
@@ -3580,6 +4176,17 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           </a>
                         )}
 
+                        {inq.stage !== 'admitted' && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenQuickFollowUp(inq)}
+                            className="px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            <PhoneCall className="w-3.5 h-3.5 text-amber-700" />
+                            <span>Quick Note</span>
+                          </button>
+                        )}
+
                         <button
                           type="button"
                           onClick={() => {
@@ -3588,7 +4195,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             setNewFollowUpOutcome('spoke_with_parent');
                             setNewFollowUpNextDate(inq.next_follow_up_date || '');
                           }}
-                          className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1"
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1 cursor-pointer"
                         >
                           <History className="w-3.5 h-3.5" />
                           <span>Logs</span>
@@ -3598,7 +4205,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                           <button
                             type="button"
                             onClick={() => handleOpenAdmitInquiryModal(inq)}
-                            className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold"
+                            className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold cursor-pointer"
                           >
                             Admit
                           </button>
@@ -6772,8 +7379,307 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         document.body
       )}
 
+      {/* ========================================================================= */}
+      {/* QUICK FOLLOW-UP / INTERACTION LOG MODAL                                  */}
+      {/* ========================================================================= */}
+      {inquiryQuickFollowUpModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+                  <PhoneCall className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Quick Call & Outreach Note</h3>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    {inquiryQuickFollowUpModal.inquiry_number} • {inquiryQuickFollowUpModal.student_name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInquiryQuickFollowUpModal(null)}
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
-      {/* Bulk ID Card Printing Modal */}
+            {/* Prospect Quick Info Strip */}
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
+              <div>
+                <span className="text-slate-500 block text-[10px] uppercase font-mono">Phone & Guardian</span>
+                <span className="font-mono font-bold text-slate-800">{inquiryQuickFollowUpModal.phone}</span>
+                {inquiryQuickFollowUpModal.guardian_name && (
+                  <span className="text-slate-600 ml-1.5">({inquiryQuickFollowUpModal.guardian_name})</span>
+                )}
+              </div>
+              <div className="text-right">
+                <span className="text-slate-500 block text-[10px] uppercase font-mono">Class / Program</span>
+                <span className="font-semibold text-slate-800">
+                  {inquiryQuickFollowUpModal.program_id ? getProgramName(inquiryQuickFollowUpModal.program_id) : 'General'}
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveQuickFollowUp} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Call Outcome Preset</label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { id: 'spoke_with_parent', label: 'Spoke • Interested / Visiting' },
+                    { id: 'fee_discussion', label: 'Fee Review / Concession' },
+                    { id: 'trial_scheduled', label: 'Demo / Trial Scheduled' },
+                    { id: 'no_answer', label: 'No Answer / Switched Off' },
+                  ].map(preset => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => setQuickFollowUpOutcome(preset.id)}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border text-left transition-colors cursor-pointer ${
+                        quickFollowUpOutcome === preset.id
+                          ? 'bg-amber-50 border-amber-400 text-amber-900 ring-1 ring-amber-400'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700">Next Follow-Up Date</label>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 1);
+                        setQuickFollowUpNextDate(d.toISOString().substring(0, 10));
+                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
+                    >
+                      +1d Tomorrow
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 3);
+                        setQuickFollowUpNextDate(d.toISOString().substring(0, 10));
+                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
+                    >
+                      +3d
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 7);
+                        setQuickFollowUpNextDate(d.toISOString().substring(0, 10));
+                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold cursor-pointer"
+                    >
+                      +7d Next Week
+                    </button>
+                  </div>
+                </div>
+                <input
+                  type="date"
+                  value={quickFollowUpNextDate}
+                  onChange={e => setQuickFollowUpNextDate(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-sans text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Discussion Note / Remarks (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={quickFollowUpNote}
+                  onChange={e => setQuickFollowUpNote(e.target.value)}
+                  placeholder="e.g. Father will visit Saturday 4 PM with candidate's original marksheet..."
+                  className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-sans text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setInquiryQuickFollowUpModal(null)}
+                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingQuickFollowUp}
+                  className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50 shadow-xs"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{isSubmittingQuickFollowUp ? 'Saving...' : 'Save Quick Log'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ========================================================================= */}
+      {/* PRINTABLE A4 ADMISSIONS CALLING SHEET & FOLLOW-UP ROSTER                  */}
+      {/* ========================================================================= */}
+      {showPrintCallingSheetModal && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-150 no-sheet-overlay">
+          <div className="bg-white rounded-2xl w-full max-w-5xl p-4 sm:p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 my-auto max-h-[94vh] flex flex-col">
+            {/* Screen Action Toolbar */}
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3 print:hidden shrink-0">
+              <div>
+                <h3 className="font-bold text-slate-900 text-base">Admissions Outreach & Calling Roster</h3>
+                <p className="text-xs text-slate-500">
+                  Document-grade calling sheet for front desk receptionists • Filter: {inquiryStatusTab.toUpperCase()} • Month: {formatMonthLabel(inquirySelectedMonth)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Print Sheet (A4)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPrintCallingSheetModal(false)}
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg transition-colors cursor-pointer"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Print Stylesheet for exact A4 rendering */}
+            <style>{`
+              @media print {
+                body * {
+                  visibility: hidden !important;
+                }
+                #inquiry-calling-sheet, #inquiry-calling-sheet * {
+                  visibility: visible !important;
+                }
+                #inquiry-calling-sheet {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  background-color: #ffffff !important;
+                  padding: 16px !important;
+                  margin: 0 !important;
+                }
+              }
+            `}</style>
+
+            {/* Printable Paper Canvas */}
+            <div id="inquiry-calling-sheet" className="flex-1 overflow-y-auto pr-1">
+              {/* Institutional Header */}
+              <div className="border-b-2 border-slate-900 pb-3 mb-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-lg font-bold uppercase tracking-wide text-slate-900">{tenant?.name || 'Academy'}</h1>
+                    <p className="text-xs font-semibold text-slate-600">Admissions Desk • Daily Calling & Follow-up Roster</p>
+                  </div>
+                  <div className="text-right text-[11px] text-slate-500 font-mono">
+                    <div>Date Printed: {new Date().toLocaleDateString('en-GB')}</div>
+                    <div>Intake Period: {formatMonthLabel(inquirySelectedMonth)}</div>
+                    <div>Active Roster: {filteredInquiries.length} Candidate(s)</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Printable Register Table */}
+              <table className="w-full text-left text-xs border-collapse border border-slate-300">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-800 font-bold uppercase text-[10px] tracking-wider border-b border-slate-300">
+                    <th className="p-2 border-r border-slate-300 w-8 text-center">✓</th>
+                    <th className="p-2 border-r border-slate-300 w-24">Inquiry #</th>
+                    <th className="p-2 border-r border-slate-300 w-36">Candidate</th>
+                    <th className="p-2 border-r border-slate-300 w-36">Contact Phone</th>
+                    <th className="p-2 border-r border-slate-300 w-32">Class & Group</th>
+                    <th className="p-2 border-r border-slate-300 w-28">Follow-up Due</th>
+                    <th className="p-2">Receptionist Call Remarks / Outcome</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {filteredInquiries.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-6 text-center text-slate-400">
+                        No candidate inquiries match current filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredInquiries.map((inq) => (
+                      <tr key={inq.id} className="hover:bg-slate-50/50">
+                        <td className="p-2 border-r border-slate-300 text-center font-mono">
+                          <span className="inline-block w-4 h-4 border border-slate-400 rounded-xs" />
+                        </td>
+                        <td className="p-2 border-r border-slate-300 font-mono font-bold text-slate-800">
+                          {inq.inquiry_number}
+                          <div className="text-[9.5px] text-slate-500 font-normal">
+                            {new Date(inq.created_at).toLocaleDateString('en-GB')}
+                          </div>
+                        </td>
+                        <td className="p-2 border-r border-slate-300">
+                          <div className="font-bold text-slate-900">{inq.student_name}</div>
+                          {inq.guardian_name && (
+                            <div className="text-[10px] text-slate-500">G: {inq.guardian_name}</div>
+                          )}
+                        </td>
+                        <td className="p-2 border-r border-slate-300 font-mono text-slate-800">
+                          <div>{inq.phone}</div>
+                          {inq.guardian_phone && (
+                            <div className="text-[10px] text-slate-500">{inq.guardian_phone}</div>
+                          )}
+                        </td>
+                        <td className="p-2 border-r border-slate-300">
+                          <div className="font-semibold text-slate-800">
+                            {inq.program_id ? getProgramName(inq.program_id) : 'General'}
+                          </div>
+                        </td>
+                        <td className="p-2 border-r border-slate-300 font-mono text-[11px] text-slate-700">
+                          {inq.next_follow_up_date || '—'}
+                        </td>
+                        <td className="p-2 text-slate-400 text-[10.5px]">
+                          <div className="h-7 border-b border-dotted border-slate-300" />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+
+              {/* Sign-off Strip for print */}
+              <div className="mt-8 pt-4 border-t border-slate-300 flex items-center justify-between text-xs text-slate-600 print:flex">
+                <div>Counselor / Receptionist Signature: _______________________</div>
+                <div>Admissions Officer Verified: _______________________</div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+
       {showBulkIdCardsModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-150 no-sheet-overlay">
           <div className="bg-white rounded-2xl w-full max-w-5xl p-4 sm:p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 my-auto">
