@@ -437,8 +437,16 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
       return { text: 'Scheduled', cls: 'bg-slate-100 text-slate-700 border-slate-200' };
     }
     try {
-      const now = new Date();
-      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const tz = tenant?.settings?.timezone || 'Asia/Karachi';
+      const nowStr = new Intl.DateTimeFormat('en-GB', {
+        timeZone: tz,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).format(new Date());
+      const [cH, cM] = nowStr.split(':').map(Number);
+      const currentMinutes = (cH || 0) * 60 + (cM || 0);
+
       const [sH, sM] = (startTime || '').split(':').map(Number);
       const [eH, eM] = (endTime || '').split(':').map(Number);
       const startMin = (sH || 0) * 60 + (sM || 0);
@@ -592,7 +600,9 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
 
                 {/* Monthly Attendance summary */}
                 <span className="text-[11px] text-slate-500 font-medium">
-                  Monthly Attendance: <strong className="text-slate-900 font-bold font-mono">{attendanceStats.pct}%</strong>
+                  Monthly Attendance: <strong className="text-slate-900 font-bold font-mono">
+                    {attendanceStats.pct !== null && attendanceStats.pct !== undefined ? `${attendanceStats.pct}%` : '—'}
+                  </strong>
                 </span>
               </div>
             </div>
@@ -613,7 +623,8 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                       type="button"
                       onClick={() => {
                         setSelectedStudentId(child.id);
-                        fetchOverview(child.id);
+                        setSelectedEnrollmentId('');
+                        fetchOverview(child.id, null);
                       }}
                       className={`h-8 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                         isSelected
@@ -761,7 +772,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-slate-700">Today's Schedule</span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">
-                  {new Date().toLocaleDateString('en-GB', { weekday: 'short' })}
+                  {new Intl.DateTimeFormat('en-GB', { timeZone: tenant?.settings?.timezone || 'Asia/Karachi', weekday: 'short' }).format(new Date())}
                 </span>
               </div>
               <div className="text-lg sm:text-xl font-bold font-mono text-slate-900">
@@ -921,7 +932,12 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                       <span>Today's Classes</span>
                     </h3>
                     <p className="text-xs text-slate-500">
-                      {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })}
+                      {new Intl.DateTimeFormat('en-GB', {
+                        timeZone: tenant?.settings?.timezone || 'Asia/Karachi',
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'short'
+                      }).format(new Date())}
                     </p>
                   </div>
                   <button

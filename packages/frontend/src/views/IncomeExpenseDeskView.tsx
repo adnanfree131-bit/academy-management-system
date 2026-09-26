@@ -18,6 +18,8 @@ import {
   SlidersHorizontal,
   MoreVertical,
   ArrowLeft,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { AccountHead, FinancialTransaction } from '@apex/shared-types';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
@@ -35,6 +37,10 @@ export const IncomeExpenseDeskView: React.FC = () => {
   const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
   const [plReport, setPlReport] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [dataLoadError, setDataLoadError] = useState<string | null>(null);
+  const [voucherModalError, setVoucherModalError] = useState<string | null>(null);
+  const [headModalError, setHeadModalError] = useState<string | null>(null);
+  const [deskActionError, setDeskActionError] = useState<string | null>(null);
 
   // Filter State
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -163,6 +169,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
   const fetchData = async () => {
     if (!token) return;
     setIsLoading(true);
+    setDataLoadError(null);
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const [headsRes, txRes, plRes] = await Promise.all([
@@ -170,6 +177,10 @@ export const IncomeExpenseDeskView: React.FC = () => {
         fetch('/api/v1/finance/transactions', { headers }),
         fetch(`/api/v1/finance/reports/profit-loss?month=${selectedMonth}`, { headers }),
       ]);
+
+      if (!headsRes.ok || !txRes.ok || !plRes.ok) {
+        throw new Error('Failed to synchronize financial ledgers with server.');
+      }
 
       const [headsData, txData, plData] = await Promise.all([
         headsRes.json(),
@@ -186,8 +197,9 @@ export const IncomeExpenseDeskView: React.FC = () => {
       if (plData.success) {
         setPlReport(plData.data || null);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load income/expense data:', err);
+      setDataLoadError(err.message || 'Network error occurred while fetching financial data.');
     } finally {
       setIsLoading(false);
     }
@@ -200,8 +212,9 @@ export const IncomeExpenseDeskView: React.FC = () => {
   // Create Voucher
   const handleCreateVoucher = async (e: React.FormEvent) => {
     e.preventDefault();
+    setVoucherModalError(null);
     if (!token || !voucherHeadId || !voucherAmount || Number(voucherAmount) <= 0) {
-      alert('Please select an account head and enter a valid amount.');
+      setVoucherModalError('Please select an account head and enter a valid amount.');
       return;
     }
 
@@ -229,6 +242,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
       if (!res.ok) throw new Error(data.error?.message || 'Failed to record voucher');
 
       setShowVoucherModal(false);
+      setVoucherModalError(null);
       // Reset form
       setVoucherAmount('');
       setVoucherPayee('');
@@ -236,7 +250,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
       setVoucherDescription('');
       fetchData();
     } catch (err: any) {
-      alert(err.message);
+      setVoucherModalError(err.message || 'Error saving transaction voucher');
     } finally {
       setIsSubmittingVoucher(false);
     }
@@ -245,8 +259,9 @@ export const IncomeExpenseDeskView: React.FC = () => {
   // Create Head
   const handleCreateHead = async (e: React.FormEvent) => {
     e.preventDefault();
+    setHeadModalError(null);
     if (!token || !newHeadName.trim()) {
-      alert('Head name is required');
+      setHeadModalError('Head name is required');
       return;
     }
 
@@ -269,11 +284,12 @@ export const IncomeExpenseDeskView: React.FC = () => {
       if (!res.ok) throw new Error(data.error?.message || 'Failed to create account head');
 
       setShowHeadModal(false);
+      setHeadModalError(null);
       setNewHeadName('');
       setNewHeadDesc('');
       fetchData();
     } catch (err: any) {
-      alert(err.message);
+      setHeadModalError(err.message || 'Error creating account head');
     } finally {
       setIsSubmittingHead(false);
     }
@@ -282,6 +298,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
   // Delete Head
   const handleDeleteHead = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete Account Head "${name}"?`)) return;
+    setDeskActionError(null);
     try {
       const res = await fetch(`/api/v1/finance/account-heads/${id}`, {
         method: 'DELETE',
@@ -291,7 +308,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
       if (!res.ok) throw new Error(data.error?.message || 'Failed to delete head');
       fetchData();
     } catch (err: any) {
-      alert(err.message);
+      setDeskActionError(err.message || 'Failed to delete account head');
     }
   };
 
@@ -335,6 +352,18 @@ export const IncomeExpenseDeskView: React.FC = () => {
         description="Record income and expense vouchers, manage chart of accounts, and review daily cashbook ledger."
         icon={<Wallet className="w-4 h-4 text-slate-700" />}
       />
+
+      {deskActionError && (
+        <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+            <span>{deskActionError}</span>
+          </div>
+          <button type="button" onClick={() => setDeskActionError(null)} className="text-rose-600 hover:text-rose-800">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* High-Density Financial KPI Strip (Sidebar Dark Navy Design) */}
       {showOverviewCards && (
@@ -656,6 +685,22 @@ export const IncomeExpenseDeskView: React.FC = () => {
           {/* Table */}
           {isLoading ? (
             <InstitutionalLoader variant="card" label="Loading transaction ledger..." />
+          ) : dataLoadError ? (
+            <div className="p-8 text-center bg-rose-50/50 border border-rose-200/80 rounded-2xl space-y-3">
+              <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto" />
+              <div>
+                <p className="text-sm font-bold text-rose-900">Failed to load transaction ledger</p>
+                <p className="text-xs text-rose-700/80 mt-1 max-w-sm mx-auto">{dataLoadError}</p>
+              </div>
+              <button
+                type="button"
+                onClick={fetchData}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Retry
+              </button>
+            </div>
           ) : filteredTransactions.length === 0 ? (
             <div className="p-8 text-center text-slate-400">
               <Wallet className="w-7 h-7 mx-auto mb-2 text-slate-300" />
@@ -1000,6 +1045,17 @@ export const IncomeExpenseDeskView: React.FC = () => {
             </div>
 
             <form onSubmit={handleCreateVoucher} className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+              {voucherModalError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{voucherModalError}</span>
+                  </div>
+                  <button type="button" onClick={() => setVoucherModalError(null)} className="text-rose-600 hover:text-rose-800">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">Voucher Type</label>
@@ -1187,6 +1243,17 @@ export const IncomeExpenseDeskView: React.FC = () => {
             </div>
 
             <form onSubmit={handleCreateHead} className="p-5 space-y-4">
+              {headModalError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{headModalError}</span>
+                  </div>
+                  <button type="button" onClick={() => setHeadModalError(null)} className="text-rose-600 hover:text-rose-800">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">Head Classification</label>
                 <div className="grid grid-cols-2 gap-2">

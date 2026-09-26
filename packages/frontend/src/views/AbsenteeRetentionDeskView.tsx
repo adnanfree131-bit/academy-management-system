@@ -77,6 +77,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
   const [showAbsenteeFilters, setShowAbsenteeFilters] = useState(false);
   const absenteeModuleContainerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleOutsideClick = (e: MouseEvent) => {
@@ -143,6 +144,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
   const fetchData = async () => {
     if (!token) return;
     setLoading(true);
+    setFetchError(null);
     try {
       const headers = { authorization: `Bearer ${token}` };
 
@@ -155,10 +157,13 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         fetch('/api/v1/academic/batches', { headers })
       ]);
 
-      if (fRes.ok) {
-        const d = await fRes.json();
-        setFollowups(d.data || []);
+      if (!fRes.ok) {
+        throw new Error(`Failed to load absentee roster (HTTP ${fRes.status})`);
       }
+
+      const d = await fRes.json();
+      setFollowups(d.data || []);
+
       if (kpiRes.ok) {
         const d = await kpiRes.json();
         setKpi(d.data || {
@@ -190,8 +195,9 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
         const d = await batchRes.json();
         setBatches(d.data || []);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed loading absentee desk data:', err);
+      setFetchError(err.message || 'Unable to connect to server. Please verify network connection.');
     } finally {
       setLoading(false);
     }
@@ -286,6 +292,9 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
     if (!recipientPhone) return;
 
+    // Open popup synchronously on user click to avoid browser popup blockers
+    const win = window.open('about:blank', '_blank');
+
     try {
       // 1. Generate link first
       const linkRes = await fetch('/api/v1/whatsapp/generate-link', {
@@ -298,39 +307,50 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
       });
 
       if (!linkRes.ok) {
+        if (win) win.close();
         console.error('Failed generating WhatsApp link');
+        setActionSuccessMsg('Failed to generate WhatsApp link. Please check recipient phone number.');
+        setTimeout(() => setActionSuccessMsg(''), 5000);
         return;
       }
 
       const linkData = await linkRes.json();
       const encodedUrl = linkData.data?.encoded_url;
-      if (!encodedUrl) return;
-
-      // 2. Open sanitized WhatsApp URL in new window
-      const win = window.open(encodedUrl, '_blank');
-
-      // 3. Post dispatch audit log only after window.open returns a valid window reference
-      if (win) {
-        await fetch('/api/v1/whatsapp/dispatch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            student_id: item.student_id,
-            recipient_phone: recipientPhone,
-            phone_type: phoneType,
-            template_id: selectedTemplateId || null,
-            message_body: messageText,
-            status: 'SENT'
-          })
-        });
-
-        setActionSuccessMsg(`WhatsApp alert opened for ${item.student_name} (${recipientPhone})`);
-        fetchData();
-        setActiveWhatsAppFollowup(null);
-        setTimeout(() => setActionSuccessMsg(''), 4000);
+      if (!encodedUrl) {
+        if (win) win.close();
+        return;
       }
+
+      // 2. Direct opened window to sanitized WhatsApp URL
+      if (win) {
+        win.location.href = encodedUrl;
+      } else {
+        window.open(encodedUrl, '_blank');
+      }
+
+      // 3. Post dispatch audit log
+      await fetch('/api/v1/whatsapp/dispatch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          student_id: item.student_id,
+          recipient_phone: recipientPhone,
+          phone_type: phoneType,
+          template_id: selectedTemplateId || null,
+          message_body: messageText,
+          status: 'SENT'
+        })
+      });
+
+      setActionSuccessMsg(`WhatsApp alert opened for ${item.student_name} (${recipientPhone})`);
+      fetchData();
+      setActiveWhatsAppFollowup(null);
+      setTimeout(() => setActionSuccessMsg(''), 4000);
     } catch (err) {
+      if (win) win.close();
       console.error('Failed dispatching whatsapp:', err);
+      setActionSuccessMsg('Error opening WhatsApp dispatch.');
+      setTimeout(() => setActionSuccessMsg(''), 4000);
     }
   };
 
@@ -976,7 +996,21 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                 <tbody className="divide-y divide-slate-100 text-slate-800">
                   {loading ? (
                     <InstitutionalLoader variant="table" colSpan={7} label="Loading absentees roster..." />
-                  ) : followups.length === 0 ? (
+                  ) : fetchError ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-rose-600 bg-rose-50/50">
+                        <AlertTriangle className="w-6 h-6 text-rose-500 mx-auto mb-1.5" />
+                        <p className="font-semibold text-xs">{fetchError}</p>
+                        <button
+                          type="button"
+                          onClick={fetchData}
+                          className="mt-2 px-3 py-1 bg-white border border-rose-300 text-rose-700 text-xs font-semibold rounded-md hover:bg-rose-50 cursor-pointer"
+                        >
+                          Retry Request
+                        </button>
+                      </td>
+                    </tr>
+                  ) : filteredFollowups.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="p-8 text-center text-slate-500">
                         <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-1.5" />
@@ -984,7 +1018,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                       </td>
                     </tr>
                   ) : (
-                    followups.map(item => {
+                    filteredFollowups.map(item => {
                       const currentPhoneChoice = phoneSelectionMap[item.id] || 'PRIMARY';
                       const hasBackup = !!item.backup_phone;
                       const activePhone = currentPhoneChoice === 'BACKUP' && hasBackup ? item.backup_phone : item.guardian_phone;
@@ -1108,17 +1142,17 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                             <div className="flex items-center justify-end gap-1.5">
                               {/* 1. Send WhatsApp */}
                               <button
-                                disabled={!item.guardian_phone}
+                                disabled={!activePhone}
                                 onClick={() => handleOpenWhatsAppModal(item)}
                                 className={`px-2.5 py-1.5 font-bold rounded-lg text-xs flex items-center gap-1 transition-all ${
-                                  !item.guardian_phone
+                                  !activePhone
                                     ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border border-slate-200'
-                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300'
+                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 cursor-pointer'
                                 }`}
-                                title={!item.guardian_phone ? 'No guardian phone on file' : 'Send WhatsApp Notification'}
+                                title={!activePhone ? 'No contact phone on file' : 'Send WhatsApp Notification'}
                               >
                                 <MessageCircle className="w-3.5 h-3.5" />
-                                {!item.guardian_phone ? 'No guardian phone on file' : 'WhatsApp'}
+                                {!activePhone ? 'No phone on file' : 'WhatsApp'}
                               </button>
 
                               {/* 2. Direct Phone Dialer */}
@@ -1151,9 +1185,26 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
             {/* Mobile Native Absentee Follow-Up Cards (< 768px) */}
             <div className="md:hidden divide-y divide-slate-100 bg-white">
-              {filteredFollowups.length === 0 ? (
+              {loading ? (
+                <div className="p-8">
+                  <InstitutionalLoader variant="inline" label="Loading mobile absentees roster..." />
+                </div>
+              ) : fetchError ? (
+                <div className="p-8 text-center text-rose-600 bg-rose-50/50">
+                  <AlertTriangle className="w-6 h-6 text-rose-500 mx-auto mb-1.5" />
+                  <p className="font-semibold text-xs">{fetchError}</p>
+                  <button
+                    type="button"
+                    onClick={fetchData}
+                    className="mt-2 px-3 py-1 bg-white border border-rose-300 text-rose-700 text-xs font-semibold rounded-md hover:bg-rose-50 cursor-pointer"
+                  >
+                    Retry Request
+                  </button>
+                </div>
+              ) : filteredFollowups.length === 0 ? (
                 <div className="p-8 text-center text-slate-400 text-xs">
-                  No absent students found matching criteria.
+                  <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-1.5" />
+                  No absent students found matching criteria for {selectedDate}. All students present or excused!
                 </div>
               ) : (
                 filteredFollowups.map(item => {
@@ -1227,14 +1278,14 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            disabled={!item.guardian_phone}
+                            disabled={!activePhone}
                             onClick={() => handleOpenWhatsAppModal(item)}
                             className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors border ${
-                              !item.guardian_phone
+                              !activePhone
                                 ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200'
                                 : 'bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 text-emerald-700 cursor-pointer border-emerald-200'
                             }`}
-                            title={!item.guardian_phone ? 'No guardian phone on file' : 'WhatsApp Notification'}
+                            title={!activePhone ? 'No contact phone on file' : 'WhatsApp Notification'}
                             aria-label="WhatsApp"
                           >
                             <MessageCircle className="w-5 h-5" />

@@ -14,7 +14,8 @@ import {
   Users,
   Receipt,
   X,
-  SlidersHorizontal
+  SlidersHorizontal,
+  AlertTriangle
 } from 'lucide-react';
 import {
   StaffSalaryProfile,
@@ -52,12 +53,16 @@ export const PayrollDeskView: React.FC = () => {
     unitRate: number;
     totalDeduction: number;
   } | null>(null);
+  const [attPreviewError, setAttPreviewError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
   // Disbursement Modal
   const [showDisburseModal, setShowDisburseModal] = useState<boolean>(false);
   const [activePayslip, setActivePayslip] = useState<StaffPayslip | null>(null);
   const [disburseMethod, setDisburseMethod] = useState<PaymentMethod>('bank_transfer');
   const [disburseRef, setDisburseRef] = useState<string>('');
+  const [disburseError, setDisburseError] = useState<string | null>(null);
 
   // Print Payslip Modal
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
@@ -124,20 +129,37 @@ export const PayrollDeskView: React.FC = () => {
   useEffect(() => {
     if (!token || !selectedStaffId) {
       setAttPreview(null);
+      setAttPreviewError(null);
       return;
     }
     let cancelled = false;
+    setAttPreviewError(null);
     fetch(`/api/v1/payroll/attendance-preview?staff_id=${encodeURIComponent(selectedStaffId)}&payroll_month=${encodeURIComponent(selectedMonth)}`, {
       headers: { authorization: `Bearer ${token}` }
     })
-      .then(r => r.ok ? r.json() : null)
+      .then(async r => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => ({}));
+          throw new Error(body?.error?.message || `Failed to fetch attendance preview (${r.status})`);
+        }
+        return r.json();
+      })
       .then(data => {
-        if (!cancelled && data?.success) {
-          setAttPreview(data.data);
+        if (!cancelled) {
+          if (data?.success) {
+            setAttPreview(data.data);
+            setAttPreviewError(null);
+          } else {
+            setAttPreview(null);
+            setAttPreviewError(data?.error?.message || 'Attendance preview unavailable');
+          }
         }
       })
-      .catch(() => {
-        if (!cancelled) setAttPreview(null);
+      .catch(err => {
+        if (!cancelled) {
+          setAttPreview(null);
+          setAttPreviewError(err.message || 'Error loading attendance preview');
+        }
       });
     return () => { cancelled = true; };
   }, [token, selectedStaffId, selectedMonth]);
@@ -206,9 +228,11 @@ export const PayrollDeskView: React.FC = () => {
   const handleProcessSalary = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token || !selectedStaffId) return;
+    setFormError(null);
+    setFormSuccess(null);
 
     if (isPerLecture && (lectureCount === '' || Number(lectureCount) < 0)) {
-      alert('Lecture count is required.');
+      setFormError('Lecture count is required.');
       return;
     }
 
@@ -228,13 +252,13 @@ export const PayrollDeskView: React.FC = () => {
 
       const data = await res.json();
       if (data.success) {
-        alert(`Payslip ${data.data.slip_number} processed and locked.`);
+        setFormSuccess(`Payslip ${data.data.slip_number} processed and locked.`);
         fetchPayrollData();
       } else {
-        alert(data.error?.message || 'Failed to process payslip');
+        setFormError(data.error?.message || 'Failed to process payslip');
       }
     } catch (err: any) {
-      alert(err.message);
+      setFormError(err.message || 'Network error occurred while processing payslip.');
     }
   };
 
@@ -242,6 +266,7 @@ export const PayrollDeskView: React.FC = () => {
   const handleConfirmDisburse = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activePayslip || !token) return;
+    setDisburseError(null);
 
     try {
       const res = await fetch(`/api/v1/payroll/payslips/${activePayslip.id}/pay`, {
@@ -257,12 +282,13 @@ export const PayrollDeskView: React.FC = () => {
       if (data.success) {
         setShowDisburseModal(false);
         setDisburseRef('');
+        setDisburseError(null);
         fetchPayrollData();
       } else {
-        alert(data.error?.message || 'Failed to mark payslip as disbursed');
+        setDisburseError(data.error?.message || 'Failed to mark payslip as disbursed');
       }
     } catch (err: any) {
-      alert(err.message);
+      setDisburseError(err.message || 'Network error recording disbursement.');
     }
   };
 
@@ -442,6 +468,13 @@ export const PayrollDeskView: React.FC = () => {
                   <span className="text-[10px] font-mono text-slate-400">{selectedMonth}</span>
                 </div>
 
+                {!staffAtt && (
+                  <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span>No monthly attendance record found for this staff member. Defaulting baseline to 26 working days.</span>
+                  </div>
+                )}
+
                 {/* Flat Stats Grid - Zero Card within Card */}
                 <div className="grid grid-cols-2 gap-2.5 text-xs">
                   <div>
@@ -501,6 +534,25 @@ export const PayrollDeskView: React.FC = () => {
               </div>
             </div>
 
+            {formSuccess && (
+              <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between">
+                <span>{formSuccess}</span>
+                <button type="button" onClick={() => setFormSuccess(null)} className="text-emerald-600 hover:text-emerald-800"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            )}
+            {formError && (
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between">
+                <span>{formError}</span>
+                <button type="button" onClick={() => setFormError(null)} className="text-rose-600 hover:text-rose-800"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            )}
+            {attPreviewError && !isPerLecture && (
+              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Attendance preview unavailable ({attPreviewError}). Verify deductions manually if needed.</span>
+              </div>
+            )}
+
             <form onSubmit={handleProcessSalary} className="space-y-5">
               {/* Per-Lecture Input if contract_type is per_lecture */}
               {isPerLecture && (
@@ -543,46 +595,50 @@ export const PayrollDeskView: React.FC = () => {
 
                 <div className="space-y-2">
                   {earnings.map(e => (
-                    <div key={e.id} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
+                    <div key={e.id} className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
                       <input
                         type="text"
+                        placeholder="Earning item name..."
                         value={e.name}
                         onChange={ev => handleUpdateEarning(e.id, 'name', ev.target.value)}
-                        className="flex-1 px-2.5 py-1 bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600"
+                        className="w-full sm:flex-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600 text-xs"
                         required
                       />
-                      <div className="flex items-center gap-1">
-                        <span className="text-slate-400 text-[10px]">Qty:</span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={e.quantity}
-                          onChange={ev => handleUpdateEarning(e.id, 'quantity', Number(ev.target.value))}
-                          className="w-16 px-2 py-1 text-center font-mono font-bold bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600"
-                          required
-                        />
+                      <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400 text-[11px]">Qty:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={e.quantity}
+                            onChange={ev => handleUpdateEarning(e.id, 'quantity', Number(ev.target.value))}
+                            className="w-14 sm:w-16 px-2 py-1 text-center font-mono font-bold bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600 text-xs"
+                            required
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400 text-[11px]">Rate:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={e.unit_rate}
+                            onChange={ev => handleUpdateEarning(e.id, 'unit_rate', Number(ev.target.value))}
+                            className="w-20 sm:w-24 px-2 py-1 text-right font-mono font-bold bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600 text-xs"
+                            required
+                          />
+                        </div>
+                        <div className="min-w-[70px] sm:w-24 text-right font-mono font-bold text-emerald-600 text-xs pr-1">
+                          +{(Number(e.quantity) * Number(e.unit_rate)).toLocaleString()}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEarning(e.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors rounded hover:bg-rose-50"
+                          aria-label="Remove earning line"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-slate-400 text-[10px]">Rate:</span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={e.unit_rate}
-                          onChange={ev => handleUpdateEarning(e.id, 'unit_rate', Number(ev.target.value))}
-                          className="w-20 px-2 py-1 text-right font-mono font-bold bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600"
-                          required
-                        />
-                      </div>
-                      <div className="w-24 text-right font-mono font-bold text-emerald-600 text-xs pr-1">
-                        +{(Number(e.quantity) * Number(e.unit_rate)).toLocaleString()}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveEarning(e.id)}
-                        className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -606,46 +662,50 @@ export const PayrollDeskView: React.FC = () => {
 
                 <div className="space-y-2">
                   {deductions.map(d => (
-                    <div key={d.id} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200 text-xs">
+                    <div key={d.id} className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
                       <input
                         type="text"
+                        placeholder="Deduction item name..."
                         value={d.name}
                         onChange={ev => handleUpdateDeduction(d.id, 'name', ev.target.value)}
-                        className="flex-1 px-2.5 py-1 bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600"
+                        className="w-full sm:flex-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600 text-xs"
                         required
                       />
-                      <div className="flex items-center gap-1">
-                        <span className="text-slate-400 text-[10px]">Qty:</span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={d.quantity}
-                          onChange={ev => handleUpdateDeduction(d.id, 'quantity', Number(ev.target.value))}
-                          className="w-16 px-2 py-1 text-center font-mono font-bold bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600"
-                          required
-                        />
+                      <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400 text-[11px]">Qty:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={d.quantity}
+                            onChange={ev => handleUpdateDeduction(d.id, 'quantity', Number(ev.target.value))}
+                            className="w-14 sm:w-16 px-2 py-1 text-center font-mono font-bold bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600 text-xs"
+                            required
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-slate-400 text-[11px]">Rate:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={d.unit_rate}
+                            onChange={ev => handleUpdateDeduction(d.id, 'unit_rate', Number(ev.target.value))}
+                            className="w-20 sm:w-24 px-2 py-1 text-right font-mono font-bold bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600 text-xs"
+                            required
+                          />
+                        </div>
+                        <div className="min-w-[70px] sm:w-24 text-right font-mono font-bold text-rose-600 text-xs pr-1">
+                          -{(Number(d.quantity) * Number(d.unit_rate)).toLocaleString()}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveDeduction(d.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 transition-colors rounded hover:bg-rose-50"
+                          aria-label="Remove deduction line"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-slate-400 text-[10px]">Rate:</span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={d.unit_rate}
-                          onChange={ev => handleUpdateDeduction(d.id, 'unit_rate', Number(ev.target.value))}
-                          className="w-20 px-2 py-1 text-right font-mono font-bold bg-white border border-slate-200 rounded focus:outline-none focus:border-indigo-600"
-                          required
-                        />
-                      </div>
-                      <div className="w-24 text-right font-mono font-bold text-rose-600 text-xs pr-1">
-                        -{(Number(d.quantity) * Number(d.unit_rate)).toLocaleString()}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveDeduction(d.id)}
-                        className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -883,6 +943,13 @@ export const PayrollDeskView: React.FC = () => {
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {disburseError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs flex items-center justify-between">
+                <span>{disburseError}</span>
+                <button type="button" onClick={() => setDisburseError(null)} className="text-rose-600 hover:text-rose-800"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            )}
 
             <form onSubmit={handleConfirmDisburse} className="space-y-3.5">
               <div className="p-3 bg-slate-50 rounded-lg text-xs space-y-1">

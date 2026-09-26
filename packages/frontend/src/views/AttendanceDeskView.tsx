@@ -108,6 +108,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
   // UI Status
   const [isLoading, setIsLoading] = useState(true);
+  const [rosterError, setRosterError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
   const [lastSavedInfo, setLastSavedInfo] = useState<{ date: string; count: number; absents: number } | null>(null);
@@ -209,7 +210,10 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
       return;
     }
     setIsLoading(true);
+    setRosterError(null);
     setSaveSuccessMessage(null);
+    setStudents([]);
+    setAttendanceRecords({});
     const headers = { Authorization: `Bearer ${token}` };
 
     try {
@@ -218,22 +222,28 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
         fetch(`/api/v1/attendance/students?batch_id=${selectedBatchId}&date=${selectedDate}`, { headers }),
       ]);
 
+      if (!studRes.ok || !attRes.ok) {
+        throw new Error('Failed to retrieve batch roster or attendance records. Please check connection and retry.');
+      }
+
       const [studData, attData] = await Promise.all([studRes.json(), attRes.json()]);
 
-      const allStudents: Student[] = studData.success ? studData.data : [];
+      if (!studData.success || !attData.success) {
+        throw new Error(studData.error?.message || attData.error?.message || 'Failed to retrieve attendance roster.');
+      }
+
+      const allStudents: Student[] = studData.data || [];
       // Only active students appear on the daily attendance roster
       const studentList: Student[] = allStudents.filter(s => s.status === 'active');
       setStudents(studentList);
 
-      const existingRecords: StudentAttendanceRecord[] = attData.success ? attData.data : [];
+      const existingRecords: StudentAttendanceRecord[] = attData.data || [];
 
       // Determine active approved leaves covering this date
       const activeLeaves = leaves.filter(l => 
         l.status === 'approved' && l.start_date <= selectedDate && l.end_date >= selectedDate
       );
       const excusedStudentIds = new Set(activeLeaves.map(l => l.student_id));
-
-      const isPastDate = selectedDate < todayStr;
 
       // Build state map
       const stateMap: Record<string, { status: DeskAttendanceStatus; remarks: string; reasonCategory: string }> = {};
@@ -250,16 +260,18 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
           stateMap[s.id] = { status: found.status, remarks: rem, reasonCategory: cat };
         } else if (excusedStudentIds.has(s.id)) {
           stateMap[s.id] = { status: 'excused', remarks: 'Approved Leave Auto-Excused', reasonCategory: 'Medical / Illness' };
-        } else if (isPastDate) {
-          stateMap[s.id] = { status: 'unmarked', remarks: '', reasonCategory: '' };
         } else {
-          stateMap[s.id] = { status: 'present', remarks: '', reasonCategory: '' };
+          // If no record exists for this date, remain unmarked so attendance is intentionally captured
+          stateMap[s.id] = { status: 'unmarked', remarks: '', reasonCategory: '' };
         }
       });
 
       setAttendanceRecords(stateMap);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading attendance roster:', err);
+      setRosterError(err.message || 'Error loading attendance roster');
+      setStudents([]);
+      setAttendanceRecords({});
     } finally {
       setIsLoading(false);
     }
@@ -388,6 +400,10 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
   // Save Attendance Submission
   const handleSaveAttendance = async () => {
     if (!token || !selectedBatchId) return;
+    if (rosterError || students.length === 0) {
+      alert('Cannot save: attendance roster is not loaded cleanly. Please refresh or resolve error.');
+      return;
+    }
 
     const unmarkedCount = students.filter(s => attendanceRecords[s.id]?.status === 'unmarked' || !attendanceRecords[s.id]?.status).length;
     if (unmarkedCount > 0) {
@@ -634,7 +650,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                     setShowAttendanceModuleMenu(false);
                     handleSaveAttendance();
                   }}
-                  disabled={isSaving || students.length === 0}
+                  disabled={isSaving || students.length === 0 || !!rosterError}
                   className="w-full px-3 py-2 text-left text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-xs"
                 >
                   <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
@@ -1018,7 +1034,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               <button
                 type="button"
                 onClick={handleSaveAttendance}
-                disabled={isSaving || students.length === 0}
+                disabled={isSaving || students.length === 0 || !!rosterError}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs active:scale-95 transition-all disabled:opacity-40 cursor-pointer"
               >
                 {isSaving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Check className="w-3.5 h-3.5" />}
@@ -1220,6 +1236,21 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                     Go to Classes & Batches
                   </button>
                 )}
+              </div>
+            ) : rosterError ? (
+              <div className="p-8 text-center text-rose-700 bg-rose-50/50 space-y-3">
+                <AlertTriangle className="w-8 h-8 mx-auto text-rose-500" />
+                <div>
+                  <p className="text-sm font-bold text-rose-800">Failed to load attendance roster</p>
+                  <p className="text-xs text-rose-600 mt-1">{rosterError}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchBatchRoster}
+                  className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-lg text-xs font-bold transition-colors shadow-xs cursor-pointer"
+                >
+                  Retry Request
+                </button>
               </div>
             ) : students.length === 0 ? (
               <div className="p-8 text-center text-slate-400 space-y-3">
@@ -1558,8 +1589,8 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               hapticSuccess();
               handleSaveAttendance();
             }}
-            disabled={isSaving}
-            className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+            disabled={isSaving || students.length === 0 || !!rosterError}
+            className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer disabled:opacity-40"
           >
             {isSaving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
             <span>{isSaving ? 'Saving...' : 'Save Roster'}</span>

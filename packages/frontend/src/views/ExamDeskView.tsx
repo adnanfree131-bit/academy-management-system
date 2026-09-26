@@ -17,6 +17,7 @@ import {
   PenTool,
   MessageSquare,
   AlertCircle,
+  AlertTriangle,
   SlidersHorizontal,
   MoreVertical,
   ArrowLeft
@@ -88,6 +89,9 @@ export const ExamDeskView: React.FC = () => {
   const [showExcelImportModal, setShowExcelImportModal] = useState(false);
   const [showReportCardModal, setShowReportCardModal] = useState(false);
   const [activeReportCard, setActiveReportCard] = useState<StudentOfficialReportCard | null>(null);
+  const [createExamError, setCreateExamError] = useState<string | null>(null);
+  const [addQuestionError, setAddQuestionError] = useState<string | null>(null);
+  const [excelImportError, setExcelImportError] = useState<string | null>(null);
 
   // New Exam Form
   const [newExamBatchId, setNewExamBatchId] = useState('');
@@ -207,7 +211,12 @@ export const ExamDeskView: React.FC = () => {
 
   // Load evaluations when selected exam changes
   useEffect(() => {
-    if (!evalSelectedExamId || !token) return;
+    if (!evalSelectedExamId || !token) {
+      setExamEvaluations([]);
+      return;
+    }
+    // Clear evaluations immediately so previous exam's evaluation register is not retained
+    setExamEvaluations([]);
     const fetchEvals = async () => {
       try {
         const res = await fetch(`/api/v1/exams/${evalSelectedExamId}/evaluations`, {
@@ -357,6 +366,7 @@ export const ExamDeskView: React.FC = () => {
   const handleCreateExam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newExamBatchId || !newExamSubjectId || !newExamTitle || !token) return;
+    setCreateExamError(null);
 
     const mcqTotal = newExamMcqCount * newExamMcqMarksPerQ;
 
@@ -389,10 +399,15 @@ export const ExamDeskView: React.FC = () => {
 
       if (res.ok) {
         setShowCreateExamModal(false);
+        setCreateExamError(null);
         fetchData();
+      } else {
+        const body = await res.json().catch(() => null);
+        setCreateExamError(body?.error?.message || `Failed to create exam (HTTP ${res.status})`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed creating exam:', err);
+      setCreateExamError(err.message || 'Network error creating exam.');
     }
   };
 
@@ -400,6 +415,7 @@ export const ExamDeskView: React.FC = () => {
   const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newQSubjectId || !newQText || !token) return;
+    setAddQuestionError(null);
 
     let options: Array<{ key: string; text: string }> = [];
     if (newQType === 'MCQ') {
@@ -432,11 +448,16 @@ export const ExamDeskView: React.FC = () => {
 
       if (res.ok) {
         setShowAddQuestionModal(false);
+        setAddQuestionError(null);
         setNewQText('');
         fetchData();
+      } else {
+        const body = await res.json().catch(() => null);
+        setAddQuestionError(body?.error?.message || `Failed to add question (HTTP ${res.status})`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed adding question:', err);
+      setAddQuestionError(err.message || 'Network error adding question.');
     }
   };
 
@@ -524,6 +545,7 @@ export const ExamDeskView: React.FC = () => {
       return;
     }
 
+    setExcelImportError(null);
     try {
       const res = await fetch('/api/v1/exams/questions/import-excel', {
         method: 'POST',
@@ -551,11 +573,16 @@ export const ExamDeskView: React.FC = () => {
           msg += ` Skipped ${totalSkipped} row(s): ${skippedNames.join('; ')}`;
         }
         setImportSuccessMsg(msg);
+        setExcelImportError(null);
         setExcelTextRaw('');
         fetchData();
+      } else {
+        const body = await res.json().catch(() => null);
+        setExcelImportError(body?.error?.message || `Failed to import questions (HTTP ${res.status})`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed excel import:', err);
+      setExcelImportError(err.message || 'Network error importing questions.');
     }
   };
 
@@ -908,8 +935,27 @@ export const ExamDeskView: React.FC = () => {
                   <InstitutionalLoader variant="table" colSpan={8} label="Loading scheduled examinations..." />
                 ) : filteredExams.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="p-8 text-center text-slate-400 text-xs font-mono">
-                      No scheduled exams found.
+                    <td colSpan={8} className="p-8 text-center text-slate-500 text-xs">
+                      <p className="font-semibold text-slate-700">No scheduled exams found</p>
+                      <p className="text-[11px] text-slate-400 mt-1">Adjust filters or create a new scheduled examination.</p>
+                      <div className="flex items-center justify-center gap-2 mt-3">
+                        {(examSearchQuery || examStatusFilter !== 'ALL') && (
+                          <button
+                            type="button"
+                            onClick={() => { setExamSearchQuery(''); setExamStatusFilter('ALL'); }}
+                            className="px-3 py-1 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+                          >
+                            Clear Filters
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setShowCreateExamModal(true)}
+                          className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs"
+                        >
+                          Create Exam
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -978,7 +1024,28 @@ export const ExamDeskView: React.FC = () => {
             {loading ? (
               <InstitutionalLoader variant="card" label="Loading scheduled examinations..." />
             ) : filteredExams.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 text-xs">No scheduled exams found.</div>
+              <div className="p-8 text-center text-slate-500 text-xs space-y-2">
+                <p className="font-semibold text-slate-700">No scheduled exams found</p>
+                <p className="text-[11px] text-slate-400">Adjust filters or create a new scheduled examination.</p>
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  {(examSearchQuery || examStatusFilter !== 'ALL') && (
+                    <button
+                      type="button"
+                      onClick={() => { setExamSearchQuery(''); setExamStatusFilter('ALL'); }}
+                      className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateExamModal(true)}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs"
+                  >
+                    Create Exam
+                  </button>
+                </div>
+              </div>
             ) : (
               filteredExams.map(exam => (
                 <div key={exam.id} className="p-3.5 space-y-2 active:bg-slate-50 transition-colors">
@@ -1623,6 +1690,13 @@ export const ExamDeskView: React.FC = () => {
               </button>
             </div>
 
+            {createExamError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{createExamError}</span>
+              </div>
+            )}
+
             <form onSubmit={handleCreateExam} className="space-y-4 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Exam Title</label>
@@ -1934,6 +2008,13 @@ export const ExamDeskView: React.FC = () => {
               </div>
             )}
 
+            {excelImportError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{excelImportError}</span>
+              </div>
+            )}
+
             <form onSubmit={handleExcelImport} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -2008,6 +2089,13 @@ export const ExamDeskView: React.FC = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {addQuestionError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{addQuestionError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleAddQuestion} className="space-y-3 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

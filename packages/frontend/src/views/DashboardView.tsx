@@ -434,9 +434,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             type="button"
             onClick={loadData}
             title="Refresh Data"
-            className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-[#E6ECF2] rounded-xl transition-all cursor-pointer active:scale-95"
+            aria-label="Refresh dashboard data"
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-600 border border-[#E6ECF2] rounded-xl transition-all cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-amber-600' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-amber-600' : ''}`} />
           </button>
 
           <button
@@ -462,9 +463,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       {/* ─── 4 Executive Institutional KPI Cards (Sidebar Dark Navy Palette) ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Card 1: Active Enrollment */}
-        <div
+        <button
+          type="button"
           onClick={() => onNavigate('enrollment')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
+          className="text-left w-full bg-[#081A2F] border border-[#173252] hover:border-[#254B75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Students</span>
@@ -473,7 +475,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
           </div>
           <div className="my-2.5">
-            <div className="flex items-baseline gap-1.5">
+            <div className="flex items-baseline gap-1.5 flex-wrap">
               <span className="text-xl sm:text-2xl font-bold font-mono text-white">{activeStudents}</span>
               <span className="text-[11px] font-mono text-slate-400">/ {hasCapacity ? totalCapacity : '—'}</span>
             </div>
@@ -487,16 +489,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               )}
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252] w-full">
             <span>{batches.length} Batches</span>
             <span className="text-amber-400 font-semibold hover:underline">Directory →</span>
           </div>
-        </div>
+        </button>
 
         {/* Card 2: Fee Collections */}
-        <div
+        <button
+          type="button"
           onClick={() => onNavigate('voucher')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
+          className="text-left w-full bg-[#081A2F] border border-[#173252] hover:border-[#254B75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Collections</span>
@@ -505,8 +508,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
           </div>
           <div className="my-2.5">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-lg sm:text-2xl font-bold font-mono text-white truncate">
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              <span className="text-base sm:text-xl lg:text-2xl font-bold font-mono text-white break-words tracking-tight">
                 {money(totalCollected)}
               </span>
             </div>
@@ -514,16 +517,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <span className="font-mono font-semibold text-emerald-400">{feeRealizationPct}%</span> of {money(totalBilled)} billed
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252] w-full">
             <span className="text-rose-400 font-semibold font-mono">{overdueInvoices.length} Overdue</span>
             <span className="text-amber-400 font-semibold hover:underline">Cashier →</span>
           </div>
-        </div>
+        </button>
 
         {/* Card 3: Student Attendance Today */}
-        <div
+        <button
+          type="button"
           onClick={() => onNavigate('attendance')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
+          className="text-left w-full bg-[#081A2F] border border-[#173252] hover:border-[#254B75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Attendance</span>
@@ -532,7 +536,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
           </div>
           <div className="my-2.5">
-            <div className="flex items-baseline gap-1.5">
+            <div className="flex items-baseline gap-1.5 flex-wrap">
               <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {isAttendanceSubmittedToday ? `${attendanceRate}%` : 'Pending'}
               </span>
@@ -546,16 +550,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               {absentCount > 0 ? `${absentCount} Absent • ` : ''}{lateCount > 0 ? `${lateCount} Late • ` : ''}{markedBatchesCount}/{batches.length} Marked
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252] w-full">
             <span>{unmarkedBatches.length > 0 ? `${unmarkedBatches.length} Pending` : 'All Batches Marked'}</span>
             <span className="text-amber-400 font-semibold hover:underline">Register →</span>
           </div>
-        </div>
+        </button>
 
         {/* Card 4: Faculty & Staff Roster */}
-        <div
+        <button
+          type="button"
           onClick={() => onNavigate('geofence')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
+          className="text-left w-full bg-[#081A2F] border border-[#173252] hover:border-[#254B75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Staff present</span>
@@ -564,7 +569,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
           </div>
           <div className="my-2.5">
-            <div className="flex items-baseline gap-1.5">
+            <div className="flex items-baseline gap-1.5 flex-wrap">
               <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {presentStaffCount} <span className="text-sm font-normal text-slate-400 font-sans">/ {totalStaffCount}</span>
               </span>
@@ -576,20 +581,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               {lateStaffCount > 0 ? `${lateStaffCount} Late • ` : ''}{halfDayStaffCount > 0 ? `${halfDayStaffCount} Half Day • ` : ''}{leaveStaffCount > 0 ? `${leaveStaffCount} Leave • ` : ''}Active On Duty
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252] w-full">
             <span>{timetableSlots.length} Periods Today</span>
             <span className="text-amber-400 font-semibold hover:underline">Roster →</span>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* ─── Operational Alerts (Attention Strips) ─── */}
       {(unmarkedBatches.length > 0 || overdueInvoices.length > 0) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {unmarkedBatches.length > 0 && (
-            <div
+            <button
+              type="button"
               onClick={() => onNavigate('attendance')}
-              className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-2xl flex items-center justify-between gap-3 text-xs cursor-pointer hover:bg-amber-100/70 transition-colors"
+              className="text-left w-full p-3 bg-amber-50/80 border border-amber-200/80 rounded-2xl flex items-center justify-between gap-3 text-xs cursor-pointer hover:bg-amber-100/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
@@ -602,13 +608,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <span className="font-semibold text-amber-800 shrink-0 hover:underline">
                 Mark Roll Call →
               </span>
-            </div>
+            </button>
           )}
 
           {overdueInvoices.length > 0 && (
-            <div
+            <button
+              type="button"
               onClick={() => onNavigate('voucher')}
-              className="p-3 bg-rose-50/80 border border-rose-200/80 rounded-2xl flex items-center justify-between gap-3 text-xs cursor-pointer hover:bg-rose-100/70 transition-colors"
+              className="text-left w-full p-3 bg-rose-50/80 border border-rose-200/80 rounded-2xl flex items-center justify-between gap-3 text-xs cursor-pointer hover:bg-rose-100/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <CreditCard className="w-4 h-4 text-rose-700 shrink-0" />
@@ -619,7 +626,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               <span className="font-semibold text-rose-800 shrink-0 hover:underline">
                 Open Cashier →
               </span>
-            </div>
+            </button>
           )}
         </div>
       )}
@@ -663,7 +670,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-slate-900 truncate">{batch.name}</span>
-                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 capitalize">
+                        <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 capitalize">
                           {batch.shift || 'Morning'}
                         </span>
                       </div>
@@ -674,12 +681,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
 
                     <div className="flex items-center gap-2.5 shrink-0">
                       {isMarked ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold font-mono bg-emerald-50 text-emerald-700 border border-emerald-200">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                           Marked ({batchRate}%)
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                           Pending Roll Call
                         </span>
                       )}
@@ -782,17 +789,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-mono font-bold text-slate-900 text-[11px]">
+                        <span className="font-mono font-bold text-slate-900 text-xs">
                           {inv.invoice_number || 'INV-2026-0001'}
                         </span>
-                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200">
+                        <span className="px-1.5 py-0.5 rounded text-[10.5px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200">
                           {inv.status}
                         </span>
                       </div>
                       <p className="font-medium text-slate-700 truncate mt-0.5 text-xs">
                         {inv.student_name} • {inv.admission_number || 'A-101'}
                       </p>
-                      <p className="text-[10px] text-slate-400 font-mono">Due: {inv.due_date || 'Sep 15, 2026'}</p>
+                      <p className="text-[11px] text-slate-400 font-mono">Due: {inv.due_date || 'Sep 15, 2026'}</p>
                     </div>
 
                     <div className="text-right shrink-0">
@@ -802,7 +809,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                       <button
                         type="button"
                         onClick={() => onNavigate('voucher')}
-                        className="mt-1 px-2.5 py-0.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-semibold transition-colors cursor-pointer"
+                        className="mt-1 px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-semibold transition-colors cursor-pointer"
                       >
                         Receive
                       </button>
@@ -865,38 +872,38 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                         </div>
                         <div className="min-w-0">
                           <p className="font-semibold text-slate-900 truncate text-xs">{sName}</p>
-                          <p className="text-[10px] text-slate-400 truncate">{staff.designation || staff.department || 'Academic Faculty'}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{staff.designation || staff.department || 'Academic Faculty'}</p>
                         </div>
                       </div>
 
                       <div className="text-right shrink-0">
                         {isOnTime && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold font-mono uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
                             {timeStr ? `${timeStr} • ` : ''}On Time
                           </span>
                         )}
                         {isLate && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-amber-50 text-amber-700 border border-amber-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold font-mono uppercase bg-amber-50 text-amber-700 border border-amber-200">
                             {timeStr ? `${timeStr} • ` : ''}Late
                           </span>
                         )}
                         {isHalfDay && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-amber-50 text-amber-800 border border-amber-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold font-mono uppercase bg-amber-50 text-amber-800 border border-amber-200">
                             {timeStr ? `${timeStr} • ` : ''}Half Day
                           </span>
                         )}
                         {isOnLeave && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-slate-100 text-slate-600 border border-slate-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold font-mono uppercase bg-slate-100 text-slate-600 border border-slate-200">
                             On Leave
                           </span>
                         )}
                         {isAbsent && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-rose-50 text-rose-700 border border-rose-200">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold font-mono uppercase bg-rose-50 text-rose-700 border border-rose-200">
                             Absent
                           </span>
                         )}
                         {!isOnTime && !isLate && !isHalfDay && !isOnLeave && !isAbsent && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold font-mono uppercase bg-slate-100 text-slate-500">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold font-mono uppercase bg-slate-100 text-slate-500">
                             Not marked
                           </span>
                         )}
@@ -941,9 +948,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
       {/* Executive Desks Summary Bar: Homework, Inquiries Desk, and Examinations (Sidebar Dark Navy Palette) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Desk 1: Homework Diary */}
-        <div
+        <button
+          type="button"
           onClick={() => onNavigate('homework')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
+          className="text-left w-full bg-[#081A2F] border border-[#173252] hover:border-[#254B75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Academic Diary</span>
@@ -952,7 +960,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
           </div>
           <div className="my-2.5">
-            <div className="flex items-baseline gap-1.5">
+            <div className="flex items-baseline gap-1.5 flex-wrap">
               <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {todayHomework.length > 0 ? todayHomework.length : homeworkList.length}
               </span>
@@ -968,16 +976,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               )}
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252] w-full">
             <span>Diary & Notebooks</span>
             <span className="text-amber-400 font-semibold hover:underline">Open Desk →</span>
           </div>
-        </div>
+        </button>
 
         {/* Desk 2: Prospective Inquiries */}
-        <div
+        <button
+          type="button"
           onClick={() => onNavigate('inquiries')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
+          className="text-left w-full bg-[#081A2F] border border-[#173252] hover:border-[#254B75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Inquiries Desk</span>
@@ -986,7 +995,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
           </div>
           <div className="my-2.5">
-            <div className="flex items-baseline gap-1.5">
+            <div className="flex items-baseline gap-1.5 flex-wrap">
               <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {inquiriesList.length}
               </span>
@@ -1000,16 +1009,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
                 : 'No pending inquiries'}
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252] w-full">
             <span>Candidate Inquiries</span>
             <span className="text-amber-400 font-semibold hover:underline">Review Inquiries →</span>
           </div>
-        </div>
+        </button>
 
         {/* Desk 3: Examinations & Assessments */}
-        <div
+        <button
+          type="button"
           onClick={() => onNavigate('exams')}
-          className="bg-[#081A2F] border border-[#173252] hover:border-[#254B75] rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
+          className="text-left w-full bg-[#081A2F] border border-[#173252] hover:border-[#254B75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 rounded-2xl p-4 shadow-[0_4px_16px_rgba(8,26,47,0.22)] transition-all cursor-pointer flex flex-col justify-between"
         >
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">Examinations</span>
@@ -1018,7 +1028,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
             </div>
           </div>
           <div className="my-2.5">
-            <div className="flex items-baseline gap-1.5">
+            <div className="flex items-baseline gap-1.5 flex-wrap">
               <span className="text-xl sm:text-2xl font-bold font-mono text-white">
                 {exams.length}
               </span>
@@ -1034,11 +1044,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
               )}
             </p>
           </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252]">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-[#173252] w-full">
             <span>Assessment Results</span>
             <span className="text-amber-400 font-semibold hover:underline">Exams Desk →</span>
           </div>
-        </div>
+        </button>
       </div>
     </div>
   );

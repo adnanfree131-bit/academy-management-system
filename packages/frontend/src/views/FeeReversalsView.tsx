@@ -437,6 +437,11 @@ export const FeeReversalsView: React.FC = () => {
   const handleConfirmDeleteChallan = async () => {
     if (!deleteTargetChallan || !token) return;
 
+    if (deleteChallanReason.trim().length < 5) {
+      showNotification('error', 'A mandatory reason (at least 5 characters) is required for permanent deletion.');
+      return;
+    }
+
     try {
       setIsSubmittingDeleteChallan(true);
       const res = await fetch(`/api/v1/finance/invoices/${deleteTargetChallan.id}`, {
@@ -447,7 +452,7 @@ export const FeeReversalsView: React.FC = () => {
         },
         credentials: 'include',
         body: JSON.stringify({
-          reason: deleteChallanReason.trim() || 'Administrative deletion',
+          reason: deleteChallanReason.trim(),
         }),
       });
 
@@ -1021,10 +1026,10 @@ export const FeeReversalsView: React.FC = () => {
                                       setReverseTargetPayment(activePayment);
                                       setReversalReason('');
                                     }}
-                                    className="w-7 h-7 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center transition-colors cursor-pointer"
+                                    className="w-8 h-8 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center transition-colors cursor-pointer"
                                     title="Reverse received payment"
                                   >
-                                    <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
+                                    <RotateCcw className="w-4 h-4 text-amber-700" />
                                   </button>
                                 )}
 
@@ -1034,10 +1039,10 @@ export const FeeReversalsView: React.FC = () => {
                                     setDeleteTargetChallan(inv);
                                     setDeleteChallanReason('');
                                   }}
-                                  className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center transition-colors cursor-pointer"
+                                  className="w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 flex items-center justify-center transition-colors cursor-pointer"
                                   title="Permanently delete this fee challan"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
                             </td>
@@ -1515,6 +1520,17 @@ export const FeeReversalsView: React.FC = () => {
                   Deleting this fee will permanently remove Fee Challan <strong>{deleteTargetChallan.invoice_number}</strong> and any linked payment receipts.
                 </p>
                 <div className="p-2.5 bg-white/80 rounded-md border border-rose-200 space-y-1 font-mono text-[11px] text-slate-700">
+                  <div className="flex justify-between font-sans">
+                    <span className="text-slate-500">Student:</span>
+                    <span className="font-bold text-slate-900">
+                      {deleteTargetChallan.student_name || students.find(s => s.id === deleteTargetChallan.student_id)?.full_name || 'Enrolled Student'}
+                      {(deleteTargetChallan.admission_number || deleteTargetChallan.roll_number) ? ` (Adm: ${deleteTargetChallan.admission_number || deleteTargetChallan.roll_number})` : ''}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Month:</span>
+                    <span className="font-bold">{deleteTargetChallan.billing_month}</span>
+                  </div>
                   <div className="flex justify-between">
                     <span>Net Amount:</span>
                     <span className="font-bold">PKR {deleteTargetChallan.net_amount.toLocaleString()}</span>
@@ -1529,21 +1545,24 @@ export const FeeReversalsView: React.FC = () => {
                   </div>
                 </div>
                 <p className="text-[10px] text-rose-700">
-                  The fee record for this student will be completely wiped out.
+                  The fee record and audit trail for this student invoice will be permanently deleted.
                 </p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Reason for Deletion (Optional)
+                  Reason for Permanent Deletion <span className="text-rose-600">* (Required)</span>
                 </label>
                 <input
                   type="text"
                   value={deleteChallanReason}
                   onChange={e => setDeleteChallanReason(e.target.value)}
                   placeholder="e.g., Generated in error, revised challan issued, fee cancelled..."
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-600"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-rose-600"
                 />
+                {deleteChallanReason.trim().length > 0 && deleteChallanReason.trim().length < 5 && (
+                  <p className="text-[10px] text-rose-600 mt-1">Please enter a descriptive reason (at least 5 characters).</p>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
@@ -1557,11 +1576,11 @@ export const FeeReversalsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleConfirmDeleteChallan}
-                  disabled={isSubmittingDeleteChallan}
-                  className="h-8.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-semibold text-xs rounded-lg shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  disabled={isSubmittingDeleteChallan || deleteChallanReason.trim().length < 5}
+                  className="h-8.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-40 text-white font-semibold text-xs rounded-lg shadow-2xs flex items-center gap-1.5 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>{isSubmittingDeleteChallan ? 'Deleting...' : 'Delete Fee'}</span>
+                  <span>{isSubmittingDeleteChallan ? 'Deleting...' : 'Permanently Delete Fee'}</span>
                 </button>
               </div>
             </div>

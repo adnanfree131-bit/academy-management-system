@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Search, X, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { canOpenScreen } from '../lib/portalAccess';
 
@@ -36,15 +36,49 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
   const [students, setStudents] = useState<{ id: string; full_name: string; admission_number: string; guardian_name?: string; phone?: string }[]>([]);
   const [invoices, setInvoices] = useState<{ id: string; invoice_number: string; student_name?: string }[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+      inputRef.current?.focus();
+    } else {
       setQuery('');
       setActiveIndex(0);
-      return;
+      if (previouslyFocusedRef.current && document.body.contains(previouslyFocusedRef.current)) {
+        previouslyFocusedRef.current.focus();
+      }
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      } else if (e.key === 'Tab' && dialogRef.current) {
+        const focusableElements = dialogRef.current.querySelectorAll<HTMLElement>(
+          'input, button:not([disabled])'
+        );
+        if (focusableElements.length === 0) return;
+        const firstEl = focusableElements[0];
+        const lastEl = focusableElements[focusableElements.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === firstEl) {
+            e.preventDefault();
+            lastEl.focus();
+          }
+        } else {
+          if (document.activeElement === lastEl) {
+            e.preventDefault();
+            firstEl.focus();
+          }
+        }
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -53,32 +87,35 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
   useEffect(() => {
     if (!open || !token || user?.role === 'super_admin') return;
     let cancelled = false;
-    fetch('/api/v1/sis/students', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(body => {
-        if (!cancelled && body.success && Array.isArray(body.data)) {
-          setStudents(body.data.map((s: any) => ({
-            id: s.id,
-            full_name: s.full_name,
-            admission_number: s.admission_number,
-            guardian_name: s.guardian_name,
-            phone: s.phone || s.guardian_phone,
-          })));
-        }
-      })
-      .catch(() => {});
-    fetch('/api/v1/finance/invoices', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(body => {
-        if (!cancelled && Array.isArray(body.data)) {
-          setInvoices(body.data.map((inv: any) => ({
-            id: inv.id,
-            invoice_number: inv.invoice_number,
-            student_name: inv.student_name,
-          })));
-        }
-      })
-      .catch(() => {});
+    setLoading(true);
+    Promise.allSettled([
+      fetch('/api/v1/sis/students', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(body => {
+          if (!cancelled && body.success && Array.isArray(body.data)) {
+            setStudents(body.data.map((s: any) => ({
+              id: s.id,
+              full_name: s.full_name,
+              admission_number: s.admission_number,
+              guardian_name: s.guardian_name,
+              phone: s.phone || s.guardian_phone,
+            })));
+          }
+        }),
+      fetch('/api/v1/finance/invoices', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(body => {
+          if (!cancelled && Array.isArray(body.data)) {
+            setInvoices(body.data.map((inv: any) => ({
+              id: inv.id,
+              invoice_number: inv.invoice_number,
+              student_name: inv.student_name,
+            })));
+          }
+        })
+    ]).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
     return () => { cancelled = true; };
   }, [open, token, user?.role]);
 
@@ -147,8 +184,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] no-sheet-overlay bg-slate-900/50 backdrop-blur-xs flex md:items-start justify-center md:pt-[10vh] p-0 md:px-4 animate-in fade-in duration-150" onClick={onClose}>
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Quick search and navigation"
+      className="fixed inset-0 z-[80] no-sheet-overlay bg-slate-900/50 backdrop-blur-xs flex md:items-start justify-center md:pt-[10vh] p-0 md:px-4 animate-in fade-in duration-150"
+      onClick={onClose}
+    >
       <div
+        ref={dialogRef}
         className="w-full md:max-w-lg bg-white h-full md:h-auto md:rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
         onClick={e => e.stopPropagation()}
       >
@@ -156,6 +200,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
         <div className="flex items-center gap-2 px-3 sm:px-4 py-3 border-b border-slate-200 bg-white">
           <Search className="w-4 h-4 text-slate-400 shrink-0" />
           <input
+            ref={inputRef}
             autoFocus
             type="search"
             placeholder="Search students, challans, or pages..."
@@ -179,6 +224,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
             <button 
               type="button" 
               onClick={() => setQuery('')} 
+              aria-label="Clear search query"
               className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
             >
               <X className="w-4 h-4" />
@@ -194,6 +240,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
           <button 
             type="button" 
             onClick={onClose} 
+            aria-label="Close command palette"
             className="hidden md:block p-1 text-slate-400 hover:text-slate-700"
           >
             <X className="w-4 h-4" />
@@ -209,6 +256,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
               <p className="text-xs text-slate-400 max-w-xs mx-auto">
                 Quickly locate student records, fee vouchers, or jump directly to any operational desk.
               </p>
+            </div>
+          ) : loading && items.length === 0 ? (
+            <div className="px-4 py-10 text-center space-y-2">
+              <Loader2 className="w-6 h-6 text-indigo-500 animate-spin mx-auto" />
+              <p className="text-xs font-medium text-slate-500">Searching academy records...</p>
             </div>
           ) : items.length === 0 ? (
             <div className="px-4 py-10 text-center space-y-1">

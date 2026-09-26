@@ -19,6 +19,7 @@ import {
   BarChart2,
   MessageSquare,
   AlertCircle,
+  AlertTriangle,
   Check,
   Eye,
   ArrowUp,
@@ -79,6 +80,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
   const [programs, setPrograms] = useState<any[]>([]);
   const [academySettings, setAcademySettings] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [dataLoadError, setDataLoadError] = useState<string | null>(null);
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedBatch, setSelectedBatch] = useState<string>('all');
@@ -372,6 +374,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
   const fetchData = async () => {
     if (!token) return;
     setIsLoading(true);
+    setDataLoadError(null);
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
@@ -390,6 +393,10 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
         safeFetch('/api/v1/finance/payments'),
       ]);
       clearTimeout(timeoutId);
+
+      if (!invRes || !invRes.ok || !studRes || !studRes.ok) {
+        setDataLoadError('Failed to retrieve student invoices or student accounts from server.');
+      }
 
       if (invRes && invRes.ok) setInvoices((await invRes.json()).data || []);
       if (payRes && payRes.ok) setPayments((await payRes.json()).data || []);
@@ -432,6 +439,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
       if (progRes && progRes.ok) setPrograms((await progRes.json()).data || []);
     } catch (err) {
       console.error('Failed to load fee data:', err);
+      setDataLoadError('Network error connecting to fee records.');
     } finally {
       setIsLoading(false);
     }
@@ -2669,6 +2677,19 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
                   label="Loading fee register & outstanding accounts..."
                   hint="Retrieving students, invoice ledgers, and cashier heads"
                 />
+              ) : dataLoadError ? (
+                <div className="bg-rose-50 border border-rose-200 rounded-xl shadow-2xs py-8 text-center text-rose-800 text-xs space-y-2">
+                  <AlertTriangle className="w-7 h-7 mx-auto text-rose-500" />
+                  <p className="font-semibold text-rose-900">{dataLoadError}</p>
+                  <p className="text-[11px] text-rose-700">Check server connection or network status.</p>
+                  <button
+                    type="button"
+                    onClick={fetchData}
+                    className="mt-2 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold text-xs transition-colors cursor-pointer"
+                  >
+                    Retry Loading Register
+                  </button>
+                </div>
               ) : allUnpaidStudents.length === 0 ? (
                 <div className="bg-white border border-slate-200 rounded-xl shadow-2xs py-8 text-center text-slate-400 text-xs">
                   <CheckCircle2 className="w-7 h-7 mx-auto mb-1.5 text-emerald-500" />

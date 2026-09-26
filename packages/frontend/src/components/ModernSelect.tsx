@@ -91,6 +91,8 @@ export const ModernSelect: React.FC<ModernSelectProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [openUpward, setOpenUpward] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const optionsListRef = useRef<HTMLDivElement>(null);
 
   // Extract option list either from explicit options prop or children <option> tags
   const resolvedOptions = useMemo<ModernSelectOption[]>(() => {
@@ -123,6 +125,28 @@ export const ModernSelect: React.FC<ModernSelectProps> = ({
     );
   }, [resolvedOptions, searchTerm]);
 
+  // Sync highlightedIndex when opening or when filtered options change
+  useEffect(() => {
+    if (isOpen) {
+      const idx = filteredOptions.findIndex(o => o.value === value);
+      setHighlightedIndex(idx >= 0 ? idx : 0);
+    } else {
+      setHighlightedIndex(-1);
+    }
+  }, [isOpen, filteredOptions, value]);
+
+  // Scroll highlighted option into view
+  useEffect(() => {
+    if (isOpen && highlightedIndex >= 0 && optionsListRef.current) {
+      const optionEl = optionsListRef.current.querySelector(
+        `#${selectId}-opt-${highlightedIndex}`
+      );
+      if (optionEl) {
+        (optionEl as HTMLElement).scrollIntoView({ block: 'nearest' });
+      }
+    }
+  }, [isOpen, highlightedIndex, selectId]);
+
   // Check positioning on open to flip upwards if close to viewport bottom
   useEffect(() => {
     if (isOpen && containerRef.current) {
@@ -135,8 +159,6 @@ export const ModernSelect: React.FC<ModernSelectProps> = ({
       } else {
         setOpenUpward(false);
       }
-
-      // Do not auto-focus search input to avoid mobile virtual keyboard popup and viewport jerk
     } else {
       setSearchTerm('');
     }
@@ -158,16 +180,48 @@ export const ModernSelect: React.FC<ModernSelectProps> = ({
     };
   }, [isOpen]);
 
-  // Handle keyboard events (Escape to close, Enter to toggle)
+  // Handle keyboard events (ArrowUp, ArrowDown, Home, End, Escape, Enter, Space)
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (disabled) return;
-    if (e.key === 'Escape') {
-      setIsOpen(false);
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      if (!isOpen) {
+    if (!isOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         setIsOpen(true);
       }
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsOpen(false);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(prev => {
+        const next = prev + 1;
+        return next >= filteredOptions.length ? 0 : next;
+      });
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => {
+        const next = prev - 1;
+        return next < 0 ? filteredOptions.length - 1 : next;
+      });
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setHighlightedIndex(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setHighlightedIndex(Math.max(0, filteredOptions.length - 1));
+    } else if (e.key === 'Enter' || (e.key === ' ' && !isSearchable)) {
+      e.preventDefault();
+      if (highlightedIndex >= 0 && highlightedIndex < filteredOptions.length) {
+        const opt = filteredOptions[highlightedIndex];
+        if (!opt.disabled) {
+          handleSelect(opt.value, opt.disabled);
+        }
+      }
+    } else if (e.key === 'Tab') {
+      setIsOpen(false);
     }
   };
 
@@ -181,6 +235,10 @@ export const ModernSelect: React.FC<ModernSelectProps> = ({
   // Determine display label
   const displayLabel = selectedOption?.label || (value ? value : placeholder);
   const isPlaceholder = !selectedOption && !value;
+  const activeDescendantId =
+    isOpen && highlightedIndex >= 0 && filteredOptions[highlightedIndex]
+      ? `${selectId}-opt-${highlightedIndex}`
+      : undefined;
 
   return (
     <div
@@ -188,17 +246,12 @@ export const ModernSelect: React.FC<ModernSelectProps> = ({
       className={`relative inline-block w-full text-left font-sans ${className}`}
       onKeyDown={handleKeyDown}
     >
-      {/* Hidden native input for form compatibility & HTML5 required validation */}
-      {required && (
+      {/* Native hidden form input for form submission without invalid un-focusable control crashes */}
+      {name && (
         <input
-          type="text"
+          type="hidden"
           name={name}
           value={value}
-          required={required}
-          readOnly
-          tabIndex={-1}
-          className="sr-only opacity-0 absolute pointer-events-none"
-          aria-hidden="true"
         />
       )}
 
@@ -209,6 +262,9 @@ export const ModernSelect: React.FC<ModernSelectProps> = ({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={ariaLabel || displayLabel}
+        aria-required={required}
+        aria-invalid={required && !value ? true : undefined}
+        aria-activedescendant={activeDescendantId}
         disabled={disabled}
         onClick={() => !disabled && setIsOpen(prev => !prev)}
         className={`group w-full flex items-center justify-between gap-2 px-2.5 py-1.5 min-h-[32px] sm:min-h-[34px] text-xs rounded-lg border transition-all duration-150 text-left select-none ${
@@ -216,6 +272,8 @@ export const ModernSelect: React.FC<ModernSelectProps> = ({
             ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
             : isOpen
             ? 'bg-white border-indigo-500 ring-2 ring-indigo-500/15 text-slate-800 shadow-sm'
+            : required && !value
+            ? 'bg-white border-slate-200 hover:border-slate-300 text-slate-800 hover:bg-slate-50/50'
             : 'bg-white border-slate-200 hover:border-slate-300 text-slate-800 hover:bg-slate-50/50'
         } ${buttonClassName}`}
       >
@@ -281,27 +339,35 @@ export const ModernSelect: React.FC<ModernSelectProps> = ({
           )}
 
           {/* Options List */}
-          <div className="max-h-56 overflow-y-auto p-1 space-y-0.5 divide-y divide-transparent">
+          <div
+            ref={optionsListRef}
+            className="max-h-56 overflow-y-auto p-1 space-y-0.5 divide-y divide-transparent"
+          >
             {filteredOptions.length === 0 ? (
               <div className="px-3 py-3.5 text-center text-xs text-slate-400 font-normal">
                 {searchTerm ? 'No options match your search' : 'No options available'}
               </div>
             ) : (
-              filteredOptions.map(opt => {
+              filteredOptions.map((opt, idx) => {
                 const isSelected = opt.value === value;
+                const isHighlighted = highlightedIndex === idx;
                 return (
                   <button
-                    key={opt.value || '__empty__'}
+                    key={opt.value || `__empty_${idx}__`}
+                    id={`${selectId}-opt-${idx}`}
                     type="button"
                     role="option"
                     aria-selected={isSelected}
                     disabled={opt.disabled}
                     onClick={() => handleSelect(opt.value, opt.disabled)}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
                     className={`w-full text-left px-2.5 py-1.5 text-xs rounded-lg flex items-center justify-between gap-2 transition-colors ${
                       opt.disabled
                         ? 'opacity-40 cursor-not-allowed text-slate-400 bg-transparent'
                         : isSelected
-                        ? 'bg-indigo-50/90 text-indigo-950 font-semibold shadow-xs'
+                        ? 'bg-indigo-50 text-indigo-950 font-semibold shadow-xs ring-1 ring-indigo-500/20'
+                        : isHighlighted
+                        ? 'bg-slate-100/90 text-slate-900 font-medium'
                         : 'text-slate-700 hover:bg-slate-100/70 hover:text-slate-900 font-medium'
                     }`}
                   >

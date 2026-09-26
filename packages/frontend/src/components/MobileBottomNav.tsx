@@ -13,12 +13,15 @@ import {
   Users
 } from 'lucide-react';
 import { hapticLight, hapticSelection } from '../lib/haptics';
+import { canOpenScreen, UserAccessMap } from '../lib/portalAccess';
 
 interface MobileBottomNavProps {
   currentScreen: string;
   onSelectScreen: (screen: string) => void;
   onOpenMenu: () => void;
   userRole?: string;
+  permissions?: string[];
+  userAccess?: UserAccessMap | null;
 }
 
 interface NavItem {
@@ -33,7 +36,9 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   currentScreen,
   onSelectScreen,
   onOpenMenu,
-  userRole = 'tenant_admin'
+  userRole = 'tenant_admin',
+  permissions,
+  userAccess,
 }) => {
   const isSuperAdmin = userRole === 'super_admin';
 
@@ -66,8 +71,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       ];
     }
 
-    // Default: Tenant admin / staff
-    return [
+    // Default: Tenant admin / staff - filter items by granular permissions
+    const defaultItems: NavItem[] = [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { id: 'attendance', label: 'Attendance', icon: CheckSquare },
       { 
@@ -79,6 +84,11 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
       { id: 'voucher', label: 'Fees', icon: CreditCard },
       { id: 'menu', label: 'Menu', icon: Menu, isMenu: true }
     ];
+
+    return defaultItems.filter(item => {
+      if (item.isMenu || item.id === 'dashboard') return true;
+      return canOpenScreen(userRole, permissions, item.id, userAccess);
+    });
   };
 
   const navItems = getNavItems();

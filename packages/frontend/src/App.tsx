@@ -499,6 +499,8 @@ const MainLayout: React.FC = () => {
           onSelectScreen={handleSwitchScreen}
           onOpenMenu={() => setSidebarOpen(true)}
           userRole={user.role}
+          permissions={user.permissions}
+          userAccess={user.access}
         />
       </div>
     </div>
