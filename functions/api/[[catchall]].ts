@@ -9,7 +9,7 @@ interface PagesContext {
 
 export const onRequest = async (context: PagesContext): Promise<Response> => {
   const url = new URL(context.request.url);
-  const targetHost = context.env.BACKEND_API_URL || 'https://wexnnnk2o5ofejgoyr0ym2fh.47.128.148.81.sslip.io';
+  const targetHost = context.env.BACKEND_API_URL || 'https://wexnnnk2o5ofejgoyr0ym2fh.13.127.22.122.sslip.io';
   const targetUrl = `${targetHost}${url.pathname}${url.search}`;
   const targetHostname = new URL(targetHost).host;
 

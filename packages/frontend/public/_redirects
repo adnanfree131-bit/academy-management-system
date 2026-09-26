@@ -2,7 +2,7 @@
 # CLOUDFLARE PAGES REDIRECTS & EDGE REVERSE PROXY
 # ==============================================================================
 # 1. API Reverse Proxy: forwards all API calls from any subdomain to Render backend
-/api/*  https://wexnnnk2o5ofejgoyr0ym2fh.47.128.148.81.sslip.io/api/:splat  200
+/api/*  https://wexnnnk2o5ofejgoyr0ym2fh.13.127.22.122.sslip.io/api/:splat  200
 
 # 2. SPA Fallback: guarantees client-side React router works on direct page refresh
 /*      /index.html                                                 200
