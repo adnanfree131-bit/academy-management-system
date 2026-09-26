@@ -106,12 +106,11 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [selectedProgramFilter, setSelectedProgramFilter] = useState<string>('all');
   const [selectedBatchFilter, setSelectedBatchFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [inquiryStageFilter, setInquiryStageFilter] = useState<string>('all');
+  const [inquiryStatusTab, setInquiryStatusTab] = useState<'active' | 'follow_up' | 'new' | 'admitted' | 'closed' | 'all'>('active');
   const [inquirySearchQuery, setInquirySearchQuery] = useState('');
-  const [inquiryUrgencyFilter, setInquiryUrgencyFilter] = useState<'all' | 'overdue' | 'today' | 'upcoming'>('all');
-  const [inquiryPriorityFilter, setInquiryPriorityFilter] = useState<string>('all');
   const [inquiryProgramFilter, setInquiryProgramFilter] = useState<string>('all');
-  const [inquirySourceFilter, setInquirySourceFilter] = useState<string>('all');
+  const [inquiryPage, setInquiryPage] = useState(1);
+  const INQUIRY_PAGE_SIZE = 25;
   const [editingInquiry, setEditingInquiry] = useState<StudentInquiry | null>(null);
   const [activeTimelineInquiry, setActiveTimelineInquiry] = useState<StudentInquiry | null>(null);
   const [closeInquiryModal, setCloseInquiryModal] = useState<StudentInquiry | null>(null);
@@ -128,7 +127,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
   // Native Mobile Drawer / Sheet States
   const [showDirectoryFilters, setShowDirectoryFilters] = useState(false);
-  const [showInquiryFilters, setShowInquiryFilters] = useState(false);
   const [showOverviewCards, setShowOverviewCards] = useState(false);
   const [mobileActionStudent, setMobileActionStudent] = useState<Student | null>(null);
   const [showModuleMenu, setShowModuleMenu] = useState(false);
@@ -253,7 +251,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     guardian_id_card: '',
     program_id: '',
     batch_id: '',
-    preferred_shift: 'morning' as 'morning' | 'evening' | 'both',
     source: 'Walk-in',
     priority: 'medium' as InquiryPriority,
     next_follow_up_date: '',
@@ -718,33 +715,23 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
 
   const inquiryKPIs = useMemo(() => {
     const total = inquiries.length;
+    const active = inquiries.filter(i => i.stage !== 'admitted' && i.stage !== 'closed').length;
     const newCount = inquiries.filter(i => i.stage === 'new').length;
     const followUpAction = inquiries.filter(i => 
       i.stage !== 'admitted' && 
       i.stage !== 'closed' && 
-      Boolean(i.next_follow_up_date) && 
-      i.next_follow_up_date! <= todayStr
-    ).length;
-    const trialAndDiscussion = inquiries.filter(i => 
-      ['trial_scheduled', 'trial_attended', 'fee_discussion'].includes(i.stage)
+      ((Boolean(i.next_follow_up_date) && i.next_follow_up_date! <= todayStr) || i.stage === 'follow_up')
     ).length;
     const converted = inquiries.filter(i => i.stage === 'admitted').length;
-    return { total, newCount, followUpAction, trialAndDiscussion, converted };
+    const closed = inquiries.filter(i => i.stage === 'closed').length;
+    return { total, active, newCount, followUpAction, converted, closed };
   }, [inquiries, todayStr]);
 
-  const activeInquiryFilterCount = useMemo(() => {
-    let count = 0;
-    if (inquiryUrgencyFilter !== 'all') count++;
-    if (inquiryProgramFilter !== 'all') count++;
-    if (inquiryPriorityFilter !== 'all') count++;
-    if (inquirySourceFilter !== 'all') count++;
-    return count;
-  }, [inquiryUrgencyFilter, inquiryProgramFilter, inquiryPriorityFilter, inquirySourceFilter]);
-
-  // Comprehensive Filtered Inquiries
+  // Clean, Decoupled Filtered Inquiries
   const filteredInquiries = useMemo(() => {
     return inquiries.filter(i => {
-      const q = (inquirySearchQuery || searchQuery || '').toLowerCase().trim();
+      // 1. Independent inquiry search (no bleed from directory searchQuery)
+      const q = (inquirySearchQuery || '').toLowerCase().trim();
       const matchesSearch = 
         !q ||
         (i.student_name || '').toLowerCase().includes(q) ||
@@ -752,23 +739,36 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         (i.phone || '').includes(q) ||
         (i.guardian_name || '').toLowerCase().includes(q);
 
-      const matchesStage = inquiryStageFilter === 'all' || i.stage === inquiryStageFilter;
-      const matchesPriority = inquiryPriorityFilter === 'all' || i.priority === inquiryPriorityFilter;
-      const matchesProgram = inquiryProgramFilter === 'all' || i.program_id === inquiryProgramFilter;
-      const matchesSource = inquirySourceFilter === 'all' || i.source === inquirySourceFilter;
+      if (!matchesSearch) return false;
 
-      let matchesUrgency = true;
-      if (inquiryUrgencyFilter === 'today') {
-        matchesUrgency = i.next_follow_up_date === todayStr;
-      } else if (inquiryUrgencyFilter === 'overdue') {
-        matchesUrgency = Boolean(i.next_follow_up_date) && i.next_follow_up_date! < todayStr && i.stage !== 'admitted' && i.stage !== 'closed';
-      } else if (inquiryUrgencyFilter === 'upcoming') {
-        matchesUrgency = Boolean(i.next_follow_up_date) && i.next_follow_up_date! > todayStr;
+      // 2. Class/Program filter
+      if (inquiryProgramFilter !== 'all' && i.program_id !== inquiryProgramFilter) {
+        return false;
       }
 
-      return matchesSearch && matchesStage && matchesPriority && matchesProgram && matchesSource && matchesUrgency;
+      // 3. Status tab filter
+      const isDueOrOverdue = Boolean(i.next_follow_up_date) && i.next_follow_up_date! <= todayStr;
+      if (inquiryStatusTab === 'active') {
+        return i.stage !== 'admitted' && i.stage !== 'closed';
+      } else if (inquiryStatusTab === 'follow_up') {
+        return i.stage !== 'admitted' && i.stage !== 'closed' && (isDueOrOverdue || i.stage === 'follow_up');
+      } else if (inquiryStatusTab === 'new') {
+        return i.stage === 'new';
+      } else if (inquiryStatusTab === 'admitted') {
+        return i.stage === 'admitted';
+      } else if (inquiryStatusTab === 'closed') {
+        return i.stage === 'closed';
+      }
+
+      return true; // 'all'
     });
-  }, [inquiries, searchQuery, inquirySearchQuery, inquiryStageFilter, inquiryPriorityFilter, inquiryProgramFilter, inquirySourceFilter, inquiryUrgencyFilter, todayStr]);
+  }, [inquiries, inquirySearchQuery, inquiryProgramFilter, inquiryStatusTab, todayStr]);
+
+  const totalInquiryPages = Math.max(1, Math.ceil(filteredInquiries.length / INQUIRY_PAGE_SIZE));
+  const paginatedInquiries = useMemo(() => {
+    const start = (inquiryPage - 1) * INQUIRY_PAGE_SIZE;
+    return filteredInquiries.slice(start, start + INQUIRY_PAGE_SIZE);
+  }, [filteredInquiries, inquiryPage]);
 
   // Handle Inquiry Stage Update
   const handleUpdateStage = async (inquiryId: string, newStage: InquiryStage) => {
@@ -1086,7 +1086,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       guardian_id_card: '',
       program_id: '',
       batch_id: '',
-      preferred_shift: 'morning',
       source: 'Walk-in',
       priority: 'medium',
       next_follow_up_date: '',
@@ -1109,7 +1108,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       guardian_id_card: inq.guardian_id_card || '',
       program_id: inq.program_id || '',
       batch_id: inq.batch_id || '',
-      preferred_shift: (inq.preferred_shift as any) || 'morning',
       source: inq.source || 'Walk-in',
       priority: inq.priority || 'medium',
       next_follow_up_date: inq.next_follow_up_date || '',
@@ -1138,7 +1136,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         guardian_id_card: newInquiryForm.guardian_id_card || undefined,
         program_id: newInquiryForm.program_id || undefined,
         batch_id: newInquiryForm.batch_id || undefined,
-        preferred_shift: newInquiryForm.preferred_shift || undefined,
         source: newInquiryForm.source || 'Walk-in',
         priority: newInquiryForm.priority || 'medium',
         next_follow_up_date: newInquiryForm.next_follow_up_date || undefined,
@@ -3150,92 +3147,122 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       {/* ========================================================================= */}
       {activeTab === 'inquiries' && (
         <div className="space-y-4">
-          {/* Inquiries Executive KPI Summary Strip */}
+          {/* Inquiries Executive KPI Status Tabs */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
             <div 
-              onClick={() => { setInquiryStageFilter('all'); setInquiryUrgencyFilter('all'); }}
-              className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] cursor-pointer"
+              onClick={() => { setInquiryStatusTab('active'); setInquiryPage(1); }}
+              className={`rounded-xl px-3 py-2 flex items-center justify-between transition-all cursor-pointer ${
+                inquiryStatusTab === 'active'
+                  ? 'bg-[#0E2A4D] border-2 border-amber-500 shadow-[0_2px_12px_rgba(245,158,11,0.25)]'
+                  : 'bg-[#081A2F] border border-[#173252] hover:border-slate-500 shadow-[0_2px_8px_rgba(8,26,47,0.18)]'
+              }`}
             >
               <div>
-                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Total Inquiries</span>
-                <span className="font-mono font-bold text-white text-base">{inquiryKPIs.total}</span>
+                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Active Inquiries</span>
+                <span className="font-mono font-bold text-amber-400 text-base">{inquiryKPIs.active}</span>
               </div>
-              <span className="w-7 h-7 rounded-lg bg-white/10 text-white border border-white/10 flex items-center justify-center shrink-0">
+              <span className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+                inquiryStatusTab === 'active' ? 'bg-amber-500/20 text-amber-400 border-amber-500/40' : 'bg-white/10 text-amber-400 border-white/10'
+              }`}>
                 <HelpCircle className="w-3.5 h-3.5" />
               </span>
             </div>
 
             <div 
-              onClick={() => { setInquiryStageFilter('new'); setInquiryUrgencyFilter('all'); }}
-              className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] cursor-pointer"
-            >
-              <div>
-                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">New Inquiries</span>
-                <span className="font-mono font-bold text-amber-400 text-base">{inquiryKPIs.newCount}</span>
-              </div>
-              <span className="w-7 h-7 rounded-lg bg-white/10 text-amber-400 border border-white/10 flex items-center justify-center shrink-0">
-                <UserPlus className="w-3.5 h-3.5" />
-              </span>
-            </div>
-
-            <div 
-              onClick={() => { setInquiryUrgencyFilter('overdue'); }}
-              className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] cursor-pointer"
+              onClick={() => { setInquiryStatusTab('follow_up'); setInquiryPage(1); }}
+              className={`rounded-xl px-3 py-2 flex items-center justify-between transition-all cursor-pointer ${
+                inquiryStatusTab === 'follow_up'
+                  ? 'bg-[#0E2A4D] border-2 border-rose-500 shadow-[0_2px_12px_rgba(244,63,94,0.25)]'
+                  : 'bg-[#081A2F] border border-[#173252] hover:border-slate-500 shadow-[0_2px_8px_rgba(8,26,47,0.18)]'
+              }`}
             >
               <div>
                 <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Follow-ups Due</span>
                 <span className="font-mono font-bold text-rose-400 text-base">{inquiryKPIs.followUpAction}</span>
               </div>
-              <span className="w-7 h-7 rounded-lg bg-white/10 text-rose-400 border border-white/10 flex items-center justify-center shrink-0">
+              <span className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+                inquiryStatusTab === 'follow_up' ? 'bg-rose-500/20 text-rose-400 border-rose-500/40' : 'bg-white/10 text-rose-400 border-white/10'
+              }`}>
                 <Clock className="w-3.5 h-3.5" />
               </span>
             </div>
 
             <div 
-              onClick={() => { setInquiryStageFilter('trial_scheduled'); }}
-              className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] cursor-pointer"
+              onClick={() => { setInquiryStatusTab('new'); setInquiryPage(1); }}
+              className={`rounded-xl px-3 py-2 flex items-center justify-between transition-all cursor-pointer ${
+                inquiryStatusTab === 'new'
+                  ? 'bg-[#0E2A4D] border-2 border-amber-500 shadow-[0_2px_12px_rgba(245,158,11,0.25)]'
+                  : 'bg-[#081A2F] border border-[#173252] hover:border-slate-500 shadow-[0_2px_8px_rgba(8,26,47,0.18)]'
+              }`}
             >
               <div>
-                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Trial Sessions</span>
-                <span className="font-mono font-bold text-indigo-300 text-base">{inquiryKPIs.trialAndDiscussion}</span>
+                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">New Arrivals</span>
+                <span className="font-mono font-bold text-white text-base">{inquiryKPIs.newCount}</span>
               </div>
-              <span className="w-7 h-7 rounded-lg bg-white/10 text-indigo-300 border border-white/10 flex items-center justify-center shrink-0">
-                <GraduationCap className="w-3.5 h-3.5" />
+              <span className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+                inquiryStatusTab === 'new' ? 'bg-white/20 text-white border-white/40' : 'bg-white/10 text-white border-white/10'
+              }`}>
+                <UserPlus className="w-3.5 h-3.5" />
               </span>
             </div>
 
             <div 
-              onClick={() => { setInquiryStageFilter('admitted'); }}
-              className="bg-[#081A2F] border border-[#173252] rounded-xl px-3 py-2 flex items-center justify-between shadow-[0_2px_8px_rgba(8,26,47,0.18)] col-span-2 sm:col-span-1 cursor-pointer"
+              onClick={() => { setInquiryStatusTab('admitted'); setInquiryPage(1); }}
+              className={`rounded-xl px-3 py-2 flex items-center justify-between transition-all cursor-pointer ${
+                inquiryStatusTab === 'admitted'
+                  ? 'bg-[#0E2A4D] border-2 border-emerald-500 shadow-[0_2px_12px_rgba(16,185,129,0.25)]'
+                  : 'bg-[#081A2F] border border-[#173252] hover:border-slate-500 shadow-[0_2px_8px_rgba(8,26,47,0.18)]'
+              }`}
             >
               <div>
-                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Admitted Students</span>
+                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Admitted</span>
                 <span className="font-mono font-bold text-emerald-400 text-base">{inquiryKPIs.converted}</span>
               </div>
-              <span className="w-7 h-7 rounded-lg bg-white/10 text-emerald-400 border border-white/10 flex items-center justify-center shrink-0">
+              <span className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+                inquiryStatusTab === 'admitted' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-white/10 text-emerald-400 border-white/10'
+              }`}>
                 <CheckCircle2 className="w-3.5 h-3.5" />
+              </span>
+            </div>
+
+            <div 
+              onClick={() => { setInquiryStatusTab('all'); setInquiryPage(1); }}
+              className={`rounded-xl px-3 py-2 flex items-center justify-between transition-all col-span-2 sm:col-span-1 cursor-pointer ${
+                inquiryStatusTab === 'all'
+                  ? 'bg-[#0E2A4D] border-2 border-slate-300 shadow-[0_2px_12px_rgba(255,255,255,0.15)]'
+                  : 'bg-[#081A2F] border border-[#173252] hover:border-slate-500 shadow-[0_2px_8px_rgba(8,26,47,0.18)]'
+              }`}
+            >
+              <div>
+                <span className="text-[10px] uppercase font-mono tracking-wider font-bold text-slate-400 block">Total Archive</span>
+                <span className="font-mono font-bold text-slate-200 text-base">{inquiryKPIs.total}</span>
+              </div>
+              <span className={`w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 ${
+                inquiryStatusTab === 'all' ? 'bg-white/20 text-slate-200 border-white/40' : 'bg-white/10 text-slate-300 border-white/10'
+              }`}>
+                <Archive className="w-3.5 h-3.5" />
               </span>
             </div>
           </div>
 
           {/* Inquiries Main Control Panel Card */}
           <div className="bg-white border border-slate-200 rounded-xl shadow-2xs relative z-20">
-            {/* Top Toolbar: Search + Stage Select + Filter Button + Log New Inquiry */}
-            <div className="p-3 bg-white">
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
+            {/* Top Toolbar: Search + Program Filter + Reset + Log New Inquiry */}
+            <div className="p-3 bg-white border-b border-slate-100">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative flex-1 min-w-[200px]">
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={inquirySearchQuery}
-                    onChange={e => setInquirySearchQuery(e.target.value)}
-                    placeholder="Search inquiries by candidate name, phone, guardian, inquiry number..."
+                    onChange={e => { setInquirySearchQuery(e.target.value); setInquiryPage(1); }}
+                    placeholder="Search candidate name, phone, guardian, inquiry #..."
                     className="w-full pl-8 pr-7 py-2 sm:py-1.5 text-xs bg-slate-50 hover:bg-slate-100/50 focus:bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 transition-colors font-sans text-slate-900"
                   />
                   {inquirySearchQuery && (
                     <button
                       type="button"
-                      onClick={() => setInquirySearchQuery('')}
+                      onClick={() => { setInquirySearchQuery(''); setInquiryPage(1); }}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -3243,136 +3270,44 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   )}
                 </div>
 
-                {/* Stage Quick Selector */}
+                {/* Direct Class / Program Filter */}
                 <select
-                  value={inquiryStageFilter}
-                  onChange={e => setInquiryStageFilter(e.target.value)}
+                  value={inquiryProgramFilter}
+                  onChange={e => { setInquiryProgramFilter(e.target.value); setInquiryPage(1); }}
                   className="px-2.5 py-2 sm:py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 shrink-0 cursor-pointer"
                 >
-                  <option value="all">All Stages ({inquiries.length})</option>
-                  <option value="new">New ({inquiries.filter(i => i.stage === 'new').length})</option>
-                  <option value="follow_up">Follow Up ({inquiries.filter(i => i.stage === 'follow_up').length})</option>
-                  <option value="trial_scheduled">Trial Scheduled ({inquiries.filter(i => i.stage === 'trial_scheduled').length})</option>
-                  <option value="trial_attended">Trial Attended ({inquiries.filter(i => i.stage === 'trial_attended').length})</option>
-                  <option value="fee_discussion">Fee Discussion ({inquiries.filter(i => i.stage === 'fee_discussion').length})</option>
-                  <option value="admitted">Admitted ({inquiries.filter(i => i.stage === 'admitted').length})</option>
-                  <option value="closed">Closed or Dropped ({inquiries.filter(i => i.stage === 'closed').length})</option>
+                  <option value="all">All Classes ({programs.length})</option>
+                  {programs.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
                 </select>
 
-                {/* Filter Toggle Button */}
-                <button
-                  type="button"
-                  onClick={() => setShowInquiryFilters(prev => !prev)}
-                  className={`w-9 h-9 sm:w-8 sm:h-8 rounded-lg border flex items-center justify-center transition-colors cursor-pointer shrink-0 relative ${
-                    showInquiryFilters || activeInquiryFilterCount > 0
-                      ? 'bg-amber-50 text-amber-900 border-amber-300'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                  }`}
-                  title="Toggle Filters"
-                  aria-label="Toggle Filters"
-                >
-                  <SlidersHorizontal className="w-4 h-4 text-slate-600" />
-                  {activeInquiryFilterCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] font-bold flex items-center justify-center">
-                      {activeInquiryFilterCount}
-                    </span>
-                  )}
-                </button>
+                {/* Reset Filter Button */}
+                {(inquiryProgramFilter !== 'all' || inquirySearchQuery || inquiryStatusTab !== 'active') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setInquiryProgramFilter('all');
+                      setInquirySearchQuery('');
+                      setInquiryStatusTab('active');
+                      setInquiryPage(1);
+                    }}
+                    className="px-2.5 py-2 sm:py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer shrink-0"
+                  >
+                    Reset
+                  </button>
+                )}
 
                 {/* Primary Action Button */}
                 <button
                   type="button"
                   onClick={handleOpenCreateInquiry}
-                  className="px-3 py-2 sm:py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+                  className="px-3 py-2 sm:py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0 ml-auto"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Log New Inquiry</span>
-                  <span className="sm:hidden">New</span>
+                  <span>Log New Inquiry</span>
                 </button>
               </div>
-
-              {/* Collapsible Filter Selectors */}
-              {showInquiryFilters && (
-                <div className="mt-3 pt-3 border-t border-slate-100 animate-in fade-in duration-150">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 min-w-[140px]">
-                      <span className="text-[11px] font-medium text-slate-500">Urgency:</span>
-                      <select
-                        value={inquiryUrgencyFilter}
-                        onChange={e => setInquiryUrgencyFilter(e.target.value as any)}
-                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
-                      >
-                        <option value="all">All Dates</option>
-                        <option value="overdue">Overdue Follow-ups</option>
-                        <option value="today">Due Today</option>
-                        <option value="upcoming">Upcoming</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 min-w-[140px]">
-                      <span className="text-[11px] font-medium text-slate-500">Program:</span>
-                      <select
-                        value={inquiryProgramFilter}
-                        onChange={e => setInquiryProgramFilter(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
-                      >
-                        <option value="all">All Programs ({programs.length})</option>
-                        {programs.map(p => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 min-w-[140px]">
-                      <span className="text-[11px] font-medium text-slate-500">Priority:</span>
-                      <select
-                        value={inquiryPriorityFilter}
-                        onChange={e => setInquiryPriorityFilter(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
-                      >
-                        <option value="all">All Priorities</option>
-                        <option value="high">High Priority</option>
-                        <option value="medium">Medium Priority</option>
-                        <option value="low">Low Priority</option>
-                      </select>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-xs text-slate-600 flex-1 min-w-[140px]">
-                      <span className="text-[11px] font-medium text-slate-500">Source:</span>
-                      <select
-                        value={inquirySourceFilter}
-                        onChange={e => setInquirySourceFilter(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-400 focus:bg-white"
-                      >
-                        <option value="all">All Sources</option>
-                        <option value="Walk-in">Walk-in Desk</option>
-                        <option value="Phone Call">Phone Call</option>
-                        <option value="Referral">Student Referral</option>
-                        <option value="Social Media">Social Media</option>
-                        <option value="Banner">Banner</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-
-                    {(inquiryUrgencyFilter !== 'all' || inquiryProgramFilter !== 'all' || inquiryPriorityFilter !== 'all' || inquirySourceFilter !== 'all' || inquiryStageFilter !== 'all' || inquirySearchQuery) && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setInquiryStageFilter('all');
-                          setInquiryUrgencyFilter('all');
-                          setInquiryProgramFilter('all');
-                          setInquiryPriorityFilter('all');
-                          setInquirySourceFilter('all');
-                          setInquirySearchQuery('');
-                        }}
-                        className="px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer shrink-0"
-                      >
-                        Reset Filters
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Desktop High-Density Table View */}
@@ -3383,7 +3318,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                     <th className="py-2.5 px-3 whitespace-nowrap min-w-[110px]">Inquiry #</th>
                     <th className="py-2.5 px-3">Candidate</th>
                     <th className="py-2.5 px-3">Parent and Contact</th>
-                    <th className="py-2.5 px-3">Class and Shift</th>
+                    <th className="py-2.5 px-3">Class and Batch</th>
                     <th className="py-2.5 px-3">Follow-up</th>
                     <th className="py-2.5 px-3">Stage</th>
                     <th className="py-2.5 px-3 text-right">Actions</th>
@@ -3399,7 +3334,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       </td>
                     </tr>
                   ) : (
-                    filteredInquiries.map(inq => {
+                    paginatedInquiries.map(inq => {
                       const prevSchool = inq.custom_field_values?.previous_school;
                       const prevMarks = inq.custom_field_values?.previous_marks;
                       const cleanWaPhone = cleanPhoneForWhatsApp(inq.phone);
@@ -3478,9 +3413,8 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             <div className="font-semibold text-slate-800">
                               {inq.program_id ? getProgramName(inq.program_id) : 'General Inquiry'}
                             </div>
-                            <div className="text-[10px] text-slate-500 font-mono capitalize">
-                              {inq.preferred_shift ? `${inq.preferred_shift} Shift` : 'Flexible Shift'}
-                              {inq.batch_id ? ` • ${getBatchName(inq.batch_id)}` : ''}
+                            <div className="text-[10px] text-slate-500 font-mono">
+                              {inq.batch_id ? getBatchName(inq.batch_id) : 'Unassigned Batch'}
                             </div>
                           </td>
 
@@ -3589,7 +3523,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   <p className="text-xs font-semibold text-slate-600">No inquiries found.</p>
                 </div>
               ) : (
-                filteredInquiries.map(inq => {
+                paginatedInquiries.map(inq => {
                   const cleanWaPhone = cleanPhoneForWhatsApp(inq.phone);
                   const isOverdue = Boolean(inq.next_follow_up_date) && inq.next_follow_up_date! < todayStr && inq.stage !== 'admitted' && inq.stage !== 'closed';
 
@@ -3675,6 +3609,40 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 })
               )}
             </div>
+
+            {/* Pagination Bar */}
+            {filteredInquiries.length > 0 && (
+              <div className="p-3 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600 bg-slate-50/50">
+                <div className="font-medium text-center sm:text-left">
+                  Showing <span className="font-bold text-slate-900">{(inquiryPage - 1) * INQUIRY_PAGE_SIZE + 1}</span> to{' '}
+                  <span className="font-bold text-slate-900">{Math.min(inquiryPage * INQUIRY_PAGE_SIZE, filteredInquiries.length)}</span> of{' '}
+                  <span className="font-bold text-slate-900">{filteredInquiries.length}</span> inquiries
+                </div>
+                {totalInquiryPages > 1 && (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      disabled={inquiryPage <= 1}
+                      onClick={() => setInquiryPage(p => Math.max(1, p - 1))}
+                      className="px-2.5 py-1 rounded bg-white border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold text-slate-700 cursor-pointer shadow-2xs"
+                    >
+                      Previous
+                    </button>
+                    <span className="px-2 py-1 font-mono font-bold text-slate-700">
+                      Page {inquiryPage} of {totalInquiryPages}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={inquiryPage >= totalInquiryPages}
+                      onClick={() => setInquiryPage(p => Math.min(totalInquiryPages, p + 1))}
+                      className="px-2.5 py-1 rounded bg-white border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed font-semibold text-slate-700 cursor-pointer shadow-2xs"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -6319,7 +6287,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Program of Interest</label>
                   <select
@@ -6353,18 +6321,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                       .map(b => (
                         <option key={b.id} value={b.id}>{b.name}</option>
                       ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Preferred Shift</label>
-                  <select
-                    value={newInquiryForm.preferred_shift}
-                    onChange={e => setNewInquiryForm(prev => ({ ...prev, preferred_shift: e.target.value as any }))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                  >
-                    <option value="morning">Morning Shift</option>
-                    <option value="evening">Evening Shift</option>
-                    <option value="both">Flexible Shifts</option>
                   </select>
                 </div>
               </div>
@@ -6489,9 +6445,6 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 </div>
                 <div className="text-xs text-slate-500 mt-0.5 flex flex-wrap items-center gap-2">
                   <span>{activeTimelineInquiry.program_id ? getProgramName(activeTimelineInquiry.program_id) : 'General Inquiry'}</span>
-                  {activeTimelineInquiry.preferred_shift && (
-                    <span>• {activeTimelineInquiry.preferred_shift} Shift</span>
-                  )}
                   {activeTimelineInquiry.phone && (
                     <span className="font-mono text-slate-700 font-semibold">• {activeTimelineInquiry.phone}</span>
                   )}
