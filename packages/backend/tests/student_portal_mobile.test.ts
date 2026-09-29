@@ -280,4 +280,62 @@ describe('Student & Parent Mobile Portal & Security Integrity Tests', () => {
     expect(validRes.json().success).toBe(true);
     expect(validRes.json().data.token).toBeDefined();
   });
+
+  it('10. GET /portal/student-parent as student with another student_id returns 403 UNAUTHORIZED_STUDENT_ACCESS', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/portal/student-parent?student_id=stud-2',
+      headers: { authorization: `Bearer ${studentToken}` },
+    });
+    expect(res.statusCode).toBe(403);
+    const body = res.json();
+    expect(body.success).toBe(false);
+    expect(body.error?.code).toBe('UNAUTHORIZED_STUDENT_ACCESS');
+  });
+
+  it('11. GET /portal/student-parent as parent with unrelated child student_id returns 403 UNAUTHORIZED_PARENT_ACCESS', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/portal/student-parent?student_id=stud-999-unrelated',
+      headers: { authorization: `Bearer ${parentToken}` },
+    });
+    expect(res.statusCode).toBe(403);
+    const body = res.json();
+    expect(body.success).toBe(false);
+    expect(body.error?.code).toBe('UNAUTHORIZED_PARENT_ACCESS');
+  });
+
+  it('12. PATCH /api/v1/academic/working-session as student returns 403 FORBIDDEN_ROLE', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/academic/working-session',
+      headers: { authorization: `Bearer ${studentToken}` },
+      payload: {
+        academic_session: '2025-2026',
+      },
+    });
+    expect(res.statusCode).toBe(403);
+    const body = res.json();
+    expect(body.success).toBe(false);
+    expect(body.error?.code).toBe('FORBIDDEN_ROLE');
+  });
+
+  it('13. GET /portal/student-parent as student returns student_profile.photo_url matching the stored photo', async () => {
+    const photoUrl = 'https://images.unsplash.com/photo-student-avatar-101.jpg';
+    const stud1 = store.students.find(s => s.id === 'stud-1' && s.tenant_id === TENANT_A_ID);
+    if (stud1) {
+      stud1.photo_url = photoUrl;
+    }
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/portal/student-parent',
+      headers: { authorization: `Bearer ${studentToken}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.success).toBe(true);
+    expect(body.data.student_profile).toBeDefined();
+    expect(body.data.student_profile.photo_url).toBe(photoUrl);
+  });
 });
