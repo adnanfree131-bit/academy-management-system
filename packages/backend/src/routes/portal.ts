@@ -95,9 +95,8 @@ export function portalRoutes(store: IDataStore) {
 
         // Strict Role-Based Identity Binding (Eliminates IDOR)
         if (user.role === 'student') {
-          const allStudents = await store.getStudents(tenantId);
-          const myStudent = allStudents.find(s => s.user_id && s.user_id === user.sub) ||
-            allStudents.find(s => s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase());
+          const myStudent = (await store.getStudentByUserId(tenantId, user.sub)) ||
+            (user.email ? await store.getStudentByEmail(tenantId, user.email) : null);
           if (!myStudent) {
             return reply.status(403).send({
               success: false,

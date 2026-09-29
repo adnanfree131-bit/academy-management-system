@@ -48,6 +48,8 @@ export interface StudentPortalProps {
   forcedTab?: 'schedule' | 'fees' | 'homework' | 'reports';
   studentId?: string | null;
   isAdminPreview?: boolean;
+  openProfileSheet?: boolean;
+  onCloseProfileSheet?: () => void;
 }
 
 const ALL_DAYS_OF_WEEK: { key: DayOfWeek; label: string }[] = [
@@ -65,7 +67,9 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   forcedTab, 
   onNavigate,
   studentId,
-  isAdminPreview 
+  isAdminPreview,
+  openProfileSheet,
+  onCloseProfileSheet,
 }) => {
   const { token, tenant, refreshSession } = useAuth();
   const [overview, setOverview] = useState<StudentParentPortalOverview | null>(null);
@@ -121,14 +125,29 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   const [passwordChangeSuccess, setPasswordChangeSuccess] = useState<string | null>(null);
   const [passwordChangeError, setPasswordChangeError] = useState<string | null>(null);
 
+  // Profile Sheet State
+  const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (openProfileSheet !== undefined) {
+      setShowProfileModal(openProfileSheet);
+    }
+  }, [openProfileSheet]);
+
+  const handleCloseProfileModal = () => {
+    setShowProfileModal(false);
+    onCloseProfileSheet?.();
+  };
+
   useMobileOverlay(
     'sheet',
-    Boolean(showLeaveModal || selectedChallanInvoice || printingReportCard || showChangePasswordModal),
+    Boolean(showLeaveModal || selectedChallanInvoice || printingReportCard || showChangePasswordModal || showProfileModal),
     () => {
       setShowLeaveModal(false);
       setSelectedChallanInvoice(null);
       setPrintingReportCard(null);
       setShowChangePasswordModal(false);
+      handleCloseProfileModal();
     }
   );
 
@@ -508,7 +527,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   const waUrl = cleanWa ? `https://wa.me/${cleanWa}?text=${encodeURIComponent(waMsg)}` : '#';
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-3 md:space-y-6 max-w-7xl mx-auto">
 
       {/* Administrative Preview Mode Notice */}
       {isAdminPreview && profile && (
@@ -532,9 +551,168 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
       )}
 
       {/* =====================================================================
-          1. PARENT & STUDENT HEADER CARD
+          1. PARENT & STUDENT HEADER CARD (PHONE: < md)
           ===================================================================== */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
+      <div className="md:hidden rounded-2xl overflow-hidden border border-slate-200 shadow-xs">
+        <div 
+          onClick={() => setShowProfileModal(true)}
+          className="bg-slate-900 text-white p-4 flex items-center gap-3 cursor-pointer select-none active:bg-slate-800"
+          title="View Student Profile"
+        >
+          {profile?.photo_url ? (
+            <img 
+              src={profile.photo_url} 
+              alt={profile.full_name} 
+              className="w-16 h-16 rounded-full object-cover border-2 border-white shrink-0 bg-slate-100" 
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xl font-mono shrink-0 border-2 border-slate-600">
+              {profile?.full_name?.charAt(0) || 'S'}
+            </div>
+          )}
+          
+          <div className="min-w-0 flex-1 space-y-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-white tracking-tight truncate">
+                {profile?.full_name || 'Student Profile'}
+              </h2>
+              <span className="px-2 py-0.5 bg-slate-800 text-slate-100 border border-slate-700 text-[11px] font-mono font-bold rounded-md shrink-0">
+                Adm #{profile?.admission_number || profile?.roll_number || '—'}
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-300 truncate">
+              Class: <strong className="text-white font-semibold">{profile?.program_name || '—'}</strong>
+              {profile?.batch_name && (
+                <> • Section: <strong className="text-white font-semibold">{profile.batch_name}</strong></>
+              )}
+              {profile?.shift && (
+                <> • <span className="capitalize">{profile.shift}</span></>
+              )}
+            </p>
+
+            {profile?.guardian_name && (
+              <p className="text-xs text-slate-400 truncate">
+                Guardian: <span className="text-slate-200">{profile.guardian_name}</span>
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100">
+          <div className="flex items-center gap-2">
+            {todayAttendance ? (
+              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
+                todayAttendance.status === 'PRESENT' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
+                todayAttendance.status === 'LATE' ? 'bg-amber-50 text-amber-800 border-amber-300' :
+                todayAttendance.status === 'EXCUSED' ? 'bg-blue-50 text-blue-800 border-blue-300' :
+                todayAttendance.status === 'HALF_DAY' ? 'bg-amber-50 text-amber-800 border-amber-300' :
+                'bg-rose-50 text-rose-800 border-rose-300'
+              }`}>
+                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                <span>
+                  {todayAttendance.status === 'PRESENT' ? 'Present in School Today' :
+                   todayAttendance.status === 'LATE' ? 'Arrived Late Today' :
+                   todayAttendance.status === 'HALF_DAY' ? 'Half Day Today' :
+                   todayAttendance.status === 'EXCUSED' ? 'Approved Leave Today' : 'Marked Absent Today'}
+                </span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                <Clock className="w-3 h-3 text-slate-400" />
+                <span>Regular Academic Session</span>
+              </span>
+            )}
+          </div>
+
+          <span className="text-[11px] text-slate-500 font-medium">
+            Monthly Attendance: <strong className="text-slate-900 font-bold font-mono">
+              {attendanceStats.pct !== null && attendanceStats.pct !== undefined ? `${attendanceStats.pct}%` : '—'}
+            </strong>
+          </span>
+        </div>
+
+        {/* Child Switcher on Phone */}
+        {overview?.linked_children && overview.linked_children.length > 1 && (
+          <div className="bg-slate-50 px-3 py-2 border-t border-slate-200 flex items-center gap-1.5 overflow-x-auto">
+            <Users className="w-3.5 h-3.5 text-slate-500 ml-1 shrink-0" />
+            <span className="text-[10px] uppercase font-bold text-slate-500 px-1 shrink-0">Child:</span>
+            {overview.linked_children.map(child => {
+              const isSelected = child.id === profile?.id;
+              return (
+                <button
+                  key={child.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedStudentId(child.id);
+                    setSelectedEnrollmentId('');
+                    fetchOverview(child.id, null);
+                  }}
+                  className={`min-h-11 px-3 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-white text-slate-700 border border-slate-200'
+                  }`}
+                >
+                  {child.photo_url ? (
+                    <img src={child.photo_url} alt={child.full_name} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${isSelected ? 'bg-amber-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                      {child.full_name.charAt(0)}
+                    </span>
+                  )}
+                  <span>{child.full_name}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Class Switcher on Phone */}
+        {overview?.enrollments && overview.enrollments.filter(e => e.status === 'active' || e.status === 'on_leave').length > 1 && (
+          <div className="bg-slate-50 px-3 py-2 border-t border-slate-200 flex items-center gap-1.5 overflow-x-auto">
+            <GraduationCap className="w-3.5 h-3.5 text-slate-500 ml-1 shrink-0" />
+            <span className="text-[10px] uppercase font-bold text-slate-500 px-1 shrink-0">Class:</span>
+            {overview.enrollments
+              .filter(enr => enr.status === 'active' || enr.status === 'on_leave')
+              .map(enr => {
+              const isSelected = enr.id === overview.selected_enrollment_id;
+              return (
+                <button
+                  key={enr.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedEnrollmentId(enr.id);
+                    fetchOverview(selectedStudentId, enr.id);
+                  }}
+                  className={`min-h-11 px-3 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isSelected
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-white text-slate-700 border border-slate-200'
+                  }`}
+                >
+                  <span>{enr.batch_name || enr.program_name}</span>
+                  {(enr.admission_number || enr.roll_number) && (
+                    <span className={`text-[10px] font-mono ${isSelected ? 'text-amber-100' : 'text-slate-500'}`}>
+                      ({enr.admission_number || enr.roll_number})
+                    </span>
+                  )}
+                  {enr.is_primary && (
+                    <span className={`text-[9px] px-1 py-0.2 rounded font-mono ${isSelected ? 'bg-amber-700 text-amber-100' : 'bg-slate-100 text-slate-600'}`}>
+                      Primary
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* =====================================================================
+          1. PARENT & STUDENT HEADER CARD (DESKTOP: md+)
+          ===================================================================== */}
+      <div className="hidden md:block bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           
           {/* Child Identity Info */}
@@ -580,6 +758,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
                     todayAttendance.status === 'PRESENT' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
                     todayAttendance.status === 'LATE' ? 'bg-amber-50 text-amber-800 border-amber-300' :
+                    todayAttendance.status === 'HALF_DAY' ? 'bg-amber-50 text-amber-800 border-amber-300' :
                     todayAttendance.status === 'EXCUSED' ? 'bg-blue-50 text-blue-800 border-blue-300' :
                     'bg-rose-50 text-rose-800 border-rose-300'
                   }`}>
@@ -587,7 +766,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                     <span>
                       {todayAttendance.status === 'PRESENT' ? 'Present in School Today' :
                        todayAttendance.status === 'LATE' ? 'Arrived Late Today' :
-                       (todayAttendance.status as any) === 'HALF_DAY' ? 'Half Day Today' :
+                       todayAttendance.status === 'HALF_DAY' ? 'Half Day Today' :
                        todayAttendance.status === 'EXCUSED' ? 'Approved Leave Today' : 'Marked Absent Today'}
                     </span>
                   </span>
@@ -689,7 +868,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 setConfirmPasswordInput('');
                 setShowChangePasswordModal(true);
               }}
-              className="h-8.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-2xs"
+              className="hidden md:inline-flex h-8.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer items-center justify-center gap-1.5 shadow-2xs"
             >
               <Key className="w-3.5 h-3.5 text-slate-500 shrink-0" />
               <span>Change Password</span>
@@ -702,10 +881,131 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           VIEW 1: CHILD OVERVIEW (PARENT'S MAIN DASHBOARD)
           ===================================================================== */}
       {currentView === 'student_portal' && (
-        <div className="space-y-6">
+        <div className="space-y-3 md:space-y-6">
 
-          {/* 4 Big, Friendly Visual Status Boxes (2x2 on phone) */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* 4 Big, Friendly Visual Status Boxes (Phone: < md) */}
+          <div className="md:hidden grid grid-cols-2 gap-3">
+
+            {/* 1. Fee Status (< md) */}
+            <button
+              type="button"
+              onClick={() => handleNavigateScreen('voucher')}
+              className={`w-full text-left rounded-2xl p-3.5 border transition-all space-y-1.5 shadow-2xs min-h-11 cursor-pointer ${
+                unpaidBalance === 0 
+                  ? 'bg-emerald-50/70 border-emerald-200' 
+                  : 'bg-rose-50/70 border-rose-200'
+              }`}
+            >
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">Tuition Fees</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${
+                  unpaidBalance === 0
+                    ? (invoices.length === 0 ? 'bg-slate-100 text-slate-700' : 'bg-emerald-200 text-emerald-900')
+                    : 'bg-rose-200 text-rose-900'
+                }`}>
+                  {unpaidBalance === 0 ? (invoices.length === 0 ? 'No Dues' : 'Fee Status: Fully Cleared') : 'Due'}
+                </span>
+              </div>
+              <div className={`text-lg font-bold font-mono ${unpaidBalance === 0 ? 'text-emerald-800' : 'text-rose-700'}`}>
+                {unpaidBalance === 0 ? 'PKR 0' : `PKR ${unpaidBalance.toLocaleString()}`}
+              </div>
+              <p className="text-xs text-slate-600 line-clamp-2">
+                {invoices.length === 0 && unpaidBalance === 0
+                  ? 'No payment receipts recorded yet.'
+                  : unpaidBalance === 0 
+                    ? 'Fee Status: Fully Cleared' 
+                    : 'Pending monthly fee. Please clear before due date.'}
+              </p>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1 pt-0.5">
+                <span>{unpaidBalance === 0 ? 'View Payment Receipts' : 'View Bank Details to Pay'}</span>
+                <ArrowRight className="w-3 h-3 shrink-0" />
+              </div>
+            </button>
+
+            {/* 2. Monthly Attendance (< md) */}
+            <button
+              type="button"
+              onClick={() => handleNavigateScreen('attendance')}
+              className="w-full text-left bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs space-y-1.5 min-h-11 cursor-pointer"
+            >
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">Attendance</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                  This Month
+                </span>
+              </div>
+              <div className="text-lg font-bold font-mono text-slate-900">
+                {attendanceStats.pct != null ? `${attendanceStats.pct}%` : 'Not marked'}
+              </div>
+              <p className="text-xs text-slate-600 truncate">
+                {attendanceStats.presentCount} days present • {attendanceStats.absentCount} absent
+              </p>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1 pt-0.5">
+                <span>View Attendance Record</span>
+                <ArrowRight className="w-3 h-3 shrink-0" />
+              </div>
+            </button>
+
+            {/* 3. Today's Classes (< md) */}
+            <button
+              type="button"
+              onClick={() => handleNavigateScreen('timetable')}
+              className="w-full text-left bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs space-y-1.5 min-h-11 cursor-pointer"
+            >
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">Today's Schedule</span>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">
+                  {new Intl.DateTimeFormat('en-GB', { timeZone: tenant?.settings?.timezone || 'Asia/Karachi', weekday: 'short' }).format(new Date())}
+                </span>
+              </div>
+              <div className="text-lg font-bold font-mono text-slate-900">
+                {todaySchedule.length} Lectures
+              </div>
+              <p className="text-xs text-slate-600 truncate">
+                {todaySchedule.length > 0 
+                  ? `Next: ${todaySchedule[0].subject_name} (${todaySchedule[0].start_time})`
+                  : 'No lectures scheduled for today'}
+              </p>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1 pt-0.5">
+                <span>View Full Timetable</span>
+                <ArrowRight className="w-3 h-3 shrink-0" />
+              </div>
+            </button>
+
+            {/* 4. Latest Exam Marks (< md) */}
+            <button
+              type="button"
+              onClick={() => handleNavigateScreen('exams')}
+              className="w-full text-left bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs space-y-1.5 min-h-11 cursor-pointer"
+            >
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">Exam Results</span>
+                {latestReportCard && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                    Latest Exam
+                  </span>
+                )}
+              </div>
+              <div className="text-lg font-bold font-mono text-slate-900">
+                {latestReportCard 
+                  ? `${(latestReportCard.evaluation.percentage != null ? Number(latestReportCard.evaluation.percentage).toFixed(0) : '0')}%`
+                  : 'Active'}
+              </div>
+              <p className="text-xs text-slate-600 truncate">
+                {latestReportCard 
+                  ? (latestReportCard.rank ? `Rank #${latestReportCard.rank} in class (${latestReportCard.exam.title})` : `Class Assessment (${latestReportCard.exam.title})`)
+                  : 'Regular academic standing'}
+              </p>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1 pt-0.5">
+                <span>View Report Cards</span>
+                <ArrowRight className="w-3 h-3 shrink-0" />
+              </div>
+            </button>
+
+          </div>
+
+          {/* 4 Big, Friendly Visual Status Boxes (Desktop: md+) */}
+          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
 
             {/* 1. Fee Status (Top priority for parents) */}
             <div className={`rounded-2xl p-5 border transition-all space-y-2 shadow-xs ${
@@ -825,18 +1125,18 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
 
           </div>
 
-          {/* Quick Action Strip for Parents */}
+          {/* Quick Action Strip for Parents & Students */}
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
             <span className="font-bold text-slate-700 flex items-center gap-1.5">
               <HelpCircle className="w-4 h-4 text-slate-500" />
-              <span>Parent Quick Actions:</span>
+              <span>Quick Actions</span>
             </span>
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <a
                 href={waUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                className="flex-1 sm:flex-initial min-h-11 sm:min-h-0 h-8.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
               >
                 <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                 <span>Send Fee Screenshot on WhatsApp</span>
@@ -844,7 +1144,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowLeaveModal(true)}
-                className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                className="flex-1 sm:flex-initial min-h-11 sm:min-h-0 h-8.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 font-semibold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
               >
                 <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 <span>+ Request Sick Leave / Absence</span>
@@ -864,12 +1164,28 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {overview.linked_children.map(child => (
-                  <div key={child.id} className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/60 space-y-2.5">
+                  <div 
+                    key={child.id} 
+                    onClick={() => {
+                      setSelectedStudentId(child.id);
+                      setSelectedEnrollmentId('');
+                      fetchOverview(child.id, null);
+                    }}
+                    className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/60 space-y-2.5 cursor-pointer hover:border-slate-300 transition-colors"
+                  >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center">
-                          {child.full_name.charAt(0)}
-                        </div>
+                      <div className="flex items-center gap-2.5">
+                        {child.photo_url ? (
+                          <img
+                            src={child.photo_url}
+                            alt={child.full_name}
+                            className="w-8 h-8 rounded-full object-cover shrink-0 border border-slate-200"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
+                            {child.full_name.charAt(0)}
+                          </div>
+                        )}
                         <div>
                           <div className="font-bold text-xs text-slate-900">{child.full_name}</div>
                           <div className="text-[10px] text-slate-500 font-mono">Adm # {child.admission_number}</div>
@@ -943,7 +1259,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   <button
                     type="button"
                     onClick={() => handleNavigateScreen('timetable')}
-                    className="text-xs font-bold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-bold text-slate-900 hover:underline flex items-center gap-1 cursor-pointer"
                   >
                     <span>Full Week Timetable →</span>
                   </button>
@@ -967,20 +1283,43 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                     todaySchedule.map((slot, idx) => {
                       const timeStatus = getSlotTimingStatus(slot.start_time, slot.end_time, true);
                       return (
-                        <div key={slot.id || idx} className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between gap-4">
-                          <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-slate-900 text-sm">{slot.subject_name}</span>
-                              <span className="text-xs text-slate-600">• Teacher: {slot.teacher_name}</span>
+                        <React.Fragment key={slot.id || idx}>
+                          {/* Mobile slot (< md) */}
+                          <div className="md:hidden p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1 space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs font-bold text-slate-700 shrink-0">
+                                  {slot.start_time} - {slot.end_time}
+                                </span>
+                                <span className="font-bold text-slate-900 text-xs truncate">
+                                  {slot.subject_name}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-slate-500 truncate">
+                                {slot.teacher_name} • {slot.room_name || 'Main Hall'}
+                              </div>
                             </div>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              Timing: <strong className="text-slate-700 font-mono">{slot.start_time} - {slot.end_time}</strong> • Room: <strong className="text-slate-700">{slot.room_name || 'Main Hall'}</strong>
-                            </p>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${timeStatus.cls}`}>
+                              {timeStatus.text}
+                            </span>
                           </div>
-                          <span className={`px-2.5 py-1 rounded-full text-xs shrink-0 ${timeStatus.cls}`}>
-                            {timeStatus.text}
-                          </span>
-                        </div>
+
+                          {/* Desktop slot (md+) */}
+                          <div className="hidden md:flex p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 items-center justify-between gap-4">
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-900 text-sm">{slot.subject_name}</span>
+                                <span className="text-xs text-slate-600">• Teacher: {slot.teacher_name}</span>
+                              </div>
+                              <p className="text-xs text-slate-500 mt-0.5">
+                                Timing: <strong className="text-slate-700 font-mono">{slot.start_time} - {slot.end_time}</strong> • Room: <strong className="text-slate-700">{slot.room_name || 'Main Hall'}</strong>
+                              </p>
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-full text-xs shrink-0 ${timeStatus.cls}`}>
+                              {timeStatus.text}
+                            </span>
+                          </div>
+                        </React.Fragment>
                       );
                     })
                   )}
@@ -1208,16 +1547,32 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           VIEW 2: CLASS TIMETABLE
           ===================================================================== */}
       {currentView === 'timetable' && (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           <button
             type="button"
             onClick={handleBackToOverview}
-            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
+            className="hidden md:block w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
           >
             Back
           </button>
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+
+          {/* Mobile Top Row (< md) */}
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBackToOverview}
+              className="min-h-11 px-2 -ml-2 inline-flex items-center gap-1 text-xs font-bold text-slate-800 cursor-pointer"
+            >
+              ‹ Back
+            </button>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-slate-700" />
+              <span>Class Timetable</span>
+            </h2>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
+            <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-slate-700" />
@@ -1234,7 +1589,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto border border-slate-200"
+                className="hidden md:flex px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold items-center gap-1.5 transition-colors cursor-pointer self-start sm:self-auto border border-slate-200"
               >
                 <Printer className="w-3.5 h-3.5 text-slate-600" />
                 <span>Print Timetable</span>
@@ -1252,7 +1607,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                     key={d.key}
                     type="button"
                     onClick={() => setSelectedTimetableDay(d.key)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer border ${
+                    className={`min-h-11 md:min-h-0 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer border shrink-0 ${
                       isSelected
                         ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
                         : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
@@ -1273,7 +1628,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             {/* Lecture Schedule Cards */}
             <div className="space-y-2.5">
               {activeDaySlots.length === 0 ? (
-                <div className="p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl">
+                <div className="p-8 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl text-xs">
                   No classes scheduled for {selectedTimetableDay.charAt(0).toUpperCase() + selectedTimetableDay.slice(1)}.
                 </div>
               ) : (
@@ -1281,29 +1636,57 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   const isToday = todayDayKey === selectedTimetableDay;
                   const timeStatus = getSlotTimingStatus(slot.start_time, slot.end_time, isToday);
                   return (
-                    <div key={slot.id || i} className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="px-2 py-0.5 bg-slate-200 text-slate-800 font-bold text-xs rounded">
-                            Period {i + 1}
-                          </span>
-                          <h4 className="font-bold text-slate-900 text-sm">{slot.subject_name}</h4>
-                          <span className="text-xs text-slate-600">• Teacher: {slot.teacher_name}</span>
-                          {slot.substitute_teacher_name && (
-                            <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">
-                              Sub: {slot.substitute_teacher_name}
+                    <React.Fragment key={slot.id || i}>
+                      {/* Mobile slot (< md) */}
+                      <div className="md:hidden p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3">
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-slate-700 shrink-0">
+                              P{i + 1}
                             </span>
-                          )}
+                            <span className="font-bold text-slate-900 text-xs truncate">
+                              {slot.subject_name}
+                            </span>
+                            {slot.substitute_teacher_name && (
+                              <span className="px-1 py-0.2 bg-amber-100 text-amber-800 rounded text-[9px] font-bold shrink-0">
+                                Sub: {slot.substitute_teacher_name}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-500 truncate">
+                            {slot.teacher_name} • <span className="font-mono">{slot.start_time} - {slot.end_time}</span> • {slot.room_name || 'Main Hall'}
+                          </div>
                         </div>
-                        <p className="text-xs text-slate-500 mt-1">
-                          Timing: <strong className="text-slate-800 font-mono">{slot.start_time} - {slot.end_time}</strong> • Classroom: <strong className="text-slate-800">{slot.room_name || 'Main Hall'}</strong>
-                        </p>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${timeStatus.cls}`}>
+                          {timeStatus.text}
+                        </span>
                       </div>
 
-                      <span className={`px-2.5 py-1 rounded-full text-xs shrink-0 self-start sm:self-auto ${timeStatus.cls}`}>
-                        {timeStatus.text}
-                      </span>
-                    </div>
+                      {/* Desktop slot (md+) */}
+                      <div className="hidden md:flex p-4 rounded-xl border border-slate-200 bg-slate-50/70 flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="px-2 py-0.5 bg-slate-200 text-slate-800 font-bold text-xs rounded">
+                              Period {i + 1}
+                            </span>
+                            <h4 className="font-bold text-slate-900 text-sm">{slot.subject_name}</h4>
+                            <span className="text-xs text-slate-600">• Teacher: {slot.teacher_name}</span>
+                            {slot.substitute_teacher_name && (
+                              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold">
+                                Sub: {slot.substitute_teacher_name}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Timing: <strong className="text-slate-800 font-mono">{slot.start_time} - {slot.end_time}</strong> • Classroom: <strong className="text-slate-800">{slot.room_name || 'Main Hall'}</strong>
+                          </p>
+                        </div>
+
+                        <span className={`px-2.5 py-1 rounded-full text-xs shrink-0 self-start sm:self-auto ${timeStatus.cls}`}>
+                          {timeStatus.text}
+                        </span>
+                      </div>
+                    </React.Fragment>
                   );
                 })
               )}
@@ -1316,16 +1699,42 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           VIEW 3: ATTENDANCE & LEAVES
           ===================================================================== */}
       {currentView === 'attendance' && (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           <button
             type="button"
             onClick={handleBackToOverview}
-            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
+            className="hidden md:block w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
           >
             Back
           </button>
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+
+          {/* Mobile Top Row (< md) */}
+          <div className="md:hidden flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <button
+                type="button"
+                onClick={handleBackToOverview}
+                className="min-h-11 px-2 -ml-2 inline-flex items-center gap-1 text-xs font-bold text-slate-800 cursor-pointer shrink-0"
+              >
+                ‹ Back
+              </button>
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 truncate">
+                <CheckSquare className="w-5 h-5 text-slate-700 shrink-0" />
+                <span className="truncate">Attendance & Leaves</span>
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowLeaveModal(true)}
+              className="min-h-11 px-3 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs shrink-0"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>+ Leave</span>
+            </button>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
+            <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <CheckSquare className="w-5 h-5 text-slate-700" />
@@ -1380,20 +1789,20 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
             {/* Attendance Log Table (7/12) */}
-            <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+            <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
                   Attendance History ({filteredAttendance.length})
                 </h3>
 
                 {/* Filter Tabs */}
-                <div className="flex items-center gap-1 text-xs font-semibold">
+                <div className="flex items-center gap-1 text-xs font-semibold overflow-x-auto pb-1">
                   {(['ALL', 'PRESENT', 'LATE', 'HALF_DAY', 'ABSENT', 'EXCUSED'] as const).map(f => (
                     <button
                       key={f}
                       type="button"
                       onClick={() => setAttendanceFilter(f)}
-                      className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                      className={`min-h-11 md:min-h-0 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0 ${
                         attendanceFilter === f 
                           ? 'bg-amber-600 text-white font-bold shadow-xs' 
                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -1410,19 +1819,24 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   <p className="p-6 text-center text-slate-400 text-xs">No records matching this filter.</p>
                 ) : (
                   filteredAttendance.map((att, i) => (
-                    <div key={i} className="p-3 rounded-xl border border-slate-100 bg-slate-50 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="font-bold text-slate-900 text-xs block">{att.date}</span>
-                        {att.remarks && <span className="text-[11px] text-slate-500">{att.remarks}</span>}
+                    <div key={i} className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between text-xs gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-slate-700 text-xs shrink-0">{att.date}</span>
+                          <span className="font-bold text-slate-900 text-xs truncate">
+                            {att.status === 'PRESENT' ? 'Present' : att.status === 'EXCUSED' ? 'Approved Leave' : att.status === 'HALF_DAY' ? 'Half Day' : att.status === 'LATE' ? 'Late' : 'Absent'}
+                          </span>
+                        </div>
+                        {att.remarks && <p className="text-[11px] text-slate-500 mt-0.5 truncate">{att.remarks}</p>}
                       </div>
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase ${
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase shrink-0 ${
                         att.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-800' :
                         att.status === 'EXCUSED' ? 'bg-blue-100 text-blue-800' :
                         att.status === 'LATE' ? 'bg-amber-100 text-amber-800' :
-                        (att.status as any) === 'HALF_DAY' ? 'bg-orange-100 text-orange-800' :
+                        att.status === 'HALF_DAY' ? 'bg-orange-100 text-orange-800' :
                         'bg-rose-100 text-rose-800'
                       }`}>
-                        {att.status === 'PRESENT' ? 'Present' : att.status === 'EXCUSED' ? 'Approved Leave' : (att.status as any) === 'HALF_DAY' ? 'Half Day' : att.status === 'LATE' ? 'Late' : 'Absent'}
+                        {att.status === 'PRESENT' ? 'Present' : att.status === 'EXCUSED' ? 'Leave' : att.status === 'HALF_DAY' ? 'Half Day' : att.status === 'LATE' ? 'Late' : 'Absent'}
                       </span>
                     </div>
                   ))
@@ -1482,14 +1896,29 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           VIEW 4: FEES & PAYMENTS
           ===================================================================== */}
       {currentView === 'voucher' && (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           <button
             type="button"
             onClick={handleBackToOverview}
-            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
+            className="hidden md:block w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
           >
             Back
           </button>
+
+          {/* Mobile Top Row (< md) */}
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBackToOverview}
+              className="min-h-11 px-2 -ml-2 inline-flex items-center gap-1 text-xs font-bold text-slate-800 cursor-pointer"
+            >
+              ‹ Back
+            </button>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-slate-700" />
+              <span>Fees & Payments</span>
+            </h2>
+          </div>
 
           {/* Simple Fee Status Banner */}
           <div className={`p-3.5 sm:p-4 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
@@ -1520,7 +1949,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               href={waUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
+              className="min-h-11 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
             >
               <MessageSquare className="w-4 h-4" />
               <span>Send Screenshot on WhatsApp</span>
@@ -1528,7 +1957,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           </div>
 
           {/* Step-by-Step Payment Info Box */}
-          <div className="bg-slate-900 text-white rounded-2xl p-6 shadow-xs space-y-4">
+          <div className="bg-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-xs space-y-4">
             <h3 className="text-base font-bold flex items-center gap-2">
               <Building2 className="w-5 h-5 text-emerald-400" />
               <span>Official Academy Bank Transfer Particulars</span>
@@ -1557,7 +1986,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleCopyText(tenantBanking.account_number!, 'f_acc')}
-                      className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 cursor-pointer"
+                      className="min-h-11 md:min-h-0 text-[10px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 cursor-pointer"
                     >
                       {copiedKey === 'f_acc' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                       <span>{copiedKey === 'f_acc' ? 'Copied' : 'Copy'}</span>
@@ -1573,7 +2002,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleCopyText(tenantBanking.iban, 'f_iban')}
-                      className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 cursor-pointer"
+                      className="min-h-11 md:min-h-0 text-[10px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 cursor-pointer"
                     >
                       {copiedKey === 'f_iban' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                       <span>{copiedKey === 'f_iban' ? 'Copied' : 'Copy'}</span>
@@ -1589,7 +2018,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleCopyText(tenantBanking.raast_id!, 'f_raast')}
-                      className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 cursor-pointer"
+                      className="min-h-11 md:min-h-0 text-[10px] text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 cursor-pointer"
                     >
                       {copiedKey === 'f_raast' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                       <span>{copiedKey === 'f_raast' ? 'Copied' : 'Copy'}</span>
@@ -1665,14 +2094,17 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
             {/* Mobile Native Fee Cards (< 768px) */}
             <div className="md:hidden divide-y divide-slate-100">
               {invoices.length === 0 ? (
-                <div className="p-6 text-center text-slate-400 text-xs">No invoices on file.</div>
+                <div className="p-6 text-center text-slate-400 text-xs">No payment receipts recorded yet.</div>
               ) : (
                 invoices.map(inv => {
                   const balance = inv.balance_due ?? (inv as any).balance_amount ?? 0;
                   return (
                     <div key={inv.id} className="p-3.5 space-y-2 active:bg-slate-50 transition-colors">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900 text-sm">{inv.billing_month}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-slate-900 text-xs font-mono">{inv.billing_month}</span>
+                          <span className="text-[11px] font-mono text-slate-500">#{inv.invoice_number || inv.id.slice(0, 8)}</span>
+                        </div>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                           inv.status === 'paid' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
                         }`}>
@@ -1680,13 +2112,13 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded-lg font-mono">
+                      <div className="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-xl font-mono border border-slate-100">
                         <div>
                           <span className="text-[10px] text-slate-400 block">Total Billed</span>
                           <span className="font-bold text-slate-800">PKR {inv.net_amount.toLocaleString()}</span>
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] text-slate-400 block">Due / Balance</span>
+                          <span className="text-[10px] text-slate-400 block">Balance Due</span>
                           <span className={`font-bold ${balance > 0 ? 'text-rose-600' : 'text-slate-600'}`}>
                             PKR {balance.toLocaleString()}
                           </span>
@@ -1698,7 +2130,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                         <button
                           type="button"
                           onClick={() => setSelectedChallanInvoice(inv)}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors border border-slate-200"
+                          className="min-h-11 sm:min-h-0 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors border border-slate-200 cursor-pointer"
                         >
                           <Printer className="w-3.5 h-3.5 text-slate-600" />
                           <span>Challan</span>
@@ -1775,16 +2207,32 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           VIEW 5: HOMEWORK DIARY
           ===================================================================== */}
       {currentView === 'homework' && (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           <button
             type="button"
             onClick={handleBackToOverview}
-            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
+            className="hidden md:block w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
           >
             Back
           </button>
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+
+          {/* Mobile Top Row (< md) */}
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBackToOverview}
+              className="min-h-11 px-2 -ml-2 inline-flex items-center gap-1 text-xs font-bold text-slate-800 cursor-pointer"
+            >
+              ‹ Back
+            </button>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-slate-700" />
+              <span>Homework Diary</span>
+            </h2>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
+            <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <BookOpen className="w-5 h-5 text-slate-700" />
@@ -1804,7 +2252,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <select
                   value={homeworkSubjectFilter}
                   onChange={e => setHomeworkSubjectFilter(e.target.value)}
-                  className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs"
+                  className="min-h-11 md:min-h-0 px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs"
                 >
                   <option value="ALL">All Subjects</option>
                   {enrolledSubjects.map((sub, i) => (
@@ -1818,7 +2266,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <select
                   value={homeworkStatusFilter}
                   onChange={e => setHomeworkStatusFilter(e.target.value)}
-                  className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs"
+                  className="min-h-11 md:min-h-0 px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs"
                 >
                   <option value="ALL">All Statuses</option>
                   <option value="checked">Checked: Complete</option>
@@ -1850,43 +2298,64 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                       : { text: 'Pending Inspection', cls: 'bg-slate-100 text-slate-600 border-slate-200' };
 
                   return (
-                    <div key={hw.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
-                      <div className="flex justify-between items-start gap-3">
-                        <div>
-                          <span className="text-[11px] font-bold text-indigo-700 uppercase">{hw.subject_name}</span>
-                          <h4 className="font-bold text-slate-900 text-sm mt-0.5">{hw.title}</h4>
-                          <p className="text-xs text-slate-600 mt-1 leading-relaxed">{hw.description}</p>
-                          {hw.attachment_url && (
-                            <div className="mt-2">
-                              <a
-                                href={hw.attachment_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700 hover:underline"
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                <span>Download Worksheet / File</span>
-                              </a>
+                    <React.Fragment key={hw.id}>
+                      {/* Mobile slot (< md) */}
+                      <div className="md:hidden p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
+                            {(hw.subject_name || 'H').charAt(0)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-bold text-slate-900 text-xs truncate">{hw.title}</div>
+                            <div className="text-[11px] text-slate-500 truncate">
+                              {hw.subject_name} • <span className="font-mono">Due: {hw.due_date}</span>
                             </div>
-                          )}
+                          </div>
                         </div>
-                        <span className={`px-2.5 py-1 border rounded-lg text-xs font-bold shrink-0 ${statusBadge.cls}`}>
+                        <span className={`px-2 py-0.5 border rounded-lg text-[10px] font-bold shrink-0 ${statusBadge.cls}`}>
                           {statusBadge.text}
                         </span>
                       </div>
 
-                      {(hw as any).check_remarks && (
-                        <div className="p-2.5 bg-white rounded-lg border border-slate-200 text-xs text-slate-700">
-                          <span className="text-[10px] font-bold text-slate-500 uppercase block">Teacher's Note:</span>
-                          <p className="italic text-slate-800 mt-0.5">{(hw as any).check_remarks}</p>
+                      {/* Desktop slot (md+) */}
+                      <div className="hidden md:block p-4 rounded-xl border border-slate-200 bg-slate-50/70 space-y-2">
+                        <div className="flex justify-between items-start gap-3">
+                          <div>
+                            <span className="text-[11px] font-bold text-indigo-700 uppercase">{hw.subject_name}</span>
+                            <h4 className="font-bold text-slate-900 text-sm mt-0.5">{hw.title}</h4>
+                            <p className="text-xs text-slate-600 mt-1 leading-relaxed">{hw.description}</p>
+                            {hw.attachment_url && (
+                              <div className="mt-2">
+                                <a
+                                  href={hw.attachment_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700 hover:underline"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  <span>Download Worksheet / File</span>
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                          <span className={`px-2.5 py-1 border rounded-lg text-xs font-bold shrink-0 ${statusBadge.cls}`}>
+                            {statusBadge.text}
+                          </span>
                         </div>
-                      )}
 
-                      <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500">
-                        <span>Due Date: <strong className="text-slate-800 font-mono">{hw.due_date}</strong></span>
-                        <span>Teacher: <strong className="text-slate-800">{hw.teacher_name || 'Course Instructor'}</strong></span>
+                        {(hw as any).check_remarks && (
+                          <div className="p-2.5 bg-white rounded-lg border border-slate-200 text-xs text-slate-700">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Teacher's Note:</span>
+                            <p className="italic text-slate-800 mt-0.5">{(hw as any).check_remarks}</p>
+                          </div>
+                        )}
+
+                        <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs text-slate-500">
+                          <span>Due Date: <strong className="text-slate-800 font-mono">{hw.due_date}</strong></span>
+                          <span>Teacher: <strong className="text-slate-800">{hw.teacher_name || 'Course Instructor'}</strong></span>
+                        </div>
                       </div>
-                    </div>
+                    </React.Fragment>
                   );
                 })
               )}
@@ -1899,16 +2368,32 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
           VIEW 6: EXAMS & RESULTS
           ===================================================================== */}
       {currentView === 'exams' && (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           <button
             type="button"
             onClick={handleBackToOverview}
-            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
+            className="hidden md:block w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold text-center transition-colors cursor-pointer"
           >
             Back
           </button>
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+
+          {/* Mobile Top Row (< md) */}
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBackToOverview}
+              className="min-h-11 px-2 -ml-2 inline-flex items-center gap-1 text-xs font-bold text-slate-800 cursor-pointer"
+            >
+              ‹ Back
+            </button>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Award className="w-5 h-5 text-slate-700" />
+              <span>Examination Results</span>
+            </h2>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
+            <div className="hidden md:flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <Award className="w-5 h-5 text-slate-700" />
@@ -1920,55 +2405,89 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {sortedReportCards.length === 0 ? (
                 <p className="text-xs text-slate-400 p-8 text-center border border-dashed border-slate-200 rounded-xl">
                   No examination report cards published yet.
                 </p>
               ) : (
                 sortedReportCards.map((rc, idx) => (
-                  <div key={idx} className="p-5 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                      <div>
-                        <span className="px-2 py-0.5 bg-slate-200 text-slate-800 font-mono text-[10px] font-bold uppercase rounded">
-                          Exam Assessment
-                        </span>
-                        <h4 className="text-base font-bold text-slate-900 mt-1">{rc.exam.title}</h4>
-                        <p className="text-xs text-slate-500">
-                          Date: {rc.exam.exam_date} • Class Position: <strong className="text-slate-900 font-bold">{rc.rank ? `Rank #${rc.rank}` : '—'}</strong>{rc.total_students ? ` of ${rc.total_students} students` : ''}
-                        </p>
+                  <React.Fragment key={idx}>
+                    {/* Mobile slot (< md) */}
+                    <div className="md:hidden p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-slate-500 shrink-0">{rc.exam.exam_date}</span>
+                          <h4 className="font-bold text-slate-900 text-xs truncate">{rc.exam.title}</h4>
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate">
+                          Class Position: <strong className="text-slate-700 font-bold">{rc.rank ? `Rank #${rc.rank}` : '—'}</strong>
+                        </div>
                       </div>
-
-                      <div className="sm:text-right">
-                        <span className="text-lg sm:text-xl font-bold font-mono text-slate-900">
-                          {rc.evaluation.total_obtained} / {rc.exam.total_marks} Marks
-                        </span>
-                        <span className="text-xs font-bold text-slate-600 block">
-                          {(rc.evaluation.percentage != null ? Number(rc.evaluation.percentage).toFixed(1) : '0.0')}% Score
-                        </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <span className="text-xs font-bold font-mono text-slate-900 block">
+                            {rc.evaluation.total_obtained} / {rc.exam.total_marks}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-semibold block">
+                            {(rc.evaluation.percentage != null ? Number(rc.evaluation.percentage).toFixed(0) : '0')}%
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPrintingReportCard(rc)}
+                          className="min-h-11 w-11 flex items-center justify-center text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-100 cursor-pointer shadow-2xs"
+                          title="View Report Card"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
 
-                    {(rc.evaluation.short_remarks || rc.evaluation.long_remarks) && (
-                      <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs text-slate-700">
-                        <strong className="text-[10px] text-slate-500 uppercase block font-bold mb-0.5">Teacher's Evaluation:</strong>
-                        <p className="italic text-slate-800 text-xs leading-relaxed">
-                          "{rc.evaluation.short_remarks || rc.evaluation.long_remarks}"
-                        </p>
-                      </div>
-                    )}
+                    {/* Desktop slot (md+) */}
+                    <div className="hidden md:block p-5 rounded-2xl border border-slate-200 bg-slate-50/60 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div>
+                          <span className="px-2 py-0.5 bg-slate-200 text-slate-800 font-mono text-[10px] font-bold uppercase rounded">
+                            Exam Assessment
+                          </span>
+                          <h4 className="text-base font-bold text-slate-900 mt-1">{rc.exam.title}</h4>
+                          <p className="text-xs text-slate-500">
+                            Date: {rc.exam.exam_date} • Class Position: <strong className="text-slate-900 font-bold">{rc.rank ? `Rank #${rc.rank}` : '—'}</strong>{rc.total_students ? ` of ${rc.total_students} students` : ''}
+                          </p>
+                        </div>
 
-                    <div className="flex items-center justify-end pt-2 border-t border-slate-200">
-                      <button
-                        type="button"
-                        onClick={() => setPrintingReportCard(rc)}
-                        className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>View & Print Official Report Card</span>
-                      </button>
+                        <div className="sm:text-right">
+                          <span className="text-lg sm:text-xl font-bold font-mono text-slate-900">
+                            {rc.evaluation.total_obtained} / {rc.exam.total_marks} Marks
+                          </span>
+                          <span className="text-xs font-bold text-slate-600 block">
+                            {(rc.evaluation.percentage != null ? Number(rc.evaluation.percentage).toFixed(1) : '0.0')}% Score
+                          </span>
+                        </div>
+                      </div>
+
+                      {(rc.evaluation.short_remarks || rc.evaluation.long_remarks) && (
+                        <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs text-slate-700">
+                          <strong className="text-[10px] text-slate-500 uppercase block font-bold mb-0.5">Teacher's Evaluation:</strong>
+                          <p className="italic text-slate-800 text-xs leading-relaxed">
+                            "{rc.evaluation.short_remarks || rc.evaluation.long_remarks}"
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-end pt-2 border-t border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => setPrintingReportCard(rc)}
+                          className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>View & Print Official Report Card</span>
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  </React.Fragment>
                 ))
               )}
             </div>
@@ -2062,14 +2581,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowLeaveModal(false)}
-                  className="w-full sm:w-auto h-8.5 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+                  className="w-full sm:w-auto min-h-11 sm:min-h-0 sm:h-8.5 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingLeave}
-                  className="w-full sm:w-auto h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
+                  className="w-full sm:w-auto min-h-11 sm:min-h-0 sm:h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shadow-xs"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{isSubmittingLeave ? 'Sending...' : 'Send Notice'}</span>
@@ -2386,6 +2905,195 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
       )}
 
       {/* =====================================================================
+          MODAL: STUDENT / PARENT PROFILE SHEET (MOBILE & DESKTOP)
+          ===================================================================== */}
+      {showProfileModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 m-0 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-md w-full shadow-2xl border border-slate-300 overflow-hidden flex flex-col mobile-sheet-card max-h-[92dvh] overflow-y-auto">
+            <div className="bg-slate-900 text-white px-5 py-4 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-300">
+                  <GraduationCap className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">Student Profile</h3>
+                  <p className="text-[11px] text-slate-300">Academic &amp; Guardian Details</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseProfileModal}
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-white rounded-lg cursor-pointer"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 sm:p-6 space-y-4 text-xs">
+              {/* Identity block */}
+              <div className="flex items-center gap-3.5">
+                {profile?.photo_url ? (
+                  <img 
+                    src={profile.photo_url} 
+                    alt={profile.full_name} 
+                    className="w-16 h-16 rounded-full object-cover border-2 border-slate-200 shrink-0 bg-slate-100" 
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-xl font-mono shrink-0 border-2 border-slate-600">
+                    {(profile?.full_name || 'S').charAt(0)}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-base font-bold text-slate-900 truncate">{profile?.full_name || 'Student'}</h4>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 font-bold">
+                      Adm #{profile?.admission_number || profile?.roll_number || '—'}
+                    </span>
+                    {profile?.roll_number && profile.admission_number && (
+                      <span className="font-mono text-[11px] text-slate-500">
+                        Roll #{profile.roll_number}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Details table */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2">
+                <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500">Class / Program</span>
+                  <span className="font-semibold text-slate-800">{profile?.program_name || '—'}</span>
+                </div>
+                <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500">Section / Batch</span>
+                  <span className="font-semibold text-slate-800">{profile?.batch_name || '—'}</span>
+                </div>
+                {profile?.shift && (
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Shift</span>
+                    <span className="font-semibold text-slate-800 capitalize">{profile.shift}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500">Father / Guardian</span>
+                  <span className="font-semibold text-slate-800">{profile?.guardian_name || '—'}</span>
+                </div>
+                {profile?.guardian_phone && (
+                  <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Guardian Phone</span>
+                    <span className="font-mono font-semibold text-slate-800">{profile.guardian_phone}</span>
+                  </div>
+                )}
+                {profile?.guardian_id_card && (
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-slate-500">Guardian CNIC</span>
+                    <span className="font-mono font-semibold text-slate-800">{profile.guardian_id_card}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Child Switcher if multiple children */}
+              {overview?.linked_children && overview.linked_children.length > 1 && (
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 block mb-1.5 uppercase tracking-wider">
+                    Switch Linked Child ({overview.linked_children.length})
+                  </label>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {overview.linked_children.map((c) => {
+                      const isSelected = c.id === profile?.id;
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedStudentId(c.id);
+                            fetchOverview(c.id);
+                          }}
+                          className={`min-h-11 px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-2 shrink-0 transition-all cursor-pointer ${
+                            isSelected 
+                              ? 'bg-amber-600 text-white border-amber-600 shadow-xs' 
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          {c.photo_url ? (
+                            <img src={c.photo_url} alt={c.full_name} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                          ) : (
+                            <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                              isSelected ? 'bg-amber-700 text-white' : 'bg-slate-200 text-slate-700'
+                            }`}>
+                              {c.full_name.charAt(0)}
+                            </div>
+                          )}
+                          <span>{c.full_name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Class Switcher if multiple active/on_leave enrollments */}
+              {overview?.enrollments && overview.enrollments.filter(e => e.status === 'active' || e.status === 'on_leave').length > 1 && (
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-500 block mb-1.5 uppercase tracking-wider">
+                    Enrolled Programs ({overview.enrollments.filter(e => e.status === 'active' || e.status === 'on_leave').length})
+                  </label>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {overview.enrollments
+                      .filter(e => e.status === 'active' || e.status === 'on_leave')
+                      .map((enr) => {
+                        const isSelected = enr.id === overview?.selected_enrollment_id;
+                        return (
+                          <button
+                            key={enr.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedEnrollmentId(enr.id);
+                              fetchOverview(profile?.id, enr.id);
+                            }}
+                            className={`min-h-11 px-3 py-1.5 rounded-xl border text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
+                              isSelected 
+                                ? 'bg-amber-600 text-white border-amber-600 shadow-xs' 
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span>{enr.program_name} • {enr.batch_name}</span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions: Change Password and Close */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCloseProfileModal();
+                    setShowChangePasswordModal(true);
+                  }}
+                  className="min-h-11 px-4 py-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 rounded-xl font-semibold text-xs flex items-center gap-2 transition-colors cursor-pointer"
+                >
+                  <Key className="w-4 h-4 text-slate-600" />
+                  <span>Change Password</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCloseProfileModal}
+                  className="min-h-11 px-4 py-2 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 active:bg-slate-100 font-semibold text-xs transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================================
           MODAL: CHANGE PASSWORD (PARENT / STUDENT)
           ===================================================================== */}
       {showChangePasswordModal && (
@@ -2496,14 +3204,14 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowChangePasswordModal(false)}
-                    className="h-8.5 px-3.5 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-semibold text-xs transition-colors cursor-pointer"
+                    className="min-h-11 sm:min-h-0 sm:h-8.5 px-3.5 py-1.5 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-semibold text-xs transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isChangingPassword || !currentPasswordInput || !newPasswordInput}
-                    className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    className="min-h-11 sm:min-h-0 sm:h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-xs"
                   >
                     <Lock className="w-3.5 h-3.5" />
                     <span>{isChangingPassword ? 'Updating...' : 'Update Password'}</span>

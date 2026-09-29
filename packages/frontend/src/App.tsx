@@ -190,6 +190,7 @@ const MainLayout: React.FC = () => {
 
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [searchOpen, setSearchOpen] = useState<boolean>(false);
+  const [portalProfileOpen, setPortalProfileOpen] = useState<boolean>(false);
 
   // Register mobile overlays for hardware/browser Back button stack
   useMobileOverlay('drawer', sidebarOpen, () => setSidebarOpen(false));
@@ -384,6 +385,7 @@ const MainLayout: React.FC = () => {
           onOpenSidebar={() => setSidebarOpen(true)}
           onSwitchScreen={handleSwitchScreen}
           onOpenSearch={() => setSearchOpen(true)}
+          onOpenPortalProfile={() => setPortalProfileOpen(true)}
         />
 
         <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-none px-3 sm:px-5 lg:px-6 py-3 md:pb-6 pb-[calc(4.25rem+env(safe-area-inset-bottom))]">
@@ -397,6 +399,8 @@ const MainLayout: React.FC = () => {
                 <StudentParentPortalView
                   activeScreen={currentScreen}
                   onNavigate={handleSwitchScreen}
+                  openProfileSheet={portalProfileOpen}
+                  onCloseProfileSheet={() => setPortalProfileOpen(false)}
                 />
               )
             ) : /* ROLE: FACULTY TEACHER VIEW ROUTING */
@@ -429,7 +433,9 @@ const MainLayout: React.FC = () => {
                   studentId={previewStudentId}
                   isAdminPreview={Boolean(previewStudentId)}
                   activeScreen={currentScreen}
-                  onNavigate={handleSwitchScreen} 
+                  onNavigate={handleSwitchScreen}
+                  openProfileSheet={portalProfileOpen}
+                  onCloseProfileSheet={() => setPortalProfileOpen(false)}
                 />
               ) : (
                 <SuperAdminControlPlaneView />

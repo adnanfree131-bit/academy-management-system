@@ -1523,7 +1523,7 @@ export interface StudentParentPortalOverview {
     exam_report_cards: StudentOfficialReportCard[];
     recent_attendance: {
         date: string;
-        status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED';
+        status: 'PRESENT' | 'ABSENT' | 'LATE' | 'EXCUSED' | 'HALF_DAY';
         remarks?: string | null;
     }[];
     leave_applications?: LeaveApplication[];

@@ -10,6 +10,7 @@ interface HeaderProps {
   onOpenSidebar: () => void;
   onSwitchScreen?: (screen: string) => void;
   onOpenSearch?: () => void;
+  onOpenPortalProfile?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -17,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSidebar,
   onOpenSearch,
   onSwitchScreen,
+  onOpenPortalProfile,
 }) => {
   const { user, tenant, token, logout, setWorkingSession } = useAuth();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -26,7 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Fetch pending absentee count for notification bell dot
   useEffect(() => {
-    if (!token || user?.role === 'super_admin') return;
+    if (!token || user?.role === 'super_admin' || user?.role === 'student' || user?.role === 'parent') return;
     fetch('/api/v1/absentee/kpi', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(body => {
@@ -87,48 +89,52 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Desktop Search Input Bar */}
-          <button
-            type="button"
-            onClick={handleOpenSearchModal}
-            className="hidden md:flex items-center gap-2.5 w-64 sm:w-80 lg:w-96 px-3.5 py-2 h-9 bg-slate-50 hover:bg-slate-100/70 border border-[#E6ECF2] rounded-xl text-slate-500 text-xs text-left transition-colors group cursor-pointer"
-          >
-            <Search className="w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0 transition-colors" />
-            <span className="truncate">Search records...</span>
-          </button>
+          {user?.role !== 'student' && user?.role !== 'parent' && (
+            <button
+              type="button"
+              onClick={handleOpenSearchModal}
+              className="hidden md:flex items-center gap-2.5 w-64 sm:w-80 lg:w-96 px-3.5 py-2 h-9 bg-slate-50 hover:bg-slate-100/70 border border-[#E6ECF2] rounded-xl text-slate-500 text-xs text-left transition-colors group cursor-pointer"
+            >
+              <Search className="w-4 h-4 text-slate-400 group-hover:text-slate-600 shrink-0 transition-colors" />
+              <span className="truncate">Search records...</span>
+            </button>
+          )}
         </div>
 
       {/* Right: Search (Mobile Icon), Notification Bell, Session Badge & User Profile */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Mobile Search Icon Button */}
-        <button
-          type="button"
-          onClick={handleOpenSearchModal}
-          className="md:hidden w-9 h-9 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl border border-[#E6ECF2] text-slate-600 hover:text-slate-900 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
-          title="Search"
-          aria-label="Search"
-        >
-          <Search className="w-4 h-4" />
-        </button>
+        {user?.role !== 'student' && user?.role !== 'parent' && (
+          <button
+            type="button"
+            onClick={handleOpenSearchModal}
+            className="md:hidden w-9 h-9 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl border border-[#E6ECF2] text-slate-600 hover:text-slate-900 hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+            title="Search"
+            aria-label="Search"
+          >
+            <Search className="w-4 h-4" />
+          </button>
+        )}
 
         {/* Notification Bell (Behance Slide 11) */}
-        <button
-          type="button"
-          onClick={() => {
-            if (user?.role === 'student' || user?.role === 'parent') {
-              onSwitchScreen?.('student_portal');
-            } else if (canOpenScreen(user?.role, user?.permissions, 'absentee', user?.access)) {
-              onSwitchScreen?.('absentee');
-            }
-          }}
-          className="relative w-9 h-9 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl border border-[#E6ECF2] text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
-          title="Notifications"
-          aria-label="Notifications"
-        >
-          <Bell className="w-4 h-4" />
-          {absenteePending > 0 && (
-            <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-rose-500" />
-          )}
-        </button>
+        {user?.role !== 'student' && user?.role !== 'parent' && (
+          <button
+            type="button"
+            onClick={() => {
+              if (canOpenScreen(user?.role, user?.permissions, 'absentee', user?.access)) {
+                onSwitchScreen?.('absentee');
+              }
+            }}
+            className="relative w-9 h-9 min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl border border-[#E6ECF2] text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors"
+            title="Notifications"
+            aria-label="Notifications"
+          >
+            <Bell className="w-4 h-4" />
+            {absenteePending > 0 && (
+              <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-rose-500" />
+            )}
+          </button>
+        )}
 
 
         {/* Academic Session Pill */}
@@ -231,6 +237,20 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                     )}
                   </div>
+                )}
+                {(user?.role === 'student' || user?.role === 'parent') && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      onSwitchScreen?.('student_portal');
+                      onOpenPortalProfile?.();
+                    }}
+                    className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-xs text-slate-700 hover:bg-slate-50 font-semibold min-h-[44px]"
+                  >
+                    <Users className="w-3.5 h-3.5 text-slate-500" />
+                    <span>My profile</span>
+                  </button>
                 )}
                 {user?.role === 'tenant_admin' && (
                   <>

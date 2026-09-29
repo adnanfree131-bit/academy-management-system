@@ -299,6 +299,8 @@ export interface IDataStore {
   // Student SIS (Phase 2)
   getStudents(tenantId: string, batchId?: string, session?: string): Promise<Student[]>;
   getStudentById(tenantId: string, id: string, session?: string): Promise<Student | null>;
+  getStudentByUserId(tenantId: string, userId: string): Promise<Student | null>;
+  getStudentByEmail(tenantId: string, email: string): Promise<Student | null>;
   getStudentAcademicSummary(tenantId: string, studentId: string): Promise<{
     exams: any[];
     homework: any[];
@@ -4142,6 +4144,19 @@ export class InMemoryDataStore implements IDataStore {
       unpaid_balance: unpaid,
       fee_clearance_status: unpaid === 0 ? 'cleared' : (isDefaulter ? 'defaulter' : 'partial'),
     };
+  }
+
+  async getStudentByUserId(tenantId: string, userId: string): Promise<Student | null> {
+    this.ensureStudentEnrollments();
+    const student = this.students.find(s => s.tenant_id === tenantId && s.user_id === userId);
+    return student || null;
+  }
+
+  async getStudentByEmail(tenantId: string, email: string): Promise<Student | null> {
+    this.ensureStudentEnrollments();
+    const normalized = email.trim().toLowerCase();
+    const student = this.students.find(s => s.tenant_id === tenantId && s.email && s.email.trim().toLowerCase() === normalized);
+    return student || null;
   }
 
   async getStudentAcademicSummary(tenantId: string, studentId: string): Promise<{

@@ -199,8 +199,8 @@ export function attendanceRoutes(store: IDataStore) {
       const { student_id } = request.query as { student_id?: string };
 
       if (user.role === 'student') {
-        const allStudents = await store.getStudents(user.tenant_id);
-        const myStudent = allStudents.find(s => s.user_id === user.sub || (s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase()));
+        const myStudent = (await store.getStudentByUserId(user.tenant_id, user.sub)) ||
+          (user.email ? await store.getStudentByEmail(user.tenant_id, user.email) : null);
         if (!myStudent) {
           return reply.send({ success: true, data: [], timestamp: new Date().toISOString() });
         }
@@ -284,8 +284,8 @@ export function attendanceRoutes(store: IDataStore) {
 
       // Prevent IDOR: Ensure authenticated student or parent is authorized for this student_id
       if (user.role === 'student') {
-        const allStudents = await store.getStudents(user.tenant_id);
-        const myStudent = allStudents.find(s => s.user_id === user.sub || (s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase()));
+        const myStudent = (await store.getStudentByUserId(user.tenant_id, user.sub)) ||
+          (user.email ? await store.getStudentByEmail(user.tenant_id, user.email) : null);
         if (!myStudent || myStudent.id !== parse.data.student_id) {
           return reply.status(403).send({
             success: false,
