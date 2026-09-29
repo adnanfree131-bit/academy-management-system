@@ -11,7 +11,8 @@ import {
   X,
   Pencil,
   Trash2,
-  ChevronLeft
+  ChevronLeft,
+  Info
 } from 'lucide-react';
 import { 
   AcademicProgram,
@@ -29,7 +30,7 @@ import { campusToday } from '../lib/campusDate';
 import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const HomeworkDesk: React.FC = () => {
-  const { token, user } = useAuth();
+  const { token, user, working_session } = useAuth();
 
   // State
   const [programs, setPrograms] = useState<AcademicProgram[]>([]);
@@ -223,7 +224,7 @@ export const HomeworkDesk: React.FC = () => {
 
   useEffect(() => {
     fetchMetadata();
-  }, [token]);
+  }, [token, working_session]);
 
   useEffect(() => {
     if (selectedBatchId) {
@@ -406,14 +407,24 @@ export const HomeworkDesk: React.FC = () => {
         description="Assign homework topics, track due dates, and record notebook completion status."
         icon={<BookOpen className="w-4 h-4 text-slate-700" />}
       >
-        <button
-          onClick={handleOpenCreateModal}
-          className="flex items-center gap-1.5 h-8.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Assign Homework</span>
-        </button>
+        {!user?.year_closed && (
+          <button
+            onClick={handleOpenCreateModal}
+            className="flex items-center gap-1.5 h-8.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Assign Homework</span>
+          </button>
+        )}
       </PageHeading>
+
+      {/* Closed Year Banner */}
+      {user?.year_closed && (
+        <div className="bg-slate-100 border border-slate-200 text-slate-700 text-xs px-3 py-2 rounded-xl flex items-center gap-2 shadow-xs">
+          <Info className="w-4 h-4 text-slate-500 flex-shrink-0" />
+          <span>Viewing {user?.working_session || 'this session'}. These records cannot be changed.</span>
+        </div>
+      )}
 
       {/* Mobile Layout (< md): One screen at a time */}
       <div className="md:hidden">
@@ -466,28 +477,32 @@ export const HomeworkDesk: React.FC = () => {
                           <Clock className="w-3 h-3 text-slate-400" />
                           Due {hw.due_date}
                         </span>
-                        <button
-                          type="button"
-                          title="Edit Homework"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenEditModal(hw);
-                          }}
-                          className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white transition-colors cursor-pointer"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          title="Delete Homework"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteAssignment(hw);
-                          }}
-                          className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-white transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {!user?.year_closed && (
+                          <>
+                            <button
+                              type="button"
+                              title="Edit Homework"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditModal(hw);
+                              }}
+                              className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-white transition-colors cursor-pointer"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Delete Homework"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAssignment(hw);
+                              }}
+                              className="w-11 h-11 flex items-center justify-center rounded-lg text-slate-400 hover:text-rose-600 hover:bg-white transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -633,17 +648,19 @@ export const HomeworkDesk: React.FC = () => {
             </div>
 
             {/* Save bar: sticky bottom-0 z-10 bg-white border-t px-3 py-2 */}
-            <div className="sticky bottom-0 z-10 bg-white border-t px-3 py-2">
-              <button
-                type="button"
-                onClick={handleSaveChecks}
-                disabled={isSavingChecks || checkStats.setRows === 0}
-                className="w-full min-h-11 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all disabled:bg-slate-300 flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                {isSavingChecks ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                <span>{isSavingChecks ? 'Saving...' : 'Save notebook check'}</span>
-              </button>
-            </div>
+            {!user?.year_closed && (
+              <div className="sticky bottom-0 z-10 bg-white border-t px-3 py-2">
+                <button
+                  type="button"
+                  onClick={handleSaveChecks}
+                  disabled={isSavingChecks || checkStats.setRows === 0}
+                  className="w-full min-h-11 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all disabled:bg-slate-300 flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  {isSavingChecks ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                  <span>{isSavingChecks ? 'Saving...' : 'Save notebook check'}</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -701,28 +718,32 @@ export const HomeworkDesk: React.FC = () => {
                           <Clock className="w-3 h-3 text-slate-400" />
                           Due {hw.due_date}
                         </span>
-                        <button
-                          type="button"
-                          title="Edit Homework"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenEditModal(hw);
-                          }}
-                          className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-white border border-transparent hover:border-slate-200 transition-colors cursor-pointer"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          title="Delete Homework"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteAssignment(hw);
-                          }}
-                          className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-white border border-transparent hover:border-slate-200 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {!user?.year_closed && (
+                          <>
+                            <button
+                              type="button"
+                              title="Edit Homework"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenEditModal(hw);
+                              }}
+                              className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-white border border-transparent hover:border-slate-200 transition-colors cursor-pointer"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              title="Delete Homework"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAssignment(hw);
+                              }}
+                              className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-white border border-transparent hover:border-slate-200 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -748,15 +769,17 @@ export const HomeworkDesk: React.FC = () => {
                   />
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleSaveChecks}
-                  disabled={isSavingChecks || checkStats.setRows === 0}
-                  className="flex items-center justify-center gap-1.5 h-8.5 px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all disabled:bg-slate-300 cursor-pointer"
-                >
-                  {isSavingChecks ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                  <span>{isSavingChecks ? 'Saving...' : 'Save notebook check'}</span>
-                </button>
+                {!user?.year_closed && (
+                  <button
+                    type="button"
+                    onClick={handleSaveChecks}
+                    disabled={isSavingChecks || checkStats.setRows === 0}
+                    className="flex items-center justify-center gap-1.5 h-8.5 px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-semibold shadow-xs transition-all disabled:bg-slate-300 cursor-pointer"
+                  >
+                    {isSavingChecks ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                    <span>{isSavingChecks ? 'Saving...' : 'Save notebook check'}</span>
+                  </button>
+                )}
               </div>
 
               {saveSuccessMessage && (

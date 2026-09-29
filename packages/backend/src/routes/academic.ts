@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, StaffMemberRecord, StaffTeachingAssignment, StaffDepartment, EmploymentType, StaffStatus } from '@apex/shared-types';
-import { can, resolveUserAccess, derivePermissions, FeatureId, AccessLevel } from '../lib/access.js';
+import { can, resolveUserAccess, derivePermissions, FeatureId, AccessLevel, assertYearWritable } from '../lib/access.js';
 
 export function academicRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -34,7 +34,7 @@ export function academicRoutes(store: IDataStore) {
     };
 
     const assertAcademicHierarchyRead = (user: JWTPayload, reply: any): boolean => {
-      if (user.role === 'super_admin' || user.role === 'tenant_admin') return true;
+      if (user.role === 'super_admin' || user.role === 'tenant_admin' || user.role === 'student' || user.role === 'parent') return true;
       if (
         can(user, 'classes', 'view') ||
         can(user, 'attendance', 'view') ||
@@ -66,6 +66,7 @@ export function academicRoutes(store: IDataStore) {
     });
 
     fastify.put('/programs/reorder', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const schema = z.object({
@@ -84,6 +85,7 @@ export function academicRoutes(store: IDataStore) {
     });
 
     fastify.post('/programs', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const schema = z.object({
@@ -126,6 +128,7 @@ export function academicRoutes(store: IDataStore) {
     });
 
     fastify.put('/programs/:id', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -168,6 +171,7 @@ export function academicRoutes(store: IDataStore) {
     });
 
     fastify.delete('/programs/:id', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -199,6 +203,7 @@ export function academicRoutes(store: IDataStore) {
     });
 
     fastify.post('/subjects', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const schema = z.object({
@@ -225,6 +230,7 @@ export function academicRoutes(store: IDataStore) {
     });
 
     fastify.put('/subjects/:id', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -257,6 +263,7 @@ export function academicRoutes(store: IDataStore) {
     });
 
     fastify.delete('/subjects/:id', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -281,6 +288,7 @@ export function academicRoutes(store: IDataStore) {
     });
 
     fastify.post('/groups', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const schema = z.object({
@@ -308,6 +316,7 @@ export function academicRoutes(store: IDataStore) {
     });
 
     fastify.delete('/groups/:id', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -326,12 +335,30 @@ export function academicRoutes(store: IDataStore) {
     fastify.get('/batches', async (request: any, reply) => {
       const user = request.user as JWTPayload;
       if (!assertAcademicHierarchyRead(user, reply)) return;
-      const { program_id, cohort_type } = request.query as { program_id?: string; cohort_type?: 'section' | 'batch' };
-      const batches = await store.getBatches(user.tenant_id, program_id, cohort_type);
+      const { program_id, cohort_type, academic_session, include_archived } = request.query as {
+        program_id?: string;
+        cohort_type?: 'section' | 'batch';
+        academic_session?: string;
+        include_archived?: string;
+      };
+
+      let sessionToUse: string | undefined = (request.user as any)?.working_session || request.working_session;
+      if (user.role === 'student' || user.role === 'parent') {
+        const tenant = await store.getTenantById(user.tenant_id);
+        sessionToUse = tenant?.settings?.academic_session || '2026-2027';
+      } else if (academic_session) {
+        if (user.role === 'tenant_admin' || user.role === 'super_admin' || can(user, 'classes', 'edit')) {
+          sessionToUse = academic_session;
+        }
+      }
+
+      const includeArchived = include_archived === '1' || include_archived === 'true';
+      const batches = await store.getBatches(user.tenant_id, program_id, cohort_type, sessionToUse, includeArchived);
       return reply.send({ success: true, data: batches, timestamp: new Date().toISOString() });
     });
 
     fastify.post('/batches', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const schema = z.object({
@@ -383,6 +410,7 @@ export function academicRoutes(store: IDataStore) {
     });
 
     fastify.put('/batches/:id', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -438,6 +466,7 @@ export function academicRoutes(store: IDataStore) {
     });
 
     fastify.delete('/batches/:id', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'classes', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -462,6 +491,7 @@ export function academicRoutes(store: IDataStore) {
 
     // Student Class Promotion & Section Transfer
     fastify.post('/students/promote', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!can(user, 'classes', 'edit') && !can(user, 'enrollment', 'edit')) {
         return reply.status(403).send({
@@ -495,7 +525,7 @@ export function academicRoutes(store: IDataStore) {
       } catch (err: any) {
         return reply.status(400).send({
           success: false,
-          error: { code: 'PROMOTION_FAILED', message: err.message },
+          error: { code: err.code || 'PROMOTION_FAILED', message: err.message },
           timestamp: new Date().toISOString(),
         });
       }
@@ -620,6 +650,206 @@ export function academicRoutes(store: IDataStore) {
 
     fastify.put('/settings', updateAcademySettingsHandler);
     fastify.put('/academy-settings', updateAcademySettingsHandler);
+
+    // --- Working Session Switch (Phase 1) ---
+    const patchWorkingSessionHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (user.role === 'student' || user.role === 'parent') {
+        return reply.status(403).send({
+          success: false,
+          error: {
+            code: 'FORBIDDEN_ROLE',
+            message: 'Student and parent views stay on the active year.',
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const schema = z.object({
+        academic_session: z.string().min(1, 'Academic session is required'),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Academic session is required',
+            details: parseResult.error.flatten(),
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const targetSession = parseResult.data.academic_session.trim();
+      const tenant = await store.getTenantById(user.tenant_id);
+      if (!tenant) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Tenant not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      store.ensureTenantSessions(tenant);
+      const sessions = tenant.settings?.academic_sessions || [];
+      const sessionExists = sessions.some(s => s.name === targetSession);
+      if (!sessionExists) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: 'NOT_FOUND',
+            message: 'That year is not on this campus.',
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const userId = user.sub || user.user_id || '';
+      const dbUser = userId ? await store.getUserById(user.tenant_id, userId) : null;
+      if (!dbUser) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'User not found' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (!dbUser.metadata) dbUser.metadata = {};
+      dbUser.metadata.working_session = targetSession;
+      dbUser.updated_at = new Date().toISOString();
+
+      store.schedulePersist();
+
+      const activeSession = tenant.settings?.academic_session || '2026-2027';
+      const yearClosed = targetSession !== activeSession;
+
+      const payload = {
+        working_session: targetSession,
+        year_closed: yearClosed,
+        academic_session: activeSession,
+        academic_sessions: sessions,
+      };
+
+      return reply.send({
+        success: true,
+        data: payload,
+        ...payload,
+        timestamp: new Date().toISOString(),
+      });
+    };
+
+    fastify.patch('/working-session', patchWorkingSessionHandler);
+    fastify.patch('/academic/working-session', patchWorkingSessionHandler);
+
+    const copyClassesHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only tenant administrators can start the next session.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const schema = z.object({
+        source_session: z.string().min(1),
+        target_session: z.string().min(1),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid session copy parameters', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const result = await store.copyClassesIntoSession(
+          user.tenant_id,
+          parseResult.data.source_session,
+          parseResult.data.target_session
+        );
+        return reply.status(200).send({
+          success: true,
+          created_count: result.created_count,
+          batches: result.batches,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        if (err.code === 'YEAR_NOT_EMPTY') {
+          return reply.status(400).send({
+            success: false,
+            error: { code: 'YEAR_NOT_EMPTY', message: err.message },
+            timestamp: new Date().toISOString(),
+          });
+        }
+        return reply.status(400).send({
+          success: false,
+          error: { code: err.code || 'BAD_REQUEST', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+
+    fastify.post('/sessions/copy-classes', copyClassesHandler);
+    fastify.post('/academic/sessions/copy-classes', copyClassesHandler);
+
+    const moveStudentsHandler = async (request: any, reply: any) => {
+      const user = request.user as JWTPayload;
+      if (user.role !== 'tenant_admin' && user.role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only tenant administrators can move students between sessions.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const schema = z.object({
+        source_session: z.string().min(1),
+        target_session: z.string().min(1),
+        mappings: z.array(z.object({
+          source_batch_id: z.string().min(1),
+          action: z.enum(['move', 'retain', 'leave']),
+          target_batch_id: z.string().optional(),
+        })).min(1),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid student migration mappings', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const result = await store.enrollStudentsIntoSession(
+          user.tenant_id,
+          parseResult.data.source_session,
+          parseResult.data.target_session,
+          parseResult.data.mappings
+        );
+        return reply.status(200).send({
+          success: true,
+          ...result,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: err.code || 'BAD_REQUEST', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+
+    fastify.post('/sessions/move-students', moveStudentsHandler);
+    fastify.post('/academic/sessions/move-students', moveStudentsHandler);
 
     const publicStaff = (u: any): StaffMemberRecord => {
       const meta = u.metadata || {};

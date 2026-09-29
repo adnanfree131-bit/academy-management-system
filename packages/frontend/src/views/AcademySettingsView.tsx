@@ -24,6 +24,7 @@ import {
   ArrowDown,
   Edit2,
   FileText,
+  AlertCircle,
 } from 'lucide-react';
 import { AcademicSession, TenantSettings, defaultAcademicSessions, DocumentChecklistHead } from '@apex/shared-types';
 import { compressImageFile } from '../components/LoginModal';
@@ -32,10 +33,11 @@ import { SectionInfo } from '../components/SectionInfo';
 import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const AcademySettingsView: React.FC = () => {
-  const { token, tenant, user, applySession, refreshSession } = useAuth();
+  const { token, tenant, user, applySession, refreshSession, setWorkingSession } = useAuth();
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'profile' | 'departments' | 'challan' | 'documents' | 'shifts' | 'security'>('profile');
+  const [batches, setBatches] = useState<{ id: string; academic_session?: string }[]>([]);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -108,6 +110,190 @@ export const AcademySettingsView: React.FC = () => {
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [editingDocTitle, setEditingDocTitle] = useState('');
   const [editingDocRequired, setEditingDocRequired] = useState(false);
+
+  // Next Academic Session Modal State
+  const [showNextSessionModal, setShowNextSessionModal] = useState<boolean>(false);
+  const [nextSessionStep, setNextSessionStep] = useState<1 | 2 | 3>(1);
+  const [targetSessionName, setTargetSessionName] = useState<string>('');
+  const [isCopyingClasses, setIsCopyingClasses] = useState<boolean>(false);
+  const [isMovingStudents, setIsMovingStudents] = useState<boolean>(false);
+  const [copiedBatchCount, setCopiedBatchCount] = useState<number>(0);
+  const [nextSessionSourceBatches, setNextSessionSourceBatches] = useState<Array<{ id: string; name: string; shift: string; current_enrollment: number }>>([]);
+  const [nextSessionTargetBatches, setNextSessionTargetBatches] = useState<Array<{ id: string; name: string; shift: string; copied_from_batch_id?: string | null }>>([]);
+  const [nextSessionMappings, setNextSessionMappings] = useState<Record<string, { action: 'move' | 'retain' | 'leave'; target_batch_id: string }>>({});
+  const [moveStats, setMoveStats] = useState<{ moved: number; retained: number; left: number; skipped: number } | null>(null);
+  const [nextSessionError, setNextSessionError] = useState<string | null>(null);
+
+  const handleOpenNextSessionModal = () => {
+    const active = tenant?.academic_session || academicSession || '2026-2027';
+    const inactive = academicSessions.filter(s => !s.is_active && s.name !== active);
+    setTargetSessionName(inactive[0]?.name || '');
+    setNextSessionStep(1);
+    setNextSessionError(null);
+    setShowNextSessionModal(true);
+  };
+
+  const loadBatchesForMove = async (sourceSess: string, targetSess: string) => {
+    if (!token) return;
+    try {
+      const [srcRes, tgtRes] = await Promise.all([
+        fetch(`/api/v1/academic/batches?academic_session=${encodeURIComponent(sourceSess)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`/api/v1/academic/batches?academic_session=${encodeURIComponent(targetSess)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      const srcData = await srcRes.json();
+      const tgtData = await tgtRes.json();
+
+      const srcList: any[] = (srcData.success && Array.isArray(srcData.data)) ? srcData.data : [];
+      const tgtList: any[] = (tgtData.success && Array.isArray(tgtData.data)) ? tgtData.data : [];
+
+      setNextSessionSourceBatches(srcList);
+      setNextSessionTargetBatches(tgtList);
+
+      const initialMappings: Record<string, { action: 'move' | 'retain' | 'leave'; target_batch_id: string }> = {};
+      for (const src of srcList) {
+        const match = tgtList.find(t => t.copied_from_batch_id === src.id) ||
+          tgtList.find(t => t.name.toLowerCase() === src.name.toLowerCase()) ||
+          tgtList[0];
+        initialMappings[src.id] = {
+          action: 'move',
+          target_batch_id: match ? match.id : '',
+        };
+      }
+      setNextSessionMappings(initialMappings);
+    } catch (e) {
+      console.error('Failed to load batches for move', e);
+    }
+  };
+
+  const handleCopyClasses = async () => {
+    if (!token || !targetSessionName) return;
+    const active = tenant?.academic_session || academicSession || '2026-2027';
+    setIsCopyingClasses(true);
+    setNextSessionError(null);
+
+    try {
+      const res = await fetch('/api/v1/academic/sessions/copy-classes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          source_session: active,
+          target_session: targetSessionName,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.error?.code === 'YEAR_NOT_EMPTY') {
+          await loadBatchesForMove(active, targetSessionName);
+          setNextSessionStep(2);
+          return;
+        }
+        throw new Error(data.error?.message || 'Failed to copy classes into target session');
+      }
+
+      setCopiedBatchCount(data.created_count || 0);
+      await loadBatchesForMove(active, targetSessionName);
+      setNextSessionStep(2);
+    } catch (err: any) {
+      setNextSessionError(err.message || 'Error copying classes');
+    } finally {
+      setIsCopyingClasses(false);
+    }
+  };
+
+  const handleExecuteMoveStudents = async () => {
+    if (!token) return;
+    const active = tenant?.academic_session || academicSession || '2026-2027';
+    setIsMovingStudents(true);
+    setNextSessionError(null);
+
+    const mappings = Object.entries(nextSessionMappings).map(([source_batch_id, m]) => ({
+      source_batch_id,
+      action: m.action,
+      target_batch_id: m.action === 'leave' ? undefined : m.target_batch_id,
+    }));
+
+    try {
+      const res = await fetch('/api/v1/academic/sessions/move-students', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          source_session: active,
+          target_session: targetSessionName,
+          mappings,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error?.message || 'Failed to move students into new session');
+      }
+
+      setMoveStats({
+        moved: data.moved || 0,
+        retained: data.retained || 0,
+        left: data.left || 0,
+        skipped: data.skipped || 0,
+      });
+      setNextSessionStep(3);
+    } catch (err: any) {
+      setNextSessionError(err.message || 'Error moving students');
+    } finally {
+      setIsMovingStudents(false);
+    }
+  };
+
+  const handleMakeTargetActive = async () => {
+    if (!token || !targetSessionName) return;
+    try {
+      const updatedSessions = academicSessions.map(s => ({
+        ...s,
+        is_active: s.name === targetSessionName,
+      }));
+
+      const res = await fetch('/api/v1/saas/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          academic_session: targetSessionName,
+          academic_sessions: updatedSessions,
+        }),
+      });
+
+      if (res.ok) {
+        await fetch('/api/v1/academic/working-session', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ academic_session: targetSessionName }),
+        });
+
+        setAcademicSession(targetSessionName);
+        setAcademicSessions(updatedSessions);
+        if (setWorkingSession) setWorkingSession(targetSessionName);
+        if (refreshSession) await refreshSession();
+      }
+    } catch (e) {
+      console.error('Failed to make target session active', e);
+    } finally {
+      setShowNextSessionModal(false);
+    }
+  };
 
   const handleAddDocHead = () => {
     if (!newDocTitle.trim()) return;
@@ -200,11 +386,7 @@ export const AcademySettingsView: React.FC = () => {
         const rawSessions: AcademicSession[] = Array.isArray(s.academic_sessions) && s.academic_sessions.length > 0
           ? (s.academic_sessions as AcademicSession[])
           : defaultAcademicSessions(sessionName);
-        const nowYear = new Date().getFullYear();
-        const activeSess = rawSessions.find((sess: AcademicSession) => sess.is_active);
-        const minYear = activeSess?.start_year ? Math.min(nowYear, activeSess.start_year) : nowYear;
-        const filtered = rawSessions.filter((sess: AcademicSession) => sess.start_year >= minYear || sess.is_active);
-        setAcademicSessions(filtered.length > 0 ? filtered : defaultAcademicSessions(sessionName));
+        setAcademicSessions(rawSessions);
         const dummyEmail = !s.email || s.email === 'info@kampus.pk';
         const dummyAff = !s.affiliation_number || String(s.affiliation_number).includes('BISE/LHR-2026');
         const dummyAddr = !s.address || String(s.address).includes('Campus Avenue');
@@ -259,6 +441,17 @@ export const AcademySettingsView: React.FC = () => {
           setDepartments(s.departments);
         }
       }
+
+      fetch('/api/v1/academic/batches', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.json())
+        .then(bData => {
+          if (bData.success && Array.isArray(bData.data)) {
+            setBatches(bData.data);
+          }
+        })
+        .catch(() => {});
 
       const headsRes = await fetch('/api/v1/finance/heads', {
         headers: { Authorization: `Bearer ${token}` },
@@ -817,49 +1010,68 @@ export const AcademySettingsView: React.FC = () => {
                     <div className="sm:col-span-2">
                       <label className="block text-[11px] font-bold text-slate-700 mb-1">Academic Sessions</label>
                       <p className="text-[11px] text-slate-500 mb-2">
-                        The active academic session is the global default across all batches, admissions, and fee challans. Inactive sessions can be removed.
+                        The active academic session is the global default across all batches, admissions, and fee challans. Open a year to look at that year’s classes. Set Active is the year the campus is running.
                       </p>
                       <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 bg-white">
-                        {academicSessions.map(sess => (
-                          <div key={sess.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono font-semibold text-slate-800">{sess.name}</span>
-                              {sess.is_active && (
-                                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                                  Global Default
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setAcademicSessions(prev => prev.map(s => ({ ...s, is_active: s.id === sess.id })));
-                                  setAcademicSession(sess.name);
-                                }}
-                                className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
-                                  sess.is_active
-                                    ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                                }`}
-                              >
-                                {sess.is_active ? 'Active' : 'Set Active'}
-                              </button>
-                              {!sess.is_active && (
+                        {academicSessions.map(sess => {
+                          const isWorkingYear = (user?.working_session || tenant?.academic_session) === sess.name;
+                          return (
+                            <div key={sess.id} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-semibold text-slate-800">{sess.name}</span>
+                                {sess.is_active && (
+                                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                    Global Default
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  disabled={isWorkingYear}
+                                  onClick={() => setWorkingSession(sess.name)}
+                                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                                    isWorkingYear
+                                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-default'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 cursor-pointer'
+                                  }`}
+                                >
+                                  {isWorkingYear ? 'Viewing' : 'Open'}
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setAcademicSessions(prev => prev.filter(s => s.id !== sess.id));
+                                    setAcademicSessions(prev => prev.map(s => ({ ...s, is_active: s.id === sess.id })));
+                                    setAcademicSession(sess.name);
                                   }}
-                                  className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
-                                  title={`Remove session ${sess.name}`}
+                                  className={`px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                                    sess.is_active
+                                      ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 cursor-pointer'
+                                  }`}
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  {sess.is_active ? 'Active' : 'Set Active'}
                                 </button>
-                              )}
+                                {!sess.is_active && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (batches.some(b => b.academic_session === sess.name)) {
+                                        alert('This year has class records. Keep it so history stays.');
+                                        return;
+                                      }
+                                      setAcademicSessions(prev => prev.filter(s => s.id !== sess.id));
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                                    title={`Remove session ${sess.name}`}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                       <div className="flex items-center gap-2 mt-2">
                         <input
@@ -1610,11 +1822,20 @@ export const AcademySettingsView: React.FC = () => {
               )}
 
               {/* Submit Action */}
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
+                {activeTab === 'profile' && (user?.role === 'tenant_admin' || user?.role === 'super_admin') && (
+                  <button
+                    type="button"
+                    onClick={handleOpenNextSessionModal}
+                    className="w-full sm:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-all cursor-pointer"
+                  >
+                    <span>Start next session</span>
+                  </button>
+                )}
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex items-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   <span>{isSaving ? 'Saving Configuration...' : 'Save Academy Settings'}</span>
@@ -1783,6 +2004,276 @@ export const AcademySettingsView: React.FC = () => {
               >
                 {isChangingPassword ? 'Checking…' : 'Confirm'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: START NEXT SESSION / MOVE STUDENTS */}
+      {showNextSessionModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 mobile-sheet">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 max-h-[92dvh] flex flex-col justify-between mobile-sheet-card overflow-y-auto space-y-4">
+            <div>
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <span className="p-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
+                    <GraduationCap className="w-4 h-4 text-amber-600" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      {nextSessionStep === 1
+                        ? 'Start next session'
+                        : nextSessionStep === 2
+                        ? 'Move students'
+                        : 'Session Transition Complete'}
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      {nextSessionStep === 1
+                        ? 'Copy this year’s classes into the next year. Students move in the next step.'
+                        : nextSessionStep === 2
+                        ? `Assign students from ${tenant?.academic_session || academicSession} to sections in ${targetSessionName}.`
+                        : `Students have been moved into ${targetSessionName}.`}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowNextSessionModal(false)}
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+                  aria-label="Close dialog"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Error Notice */}
+              {nextSessionError && (
+                <div className="mt-3 p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                  <span>{nextSessionError}</span>
+                </div>
+              )}
+
+              {/* Step 1: Copy Classes Form */}
+              {nextSessionStep === 1 && (
+                <div className="space-y-4 mt-4">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Copy from
+                    </label>
+                    <div className="w-full text-xs px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-700 font-mono font-semibold flex items-center justify-between">
+                      <span>{tenant?.academic_session || academicSession || '2026-2027'}</span>
+                      <span className="text-[10px] uppercase font-sans font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                        Active Year
+                      </span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Copy into <span className="text-rose-500">*</span>
+                    </label>
+                    {academicSessions.filter(s => !s.is_active && s.name !== (tenant?.academic_session || academicSession)).length === 0 ? (
+                      <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+                        Add a year in Academic Sessions first.
+                      </p>
+                    ) : (
+                      <select
+                        value={targetSessionName}
+                        onChange={e => setTargetSessionName(e.target.value)}
+                        className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-medium"
+                      >
+                        {academicSessions
+                          .filter(s => !s.is_active && s.name !== (tenant?.academic_session || academicSession))
+                          .map(s => (
+                            <option key={s.id} value={s.name}>
+                              {s.name}
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Move Students Table */}
+              {nextSessionStep === 2 && (
+                <div className="space-y-3 mt-4">
+                  {copiedBatchCount > 0 && (
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Copied {copiedBatchCount} classes into {targetSessionName}. Students have not been moved yet.</span>
+                    </div>
+                  )}
+
+                  {nextSessionSourceBatches.length === 0 ? (
+                    <p className="text-xs text-slate-500 italic py-4 text-center">
+                      No source batches found in {tenant?.academic_session || academicSession}.
+                    </p>
+                  ) : (
+                    <div className="overflow-x-auto border border-slate-200 rounded-xl max-h-[50vh] overflow-y-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="sticky top-0 bg-slate-50 z-10 border-b border-slate-200 text-slate-600 font-semibold">
+                          <tr>
+                            <th className="py-2 px-3">From</th>
+                            <th className="py-2 px-3 text-center">Students</th>
+                            <th className="py-2 px-3">Action</th>
+                            <th className="py-2 px-3">To class</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-sans">
+                          {nextSessionSourceBatches.map(b => {
+                            const m = nextSessionMappings[b.id] || { action: 'move', target_batch_id: '' };
+                            return (
+                              <tr key={b.id} className="hover:bg-slate-50/50">
+                                <td className="py-2 px-3 font-semibold text-slate-900">
+                                  {b.name} <span className="text-[11px] text-slate-500 font-normal">({b.shift})</span>
+                                </td>
+                                <td className="py-2 px-3 text-center font-mono font-bold text-slate-700">
+                                  {b.current_enrollment ?? 0}
+                                </td>
+                                <td className="py-2 px-3">
+                                  <select
+                                    value={m.action}
+                                    onChange={e => {
+                                      const action = e.target.value as 'move' | 'retain' | 'leave';
+                                      let target_batch_id = m.target_batch_id;
+                                      if (action === 'retain') {
+                                        const match = nextSessionTargetBatches.find(t => t.copied_from_batch_id === b.id) || nextSessionTargetBatches[0];
+                                        target_batch_id = match ? match.id : '';
+                                      }
+                                      setNextSessionMappings(prev => ({
+                                        ...prev,
+                                        [b.id]: { action, target_batch_id }
+                                      }));
+                                    }}
+                                    className="text-xs px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium"
+                                  >
+                                    <option value="move">Move to class</option>
+                                    <option value="retain">Stay in same class</option>
+                                    <option value="leave">Mark as left</option>
+                                  </select>
+                                </td>
+                                <td className="py-2 px-3">
+                                  {m.action === 'leave' ? (
+                                    <span className="text-slate-400 text-xs italic">Graduating / Leaving</span>
+                                  ) : (
+                                    <select
+                                      value={m.target_batch_id}
+                                      onChange={e => {
+                                        const target_batch_id = e.target.value;
+                                        setNextSessionMappings(prev => ({
+                                          ...prev,
+                                          [b.id]: { ...m, target_batch_id }
+                                        }));
+                                      }}
+                                      className="text-xs px-2 py-1 bg-white border border-slate-200 rounded-lg text-slate-700 font-medium max-w-[200px]"
+                                    >
+                                      {nextSessionTargetBatches.map(tb => (
+                                        <option key={tb.id} value={tb.id}>
+                                          {tb.name} ({tb.shift})
+                                        </option>
+                                      ))}
+                                    </select>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step 3: Set Active Step */}
+              {nextSessionStep === 3 && (
+                <div className="space-y-4 mt-4">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs space-y-1">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Students successfully moved into {targetSessionName}!</span>
+                    </p>
+                    {moveStats && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 font-mono text-[11px]">
+                        <div>Moved: <strong>{moveStats.moved}</strong></div>
+                        <div>Retained: <strong>{moveStats.retained}</strong></div>
+                        <div>Left: <strong>{moveStats.left}</strong></div>
+                        <div>Skipped: <strong>{moveStats.skipped}</strong></div>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-600">
+                    Would you like to make <strong>{targetSessionName}</strong> the active academic session across the academy now?
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer Buttons */}
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              {nextSessionStep === 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowNextSessionModal(false)}
+                    className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyClasses}
+                    disabled={isCopyingClasses || !targetSessionName || academicSessions.filter(s => !s.is_active && s.name !== (tenant?.academic_session || academicSession)).length === 0}
+                    className="px-5 py-2 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white disabled:opacity-50 shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {isCopyingClasses ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
+                    <span>Copy classes</span>
+                  </button>
+                </>
+              )}
+
+              {nextSessionStep === 2 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowNextSessionModal(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Skip for now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExecuteMoveStudents}
+                    disabled={isMovingStudents || nextSessionSourceBatches.length === 0}
+                    className="px-5 py-2 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white disabled:opacity-50 shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {isMovingStudents ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : null}
+                    <span>Move students</span>
+                  </button>
+                </>
+              )}
+
+              {nextSessionStep === 3 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowNextSessionModal(false)}
+                    className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  >
+                    Stay on {tenant?.academic_session || academicSession}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleMakeTargetActive}
+                    className="px-5 py-2 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white shadow-xs transition-colors cursor-pointer"
+                  >
+                    Make {targetSessionName} active
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

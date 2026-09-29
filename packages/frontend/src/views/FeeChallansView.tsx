@@ -11,7 +11,8 @@ import {
   Pencil,
   Trash2,
   Plus,
-  X
+  X,
+  Info
 } from 'lucide-react';
 import { 
   StudentInvoice, 
@@ -59,10 +60,16 @@ export function isSameBillingMonth(m1: string, m2: string): boolean {
 }
 
 export const FeeChallansView: React.FC = () => {
-  const { token, tenant } = useAuth();
+  const { token, tenant, user, working_session } = useAuth();
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'generate' | 'edit'>('generate');
+  const [activeTab, setActiveTab] = useState<'generate' | 'edit'>(() => user?.year_closed ? 'edit' : 'generate');
+
+  useEffect(() => {
+    if (user?.year_closed && activeTab === 'generate') {
+      setActiveTab('edit');
+    }
+  }, [user?.year_closed, activeTab]);
 
   // Core Data
   const [invoices, setInvoices] = useState<StudentInvoice[]>([]);
@@ -206,7 +213,7 @@ export const FeeChallansView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [token, working_session]);
 
   useEffect(() => {
     fetchData();
@@ -590,18 +597,20 @@ export const FeeChallansView: React.FC = () => {
 
         {/* Tab Switcher - Behance Segmented Button Group */}
         <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-xl border border-slate-200 text-xs font-semibold self-start md:self-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('generate')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'generate'
-                ? 'bg-amber-600 text-white shadow-xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Layers className="w-3.5 h-3.5" />
-            <span>Generate Challans</span>
-          </button>
+          {!user?.year_closed && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('generate')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'generate'
+                  ? 'bg-amber-600 text-white shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Generate Challans</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -617,6 +626,14 @@ export const FeeChallansView: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Closed Year Banner */}
+      {user?.year_closed && (
+        <div className="bg-slate-100 border border-slate-200 text-slate-700 text-xs px-3 py-2 rounded-xl flex items-center gap-2 shadow-xs">
+          <Info className="w-4 h-4 text-slate-500 flex-shrink-0" />
+          <span>Viewing {user?.working_session || 'this session'}. These records cannot be changed.</span>
+        </div>
+      )}
 
       {/* =========================================================================
           SECTION 1: CHALLAN GENERATION
@@ -781,7 +798,7 @@ export const FeeChallansView: React.FC = () => {
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-bold text-slate-700">Academic Session</label>
                       <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                        Default: {tenant?.academic_session || '2026-2027'}
+                        Default: {user?.working_session || tenant?.academic_session || '2026-2027'}
                       </span>
                     </div>
                     <select
@@ -1046,17 +1063,19 @@ export const FeeChallansView: React.FC = () => {
                 {editStudentInvoices.length === 0 ? (
                   <div className="p-3 border border-slate-200 rounded-lg text-xs space-y-2">
                     <p className="text-slate-600">No challan on file for this student.</p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveTab('generate');
-                        setGenScope('single_student');
-                        setSingleAdmissionSearch(matchedEditStudent.admission_number || '');
-                      }}
-                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md text-xs font-semibold shadow-xs transition-colors"
-                    >
-                      Generate a challan
-                    </button>
+                    {!user?.year_closed && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('generate');
+                          setGenScope('single_student');
+                          setSingleAdmissionSearch(matchedEditStudent.admission_number || '');
+                        }}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md text-xs font-semibold shadow-xs transition-colors"
+                      >
+                        Generate a challan
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -1151,16 +1170,18 @@ export const FeeChallansView: React.FC = () => {
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-md"
                           />
                         </div>
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            onClick={handleSaveEditInvoice}
-                            disabled={isSavingEdit || editingInvoice.status === 'paid' || editingInvoice.status === 'cancelled'}
-                            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md text-xs font-semibold disabled:opacity-40 transition-colors shadow-xs"
-                          >
-                            {isSavingEdit ? 'Saving…' : 'Save challan'}
-                          </button>
-                        </div>
+                        {!user?.year_closed && (
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              onClick={handleSaveEditInvoice}
+                              disabled={isSavingEdit || editingInvoice.status === 'paid' || editingInvoice.status === 'cancelled'}
+                              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-md text-xs font-semibold disabled:opacity-40 transition-colors shadow-xs"
+                            >
+                              {isSavingEdit ? 'Saving…' : 'Save challan'}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                     {!editingInvoice && (
@@ -1248,14 +1269,16 @@ export const FeeChallansView: React.FC = () => {
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                onClick={handleSaveEditInvoice}
-                disabled={isSavingEdit}
-                className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-semibold text-xs shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
-              >
-                {isSavingEdit ? 'Saving...' : 'Save Changes'}
-              </button>
+              {!user?.year_closed && (
+                <button
+                  type="button"
+                  onClick={handleSaveEditInvoice}
+                  disabled={isSavingEdit}
+                  className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg font-semibold text-xs shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  {isSavingEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1315,14 +1338,16 @@ export const FeeChallansView: React.FC = () => {
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                onClick={handleConfirmDeleteInvoice}
-                disabled={isDeleting || !deleteReason.trim()}
-                className="h-8.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold text-xs shadow-xs disabled:opacity-50 cursor-pointer"
-              >
-                {isDeleting ? 'Deleting...' : 'Permanently Delete Challan'}
-              </button>
+              {!user?.year_closed && (
+                <button
+                  type="button"
+                  onClick={handleConfirmDeleteInvoice}
+                  disabled={isDeleting || !deleteReason.trim()}
+                  className="h-8.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold text-xs shadow-xs disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeleting ? 'Deleting...' : 'Permanently Delete'}
+                </button>
+              )}
             </div>
           </div>
         </div>

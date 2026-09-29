@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, DayOfWeek } from '@apex/shared-types';
-import { can, FeatureId, AccessLevel } from '../lib/access.js';
+import { can, FeatureId, AccessLevel, assertYearWritable } from '../lib/access.js';
 
 const dayOfWeekEnum = z.enum(['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']);
 
@@ -133,7 +133,13 @@ export function timetableRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'timetable', 'view', reply)) return;
       const { batch_id, day, date } = request.query as { batch_id?: string; day?: DayOfWeek; date?: string };
-      const slots = await store.getTimetable(user.tenant_id, batch_id, day, date);
+      let slots = await store.getTimetable(user.tenant_id, batch_id, day, date);
+      const workingSession = (request.user as any)?.working_session || request.working_session;
+      if (workingSession && !batch_id && user.role !== 'student' && user.role !== 'parent') {
+        const sessionBatches = store.batchesForSession(user.tenant_id, workingSession);
+        const sessionBatchIds = new Set(sessionBatches.map(b => b.id));
+        slots = slots.filter(s => sessionBatchIds.has(s.batch_id));
+      }
       return reply.send({ success: true, data: slots, timestamp: new Date().toISOString() });
     };
     fastify.get('/', getSlotsHandler);
@@ -171,6 +177,7 @@ export function timetableRoutes(store: IDataStore) {
 
     // Create Timetable Slot
     const createSlotHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'timetable', 'edit', reply)) return;
       const schema = z.object({
@@ -220,6 +227,7 @@ export function timetableRoutes(store: IDataStore) {
 
     // Update Timetable Slot
     const updateSlotHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'timetable', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -274,6 +282,7 @@ export function timetableRoutes(store: IDataStore) {
 
     // Assign Substitute Teacher (Dated Overrides)
     const substituteHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'timetable', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -314,6 +323,7 @@ export function timetableRoutes(store: IDataStore) {
 
     // Delete Timetable Slot
     const deleteSlotHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'timetable', 'edit', reply)) return;
       const { id } = request.params as { id: string };

@@ -212,9 +212,11 @@ export function canOpenScreen(
   role: string | undefined,
   permissions: string[] | null | undefined,
   screen: string,
-  access?: UserAccessMap | null
+  access?: UserAccessMap | null,
+  year_closed?: boolean
 ): boolean {
   if (!role || !screen) return false;
+  if (screen === 'new_admission' && year_closed) return false;
   if (role === 'super_admin' || role === 'tenant_admin') return true;
 
   if (role === 'student' || role === 'parent') {

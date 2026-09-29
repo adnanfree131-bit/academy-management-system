@@ -11,7 +11,8 @@ import {
   Building2,
   BookOpen,
   Edit2,
-  Trash2
+  Trash2,
+  Info
 } from 'lucide-react';
 import { 
   AcademicProgram,
@@ -39,7 +40,7 @@ const DAYS: { id: DayOfWeek; label: string }[] = [
 ];
 
 export const TimetableDesk: React.FC = () => {
-  const { token } = useAuth();
+  const { token, working_session, user } = useAuth();
 
   // State
   const [programs, setPrograms] = useState<AcademicProgram[]>([]);
@@ -144,7 +145,7 @@ export const TimetableDesk: React.FC = () => {
 
   useEffect(() => {
     fetchBaseData();
-  }, [token]);
+  }, [token, working_session]);
 
   // Pre-flight collision checker when modal form fields change
   useEffect(() => {
@@ -426,14 +427,24 @@ export const TimetableDesk: React.FC = () => {
         description="Weekly class times, rooms, and substitute teachers."
         icon={<Calendar className="w-4 h-4 text-slate-700" />}
       >
-        <button
-          onClick={openCreateModal}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Schedule Class</span>
-        </button>
+        {!user?.year_closed && (
+          <button
+            onClick={openCreateModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-[0_1px_2px_rgba(217,119,6,0.25),inset_0_1px_0_rgba(255,255,255,0.2)] active:scale-[0.98] transition-all"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Schedule Class</span>
+          </button>
+        )}
       </PageHeading>
+
+      {/* Closed Year Banner */}
+      {user?.year_closed && (
+        <div className="bg-slate-100 border border-slate-200 text-slate-700 text-xs px-3 py-2 rounded-xl flex items-center gap-2 shadow-xs">
+          <Info className="w-4 h-4 text-slate-500 flex-shrink-0" />
+          <span>Viewing {user?.working_session || 'this session'}. These records cannot be changed.</span>
+        </div>
+      )}
 
       {error && (
         <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-bold">
@@ -622,33 +633,35 @@ export const TimetableDesk: React.FC = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => openSubstituteModal(slot)}
-                  className="flex-1 min-h-11 md:min-h-0 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer"
-                >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span className="md:hidden">Substitute</span>
-                  <span className="hidden md:inline">{slot.substitute_teacher_id ? 'Change Substitute' : 'Assign Substitute'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openEditModal(slot)}
-                  className="w-11 h-11 md:w-auto md:h-auto md:p-1.5 flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition-all cursor-pointer shrink-0"
-                  title="Edit Class"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSlotToDelete(slot)}
-                  className="w-11 h-11 md:w-auto md:h-auto md:p-1.5 flex items-center justify-center rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition-all cursor-pointer shrink-0"
-                  title="Remove Period"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+              {!user?.year_closed && (
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openSubstituteModal(slot)}
+                    className="flex-1 min-h-11 md:min-h-0 flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer"
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    <span className="md:hidden">Substitute</span>
+                    <span className="hidden md:inline">{slot.substitute_teacher_id ? 'Change Substitute' : 'Assign Substitute'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openEditModal(slot)}
+                    className="w-11 h-11 md:w-auto md:h-auto md:p-1.5 flex items-center justify-center rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition-all cursor-pointer shrink-0"
+                    title="Edit Class"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSlotToDelete(slot)}
+                    className="w-11 h-11 md:w-auto md:h-auto md:p-1.5 flex items-center justify-center rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition-all cursor-pointer shrink-0"
+                    title="Remove Period"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -225,7 +225,7 @@ const MainLayout: React.FC = () => {
       setPreviewStudentId(null);
     }
 
-    if (user && !canOpenScreen(user.role, user.permissions, targetScreen, user.access)) {
+    if (user && !canOpenScreen(user.role, user.permissions, targetScreen, user.access, user.year_closed)) {
       return;
     }
     setCurrentScreen(targetScreen);
@@ -260,7 +260,7 @@ const MainLayout: React.FC = () => {
           setPreviewStudentId(parsed.studentId || null);
         }
         if (parsed.screen !== currentScreen) {
-          if (!user || canOpenScreen(user.role, user.permissions, parsed.screen, user.access)) {
+          if (!user || canOpenScreen(user.role, user.permissions, parsed.screen, user.access, user.year_closed)) {
             setCurrentScreen(parsed.screen);
             try {
               localStorage.setItem('apex_active_screen', parsed.screen);
@@ -278,7 +278,7 @@ const MainLayout: React.FC = () => {
     if (!user) return;
 
     // If currentScreen is already valid and permitted for this user, keep it!
-    if (currentScreen && canOpenScreen(user.role, user.permissions, currentScreen, user.access)) {
+    if (currentScreen && canOpenScreen(user.role, user.permissions, currentScreen, user.access, user.year_closed)) {
       try {
         localStorage.setItem('apex_active_screen', currentScreen);
         const parsed = parseScreenFromHash();

@@ -436,7 +436,23 @@ export const LoginModal: React.FC = () => {
     }
   };
 
-  const isSubdomain = Boolean(tenantSlug && tenantSlug !== 'app' && tenantSlug !== 'www' && tenantSlug !== 'edu');
+  const isHostnameSubdomain = (() => {
+    if (typeof window === 'undefined') return false;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('campus') || params.get('subdomain')) return true;
+    const hostname = window.location.hostname.toLowerCase();
+    if (hostname.endsWith('.kampus.pk')) {
+      const sub = hostname.replace('.kampus.pk', '');
+      return Boolean(sub && sub !== 'www' && sub !== 'edu' && sub !== 'app');
+    }
+    if (hostname.endsWith('.toolnestr.com') && !hostname.startsWith('www.')) {
+      const sub = hostname.replace('.toolnestr.com', '');
+      return Boolean(sub && sub !== 'edu' && sub !== 'www' && sub !== 'app');
+    }
+    return false;
+  })();
+
+  const isSubdomain = isHostnameSubdomain;
 
   useEffect(() => {
     if (isSubdomain && mode !== 'login') {

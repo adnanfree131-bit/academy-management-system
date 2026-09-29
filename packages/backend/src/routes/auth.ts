@@ -134,14 +134,21 @@ export function authRoutes(
           if (email.toLowerCase().trim() === 'kampuserp@gmail.com') {
             tenant_id = 'p0000000-0000-0000-0000-000000000001';
           } else {
-            return reply.status(400).send({
-              success: false,
-              error: {
-                code: 'TENANT_REQUIRED',
-                message: 'Academy identifier (tenant_slug or tenant_id) is required.',
-              },
-              timestamp: new Date().toISOString(),
-            });
+            const resolved = await authService.resolveTenantForEmail(email.toLowerCase().trim(), password);
+            if (resolved?.tenantId) {
+              tenant_id = resolved.tenantId;
+            } else if (resolved?.tenantSlug) {
+              tenant_slug = resolved.tenantSlug;
+            } else {
+              return reply.status(400).send({
+                success: false,
+                error: {
+                  code: 'TENANT_REQUIRED',
+                  message: 'Academy identifier (tenant_slug or tenant_id) is required.',
+                },
+                timestamp: new Date().toISOString(),
+              });
+            }
           }
         }
         const { user, tenant } = await authService.loginWithPassword(email, password, tenant_slug, tenant_id);
@@ -155,6 +162,10 @@ export function authRoutes(
         const jwtPayload = await buildJwtPayload(tenant.id, user);
 
         const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
+
+        store.ensureTenantSessions(tenant);
+        const workingSession = store.resolveWorkingSession(tenant.id, user);
+        const yearClosed = store.isYearClosed(tenant.id, workingSession);
 
         const userAccess = resolveUserAccess(user);
         const sessionResponse: AuthSessionResponse = {
@@ -171,6 +182,8 @@ export function authRoutes(
             permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : derivePermissions(userAccess),
             designation: (user.metadata?.designation as string) || undefined,
             must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
+            working_session: workingSession,
+            year_closed: yearClosed,
           },
           tenant: {
             id: tenant.id,
@@ -178,6 +191,7 @@ export function authRoutes(
             slug: tenant.slug,
             status: tenant.status,
             academic_session: tenant.settings?.academic_session || '2026-2027',
+            academic_sessions: tenant.settings?.academic_sessions || [],
             campus_name: tenant.settings?.campus_name || 'Main Campus',
             logo_url: tenant.settings?.logo_url || (tenant.slug === 'tsa' ? '/tsa-logo.png' : null),
             city: tenant.settings?.city || null,
@@ -379,6 +393,10 @@ export function authRoutes(
 
         const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
 
+        store.ensureTenantSessions(tenant);
+        const workingSession = store.resolveWorkingSession(tenant.id, user);
+        const yearClosed = store.isYearClosed(tenant.id, workingSession);
+
         const userAccess = resolveUserAccess(user);
         const sessionResponse: AuthSessionResponse = {
           token,
@@ -394,6 +412,8 @@ export function authRoutes(
             permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : derivePermissions(userAccess),
             designation: (user.metadata?.designation as string) || undefined,
             must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
+            working_session: workingSession,
+            year_closed: yearClosed,
           },
           tenant: {
             id: tenant.id,
@@ -401,6 +421,7 @@ export function authRoutes(
             slug: tenant.slug,
             status: tenant.status,
             academic_session: tenant.settings?.academic_session || '2026-2027',
+            academic_sessions: tenant.settings?.academic_sessions || [],
             campus_name: tenant.settings?.campus_name || 'Main Campus',
             logo_url: tenant.settings?.logo_url || null,
             city: tenant.settings?.city || null,
@@ -450,11 +471,18 @@ export function authRoutes(
           if (email.toLowerCase().trim() === 'kampuserp@gmail.com') {
             tenant_id = 'p0000000-0000-0000-0000-000000000001';
           } else {
-            return reply.status(400).send({
-              success: false,
-              error: { code: 'TENANT_REQUIRED', message: 'Academy identifier (tenant_slug or tenant_id) is required.' },
-              timestamp: new Date().toISOString(),
-            });
+            const resolved = await authService.resolveTenantForEmail(email.toLowerCase().trim());
+            if (resolved?.tenantId) {
+              tenant_id = resolved.tenantId;
+            } else if (resolved?.tenantSlug) {
+              tenant_slug = resolved.tenantSlug;
+            } else {
+              return reply.status(400).send({
+                success: false,
+                error: { code: 'TENANT_REQUIRED', message: 'Academy identifier (tenant_slug or tenant_id) is required.' },
+                timestamp: new Date().toISOString(),
+              });
+            }
           }
         }
         const result = await authService.requestPasswordReset(email, tenant_slug, tenant_id);
@@ -499,11 +527,18 @@ export function authRoutes(
           if (email.toLowerCase().trim() === 'kampuserp@gmail.com') {
             tenant_id = 'p0000000-0000-0000-0000-000000000001';
           } else {
-            return reply.status(400).send({
-              success: false,
-              error: { code: 'TENANT_REQUIRED', message: 'Academy identifier (tenant_slug or tenant_id) is required.' },
-              timestamp: new Date().toISOString(),
-            });
+            const resolved = await authService.resolveTenantForEmail(email.toLowerCase().trim());
+            if (resolved?.tenantId) {
+              tenant_id = resolved.tenantId;
+            } else if (resolved?.tenantSlug) {
+              tenant_slug = resolved.tenantSlug;
+            } else {
+              return reply.status(400).send({
+                success: false,
+                error: { code: 'TENANT_REQUIRED', message: 'Academy identifier (tenant_slug or tenant_id) is required.' },
+                timestamp: new Date().toISOString(),
+              });
+            }
           }
         }
         await authService.resetPassword(email, otp, new_password, tenant_slug, tenant_id);
@@ -764,6 +799,10 @@ export function authRoutes(
 
         const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
 
+        store.ensureTenantSessions(tenant);
+        const workingSession = store.resolveWorkingSession(tenant.id, user);
+        const yearClosed = store.isYearClosed(tenant.id, workingSession);
+
         const sessionResponse: AuthSessionResponse = {
           token,
           expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
@@ -777,6 +816,8 @@ export function authRoutes(
             permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
             designation: (user.metadata?.designation as string) || undefined,
             must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
+            working_session: workingSession,
+            year_closed: yearClosed,
           },
           tenant: {
             id: tenant.id,
@@ -784,6 +825,7 @@ export function authRoutes(
             slug: tenant.slug,
             status: tenant.status,
             academic_session: tenant.settings?.academic_session || '2026-2027',
+            academic_sessions: tenant.settings?.academic_sessions || [],
             campus_name: tenant.settings?.campus_name || 'Main Campus',
             logo_url: tenant.settings?.logo_url || null,
             city: tenant.settings?.city || null,
@@ -826,6 +868,10 @@ export function authRoutes(
         });
       }
 
+      store.ensureTenantSessions(tenant);
+      const workingSession = request.working_session || request.user?.working_session || store.resolveWorkingSession(tenant.id, user);
+      const yearClosed = request.year_closed !== undefined ? request.year_closed : store.isYearClosed(tenant.id, workingSession);
+
       return reply.send({
         success: true,
         data: {
@@ -840,11 +886,14 @@ export function authRoutes(
             permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : derivePermissions(resolveUserAccess(user)),
             designation: (user.metadata?.designation as string) || undefined,
             must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
+            working_session: workingSession,
+            year_closed: yearClosed,
           },
           tenant: {
             ...tenant,
             logo_url: tenant.settings?.logo_url || (tenant.slug === 'tsa' ? '/tsa-logo.png' : null),
             academic_session: tenant.settings?.academic_session || '2026-2027',
+            academic_sessions: tenant.settings?.academic_sessions || [],
             campus_name: tenant.settings?.campus_name || 'Main Campus',
           },
         },

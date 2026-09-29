@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload } from '@apex/shared-types';
-import { can, batchScope, FeatureId, AccessLevel } from '../lib/access.js';
+import { can, batchScope, FeatureId, AccessLevel, assertYearWritable } from '../lib/access.js';
 
 export function attendanceRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -128,6 +128,12 @@ export function attendanceRoutes(store: IDataStore) {
       }
 
       let records = await store.getStudentAttendance(user.tenant_id, batch_id, date);
+      const workingSession = (request.user as any)?.working_session || request.working_session;
+      if (workingSession) {
+        const sessionBatches = store.batchesForSession(user.tenant_id, workingSession);
+        const sessionBatchIds = new Set(sessionBatches.map(b => b.id));
+        records = records.filter(r => sessionBatchIds.has(r.batch_id));
+      }
       if (Array.isArray(scope)) {
         records = records.filter(r => scope.includes(r.batch_id));
       }
@@ -143,6 +149,7 @@ export function attendanceRoutes(store: IDataStore) {
 
     // Rapid batch attendance submission
     const recordBatchHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'attendance', 'edit', reply)) return;
       const schema = z.object({
@@ -248,6 +255,7 @@ export function attendanceRoutes(store: IDataStore) {
     fastify.get('/leaves', getLeavesHandler);
 
     const submitLeaveHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       const schema = z.object({
         student_id: z.string().min(1),
@@ -322,6 +330,7 @@ export function attendanceRoutes(store: IDataStore) {
     fastify.post('/leaves', submitLeaveHandler);
 
     const reviewLeaveHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'attendance', 'edit', reply)) return;
       const { id } = request.params as { id: string };

@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, PaymentMethod, InvoiceStatus } from '@apex/shared-types';
-import { can, FeatureId, AccessLevel } from '../lib/access.js';
+import { can, FeatureId, AccessLevel, assertYearWritable } from '../lib/access.js';
 
 export function financeRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -198,6 +198,7 @@ export function financeRoutes(store: IDataStore) {
     // 3.5 BULK FEE REVISION
     // =========================================================================
     const bulkFeeRevisionHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'challans', 'edit', reply)) return;
 
@@ -297,10 +298,12 @@ export function financeRoutes(store: IDataStore) {
             });
           }
         } else {
+          const workingSession = (request.user as any)?.working_session || request.working_session;
           const invoices = await store.getInvoices(user.tenant_id, {
             batch_id,
             billing_month,
-            status
+            status,
+            session: workingSession,
           });
           const filtered = invoices.filter(inv => linkedIds.includes(inv.student_id));
           return reply.send({ success: true, data: filtered, timestamp: new Date().toISOString() });
@@ -309,11 +312,13 @@ export function financeRoutes(store: IDataStore) {
         if (!assertAnyFeature(user, [['voucher', 'view'], ['challans', 'view']], reply)) return;
       }
 
+      const workingSession = (request.user as any)?.working_session || request.working_session;
       const invoices = await store.getInvoices(user.tenant_id, {
         student_id,
         batch_id,
         billing_month,
-        status
+        status,
+        session: workingSession,
       });
       return reply.send({ success: true, data: invoices, timestamp: new Date().toISOString() });
     };
@@ -358,6 +363,7 @@ export function financeRoutes(store: IDataStore) {
     fastify.get('/invoices/:id', getInvoiceByIdHandler);
 
     const generateInvoiceHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'challans', 'edit', reply)) return;
       const schema = z.object({
@@ -400,6 +406,7 @@ export function financeRoutes(store: IDataStore) {
     fastify.post('/invoices/generate', generateInvoiceHandler);
 
     const generateBatchInvoicesHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'challans', 'edit', reply)) return;
       const schema = z.object({
@@ -441,6 +448,7 @@ export function financeRoutes(store: IDataStore) {
     fastify.post('/invoices/batch', generateBatchInvoicesHandler);
 
     const cancelInvoiceHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'fee_reversals', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -471,6 +479,7 @@ export function financeRoutes(store: IDataStore) {
     fastify.post('/invoices/:id/cancel', cancelInvoiceHandler);
     fastify.post('/invoices/:id/void', cancelInvoiceHandler);
     fastify.delete('/invoices/:id', async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'fee_reversals', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -488,6 +497,7 @@ export function financeRoutes(store: IDataStore) {
     });
 
     const updateInvoiceHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'challans', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -790,6 +800,7 @@ export function financeRoutes(store: IDataStore) {
     fastify.get('/discounts', getDiscountsHandler);
 
     const applyDiscountHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertAnyFeature(user, [['voucher', 'edit'], ['challans', 'edit']], reply)) return;
       const schema = z.object({

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Menu, Search, ChevronDown, LogOut, Shield, Settings, Users, Bell } from 'lucide-react';
+import { Menu, Search, ChevronDown, LogOut, Shield, Settings, Users, Bell, Calendar } from 'lucide-react';
 import { hapticLight } from '../lib/haptics';
 import { canOpenScreen } from '../lib/portalAccess';
 
@@ -18,8 +18,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSearch,
   onSwitchScreen,
 }) => {
-  const { user, tenant, token, logout } = useAuth();
+  const { user, tenant, token, logout, setWorkingSession } = useAuth();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [sessionListExpanded, setSessionListExpanded] = useState(false);
   const [absenteePending, setAbsenteePending] = useState(0);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +42,7 @@ export const Header: React.FC<HeaderProps> = ({
     const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
         setProfileMenuOpen(false);
+        setSessionListExpanded(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -77,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Mobile Screen Title Header with Academy Branding */}
           <div className="md:hidden min-w-0 flex-1 flex flex-col justify-center px-1">
             <span className="text-xs font-bold text-slate-900 truncate leading-snug">
-              {tenant?.name || 'The Smart Academy'}
+              {tenant?.name || 'Academy'}
             </span>
             <span className="text-[10px] text-slate-500 font-medium truncate leading-normal">
               {currentScreenTitle || 'Portal'}
@@ -130,10 +132,31 @@ export const Header: React.FC<HeaderProps> = ({
 
 
         {/* Academic Session Pill */}
-        <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 h-9 rounded-xl text-[11px] font-medium text-slate-600 bg-slate-50 border border-[#E6ECF2]">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-          <span>Session {tenant?.academic_session || '2026–2027'}</span>
-        </div>
+        {user?.role === 'student' || user?.role === 'parent' ? (
+          <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 h-9 rounded-xl text-[11px] font-medium text-slate-600 bg-slate-50 border border-[#E6ECF2]">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+            <span>Session {tenant?.academic_session || '2026–2027'}</span>
+          </div>
+        ) : (
+          <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 h-9 rounded-xl text-[11px] font-medium text-slate-600 bg-slate-50 border border-[#E6ECF2]">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${user?.year_closed ? 'bg-slate-400' : 'bg-emerald-500'}`} />
+            <span>Session</span>
+            <select
+              value={user?.working_session || tenant?.academic_session || ''}
+              onChange={(e) => setWorkingSession(e.target.value)}
+              className="text-[11px] bg-transparent border-0 text-slate-600 font-medium focus:outline-hidden cursor-pointer"
+            >
+              {(tenant?.academic_sessions && tenant.academic_sessions.length > 0
+                ? tenant.academic_sessions
+                : [{ id: 'curr', name: tenant?.academic_session || '2026-2027' }]
+              ).map((s) => (
+                <option key={s.id || s.name} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* User Profile & Sign Out Menu (Behance Slide 11) */}
         <div className="relative" ref={profileMenuRef}>
@@ -162,6 +185,53 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
               <div className="py-1">
+                {user?.role !== 'student' && user?.role !== 'parent' && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setSessionListExpanded(!sessionListExpanded)}
+                      className="w-full text-left px-3.5 py-2 flex items-center justify-between gap-2 text-xs text-slate-700 hover:bg-slate-50 font-semibold min-h-[44px]"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Session {user?.working_session || tenant?.academic_session}</span>
+                      </div>
+                      <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${sessionListExpanded ? 'rotate-180' : ''}`} />
+                    </button>
+                    {sessionListExpanded && (
+                      <div className="bg-slate-50/70 border-y border-slate-100 py-1 divide-y divide-slate-100/50">
+                        {(tenant?.academic_sessions && tenant.academic_sessions.length > 0
+                          ? tenant.academic_sessions
+                          : [{ id: 'curr', name: tenant?.academic_session || '2026-2027', is_active: true }]
+                        ).map((s) => {
+                          const isWorking = (user?.working_session || tenant?.academic_session) === s.name;
+                          const isGlobalDefault = s.is_active || s.name === tenant?.academic_session;
+                          return (
+                            <button
+                              key={s.id || s.name}
+                              type="button"
+                              onClick={() => {
+                                setWorkingSession(s.name);
+                                setProfileMenuOpen(false);
+                                setSessionListExpanded(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 flex items-center justify-between text-xs min-h-[44px] hover:bg-slate-100 transition-colors ${
+                                isWorking ? 'font-bold text-slate-900' : 'font-normal text-slate-600'
+                              }`}
+                            >
+                              <span>{s.name}</span>
+                              {isGlobalDefault && (
+                                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                                  Global Default
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {user?.role === 'tenant_admin' && (
                   <>
                     <button

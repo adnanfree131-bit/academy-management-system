@@ -46,7 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { user, tenant, token, logout } = useAuth();
   const role = user?.role || 'tenant_admin';
   const managedStaff = isManagedStaff(role, user?.permissions);
-  const allow = (screen: string) => canOpenScreen(role, user?.permissions, screen, user?.access);
+  const allow = (screen: string) => canOpenScreen(role, user?.permissions, screen, user?.access, user?.year_closed);
   const [absenteePending, setAbsenteePending] = useState(0);
 
   useEffect(() => {
@@ -96,13 +96,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="min-w-0 flex-1 flex items-center gap-2.5">
                   <AcademyLogo 
                     src={tenant?.logo_url || tenant?.settings?.logo_url || (tenant?.slug === 'tsa' ? '/tsa-logo.png' : undefined)} 
-                    name={tenant?.name || 'Apex Academy'} 
+                    name={tenant?.name || 'Academy'} 
                     size={34} 
                     className="!rounded-xl shrink-0 shadow-xs" 
                   />
                   <div className="min-w-0">
                     <p className="font-sans font-bold text-xs text-white tracking-tight truncate leading-snug">
-                      {tenant?.name || 'Apex Academy'}
+                      {tenant?.name || 'Academy'}
                     </p>
                     <p className="text-[9.5px] text-slate-400 tracking-wider uppercase font-semibold truncate">
                       ERP System

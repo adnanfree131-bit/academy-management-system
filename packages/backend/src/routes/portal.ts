@@ -53,7 +53,8 @@ export function portalRoutes(store: IDataStore) {
         const teacherId = requestedTeacherId || user.user_id || user.sub;
         const date = req.query.date;
 
-        const overview = await store.getTeacherPortalOverview(tenantId, teacherId, date);
+        const workingSession = req.query.session || (req.user as any)?.working_session || req.working_session;
+        const overview = await store.getTeacherPortalOverview(tenantId, teacherId, date, workingSession);
         return reply.send({ success: true, data: overview, timestamp: new Date().toISOString() });
       } catch (err: any) {
         req.log.error(err);
@@ -159,6 +160,8 @@ export function portalRoutes(store: IDataStore) {
           const allBatches = await store.getBatches(tenantId);
           const allPrograms = await store.getPrograms(tenantId);
           const allInvoices = await store.getInvoices(tenantId);
+          const tenantObj = await store.getTenantById(tenantId);
+          const activeSession = tenantObj?.settings?.academic_session || '2026-2027';
 
           linkedChildren = await Promise.all(unblockedChildren.map(async c => {
             const b = allBatches.find(batch => batch.id === c.batch_id);
@@ -166,6 +169,12 @@ export function portalRoutes(store: IDataStore) {
             const cInvoices = allInvoices.filter(i => i.student_id === c.id && i.status !== 'voided' && (i.status as any) !== 'cancelled');
             const unpaid = cInvoices.reduce((sum, inv) => sum + (typeof inv.balance_due === 'number' ? inv.balance_due : (inv.balance_amount ?? 0)), 0);
             const enrollments = await store.getStudentEnrollments(tenantId, c.id);
+            const activeEnrollments = enrollments.filter(e => {
+              const eb = allBatches.find(bat => bat.id === e.batch_id);
+              const sess = e.academic_session || eb?.academic_session;
+              return (sess === activeSession || !sess) && (e.status === 'active' || e.status === 'on_leave');
+            });
+            const effectiveEnrollments = activeEnrollments.length > 0 ? activeEnrollments : enrollments.filter(e => e.status !== 'completed');
             return {
               id: c.id,
               full_name: c.full_name,
@@ -175,7 +184,7 @@ export function portalRoutes(store: IDataStore) {
               batch_name: b?.name || 'Batch',
               photo_url: c.photo_url,
               unpaid_balance: unpaid,
-              classes: enrollments.map(e => ({
+              classes: effectiveEnrollments.map(e => ({
                 id: e.id,
                 program_name: allPrograms.find(prog => prog.id === e.program_id)?.name || 'Class',
                 batch_name: allBatches.find(batch => batch.id === e.batch_id)?.name || 'Section',
@@ -206,12 +215,21 @@ export function portalRoutes(store: IDataStore) {
           const allBatches = await store.getBatches(tenantId);
           const allPrograms = await store.getPrograms(tenantId);
           const allInvoices = await store.getInvoices(tenantId);
+          const tenantObj = await store.getTenantById(tenantId);
+          const activeSession = tenantObj?.settings?.academic_session || '2026-2027';
+
           linkedChildren = await Promise.all(tenantStudents.slice(0, 20).map(async c => {
             const b = allBatches.find(batch => batch.id === c.batch_id);
             const p = allPrograms.find(prog => prog.id === c.program_id);
             const cInvoices = allInvoices.filter(i => i.student_id === c.id && i.status !== 'voided');
             const unpaid = cInvoices.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
             const enrollments = await store.getStudentEnrollments(tenantId, c.id);
+            const activeEnrollments = enrollments.filter(e => {
+              const eb = allBatches.find(bat => bat.id === e.batch_id);
+              const sess = e.academic_session || eb?.academic_session;
+              return (sess === activeSession || !sess) && (e.status === 'active' || e.status === 'on_leave');
+            });
+            const effectiveEnrollments = activeEnrollments.length > 0 ? activeEnrollments : enrollments.filter(e => e.status !== 'completed');
             return {
               id: c.id,
               full_name: c.full_name,
@@ -221,7 +239,7 @@ export function portalRoutes(store: IDataStore) {
               batch_name: b?.name || 'Batch',
               photo_url: c.photo_url,
               unpaid_balance: unpaid,
-              classes: enrollments.map(e => ({
+              classes: effectiveEnrollments.map(e => ({
                 id: e.id,
                 program_name: allPrograms.find(prog => prog.id === e.program_id)?.name || 'Class',
                 batch_name: allBatches.find(batch => batch.id === e.batch_id)?.name || 'Section',

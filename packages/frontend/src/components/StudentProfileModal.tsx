@@ -66,9 +66,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   onClose,
   onStudentUpdated,
 }) => {
-  const { token, tenant, user } = useAuth();
-  const isAdmin = user?.role === 'tenant_admin' || user?.role === 'super_admin';
-  const canManageAcademicStatus = isAdmin || user?.role === 'academic_head';
+  const { token, tenant, user, working_session } = useAuth();
+  const isAdmin = (user?.role === 'tenant_admin' || user?.role === 'super_admin') && !user?.year_closed;
+  const canManageAcademicStatus = (user?.role === 'tenant_admin' || user?.role === 'super_admin' || user?.role === 'academic_head') && !user?.year_closed;
   const [currentStudent, setCurrentStudent] = useState<Student>(student);
   useMobileOverlay('sheet', true, onClose);
   useEffect(() => {
@@ -1358,6 +1358,22 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
+                  const effectiveSession = working_session || tenant?.academic_session;
+                  if (effectiveSession && enrollments.length > 0) {
+                    const sessionEnrs = enrollments.filter(e => {
+                      const b = batches.find(bat => bat.id === e.batch_id);
+                      return (e.academic_session === effectiveSession || b?.academic_session === effectiveSession) && (e.status === 'active' || e.status === 'on_leave');
+                    });
+                    const currentBatch = batches.find(b => b.id === currentStudent.batch_id);
+                    const inSession = sessionEnrs.length > 0 || (currentBatch && currentBatch.academic_session === effectiveSession);
+                    if (!inSession) {
+                      alert('This student has no class in this year.');
+                      return;
+                    }
+                  } else if (!currentStudent.batch_id) {
+                    alert('This student has no class in this year.');
+                    return;
+                  }
                   setSelectedIdCardEnrollmentId(undefined);
                   setShowIdCardModal(true);
                 }}

@@ -125,6 +125,8 @@ export interface User {
     password_hash?: string;
     avatar_url?: string | null;
     metadata?: Record<string, unknown>;
+    working_session?: string;
+    year_closed?: boolean;
     last_login_at?: string | null;
     created_at: string;
     updated_at: string;
@@ -239,6 +241,8 @@ export interface AuthSessionResponse {
         teaching_assignments?: StaffTeachingAssignment[];
         designation?: string;
         must_change_password?: boolean;
+        working_session?: string;
+        year_closed?: boolean;
     };
     tenant: {
         id: string;
@@ -246,6 +250,7 @@ export interface AuthSessionResponse {
         slug: string;
         status: TenantStatus;
         academic_session: string;
+        academic_sessions?: AcademicSession[];
         campus_name: string;
         logo_url?: string | null;
         city?: string | null;
@@ -342,6 +347,7 @@ export interface AcademicProgram {
     description?: string | null;
     sort_order: number;
     fee_schedule?: FeeScheduleItem[];
+    total_enrollments?: number;
     created_at: string;
     updated_at: string;
 }
@@ -383,10 +389,12 @@ export interface Batch {
     academic_session: string;
     max_capacity: number;
     current_enrollment: number;
+    total_enrollments?: number;
     fee_schedule?: FeeScheduleItem[];
     class_teacher_id?: string | null;
     class_teacher_name?: string | null;
     subject_ids?: string[];
+    copied_from_batch_id?: string | null;
     status?: 'active' | 'archived';
     created_at: string;
     updated_at: string;
@@ -942,6 +950,7 @@ export interface StudentInvoice {
     invoice_number: string;
     student_id: string;
     enrollment_id?: string;
+    academic_session?: string;
     student_name: string;
     admission_number?: string;
     roll_number?: string | null;
@@ -1444,6 +1453,7 @@ export interface TeacherPortalOverview {
     pending_attendance_batches: Batch[];
     pending_grading_exams: Exam[];
     recent_diary_entries: HomeworkAssignment[];
+    homework?: HomeworkAssignment[];
     geofence_status: {
         is_clocked_in: boolean;
         clocked_in_at?: string | null;

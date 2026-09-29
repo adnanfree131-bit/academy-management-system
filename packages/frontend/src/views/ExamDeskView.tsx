@@ -20,7 +20,8 @@ import {
   AlertTriangle,
   SlidersHorizontal,
   MoreVertical,
-  ArrowLeft
+  ArrowLeft,
+  Info
 } from 'lucide-react';
 import {
   Exam,
@@ -40,7 +41,7 @@ import { SectionInfo } from '../components/SectionInfo';
 import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const ExamDeskView: React.FC = () => {
-  const { tenant, token } = useAuth();
+  const { tenant, token, user, working_session } = useAuth();
 
   // Active navigation tab
   const [activeTab, setActiveTab] = useState<'exams' | 'bank' | 'evaluate'>('exams');
@@ -207,7 +208,7 @@ export const ExamDeskView: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [token]);
+  }, [token, working_session]);
 
   // Load evaluations when selected exam changes
   useEffect(() => {
@@ -658,30 +659,32 @@ export const ExamDeskView: React.FC = () => {
           {showExamModuleMenu && (
             <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100">
               {/* Primary Actions */}
-              <div className="p-1.5 space-y-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowExamModuleMenu(false);
-                    setShowCreateExamModal(true);
-                  }}
-                  className="w-full px-3 py-2 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 font-semibold shadow-xs transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5 text-white" />
-                  <span>New Exam</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowExamModuleMenu(false);
-                    setShowExcelImportModal(true);
-                  }}
-                  className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Excel Question Upload</span>
-                </button>
-              </div>
+              {!user?.year_closed && (
+                <div className="p-1.5 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowExamModuleMenu(false);
+                      setShowCreateExamModal(true);
+                    }}
+                    className="w-full px-3 py-2 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 font-semibold shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-white" />
+                    <span>New Exam</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowExamModuleMenu(false);
+                      setShowExcelImportModal(true);
+                    }}
+                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Excel Question Upload</span>
+                  </button>
+                </div>
+              )}
 
               {/* Views */}
               <div className="py-1">
@@ -762,6 +765,16 @@ export const ExamDeskView: React.FC = () => {
           )}
         </div>
       </PageHeading>
+
+      {/* Closed Year Banner */}
+      {user?.year_closed && (
+        <div className="bg-slate-100 border border-slate-200 text-slate-700 text-xs px-3 py-2 rounded-xl flex items-center gap-2 shadow-xs">
+          <Info className="w-4 h-4 text-slate-500 flex-shrink-0" />
+          <span>Viewing {user?.working_session || 'this session'}. These records cannot be changed.</span>
+        </div>
+      )}
+
+      {/* Control Bar & Filter Summary */}
 
       {/* 4-Card Metric Summary Strip (Sidebar Dark Navy Design) */}
       {showOverviewMetrics && (
@@ -1112,14 +1125,16 @@ export const ExamDeskView: React.FC = () => {
           </div>
 
           {/* Mobile Floating Action Button (FAB) for New Exam */}
-          <button
-            type="button"
-            onClick={() => setShowCreateExamModal(true)}
-            className="sm:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-30 w-14 h-14 bg-amber-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-amber-700 active:scale-95 transition-transform cursor-pointer"
-            title="Create Exam"
-          >
-            <Plus className="w-6 h-6" />
-          </button>
+          {!user?.year_closed && (
+            <button
+              type="button"
+              onClick={() => setShowCreateExamModal(true)}
+              className="sm:hidden fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-30 w-14 h-14 bg-amber-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-amber-700 active:scale-95 transition-transform cursor-pointer"
+              title="Create Exam"
+            >
+              <Plus className="w-6 h-6" />
+            </button>
+          )}
         </div>
       )}
 
@@ -1139,12 +1154,14 @@ export const ExamDeskView: React.FC = () => {
               </button>
               <SectionInfo title="Question Bank" description="Manage chapter questions, difficulty tiers, and syllabus coverage." />
             </div>
-            <button
-              onClick={() => setShowExcelImportModal(true)}
-              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Excel Upload
-            </button>
+            {!user?.year_closed && (
+              <button
+                onClick={() => setShowExcelImportModal(true)}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" /> Excel Upload
+              </button>
+            )}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Left Column: Chapter Hierarchy Tree */}
@@ -1190,14 +1207,16 @@ export const ExamDeskView: React.FC = () => {
                 ))}
               </div>
 
-              <div className="pt-3 border-t border-slate-200">
-                <button
-                  onClick={() => setShowAddQuestionModal(true)}
-                  className="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-2xs"
-                >
-                  <Plus className="w-3.5 h-3.5 text-indigo-600" /> Add Question
-                </button>
-              </div>
+              {!user?.year_closed && (
+                <div className="pt-3 border-t border-slate-200">
+                  <button
+                    onClick={() => setShowAddQuestionModal(true)}
+                    className="w-full py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-indigo-600" /> Add Question
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Right 3 Columns: Questions Repository */}
@@ -1625,13 +1644,15 @@ export const ExamDeskView: React.FC = () => {
                     </div>
                   </div>
 
-                  <button
-                    onClick={handleSaveEvaluation}
-                    disabled={!evalSelectedStudentId || eligibleStudents.length === 0}
-                    className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2"
-                  >
-                    <CheckCircle2 className="w-4 h-4" /> Save & Publish Result
-                  </button>
+                  {!user?.year_closed && (
+                    <button
+                      onClick={handleSaveEvaluation}
+                      disabled={!evalSelectedStudentId || eligibleStudents.length === 0}
+                      className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4" /> Save & Publish Result
+                    </button>
+                  )}
                 </div>
 
                 {/* Batch Evaluations Register */}
@@ -1907,7 +1928,7 @@ export const ExamDeskView: React.FC = () => {
               {/* Paper Header */}
               <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
                 <h2 className="text-xl font-bold uppercase tracking-wide font-sans">{tenant?.name || 'ACADEMY PORTAL'}</h2>
-                <p className="text-xs font-sans text-slate-600">{tenant?.campus_name || 'Main Campus'} • Academic Session {tenant?.academic_session || '2026-2027'}</p>
+                <p className="text-xs font-sans text-slate-600">{tenant?.campus_name || 'Main Campus'} • Academic Session {user?.working_session || tenant?.academic_session || '2026-2027'}</p>
                 <h3 className="text-base font-bold uppercase underline mt-2">{selectedExamForPaper.title}</h3>
                 <div className="flex justify-between text-xs font-sans pt-2">
                   <span><strong>Subject:</strong> {selectedExamForPaper.subject_name || 'Physics'}</span>

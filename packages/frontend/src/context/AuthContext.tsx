@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { TenantSettings } from '@apex/shared-types';
+import { TenantSettings, AcademicSession } from '@apex/shared-types';
 
 export interface UserSession {
   id: string;
@@ -13,6 +13,8 @@ export interface UserSession {
   teaching_assignments?: any[];
   designation?: string;
   must_change_password?: boolean;
+  working_session?: string;
+  year_closed?: boolean;
 }
 
 export interface TenantSession {
@@ -21,6 +23,7 @@ export interface TenantSession {
   slug: string;
   status: string;
   academic_session: string;
+  academic_sessions?: AcademicSession[];
   campus_name: string;
   logo_url?: string | null;
   phone?: string | null;
@@ -46,6 +49,8 @@ interface AuthContextType {
   tenant: TenantSession | null;
   token: string | null;
   isLoading: boolean;
+  working_session: string;
+  setWorkingSession: (name: string) => Promise<void>;
   loginWithPassword: (email: string, password: string, tenantSlug?: string) => Promise<{ success: boolean }>;
   registerAcademy: (payload: RegisterAcademyPayload) => Promise<{ success: boolean; message: string; dev_otp?: string; tenant: any; admin: any }>;
   verifyRegistrationOTP: (email: string, otp: string, tenantSlug: string, autoStartSession?: boolean) => Promise<{ success: boolean; sessionData?: any }>;
@@ -60,6 +65,29 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+if (typeof window !== 'undefined' && !(window as any).__kampus_fetch_intercepted) {
+  (window as any).__kampus_fetch_intercepted = true;
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const session = localStorage.getItem('kampus.working_session');
+    if (session) {
+      if (typeof input === 'string' || input instanceof URL) {
+        init = init || {};
+        const headers = new Headers(init.headers || {});
+        if (!headers.has('X-Kampus-Session')) {
+          headers.set('X-Kampus-Session', session);
+        }
+        init.headers = headers;
+      } else if (input instanceof Request) {
+        if (!input.headers.has('X-Kampus-Session')) {
+          input.headers.set('X-Kampus-Session', session);
+        }
+      }
+    }
+    return originalFetch(input, init);
+  };
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserSession | null>(null);
@@ -84,25 +112,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (res.ok) {
           const body = await res.json();
-          setUser(body.data.user);
+          const u = body.data.user;
+          const t = body.data.tenant;
+          const activeYear = t.settings?.academic_session || t.academic_session || '2026-2027';
+          const workingYear = u.working_session || localStorage.getItem('kampus.working_session') || activeYear;
+          localStorage.setItem('kampus.working_session', workingYear);
+          setUser({
+            ...u,
+            working_session: workingYear,
+            year_closed: u.year_closed ?? (workingYear !== activeYear),
+          });
           setTenant({
-            id: body.data.tenant.id,
-            name: body.data.tenant.name,
-            slug: body.data.tenant.slug,
-            status: body.data.tenant.status,
-            academic_session: body.data.tenant.settings?.academic_session || body.data.tenant.academic_session || '2026-2027',
-            campus_name: body.data.tenant.settings?.campus_name || body.data.tenant.campus_name || 'Main Campus',
-            logo_url: body.data.tenant.logo_url || body.data.tenant.settings?.logo_url || (body.data.tenant.slug === 'tsa' ? '/tsa-logo.png' : null),
-            phone: body.data.tenant.phone || body.data.tenant.settings?.phone || null,
-            city: body.data.tenant.city || body.data.tenant.settings?.city || null,
-            domain: body.data.tenant.domain || null,
-            settings: body.data.tenant.settings || null,
+            id: t.id,
+            name: t.name,
+            slug: t.slug,
+            status: t.status,
+            academic_session: activeYear,
+            academic_sessions: t.academic_sessions || t.settings?.academic_sessions || [],
+            campus_name: t.settings?.campus_name || t.campus_name || 'Main Campus',
+            logo_url: t.logo_url || t.settings?.logo_url || (t.slug === 'tsa' ? '/tsa-logo.png' : null),
+            phone: t.phone || t.settings?.phone || null,
+            city: t.city || t.settings?.city || null,
+            domain: t.domain || null,
+            settings: t.settings || null,
           });
         } else {
           // Token expired or invalid
           localStorage.removeItem('apex_jwt_token');
           localStorage.removeItem('apex_active_screen');
           localStorage.removeItem('apex_staff_attendance_tab');
+          localStorage.removeItem('kampus.working_session');
           if (window.location.hash) {
             window.history.replaceState(null, '', window.location.pathname);
           }
@@ -127,7 +166,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       fetch('/api/v1/auth/me', { headers: { Authorization: `Bearer ${currentToken}` } })
         .then(r => r.ok ? r.json() : null)
         .then(body => {
-          if (body?.data?.user) setUser(body.data.user);
+          if (body?.data?.user) {
+            const u = body.data.user;
+            const t = body.data.tenant;
+            const activeYear = t?.settings?.academic_session || t?.academic_session || '2026-2027';
+            const workingYear = u.working_session || localStorage.getItem('kampus.working_session') || activeYear;
+            setUser({
+              ...u,
+              working_session: workingYear,
+              year_closed: u.year_closed ?? (workingYear !== activeYear),
+            });
+          }
         })
         .catch(() => {});
     };
@@ -153,6 +202,39 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
   }
 }
 
+  const handleSessionData = (sessionData: any) => {
+    if (!sessionData) return;
+    localStorage.setItem('apex_jwt_token', sessionData.token);
+    setToken(sessionData.token);
+
+    const u = sessionData.user;
+    const t = sessionData.tenant;
+    const activeYear = t?.settings?.academic_session || t?.academic_session || '2026-2027';
+    const workingYear = u?.working_session || localStorage.getItem('kampus.working_session') || activeYear;
+    localStorage.setItem('kampus.working_session', workingYear);
+
+    setUser({
+      ...u,
+      working_session: workingYear,
+      year_closed: u?.year_closed ?? (workingYear !== activeYear),
+    });
+
+    setTenant({
+      id: t.id,
+      name: t.name,
+      slug: t.slug,
+      status: t.status,
+      academic_session: activeYear,
+      academic_sessions: t.academic_sessions || t.settings?.academic_sessions || [],
+      campus_name: t.settings?.campus_name || t.campus_name || 'Main Campus',
+      logo_url: t.logo_url || t.settings?.logo_url || (t.slug === 'tsa' ? '/tsa-logo.png' : null),
+      phone: t.phone || t.settings?.phone || null,
+      city: t.city || t.settings?.city || null,
+      domain: t.domain || null,
+      settings: t.settings || null,
+    });
+  };
+
   /**
    * Daily Operational Login with Email & Password
    */
@@ -172,12 +254,7 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
       throw new Error(body.error?.message || 'Invalid email or password.');
     }
 
-    const sessionData = body.data;
-    localStorage.setItem('apex_jwt_token', sessionData.token);
-    setToken(sessionData.token);
-    setUser(sessionData.user);
-    setTenant(sessionData.tenant);
-
+    handleSessionData(body.data);
     return { success: true };
   };
 
@@ -217,11 +294,7 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
    * Apply user session directly from session response
    */
   const applySession = (sessionData: any) => {
-    if (!sessionData) return;
-    localStorage.setItem('apex_jwt_token', sessionData.token);
-    setToken(sessionData.token);
-    setUser(sessionData.user);
-    setTenant(sessionData.tenant);
+    handleSessionData(sessionData);
   };
 
   /**
@@ -278,12 +351,7 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
       throw new Error(body.error?.message || 'Verification failed.');
     }
 
-    const sessionData = body.data;
-    localStorage.setItem('apex_jwt_token', sessionData.token);
-    setToken(sessionData.token);
-    setUser(sessionData.user);
-    setTenant(sessionData.tenant);
-
+    handleSessionData(body.data);
     return { success: true };
   };
 
@@ -333,6 +401,7 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
     localStorage.removeItem('apex_jwt_token');
     localStorage.removeItem('apex_active_screen');
     localStorage.removeItem('apex_staff_attendance_tab');
+    localStorage.removeItem('kampus.working_session');
     if (window.location.hash) {
       window.history.replaceState(null, '', window.location.pathname);
     }
@@ -350,24 +419,70 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
       });
       if (res.ok) {
         const body = await res.json();
-        setUser(body.data.user);
+        const u = body.data.user;
+        const t = body.data.tenant;
+        const activeYear = t?.settings?.academic_session || t?.academic_session || '2026-2027';
+        const workingYear = u?.working_session || localStorage.getItem('kampus.working_session') || activeYear;
+        localStorage.setItem('kampus.working_session', workingYear);
+
+        setUser({
+          ...u,
+          working_session: workingYear,
+          year_closed: u?.year_closed ?? (workingYear !== activeYear),
+        });
+
         setTenant({
-          id: body.data.tenant.id,
-          name: body.data.tenant.name,
-          slug: body.data.tenant.slug,
-          status: body.data.tenant.status,
-          academic_session: body.data.tenant.settings?.academic_session || body.data.tenant.academic_session || '2026-2027',
-          campus_name: body.data.tenant.settings?.campus_name || body.data.tenant.campus_name || 'Main Campus',
-          logo_url: body.data.tenant.logo_url || body.data.tenant.settings?.logo_url || (body.data.tenant.slug === 'tsa' ? '/tsa-logo.png' : null),
-          phone: body.data.tenant.phone || body.data.tenant.settings?.phone || null,
-          city: body.data.tenant.city || body.data.tenant.settings?.city || null,
-          domain: body.data.tenant.domain || null,
-          settings: body.data.tenant.settings || null,
+          id: t.id,
+          name: t.name,
+          slug: t.slug,
+          status: t.status,
+          academic_session: activeYear,
+          academic_sessions: t.academic_sessions || t.settings?.academic_sessions || [],
+          campus_name: t.settings?.campus_name || t.campus_name || 'Main Campus',
+          logo_url: t.logo_url || t.settings?.logo_url || (t.slug === 'tsa' ? '/tsa-logo.png' : null),
+          phone: t.phone || t.settings?.phone || null,
+          city: t.city || t.settings?.city || null,
+          domain: t.domain || null,
+          settings: t.settings || null,
         });
       }
     } catch (err) {
       console.error('Failed to refresh session:', err);
     }
+  };
+
+  const setWorkingSession = async (name: string) => {
+    if (!token || !user) return;
+    if (user.role === 'student' || user.role === 'parent') return;
+
+    const res = await fetch('/api/v1/academic/working-session', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        'X-Kampus-Session': name,
+      },
+      body: JSON.stringify({ academic_session: name }),
+    });
+
+    const body = await parseJsonResponse(res, 'Failed to update working academic session.');
+    if (!res.ok) {
+      throw new Error(body.error?.message || 'Failed to update working academic session.');
+    }
+
+    const data = body.data || body;
+    localStorage.setItem('kampus.working_session', name);
+    setUser(prev => prev ? {
+      ...prev,
+      working_session: data.working_session || name,
+      year_closed: data.year_closed ?? (name !== (data.academic_session || tenant?.academic_session)),
+    } : null);
+
+    setTenant(prev => prev ? {
+      ...prev,
+      academic_session: data.academic_session || prev.academic_session,
+      academic_sessions: data.academic_sessions || prev.academic_sessions,
+    } : null);
   };
 
   const switchDemoAccount = async (targetEmail: string, slug = 'apex') => {
@@ -397,6 +512,8 @@ async function parseJsonResponse(res: Response, fallbackMsg: string): Promise<an
         tenant,
         token,
         isLoading,
+        working_session: user?.working_session || tenant?.academic_session || '2026-2027',
+        setWorkingSession,
         loginWithPassword,
         registerAcademy,
         verifyRegistrationOTP,

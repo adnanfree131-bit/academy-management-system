@@ -191,6 +191,17 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       ? dbUser.metadata.teaching_assignments
       : [];
 
+    const headerSession = (request.headers['x-kampus-session'] || request.headers['X-Kampus-Session']) as string | undefined;
+    const workingSession = tenantId
+      ? store.resolveWorkingSession(tenantId, dbUser, headerSession)
+      : '2026-2027';
+    const yearClosed = tenantId
+      ? store.isYearClosed(tenantId, workingSession)
+      : false;
+
+    request.working_session = workingSession;
+    request.year_closed = yearClosed;
+
     request.user = {
       ...payload,
       id: dbUser.id,
@@ -202,6 +213,8 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
       teaching_assignments: teachingAssignments,
       portal_blocked: portalBlocked,
       status: dbUser.status,
+      working_session: workingSession,
+      year_closed: yearClosed,
     };
   });
 

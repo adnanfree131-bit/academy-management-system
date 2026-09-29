@@ -28,12 +28,18 @@ export function absenteeRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'absentee', 'view', reply)) return;
       const { date, batch_id, status, include_snoozed } = request.query as { date?: string; batch_id?: string; status?: string; include_snoozed?: string };
-      const followups = await store.getAbsenteeFollowups(user.tenant_id, {
+      let followups = await store.getAbsenteeFollowups(user.tenant_id, {
         date,
         batchId: batch_id,
         status,
         include_snoozed: include_snoozed === '1' || include_snoozed === 'true'
       });
+      const workingSession = (request.user as any)?.working_session || request.working_session;
+      if (workingSession && user.role !== 'student' && user.role !== 'parent') {
+        const sessionBatches = store.batchesForSession(user.tenant_id, workingSession);
+        const sessionBatchIds = new Set(sessionBatches.map(b => b.id));
+        followups = followups.filter(f => sessionBatchIds.has(f.batch_id));
+      }
       return reply.send({ success: true, data: followups, timestamp: new Date().toISOString() });
     };
     fastify.get('/', getFollowupsHandler);

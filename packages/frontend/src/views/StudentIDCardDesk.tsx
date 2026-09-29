@@ -30,7 +30,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
   initialSelectedIds,
   onBackToDirectory,
 }) => {
-  const { token, tenant } = useAuth();
+  const { token, tenant, user, working_session } = useAuth();
   const [internalStudents, setInternalStudents] = useState<Student[]>([]);
   const [internalBatches, setInternalBatches] = useState<Batch[]>([]);
   const [internalPrograms, setInternalPrograms] = useState<AcademicProgram[]>([]);
@@ -90,7 +90,7 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [token, propStudents, propBatches, propPrograms, initialSelectedIds]);
+  }, [token, working_session, propStudents, propBatches, propPrograms, initialSelectedIds]);
 
   // Update selection if initialSelectedIds changes
   useEffect(() => {
@@ -150,6 +150,17 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
 
   const handlePrint = async () => {
     if (activeSelectedStudents.length === 0) return;
+    const effectiveSession = working_session || tenant?.academic_session;
+    if (effectiveSession) {
+      const anyWithoutClass = activeSelectedStudents.some(student => {
+        const b = getBatch(student.batch_id);
+        return !student.batch_id || (b && b.academic_session !== effectiveSession);
+      });
+      if (anyWithoutClass) {
+        alert('This student has no class in this year.');
+        return;
+      }
+    }
     setIsExporting(true);
     try {
       const logo = await fetchLogoBytes(tenant?.logo_url || null);
@@ -230,6 +241,13 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
                 <h3 className="text-sm font-bold text-slate-900">
                   Student ID Cards
                 </h3>
+                <span className={`px-2 py-0.5 border text-[10px] font-mono font-bold rounded-md ${
+                  user?.year_closed
+                    ? 'bg-slate-100 text-slate-700 border-slate-300'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                }`}>
+                  Session {user?.working_session || tenant?.academic_session || '2026-2027'}{user?.year_closed ? ' (Closed)' : ''}
+                </span>
                 <SectionInfo text="Generate ISO/IEC 7810 ID-1 standard CR-80 cards with institutional credentials and verification QR codes." />
               </div>
             </div>

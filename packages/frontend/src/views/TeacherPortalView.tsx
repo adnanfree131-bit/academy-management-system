@@ -16,7 +16,8 @@ import {
   LogOut,
   RefreshCw,
   AlertTriangle,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Info
 } from 'lucide-react';
 
 interface TeacherPortalProps {
@@ -24,7 +25,7 @@ interface TeacherPortalProps {
 }
 
 export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) => {
-  const { user, token, tenant } = useAuth();
+  const { user, token, tenant, working_session } = useAuth();
   const [overview, setOverview] = useState<TeacherPortalOverview | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [showMetrics, setShowMetrics] = useState(false);
@@ -132,7 +133,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
   useEffect(() => {
     fetchOverview();
     fetchTodayAttendance();
-  }, [token]);
+  }, [token, working_session]);
 
   if (loading) {
     return <InstitutionalLoader variant="page" label="Loading teacher portal..." />;
@@ -175,6 +176,12 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
 
   return (
     <div className="space-y-6">
+      {user?.year_closed && (
+        <div className="bg-slate-100 border border-slate-200 text-slate-700 text-xs px-3.5 py-2.5 rounded-xl flex items-center gap-2 shadow-xs">
+          <Info className="w-4 h-4 text-slate-500 shrink-0" />
+          <span>Viewing {user?.working_session || tenant?.academic_session || 'this session'}. These records cannot be changed.</span>
+        </div>
+      )}
       
       {/* Header Banner */}
       <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs">
@@ -190,6 +197,13 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                 </h1>
                 <span className="px-2 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-mono font-bold uppercase rounded-md">
                   {user?.full_name || 'Faculty Member'}
+                </span>
+                <span className={`px-2 py-0.5 border text-[10px] font-mono font-bold rounded-md ${
+                  user?.year_closed
+                    ? 'bg-slate-100 text-slate-700 border-slate-300'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                }`}>
+                  Session {user?.working_session || tenant?.academic_session || '2026-2027'}{user?.year_closed ? ' (Closed)' : ''}
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -383,18 +397,20 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-auto">
-                      <button
-                        onClick={() => {
-                          if (slot.batch_id) {
-                            sessionStorage.setItem('kampus.pendingBatch', slot.batch_id);
-                          }
-                          onNavigate('attendance');
-                        }}
-                        className="h-8 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1 transition-all cursor-pointer"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                        Mark Attendance
-                      </button>
+                      {!user?.year_closed && (
+                        <button
+                          onClick={() => {
+                            if (slot.batch_id) {
+                              sessionStorage.setItem('kampus.pendingBatch', slot.batch_id);
+                            }
+                            onNavigate('attendance');
+                          }}
+                          className="h-8 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs rounded-lg shadow-xs flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                          Mark Attendance
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           if (slot.batch_id) {
@@ -446,17 +462,19 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
                     </div>
 
                     <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                      <button
-                        onClick={() => {
-                          if (b.id) {
-                            sessionStorage.setItem('kampus.pendingBatch', b.id);
-                          }
-                          onNavigate('attendance');
-                        }}
-                        className="flex-1 h-8 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-semibold rounded-lg transition-all text-center border border-slate-200/60 flex items-center justify-center cursor-pointer"
-                      >
-                        Mark Attendance
-                      </button>
+                      {!user?.year_closed && (
+                        <button
+                          onClick={() => {
+                            if (b.id) {
+                              sessionStorage.setItem('kampus.pendingBatch', b.id);
+                            }
+                            onNavigate('attendance');
+                          }}
+                          className="flex-1 h-8 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-semibold rounded-lg transition-all text-center border border-slate-200/60 flex items-center justify-center cursor-pointer"
+                        >
+                          Mark Attendance
+                        </button>
+                      )}
                       <button
                         onClick={() => onNavigate('exams')}
                         className="flex-1 h-8 py-1 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-[11px] font-semibold rounded-lg transition-all text-center flex items-center justify-center"
@@ -506,22 +524,24 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
           </div>
 
           {/* Diary & Physical Notebook Checking Shortcut */}
-          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 text-white space-y-3 shadow-xs">
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-slate-300" />
-              <h3 className="font-bold text-xs uppercase tracking-wider">Notebook Inspection</h3>
+          {!user?.year_closed && (
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 text-white space-y-3 shadow-xs">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-slate-300" />
+                <h3 className="font-bold text-xs uppercase tracking-wider">Notebook Inspection</h3>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Record student notebook completion status (Complete, Incomplete, Missing) for today's classes.
+              </p>
+              <button
+                onClick={() => onNavigate('homework')}
+                className="w-full h-8.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-900 font-semibold text-xs rounded-lg shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Check Notebooks</span>
+              </button>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Record student notebook completion status (Complete, Incomplete, Missing) for today's classes.
-            </p>
-            <button
-              onClick={() => onNavigate('homework')}
-              className="w-full h-8.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-900 font-semibold text-xs rounded-lg shadow-2xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-            >
-              <BookOpen className="w-3.5 h-3.5" />
-              <span>Check Notebooks</span>
-            </button>
-          </div>
+          )}
 
           {/* Quick Help Tip */}
           <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 space-y-1">

@@ -44,7 +44,7 @@ import { campusToday } from '../lib/campusDate';
 import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const AbsenteeRetentionDeskView: React.FC = () => {
-  const { token, tenant } = useAuth();
+  const { token, tenant, user, working_session } = useAuth();
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<'roster' | 'retention' | 'templates' | 'report'>('roster');
@@ -224,7 +224,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedDate, selectedBatchId, selectedStatusFilter, token]);
+  }, [selectedDate, selectedBatchId, selectedStatusFilter, token, working_session]);
 
 
   // Build dynamic message for student
@@ -460,6 +460,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
       <PageHeading
         title="Absentee Follow-Up"
         description="Call parents of students marked absent today."
+        badge={`Session ${user?.working_session || tenant?.academic_session || '2026-2027'}${user?.year_closed ? ' (Closed)' : ''}`}
         icon={<PhoneForwarded className="w-4 h-4 text-slate-700" />}
       />
 

@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload } from '@apex/shared-types';
-import { can, batchScope, FeatureId, AccessLevel } from '../lib/access.js';
+import { can, batchScope, FeatureId, AccessLevel, assertYearWritable } from '../lib/access.js';
 
 export function homeworkRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -144,18 +144,31 @@ export function homeworkRoutes(store: IDataStore) {
             timestamp: new Date().toISOString(),
           });
         }
-        const assignments = await store.getHomework(user.tenant_id, batch_id);
+        let assignments = await store.getHomework(user.tenant_id, batch_id);
+        const workingSession = (request.user as any)?.working_session || request.working_session;
+        if (workingSession) {
+          const sessionBatches = store.batchesForSession(user.tenant_id, workingSession);
+          const sessionBatchIds = new Set(sessionBatches.map(b => b.id));
+          assignments = assignments.filter(a => sessionBatchIds.has(a.batch_id));
+        }
         const scopedAssignments = assignments.filter(a => scope.includes(a.batch_id));
         return reply.send({ success: true, data: scopedAssignments, timestamp: new Date().toISOString() });
       }
 
-      const assignments = await store.getHomework(user.tenant_id, batch_id);
+      let assignments = await store.getHomework(user.tenant_id, batch_id);
+      const workingSession = (request.user as any)?.working_session || request.working_session;
+      if (workingSession) {
+        const sessionBatches = store.batchesForSession(user.tenant_id, workingSession);
+        const sessionBatchIds = new Set(sessionBatches.map(b => b.id));
+        assignments = assignments.filter(a => sessionBatchIds.has(a.batch_id));
+      }
       return reply.send({ success: true, data: assignments, timestamp: new Date().toISOString() });
     };
     fastify.get('/', getHomeworkHandler);
     fastify.get('/homework', getHomeworkHandler);
 
     const createHomeworkHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (user.role === 'student' || user.role === 'parent') {
         return reply.status(403).send({
@@ -234,6 +247,7 @@ export function homeworkRoutes(store: IDataStore) {
 
     // --- PATCH Homework Assignment ---
     const patchHomeworkHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (user.role === 'student' || user.role === 'parent') {
         return reply.status(403).send({
@@ -336,6 +350,7 @@ export function homeworkRoutes(store: IDataStore) {
 
     // --- DELETE Homework Assignment ---
     const deleteHomeworkHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (user.role === 'student' || user.role === 'parent') {
         return reply.status(403).send({
@@ -453,6 +468,7 @@ export function homeworkRoutes(store: IDataStore) {
     fastify.get('/homework/:id/checks', getChecksHandler);
 
     const recordChecksHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (user.role === 'student' || user.role === 'parent') {
         return reply.status(403).send({

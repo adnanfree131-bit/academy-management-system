@@ -71,6 +71,42 @@ export class AuthService {
   }
 
   /**
+   * Resolve tenant context for a given email address when tenant_id/tenant_slug are not provided (e.g. centralized root login).
+   */
+  async resolveTenantForEmail(cleanEmail: string, password?: string): Promise<{ tenantId?: string; tenantSlug?: string } | null> {
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return null;
+    }
+    if (cleanEmail === 'kampuserp@gmail.com') {
+      return { tenantId: 'p0000000-0000-0000-0000-000000000001' };
+    }
+    const globalUsers = await this.store.getUserByEmailGlobal(cleanEmail);
+    if (!globalUsers || globalUsers.length === 0) {
+      return null;
+    }
+    const superAdmin = globalUsers.find(u => u.role === 'super_admin');
+    if (superAdmin) {
+      return { tenantId: superAdmin.tenant_id || 'p0000000-0000-0000-0000-000000000001' };
+    }
+    if (globalUsers.length === 1) {
+      return { tenantId: globalUsers[0].tenant_id };
+    }
+    // Multiple accounts found with this email across tenants
+    if (password) {
+      const validAccounts = globalUsers.filter(u => verifyPassword(password, u.password_hash));
+      if (validAccounts.length === 1) {
+        return { tenantId: validAccounts[0].tenant_id };
+      }
+      if (validAccounts.length > 1) {
+        const active = validAccounts.find(u => u.status === 'active') || validAccounts[0];
+        return { tenantId: active.tenant_id };
+      }
+    }
+    const active = globalUsers.find(u => u.status === 'active') || globalUsers[0];
+    return { tenantId: active.tenant_id };
+  }
+
+  /**
    * Daily Operational Sign In with Email & Password
    */
   async loginWithPassword(email: string, password: string, tenantSlug?: string, tenantId?: string): Promise<{ user: User; tenant: Tenant }> {
@@ -79,7 +115,14 @@ export class AuthService {
       if (cleanEmail === 'kampuserp@gmail.com') {
         tenantId = 'p0000000-0000-0000-0000-000000000001';
       } else {
-        throw new Error('Academy identifier (tenant_slug or tenant_id) is required.');
+        const resolved = await this.resolveTenantForEmail(cleanEmail, password);
+        if (resolved?.tenantId) {
+          tenantId = resolved.tenantId;
+        } else if (resolved?.tenantSlug) {
+          tenantSlug = resolved.tenantSlug;
+        } else {
+          throw new Error('Academy identifier (tenant_slug or tenant_id) is required.');
+        }
       }
     }
 
@@ -277,7 +320,14 @@ export class AuthService {
       if (cleanEmail === 'kampuserp@gmail.com') {
         tenantId = 'p0000000-0000-0000-0000-000000000001';
       } else {
-        throw new Error('Academy identifier (tenant_slug or tenant_id) is required.');
+        const resolved = await this.resolveTenantForEmail(cleanEmail);
+        if (resolved?.tenantId) {
+          tenantId = resolved.tenantId;
+        } else if (resolved?.tenantSlug) {
+          tenantSlug = resolved.tenantSlug;
+        } else {
+          throw new Error('Academy identifier (tenant_slug or tenant_id) is required.');
+        }
       }
     }
 
@@ -344,7 +394,14 @@ export class AuthService {
       if (cleanEmail === 'kampuserp@gmail.com') {
         tenantId = 'p0000000-0000-0000-0000-000000000001';
       } else {
-        throw new Error('Academy identifier (tenant_slug or tenant_id) is required.');
+        const resolved = await this.resolveTenantForEmail(cleanEmail);
+        if (resolved?.tenantId) {
+          tenantId = resolved.tenantId;
+        } else if (resolved?.tenantSlug) {
+          tenantSlug = resolved.tenantSlug;
+        } else {
+          throw new Error('Academy identifier (tenant_slug or tenant_id) is required.');
+        }
       }
     }
 

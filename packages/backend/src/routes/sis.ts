@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, InquiryStage } from '@apex/shared-types';
-import { can, batchScope, FeatureId, AccessLevel } from '../lib/access.js';
+import { can, batchScope, FeatureId, AccessLevel, assertYearWritable } from '../lib/access.js';
 
 export function sisRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -268,6 +268,7 @@ export function sisRoutes(store: IDataStore) {
 
     // 1-Click Admit from Inquiry into Batch
     fastify.post('/inquiries/:id/admit', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -315,7 +316,8 @@ export function sisRoutes(store: IDataStore) {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'view', reply)) return;
       const { batch_id } = request.query as { batch_id?: string };
-      let students = await store.getStudents(user.tenant_id, batch_id);
+      const workingSession = (request.user as any)?.working_session || request.working_session;
+      let students = await store.getStudents(user.tenant_id, batch_id, workingSession);
       const scope = batchScope(user);
       if (Array.isArray(scope)) {
         students = students.filter(s => s.batch_id ? scope.includes(s.batch_id) : false);
@@ -333,7 +335,8 @@ export function sisRoutes(store: IDataStore) {
           timestamp: new Date().toISOString(),
         });
       }
-      const student = await store.getStudentById(user.tenant_id, id);
+      const workingSession = (request.user as any)?.working_session || request.working_session;
+      const student = await store.getStudentById(user.tenant_id, id, workingSession);
       if (!student) {
         return reply.status(404).send({
           success: false,
@@ -382,6 +385,7 @@ export function sisRoutes(store: IDataStore) {
     });
 
     fastify.post('/students/:id/enrollments', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -436,6 +440,7 @@ export function sisRoutes(store: IDataStore) {
     });
 
     fastify.patch('/students/:id/enrollments/:enrollmentId', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id, enrollmentId } = request.params as { id: string; enrollmentId: string };
@@ -486,6 +491,7 @@ export function sisRoutes(store: IDataStore) {
     });
 
     fastify.post('/students/:id/enrollments/:enrollmentId/status', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id, enrollmentId } = request.params as { id: string; enrollmentId: string };
@@ -533,6 +539,7 @@ export function sisRoutes(store: IDataStore) {
     });
 
     fastify.post('/students/:id/enrollments/:enrollmentId/make-primary', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id, enrollmentId } = request.params as { id: string; enrollmentId: string };
@@ -557,6 +564,7 @@ export function sisRoutes(store: IDataStore) {
     });
 
     fastify.post('/students', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const rawBody = request.body || {};
@@ -705,21 +713,33 @@ export function sisRoutes(store: IDataStore) {
     });
 
     fastify.post('/students/bulk-import', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
+
+      const sanitizeEmail = (val: unknown) => {
+        if (typeof val !== 'string') return undefined;
+        const s = val.trim();
+        if (!s || /^(n\/?a|nil|none|no|null|-)$/i.test(s)) return undefined;
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)) return undefined;
+        return s.toLowerCase();
+      };
 
       const studentRowSchema = z.object({
         full_name: z.string().min(1),
         phone: z.string().optional(),
-        email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
+        email: z.preprocess(sanitizeEmail, z.string().email().optional()),
         guardian_name: z.string().min(1),
         guardian_phone: z.string().min(1),
-        guardian_email: z.string().email().optional().or(z.literal('')).transform(v => v || undefined),
+        guardian_email: z.preprocess(sanitizeEmail, z.string().email().optional()),
         guardian_id_card: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         guardian_relation: z.string().optional(),
         gender: z.string().optional(),
         blood_group: z.string().optional(),
         batch_id: z.string().optional(),
+        batch_name: z.string().optional(),
+        elective_group: z.string().optional(),
+        elective_group_id: z.string().optional(),
         roll_number: z.string().optional(),
         previous_school: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         religion: z.string().optional().or(z.literal('')).transform(v => v || undefined),
@@ -734,8 +754,8 @@ export function sisRoutes(store: IDataStore) {
         mother_cnic: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         mother_phone: z.string().optional().or(z.literal('')).transform(v => v || undefined),
         primary_contact: z.string().optional().or(z.literal('')).transform(v => v || undefined),
-        base_tuition: z.number().nonnegative().optional(),
-        admission_fee: z.number().nonnegative().optional(),
+        base_tuition: z.preprocess(v => (v !== undefined && v !== '' && v !== null ? Number(v) : undefined), z.number().nonnegative().optional()),
+        admission_fee: z.preprocess(v => (v !== undefined && v !== '' && v !== null ? Number(v) : undefined), z.number().nonnegative().optional()),
       });
 
       const schema = z.object({
@@ -785,6 +805,7 @@ export function sisRoutes(store: IDataStore) {
     });
 
     fastify.patch('/students/:id', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -931,6 +952,7 @@ export function sisRoutes(store: IDataStore) {
 
     // Administrative Student Portal Password Reset
     fastify.post('/students/:id/reset-password', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -982,6 +1004,7 @@ export function sisRoutes(store: IDataStore) {
 
     // Administrative Student Status Transition & Exit Regularization
     fastify.post('/students/:id/status', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -1032,6 +1055,7 @@ export function sisRoutes(store: IDataStore) {
 
     // Dedicated Archive Student Endpoint
     fastify.post('/students/:id/archive', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -1085,6 +1109,7 @@ export function sisRoutes(store: IDataStore) {
 
     // Dedicated Unarchive / Restore Student Endpoint
     fastify.post('/students/:id/unarchive', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
       const { id } = request.params as { id: string };
@@ -1136,6 +1161,7 @@ export function sisRoutes(store: IDataStore) {
 
     // Permanent Student Record Deletion Endpoint
     fastify.delete('/students/:id', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin'], reply)) return;
       const { id } = request.params as { id: string };
@@ -1182,6 +1208,7 @@ export function sisRoutes(store: IDataStore) {
 
     // Bulk Archive Students Endpoint
     fastify.post('/students/bulk-archive', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'enrollment', 'edit', reply)) return;
 
@@ -1218,6 +1245,7 @@ export function sisRoutes(store: IDataStore) {
 
     // Bulk Delete Students Endpoint
     fastify.post('/students/bulk-delete', async (request: any, reply) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin'], reply)) return;
 

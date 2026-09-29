@@ -44,3 +44,4 @@ school-erp/.school-erp-data/
 scratch/
 *.backup.tsx
 *.before-claude-code
+live-backup-*.json

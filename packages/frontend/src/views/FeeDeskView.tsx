@@ -33,7 +33,8 @@ import {
   User,
   RotateCcw,
   MoreVertical,
-  ArrowLeft
+  ArrowLeft,
+  Info
 } from 'lucide-react';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
 import { buildTabularFeeReportPdfBytes } from '../lib/feeReportsPdf';
@@ -67,7 +68,7 @@ export interface FeeDeskViewProps {
 }
 
 export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) => {
-  const { token, tenant } = useAuth();
+  const { token, tenant, user, working_session } = useAuth();
   const [activeTab, setActiveTab] = useState<'cashier' | 'defaulters' | 'reports'>('cashier');
 
   // Core Data
@@ -479,7 +480,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
 
   useEffect(() => {
     fetchData();
-  }, [token]);
+  }, [token, working_session]);
 
   useEffect(() => {
     void fetchCashbook();
@@ -2347,13 +2348,22 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
               <span>Back to Receiving Desk</span>
             </button>
           )}
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 truncate">
-            {activeTab === 'cashier'
-              ? 'Fee Ledger & Collections'
-              : activeTab === 'defaulters'
-              ? 'Fee Defaulters'
-              : 'Finance Reports'}
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 truncate">
+              {activeTab === 'cashier'
+                ? 'Fee Ledger & Collections'
+                : activeTab === 'defaulters'
+                ? 'Fee Defaulters'
+                : 'Finance Reports'}
+            </h1>
+            <span className={`px-2 py-0.5 border text-[10px] font-mono font-bold rounded-md ${
+              user?.year_closed
+                ? 'bg-slate-100 text-slate-700 border-slate-300'
+                : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+            }`}>
+              Session {user?.working_session || tenant?.academic_session || '2026-2027'}{user?.year_closed ? ' (Closed)' : ''}
+            </span>
+          </div>
           <p className="text-[11px] text-slate-500 mt-0.5 truncate">
             {activeTab === 'cashier'
               ? 'Student fee invoicing, cashier collection desk, payment allocations, and ledger records.'
@@ -2501,17 +2511,19 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
                   <span>Fee Heads & Priority</span>
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowFeeModuleMenu(false);
-                    setShowBulkRevisionModal(true);
-                  }}
-                  className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
-                >
-                  <TrendingUp className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Bulk Fee Revision</span>
-                </button>
+                {!user?.year_closed && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowFeeModuleMenu(false);
+                      setShowBulkRevisionModal(true);
+                    }}
+                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <TrendingUp className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Bulk Fee Revision</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -2529,6 +2541,13 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
           )}
         </div>
       </div>
+
+      {user?.year_closed && (
+        <div className="bg-slate-100 border border-slate-200 text-slate-700 text-xs px-3 py-2 rounded-xl flex items-center gap-2 shadow-xs">
+          <Info className="w-4 h-4 text-slate-500 shrink-0" />
+          <span>Viewing {user?.working_session || tenant?.academic_session || 'this session'}. These records cannot be changed.</span>
+        </div>
+      )}
 
       {/* TAB: FEES RECEIVING (Hero Search, Popup Selector & 3-Section Dossier) */}
       {activeTab === 'cashier' && (

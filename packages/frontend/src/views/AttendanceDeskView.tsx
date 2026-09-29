@@ -24,7 +24,8 @@ import {
   SlidersHorizontal,
   MoreVertical,
   ArrowLeft,
-  RotateCcw
+  RotateCcw,
+  Info
 } from 'lucide-react';
 import { 
   Batch, 
@@ -60,7 +61,7 @@ const COMMON_REASONS = [
 ];
 
 export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNavigate }) => {
-  const { token, tenant } = useAuth();
+  const { token, tenant, user, working_session } = useAuth();
   const [activeTab, setActiveTab] = useState<'roster' | 'monthly' | 'defaulters' | 'leaves'>('roster');
 
   // Academic Hierarchy & Batch Filter
@@ -295,7 +296,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
   useEffect(() => {
     fetchMetadata();
-  }, [token]);
+  }, [token, working_session]);
 
   useEffect(() => {
     if (selectedBatchId) {
@@ -623,6 +624,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
       <PageHeading
         title="Student Attendance"
         description="Daily class attendance registers, 31-day monthly matrix, absence tracking, and formal leave approvals."
+        badge={`Session ${user?.working_session || tenant?.academic_session || '2026-2027'}${user?.year_closed ? ' (Closed)' : ''}`}
         icon={<CheckSquare className="w-4 h-4 text-slate-700" />}
       >
         <div ref={attendanceModuleContainerRef} className="relative shrink-0">
@@ -643,20 +645,22 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
           {showAttendanceModuleMenu && (
             <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left">
               {/* Primary Actions */}
-              <div className="p-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAttendanceModuleMenu(false);
-                    handleSaveAttendance();
-                  }}
-                  disabled={isSaving || students.length === 0 || !!rosterError}
-                  className="w-full px-3 py-2 text-left text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-xs"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
-                  <span>{isSaving ? 'Saving Roster...' : 'Save Attendance Roster'}</span>
-                </button>
-              </div>
+              {!user?.year_closed && (
+                <div className="p-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAttendanceModuleMenu(false);
+                      handleSaveAttendance();
+                    }}
+                    disabled={isSaving || students.length === 0 || !!rosterError}
+                    className="w-full px-3 py-2 text-left text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-xs"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-white shrink-0" />
+                    <span>{isSaving ? 'Saving Roster...' : 'Save Attendance Roster'}</span>
+                  </button>
+                </div>
+              )}
 
               <div className="py-1">
                 <button
@@ -705,43 +709,45 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               </div>
 
               {/* Quick Marking */}
-              <div className="py-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAttendanceModuleMenu(false);
-                    markAllPresent();
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-xs font-medium text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer"
-                >
-                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>1-Tap: Mark All Present</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAttendanceModuleMenu(false);
-                    markAllAbsent();
-                  }}
-                  className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
-                >
-                  <X className="w-4 h-4 text-slate-500 shrink-0" />
-                  <span>Mark All Absent</span>
-                </button>
-                {isPastDate && (
+              {!user?.year_closed && (
+                <div className="py-1">
                   <button
                     type="button"
                     onClick={() => {
                       setShowAttendanceModuleMenu(false);
-                      resetToUnmarked();
+                      markAllPresent();
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-xs font-medium text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>1-Tap: Mark All Present</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAttendanceModuleMenu(false);
+                      markAllAbsent();
                     }}
                     className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
                   >
-                    <RotateCcw className="w-4 h-4 text-slate-500 shrink-0" />
-                    <span>Reset to Unmarked</span>
+                    <X className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Mark All Absent</span>
                   </button>
-                )}
-              </div>
+                  {isPastDate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAttendanceModuleMenu(false);
+                        resetToUnmarked();
+                      }}
+                      className="w-full px-3 py-1.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                    >
+                      <RotateCcw className="w-4 h-4 text-slate-500 shrink-0" />
+                      <span>Reset to Unmarked</span>
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Views */}
               <div className="py-1">
@@ -867,6 +873,16 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
           )}
         </div>
       </PageHeading>
+
+      {/* Closed Year Banner */}
+      {user?.year_closed && (
+        <div className="bg-slate-100 border border-slate-200 text-slate-700 text-xs px-3 py-2 rounded-xl flex items-center gap-2 shadow-xs">
+          <Info className="w-4 h-4 text-slate-500 flex-shrink-0" />
+          <span>Viewing {user?.working_session || 'this session'}. These records cannot be changed.</span>
+        </div>
+      )}
+
+      {/* Control Bar */}
 
       {/* TAB 1: DAILY ROSTER */}
       {activeTab === 'roster' && (
@@ -1577,25 +1593,27 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
         </div>
 
         {/* Mobile Sticky Bottom Save Bar */}
-        <div className="sm:hidden fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] left-0 right-0 p-3 bg-white/95 backdrop-blur-sm border-t border-slate-200 z-30 flex items-center justify-between gap-3 shadow-lg">
-          <div className="text-xs">
-            <span className="font-bold text-slate-900">{students.length} Students</span>
-            <span className="text-slate-400 mx-1">•</span>
-            <span className="text-emerald-700 font-bold">{Object.values(attendanceRecords).filter(r => r.status === 'present').length} Present</span>
+        {!user?.year_closed && (
+          <div className="sm:hidden fixed bottom-[calc(4.25rem+env(safe-area-inset-bottom))] left-0 right-0 p-3 bg-white/95 backdrop-blur-sm border-t border-slate-200 z-30 flex items-center justify-between gap-3 shadow-lg">
+            <div className="text-xs">
+              <span className="font-bold text-slate-900">{students.length} Students</span>
+              <span className="text-slate-400 mx-1">•</span>
+              <span className="text-emerald-700 font-bold">{Object.values(attendanceRecords).filter(r => r.status === 'present').length} Present</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                hapticSuccess();
+                handleSaveAttendance();
+              }}
+              disabled={isSaving || students.length === 0 || !!rosterError}
+              className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer disabled:opacity-40"
+            >
+              {isSaving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+              <span>{isSaving ? 'Saving...' : 'Save Roster'}</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              hapticSuccess();
-              handleSaveAttendance();
-            }}
-            disabled={isSaving || students.length === 0 || !!rosterError}
-            className="h-8.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer disabled:opacity-40"
-          >
-            {isSaving ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
-            <span>{isSaving ? 'Saving...' : 'Save Roster'}</span>
-          </button>
-        </div>
+        )}
         </>
       )}
 
@@ -1872,13 +1890,15 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
               </button>
               <h2 className="text-sm font-bold text-slate-900">Student Formal Leave Applications</h2>
             </div>
-            <button
-              onClick={() => setShowNewLeaveModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold transition-all shadow-xs"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Submit Leave Application</span>
-            </button>
+            {!user?.year_closed && (
+              <button
+                onClick={() => setShowNewLeaveModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold transition-all shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Submit Leave Application</span>
+              </button>
+            )}
           </div>
 
           <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
@@ -1935,7 +1955,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                             </span>
                           </td>
                           <td className="py-2 px-3 text-right">
-                            {leave.status === 'pending' ? (
+                            {leave.status === 'pending' && !user?.year_closed ? (
                               <button
                                 type="button"
                                 onClick={() => setReviewingLeave(leave)}
@@ -1944,7 +1964,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
                                 Review & Decide
                               </button>
                             ) : (
-                              <span className="text-[11px] text-slate-400">Decided</span>
+                              <span className="text-[11px] text-slate-400">{leave.status === 'pending' ? 'Pending' : 'Decided'}</span>
                             )}
                           </td>
                         </tr>

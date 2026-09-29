@@ -21,6 +21,8 @@ import {
   SlidersHorizontal,
   MoreVertical,
   ArrowLeft,
+  Info,
+  Archive,
 } from 'lucide-react';
 import { AcademicProgram, Batch, Subject, SubjectGroup, Student, FeeHead } from '@apex/shared-types';
 import { PageHeading } from '../components/PageHeading';
@@ -28,7 +30,8 @@ import { SectionInfo } from '../components/SectionInfo';
 import { InstitutionalLoader } from '../components/InstitutionalLoader';
 
 export const AcademicStructureView: React.FC = () => {
-  const { token, tenant } = useAuth();
+  const { token, tenant, user, working_session } = useAuth();
+  const isClassesWritable = !user?.year_closed && (user?.role === 'tenant_admin' || user?.role === 'super_admin' || (user as any)?.access?.classes === 'edit');
   
   // View mode: 'classes' (Class Academic Structure), 'batches' (Dedicated Batch Directory), or 'catalog' (Master Subject Catalog)
   const [viewMode, setViewMode] = useState<'classes' | 'batches' | 'catalog'>('classes');
@@ -195,7 +198,7 @@ export const AcademicStructureView: React.FC = () => {
     try {
       const [progRes, batchRes, subRes, groupRes, studRes, staffRes, headsRes] = await Promise.all([
         fetch('/api/v1/academic/programs', { headers }),
-        fetch('/api/v1/academic/batches', { headers }),
+        fetch('/api/v1/academic/batches?include_archived=1', { headers }),
         fetch('/api/v1/academic/subjects', { headers }),
         fetch('/api/v1/academic/groups', { headers }),
         fetch('/api/v1/sis/students', { headers }),
@@ -239,7 +242,7 @@ export const AcademicStructureView: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-  }, [token]);
+  }, [token, working_session]);
 
   // Active Teachers for Section Incharge assignment
   const teachers = useMemo(() => {
@@ -521,13 +524,17 @@ export const AcademicStructureView: React.FC = () => {
   };
 
   const initiateDeleteProgram = (p: AcademicProgram) => {
-    const childBatchIds = new Set(batches.filter(b => b.program_id === p.id).map(b => b.id));
+    const childBatches = batches.filter(b => b.program_id === p.id);
+    const childBatchIds = new Set(childBatches.map(b => b.id));
+    const childHistoryCount = childBatches.reduce((acc, b) => acc + (b.total_enrollments ?? b.current_enrollment ?? 0), 0);
+    const programHistoryCount = p.total_enrollments ?? 0;
     const linkedStudents = students.filter(
       s => s.program_id === p.id || (s.batch_id && childBatchIds.has(s.batch_id))
     );
-    if (linkedStudents.length > 0) {
+    const totalCount = Math.max(programHistoryCount, childHistoryCount, linkedStudents.length);
+    if (totalCount > 0) {
       alert(
-        `Cannot Delete Class "${p.name}"\n\nThere are currently ${linkedStudents.length} student record(s) linked to this class.\n\nPlease transfer them to another class or section using Section Transfer, or delete all student records before deleting this class.`
+        `Cannot Delete Class "${p.name}"\n\nThere are currently ${totalCount} student record(s) linked to this class.\n\nPlease transfer them to another class or section using Section Transfer, or delete all student records before deleting this class.`
       );
       return;
     }
@@ -887,13 +894,43 @@ export const AcademicStructureView: React.FC = () => {
     }
   };
 
-  const initiateDeleteBatch = (b: Batch) => {
-    const linkedStudents = students.filter(s => s.batch_id === b.id);
+  const handleArchiveBatch = async (b: Batch) => {
     const isSection = (b.cohort_type || (/section/i.test(b.name) ? 'section' : 'batch')) === 'section';
     const label = isSection ? 'Section' : 'Batch';
-    if (linkedStudents.length > 0) {
+    if (!confirm(`Are you sure you want to archive ${label.toLowerCase()} "${b.name}"? It will no longer appear in new admissions.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/v1/academic/batches/${b.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          status: 'archived',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error?.message || `Failed to archive ${label.toLowerCase()}`);
+      triggerSuccess(`${label} "${b.name}" archived successfully.`);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message || 'Error archiving');
+    }
+  };
+
+  const initiateDeleteBatch = (b: Batch) => {
+    const linkedCount = b.total_enrollments !== undefined && b.total_enrollments > 0
+      ? b.total_enrollments
+      : (b.current_enrollment !== undefined && b.current_enrollment > 0
+          ? b.current_enrollment
+          : students.filter(s => s.batch_id === b.id).length);
+    const isSection = (b.cohort_type || (/section/i.test(b.name) ? 'section' : 'batch')) === 'section';
+    const label = isSection ? 'Section' : 'Batch';
+    if (linkedCount > 0) {
       alert(
-        `Cannot Delete ${label} "${b.name}"\n\nThere are currently ${linkedStudents.length} student record(s) assigned to this ${label.toLowerCase()}.\n\nPlease transfer them to another ${label.toLowerCase()} using Section Transfer, or delete all student records before deleting this ${label.toLowerCase()}.`
+        `Cannot Delete ${label} "${b.name}"\n\nThere are currently ${linkedCount} student record(s) assigned to this ${label.toLowerCase()}.\n\nPlease transfer them to another ${label.toLowerCase()} using Section Transfer, or delete all student records before deleting this ${label.toLowerCase()}.`
       );
       return;
     }
@@ -930,16 +967,20 @@ export const AcademicStructureView: React.FC = () => {
 
   // Handlers: Student Batch Transfer
   const openPromoteModal = (sourceBatchId?: string) => {
-    const defaultSourceId = sourceBatchId || activeBatches[0]?.id || batches[0]?.id || '';
+    const sessionBatches = batches.filter(b => !working_session || b.academic_session === working_session);
+    const defaultSourceId = sourceBatchId || activeBatches[0]?.id || sessionBatches[0]?.id || batches[0]?.id || '';
     setPromoteSourceBatchId(defaultSourceId);
 
     const batchStudents = students.filter(s => s.batch_id === defaultSourceId && s.status === 'active');
     setPromoteSelectedStudentIds(batchStudents.map(s => s.id));
 
-    const destinationCandidates = batches.filter(b => b.id !== defaultSourceId);
+    const sourceBatch = batches.find(b => b.id === defaultSourceId);
+    const session = sourceBatch?.academic_session || working_session || tenant?.academic_session || '2026-2027';
+
+    const destinationCandidates = sessionBatches.filter(b => b.id !== defaultSourceId);
     setPromoteTargetBatchId(destinationCandidates[0]?.id || '');
 
-    setPromoteTargetSession(tenant?.academic_session || '2026-2027');
+    setPromoteTargetSession(session);
     setPromoteFeePolicy('keep');
     setPromoteFeeValue(10);
     setShowPromoteModal(true);
@@ -949,7 +990,10 @@ export const AcademicStructureView: React.FC = () => {
     setPromoteSourceBatchId(sourceId);
     const batchStudents = students.filter(s => s.batch_id === sourceId && s.status === 'active');
     setPromoteSelectedStudentIds(batchStudents.map(s => s.id));
-    const destinationCandidates = batches.filter(b => b.id !== sourceId);
+    const sourceBatch = batches.find(b => b.id === sourceId);
+    const session = sourceBatch?.academic_session || working_session || tenant?.academic_session || '2026-2027';
+    setPromoteTargetSession(session);
+    const destinationCandidates = batches.filter(b => b.id !== sourceId && (!working_session || b.academic_session === working_session));
     if (!destinationCandidates.some(b => b.id === promoteTargetBatchId)) {
       setPromoteTargetBatchId(destinationCandidates[0]?.id || '');
     }
@@ -1078,8 +1122,16 @@ export const AcademicStructureView: React.FC = () => {
         title="Academic Structure"
         description="Manage academic classes, batch lifespans, and master course catalog."
         icon={<Layers className="w-4 h-4 text-slate-700" />}
-        badge={`Session ${tenant?.academic_session || '2026-2027'}`}
+        badge={`Session ${user?.working_session || tenant?.academic_session || '2026-2027'}`}
       />
+
+      {/* Closed Year Banner */}
+      {user?.year_closed && (
+        <div className="bg-slate-100 border border-slate-200 text-slate-700 text-xs px-3 py-2 rounded-xl flex items-center gap-2 shadow-xs">
+          <Info className="w-4 h-4 text-slate-500 flex-shrink-0" />
+          <span>Viewing {user?.working_session || 'this session'}. These records cannot be changed.</span>
+        </div>
+      )}
 
       {/* Success / Error Alerts */}
       {successMessage && (
@@ -1280,44 +1332,46 @@ export const AcademicStructureView: React.FC = () => {
             {showModuleMenu && (
               <div className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-40 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100">
                 {/* Primary Creation Actions */}
-                <div className="p-1.5 space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModuleMenu(false);
-                      openCreateProgramModal();
-                    }}
-                    className="w-full px-3 py-2 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 font-semibold shadow-xs transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-white" />
-                    <span>New Class</span>
-                  </button>
+                {isClassesWritable && (
+                  <div className="p-1.5 space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowModuleMenu(false);
+                        openCreateProgramModal();
+                      }}
+                      className="w-full px-3 py-2 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 font-semibold shadow-xs transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-white" />
+                      <span>New Class</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModuleMenu(false);
-                      openAddBatchModal();
-                    }}
-                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-slate-600" />
-                    <span>+ New Batch</span>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowModuleMenu(false);
+                        openAddBatchModal();
+                      }}
+                      className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-slate-600" />
+                      <span>+ New Batch</span>
+                    </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModuleMenu(false);
-                      setSubjectForm({ name: '', code: '', is_core: true });
-                      setShowSubjectModal(true);
-                    }}
-                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-slate-600" />
-                    <span>+ New Subject</span>
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowModuleMenu(false);
+                        setSubjectForm({ name: '', code: '', is_core: true });
+                        setShowSubjectModal(true);
+                      }}
+                      className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 rounded-lg flex items-center gap-2 font-semibold transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-slate-600" />
+                      <span>+ New Subject</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* Sub-Views Navigation */}
                 <div className="py-1">
@@ -1398,22 +1452,24 @@ export const AcademicStructureView: React.FC = () => {
                 </div>
 
                 {/* Tools */}
-                <div className="py-1">
-                  <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                    Tools
+                {isClassesWritable && (
+                  <div className="py-1">
+                    <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
+                      Tools
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowModuleMenu(false);
+                        openPromoteModal();
+                      }}
+                      className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Split className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Batch Student Transfer</span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModuleMenu(false);
-                      openPromoteModal();
-                    }}
-                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
-                  >
-                    <Split className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Batch Student Transfer</span>
-                  </button>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -1524,12 +1580,15 @@ export const AcademicStructureView: React.FC = () => {
                   const isDragged = draggedProgramId === p.id;
                   const isDragOver = dragOverProgramId === p.id;
                   const classSections = batches.filter(b => b.program_id === p.id && (b.cohort_type === 'section' || (!b.cohort_type && /section/i.test(b.name))));
-                  const classStudentCount = students.filter(s => s.program_id === p.id).length;
+                  const sectionSeatsSum = classSections.reduce((acc, s) => acc + (s.current_enrollment ?? 0), 0);
+                  const classStudentCount = classSections.length > 0
+                    ? sectionSeatsSum
+                    : students.filter(s => s.program_id === p.id).length;
 
                   return (
                     <div
                       key={p.id}
-                      draggable={!searchClassQuery}
+                      draggable={!searchClassQuery && isClassesWritable}
                       onDragStart={e => handleProgramDragStart(e, p.id)}
                       onDragOver={e => handleProgramDragOver(e, p.id)}
                       onDragLeave={handleProgramDragLeave}
@@ -1545,7 +1604,7 @@ export const AcademicStructureView: React.FC = () => {
                           : 'bg-white border-slate-200/80 hover:bg-slate-50 hover:border-slate-300 text-slate-700'
                       }`}
                     >
-                      {!searchClassQuery && (
+                      {!searchClassQuery && isClassesWritable && (
                         <div
                           className="text-slate-300 group-hover:text-slate-500 cursor-grab active:cursor-grabbing shrink-0"
                           title="Drag to reorder class"
@@ -1608,30 +1667,32 @@ export const AcademicStructureView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => openEditProgramModal(activeProgram)}
-                      className="px-2.5 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs touch-press"
-                      title="Edit Class Details & Fees"
-                    >
-                      <Pencil className="w-3.5 h-3.5 text-slate-600" />
-                      <span>Edit Class</span>
-                    </button>
-                    <button
-                      onClick={() => openAddSectionModal()}
-                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs touch-press"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-white" />
-                      <span>Add Section</span>
-                    </button>
-                    <button
-                      onClick={() => initiateDeleteProgram(activeProgram)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors touch-press"
-                      title="Delete Class"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  {isClassesWritable && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => openEditProgramModal(activeProgram)}
+                        className="px-2.5 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs touch-press"
+                        title="Edit Class Details & Fees"
+                      >
+                        <Pencil className="w-3.5 h-3.5 text-slate-600" />
+                        <span>Edit Class</span>
+                      </button>
+                      <button
+                        onClick={() => openAddSectionModal()}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs touch-press"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-white" />
+                        <span>Add Section</span>
+                      </button>
+                      <button
+                        onClick={() => initiateDeleteProgram(activeProgram)}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors touch-press"
+                        title="Delete Class"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Sub-Navigation Tabs Strip */}
@@ -1699,14 +1760,16 @@ export const AcademicStructureView: React.FC = () => {
                               Class Sections ({activeSections.length})
                             </h3>
                           </div>
-                          <button
-                            type="button"
-                            onClick={openAddSectionModal}
-                            className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-2xs"
-                          >
-                            <Plus className="w-3 h-3" />
-                            <span>Add Section</span>
-                          </button>
+                          {isClassesWritable && (
+                            <button
+                              type="button"
+                              onClick={openAddSectionModal}
+                              className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-2xs"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>Add Section</span>
+                            </button>
+                          )}
                         </div>
                       )}
 
@@ -1716,7 +1779,7 @@ export const AcademicStructureView: React.FC = () => {
                           <div className="sm:hidden space-y-2.5">
                             {activeSections.map((sec) => {
                               const secStudents = activeStudents.filter(s => s.batch_id === sec.id);
-                              const enrolledCount = secStudents.length || sec.current_enrollment || 0;
+                              const enrolledCount = sec.current_enrollment !== undefined ? sec.current_enrollment : (secStudents.length || 0);
                               const maxCap = sec.max_capacity || 40;
                               const percent = Math.min(100, Math.round((enrolledCount / maxCap) * 100));
                               const inchargeTeacher = staffMembers.find(s => s.id === sec.class_teacher_id);
@@ -1731,24 +1794,34 @@ export const AcademicStructureView: React.FC = () => {
                                         {sec.shift} Shift • Room: {sec.room_number || 'Unassigned'}
                                       </p>
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => openEditSectionModal(sec)}
-                                        className="w-7 h-7 rounded-lg text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
-                                        title="Edit Section"
-                                      >
-                                        <Pencil className="w-3.5 h-3.5" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => initiateDeleteBatch(sec)}
-                                        className="w-7 h-7 rounded-lg text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 flex items-center justify-center transition-colors"
-                                        title="Delete Section"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
+                                    {isClassesWritable && (
+                                      <div className="flex items-center gap-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => openEditSectionModal(sec)}
+                                          className="w-7 h-7 rounded-lg text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+                                          title="Edit Section"
+                                        >
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleArchiveBatch(sec)}
+                                          className="w-7 h-7 rounded-lg text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-colors"
+                                          title="Archive Section"
+                                        >
+                                          <Archive className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => initiateDeleteBatch(sec)}
+                                          className="w-7 h-7 rounded-lg text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 flex items-center justify-center transition-colors"
+                                          title="Delete Section"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-xs">
                                     <span className="text-[11px] text-slate-600">Incharge: <span className="font-medium text-slate-800">{inchargeName}</span></span>
@@ -1784,7 +1857,7 @@ export const AcademicStructureView: React.FC = () => {
                             <tbody className="divide-y divide-slate-100">
                               {activeSections.map((sec, idx) => {
                                 const secStudents = activeStudents.filter(s => s.batch_id === sec.id);
-                                const enrolledCount = secStudents.length || sec.current_enrollment || 0;
+                                const enrolledCount = sec.current_enrollment !== undefined ? sec.current_enrollment : (secStudents.length || 0);
                                 const maxCap = sec.max_capacity || 40;
                                 const percent = Math.min(100, Math.round((enrolledCount / maxCap) * 100));
                                 const inchargeTeacher = staffMembers.find(s => s.id === sec.class_teacher_id);
@@ -1839,25 +1912,35 @@ export const AcademicStructureView: React.FC = () => {
                                       </div>
                                     </td>
                                     <td className="py-2 px-3 text-right">
-                                      <div className="flex items-center justify-end gap-1">
-                                        <button
-                                          type="button"
-                                          onClick={() => openEditSectionModal(sec)}
-                                          className="px-2 py-1 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors touch-press"
-                                          title="Edit Section"
-                                        >
-                                          <Pencil className="w-3 h-3 text-slate-500" />
-                                          <span>Edit</span>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => initiateDeleteBatch(sec)}
-                                          className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs transition-colors touch-press"
-                                          title="Delete Section"
-                                        >
-                                          <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                      </div>
+                                      {isClassesWritable && (
+                                        <div className="flex items-center justify-end gap-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => openEditSectionModal(sec)}
+                                            className="px-2 py-1 text-slate-700 hover:text-slate-900 hover:bg-slate-100 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors touch-press"
+                                            title="Edit Section"
+                                          >
+                                            <Pencil className="w-3 h-3 text-slate-500" />
+                                            <span>Edit</span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleArchiveBatch(sec)}
+                                            className="p-1 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg text-xs transition-colors touch-press"
+                                            title="Archive Section"
+                                          >
+                                            <Archive className="w-3.5 h-3.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => initiateDeleteBatch(sec)}
+                                            className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs transition-colors touch-press"
+                                            title="Delete Section"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
+                                      )}
                                     </td>
                                   </tr>
                                 );
@@ -1871,14 +1954,16 @@ export const AcademicStructureView: React.FC = () => {
                           <FolderTree className="w-6 h-6 mx-auto text-slate-400 mb-1.5" />
                           <p className="font-semibold text-slate-700">No sections created for {activeProgram.name} yet</p>
                           <p className="text-[11px] text-slate-400 mt-0.5">Click "Add Section" to configure classroom batches, room allocations, and capacity limits.</p>
-                          <button
-                            type="button"
-                            onClick={openAddSectionModal}
-                            className="mt-3 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-xs touch-press"
-                          >
-                            <Plus className="w-3.5 h-3.5 text-white" />
-                            <span>Add Section</span>
-                          </button>
+                          {isClassesWritable && (
+                            <button
+                              type="button"
+                              onClick={openAddSectionModal}
+                              className="mt-3 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-xs touch-press"
+                            >
+                              <Plus className="w-3.5 h-3.5 text-white" />
+                              <span>Add Section</span>
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -2106,24 +2191,26 @@ export const AcademicStructureView: React.FC = () => {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => openPromoteModal()}
-                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs touch-press"
-              >
-                <Split className="w-3.5 h-3.5 text-slate-600" />
-                <span>Batch Transfer</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => openAddBatchModal()}
-                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs touch-press"
-              >
-                <Plus className="w-3.5 h-3.5 text-white" />
-                <span>Add Batch</span>
-              </button>
-            </div>
+            {isClassesWritable && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => openPromoteModal()}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs touch-press"
+                >
+                  <Split className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Batch Transfer</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openAddBatchModal()}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs touch-press"
+                >
+                  <Plus className="w-3.5 h-3.5 text-white" />
+                  <span>Add Batch</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Standalone Search Bar & Single Button Filter Toggle */}
@@ -2217,7 +2304,7 @@ export const AcademicStructureView: React.FC = () => {
             ) : (
               filteredBatches.map(b => {
                 const batchStudents = students.filter(s => s.batch_id === b.id);
-                const enrolledCount = batchStudents.length || b.current_enrollment || 0;
+                const enrolledCount = b.current_enrollment !== undefined ? b.current_enrollment : (batchStudents.length || 0);
                 const maxCap = b.max_capacity || 40;
                 const percent = Math.min(100, Math.round((enrolledCount / maxCap) * 100));
 
@@ -2252,32 +2339,42 @@ export const AcademicStructureView: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => openPromoteModal(b.id)}
-                        className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
-                        title="Promote or Transfer Students"
-                      >
-                        <Split className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openEditBatchModal(b)}
-                        className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
-                        title="Edit Batch"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => initiateDeleteBatch(b)}
-                        className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-700 flex items-center justify-center transition-colors"
-                        title="Delete Batch"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    {isClassesWritable && (
+                      <div className="flex items-center justify-end gap-1.5 pt-1 border-t border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => openPromoteModal(b.id)}
+                          className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
+                          title="Promote or Transfer Students"
+                        >
+                          <Split className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditBatchModal(b)}
+                          className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
+                          title="Edit Batch"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleArchiveBatch(b)}
+                          className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition-colors"
+                          title="Archive Batch"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => initiateDeleteBatch(b)}
+                          className="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-500 hover:text-rose-700 flex items-center justify-center transition-colors"
+                          title="Delete Batch"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -2315,7 +2412,7 @@ export const AcademicStructureView: React.FC = () => {
                 ) : (
                   filteredBatches.map((b, idx) => {
                     const batchStudents = students.filter(s => s.batch_id === b.id);
-                    const enrolledCount = batchStudents.length || b.current_enrollment || 0;
+                    const enrolledCount = b.current_enrollment !== undefined ? b.current_enrollment : (batchStudents.length || 0);
                     const maxCap = b.max_capacity || 40;
                     const percent = Math.min(100, Math.round((enrolledCount / maxCap) * 100));
 
@@ -2423,33 +2520,43 @@ export const AcademicStructureView: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-2.5 px-3.5 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              type="button"
-                              onClick={() => openPromoteModal(b.id)}
-                              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded text-xs font-semibold transition-colors flex items-center gap-1"
-                              title="Promote or Transfer Students"
-                            >
-                              <Split className="w-3 h-3 text-slate-600" />
-                              <span>Transfer</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openEditBatchModal(b)}
-                              className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded border border-slate-200 transition-colors"
-                              title="Edit Batch"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => initiateDeleteBatch(b)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded border border-slate-200 transition-colors"
-                              title="Delete Batch"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          {isClassesWritable && (
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openPromoteModal(b.id)}
+                                className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded text-xs font-semibold transition-colors flex items-center gap-1"
+                                title="Promote or Transfer Students"
+                              >
+                                <Split className="w-3 h-3 text-slate-600" />
+                                <span>Transfer</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openEditBatchModal(b)}
+                                className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded border border-slate-200 transition-colors"
+                                title="Edit Batch"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleArchiveBatch(b)}
+                                className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded border border-slate-200 transition-colors"
+                                title="Archive Batch"
+                              >
+                                <Archive className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => initiateDeleteBatch(b)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded border border-slate-200 transition-colors"
+                                title="Delete Batch"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );
@@ -2488,13 +2595,15 @@ export const AcademicStructureView: React.FC = () => {
                 />
               </div>
 
-              <button
-                onClick={() => setShowSubjectModal(true)}
-                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
-              >
-                <Plus className="w-4 h-4 text-white" />
-                <span>Add Subject</span>
-              </button>
+              {isClassesWritable && (
+                <button
+                  onClick={() => setShowSubjectModal(true)}
+                  className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                >
+                  <Plus className="w-4 h-4 text-white" />
+                  <span>Add Subject</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -2511,24 +2620,26 @@ export const AcademicStructureView: React.FC = () => {
                   )}
                   <h4 className="text-xs font-semibold text-slate-900 truncate" title={s.name}>{s.name}</h4>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => openEditSubjectModal(s)}
-                    className="text-slate-400 hover:text-amber-600 p-1 rounded hover:bg-amber-50 transition-colors"
-                    title="Edit Subject"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteSubject(s.id, s.name)}
-                    className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition-colors"
-                    title="Delete Subject"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                {isClassesWritable && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => openEditSubjectModal(s)}
+                      className="text-slate-400 hover:text-amber-600 p-1 rounded hover:bg-amber-50 transition-colors"
+                      title="Edit Subject"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSubject(s.id, s.name)}
+                      className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition-colors"
+                      title="Delete Subject"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
 
@@ -3865,11 +3976,13 @@ export const AcademicStructureView: React.FC = () => {
                       required
                     >
                       <option value="" disabled>Select Source Batch</option>
-                      {batches.map(b => (
-                        <option key={b.id} value={b.id}>
-                          {b.name} ({b.shift})
-                        </option>
-                      ))}
+                      {batches
+                        .filter(b => !working_session || b.academic_session === working_session)
+                        .map(b => (
+                          <option key={b.id} value={b.id}>
+                            {b.name} ({b.shift}) [{b.academic_session}]
+                          </option>
+                        ))}
                     </select>
                   </div>
 
@@ -3885,10 +3998,10 @@ export const AcademicStructureView: React.FC = () => {
                     >
                       <option value="" disabled>Select Destination Batch</option>
                       {batches
-                        .filter(b => b.id !== promoteSourceBatchId)
+                        .filter(b => b.id !== promoteSourceBatchId && (!working_session || b.academic_session === working_session))
                         .map(b => (
                           <option key={b.id} value={b.id}>
-                            {b.name} ({b.shift})
+                            {b.name} ({b.shift}) [{b.academic_session}]
                           </option>
                         ))}
                     </select>
@@ -3900,9 +4013,9 @@ export const AcademicStructureView: React.FC = () => {
                     Target Academic Session
                   </label>
                   <div className="w-full text-xs px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-slate-700 font-mono font-semibold flex items-center justify-between">
-                    <span>{promoteTargetSession || tenant?.academic_session || '2026-2027'}</span>
+                    <span>{promoteTargetSession || working_session || tenant?.academic_session || '2026-2027'}</span>
                     <span className="text-[10px] uppercase font-sans font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                      Global Default
+                      Working Session
                     </span>
                   </div>
                 </div>

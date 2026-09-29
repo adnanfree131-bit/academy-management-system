@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
 import { 
   Users, 
@@ -8,6 +9,7 @@ import {
   HelpCircle, 
   CheckCircle2, 
   AlertCircle, 
+  Info,
   ChevronRight, 
   X, 
   Phone, 
@@ -78,9 +80,9 @@ export interface EnrollmentViewProps {
 }
 
 export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'directory', initialStudentId, onNavigate }) => {
-  const { token, tenant, user, refreshSession } = useAuth();
-  const canDeleteStudents = user?.role === 'tenant_admin' || user?.role === 'super_admin';
-  const canArchiveStudents = canDeleteStudents || user?.role === 'academic_head';
+  const { token, tenant, user, refreshSession, working_session } = useAuth();
+  const canDeleteStudents = (user?.role === 'tenant_admin' || user?.role === 'super_admin') && !user?.year_closed;
+  const canArchiveStudents = canDeleteStudents || (user?.role === 'academic_head' && !user?.year_closed);
   const [activeTab, setActiveTab] = useState<'directory' | 'inquiries' | 'new_admission' | 'id_cards'>(defaultTab);
   const [selectedDirectoryStudentIds, setSelectedDirectoryStudentIds] = useState<Set<string>>(new Set());
   const [showBulkIdCardsModal, setShowBulkIdCardsModal] = useState(false);
@@ -218,13 +220,44 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const [admitGuardianCnic, setAdmitGuardianCnic] = useState<string>('');
   const [isAdmitting, setIsAdmitting] = useState<boolean>(false);
 
-  // Bulk CSV Import Modal State
+  // Bulk Excel & CSV Import Modal State
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
   const [bulkImportBatchId, setBulkImportBatchId] = useState<string>('');
-  const [bulkImportCsvText, setBulkImportCsvText] = useState<string>('');
   const [isBulkImporting, setIsBulkImporting] = useState<boolean>(false);
-  const [bulkImportResult, setBulkImportResult] = useState<{ imported_count: number; failed_count: number; errors: any[] } | null>(null);
+  const [bulkImportResult, setBulkImportResult] = useState<{
+    imported_count: number;
+    failed_count: number;
+    errors: any[];
+    credentials?: Array<{
+      student_id: string;
+      student_name: string;
+      admission_number: string;
+      roll_number: string;
+      batch_name: string;
+      guardian_name: string;
+      guardian_login: string;
+      default_password: string;
+      invoice_number?: string;
+      first_month_amount?: number;
+    }>;
+  } | null>(null);
   const [bulkImportValidationErrors, setBulkImportValidationErrors] = useState<string[]>([]);
+  const [bulkImportParsedRows, setBulkImportParsedRows] = useState<any[]>([]);
+  const [bulkImportRawRows, setBulkImportRawRows] = useState<any[]>([]);
+  const [bulkImportFileMeta, setBulkImportFileMeta] = useState<{ name: string; size: number; sheetName?: string; totalRows: number } | null>(null);
+  const [bulkImportIsDragging, setBulkImportIsDragging] = useState<boolean>(false);
+  const [bulkImportGenerateInvoices, setBulkImportGenerateInvoices] = useState<boolean>(true);
+
+  // Automatically keep bulkImportBatchId set to a valid batch whenever modal is open and batches exist
+  useEffect(() => {
+    if (showBulkImportModal && batches.length > 0) {
+      const hasValidSelection = batches.some(b => b.id === bulkImportBatchId);
+      if (!bulkImportBatchId || !hasValidSelection) {
+        const initial = (selectedBatchFilter !== 'all' ? selectedBatchFilter : '') || batches[0]?.id || '';
+        setBulkImportBatchId(initial);
+      }
+    }
+  }, [showBulkImportModal, batches, selectedBatchFilter, bulkImportBatchId]);
 
   // Single Student Archive & Delete States
   const [studentToArchive, setStudentToArchive] = useState<Student | null>(null);
@@ -687,7 +720,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     } else {
       setIsLoading(false);
     }
-  }, [token]);
+  }, [token, working_session]);
 
   // Filtered Students
   const filteredStudents = useMemo(() => {
@@ -1353,29 +1386,101 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     }
   };
 
-  // Helper to parse CSV row accounting for quotes
-  const parseCsvRow = (text: string): string[] => {
-    const result: string[] = [];
-    let cur = '';
-    let inQuotes = false;
-    for (let j = 0; j < text.length; j++) {
-      const c = text[j];
-      if (c === '"') {
-        if (inQuotes && text[j + 1] === '"') {
-          cur += '"';
-          j++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (c === ',' && !inQuotes) {
-        result.push(cur.trim());
-        cur = '';
-      } else {
-        cur += c;
-      }
-    }
-    result.push(cur.trim());
-    return result;
+  // Download official sample Excel (.xlsx) template
+  const handleDownloadSampleXlsx = () => {
+    const headers = [
+      'Full Name',
+      'Guardian Name',
+      'Guardian Phone',
+      'Guardian Relation',
+      'Guardian CNIC',
+      'Student B-Form',
+      'Student Phone',
+      'Student Email',
+      'Gender',
+      'Roll Number',
+      'Date of Birth',
+      'Residential Address',
+      'City',
+      'Religion',
+      'Previous School',
+      'Monthly Tuition',
+      'Admission Fee',
+      'Target Section'
+    ];
+    const batch1 = batches[0];
+    const batch1Label = batch1 ? (getProgramName(batch1.program_id) ? `${getProgramName(batch1.program_id)} - ${batch1.name}` : batch1.name) : 'Class 10 - Section A';
+    const batch2 = batches[1] || batches[0];
+    const batch2Label = batch2 ? (getProgramName(batch2.program_id) ? `${getProgramName(batch2.program_id)} - ${batch2.name}` : batch2.name) : 'Class 10 - Section B';
+
+    const sampleRows = [
+      [
+        'Muhammad Ali',
+        'Tariq Mahmood',
+        '03001234567',
+        'Father',
+        '35201-1234567-1',
+        '35201-1122334-1',
+        '03009876543',
+        'ali.student@example.com',
+        'Male',
+        '101',
+        '2008-05-15',
+        'House 12 Street 4 Lahore',
+        'Lahore',
+        'Islam',
+        'Army Public School',
+        6500,
+        2000,
+        batch1Label
+      ],
+      [
+        'Fatima Noor',
+        'Noor Muhammad',
+        '03217654321',
+        'Father',
+        '35201-7654321-3',
+        '35201-2233445-2',
+        '03211234567',
+        'fatima@example.com',
+        'Female',
+        '102',
+        '2009-08-20',
+        'Model Town Lahore',
+        'Lahore',
+        'Islam',
+        'Beaconhouse School',
+        7000,
+        2500,
+        batch1Label
+      ],
+      [
+        'Hamza Bilal',
+        'Bilal Ahmed',
+        '03335566778',
+        'Father',
+        '35201-5566778-5',
+        '35201-3344556-3',
+        '03339988776',
+        '',
+        'Male',
+        '103',
+        '2008-11-12',
+        'Johar Town Lahore',
+        'Lahore',
+        'Islam',
+        'Lahore Grammar School',
+        6500,
+        2000,
+        batch2Label
+      ]
+    ];
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
+    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 3, 14) }));
+    XLSX.utils.book_append_sheet(wb, ws, 'Student Roster');
+    XLSX.writeFile(wb, 'student_bulk_enrollment_template.xlsx');
   };
 
   // Download official sample Excel-compatible CSV template
@@ -1386,13 +1491,25 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       'guardian_phone',
       'guardian_relation',
       'guardian_id_card',
+      'student_b_form',
       'phone',
       'email',
       'gender',
       'roll_number',
       'date_of_birth',
-      'residential_address'
+      'residential_address',
+      'city',
+      'religion',
+      'previous_school',
+      'base_tuition',
+      'admission_fee',
+      'batch_name'
     ];
+    const batch1 = batches[0];
+    const batch1Name = batch1?.name || 'Section A';
+    const batch2 = batches[1] || batches[0];
+    const batch2Name = batch2?.name || 'Section B';
+
     const sampleRows = [
       [
         'Muhammad Ali',
@@ -1400,12 +1517,19 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         '03001234567',
         'Father',
         '35201-1234567-1',
+        '35201-1122334-1',
         '03009876543',
-        'ali@example.com',
+        'ali.student@example.com',
         'Male',
         '101',
         '2008-05-15',
-        'House 12 Street 4 Lahore'
+        'House 12 Street 4 Lahore',
+        'Lahore',
+        'Islam',
+        'Army Public School',
+        6500,
+        2000,
+        batch1Name
       ],
       [
         'Fatima Noor',
@@ -1413,15 +1537,22 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         '03217654321',
         'Father',
         '35201-7654321-3',
+        '35201-2233445-2',
         '03211234567',
         'fatima@example.com',
         'Female',
         '102',
         '2009-08-20',
-        'Model Town Lahore'
+        'Model Town Lahore',
+        'Lahore',
+        'Islam',
+        'Beaconhouse School',
+        7000,
+        2500,
+        batch2Name
       ]
     ];
-    const csvContent = [headers.join(','), ...sampleRows.map(r => r.join(','))].join('\n');
+    const csvContent = '\uFEFF' + [headers.join(','), ...sampleRows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1433,112 +1564,353 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     URL.revokeObjectURL(url);
   };
 
-  // Handle direct file upload (.csv or .txt)
-  const handleBulkCsvFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
-      if (content) {
-        setBulkImportCsvText(content);
-        validateCsvRows(content, bulkImportBatchId);
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = '';
-  };
 
-  // Validate CSV rows and check compulsory fields
-  const validateCsvRows = (csvText: string, batchId: string): { rows: any[]; errors: string[] } => {
-    const lines = csvText.trim().split(/\r?\n/).filter(l => l.trim().length > 0);
-    if (lines.length <= 1) {
-      const err = ['File must contain a header row and at least 1 student record'];
-      setBulkImportValidationErrors(err);
-      return { rows: [], errors: err };
+  // Convert raw row objects into normalized student enrollment payload with validation
+  const processRawSpreadsheetRows = (rawRows: any[], fallbackBatchId: string) => {
+    if (!rawRows || rawRows.length === 0) {
+      setBulkImportParsedRows([]);
+      setBulkImportValidationErrors(['No student records found in file. Please ensure the file has a header row and data rows.']);
+      return { rows: [], errors: ['No student records found in file.'] };
     }
 
-    const headers = parseCsvRow(lines[0]).map(h => h.trim().toLowerCase().replace(/^["']|["']$/g, ''));
-    const rows: any[] = [];
     const errors: string[] = [];
+    const normalizedRows: any[] = [];
+    const seenRolls = new Set<string>();
 
-    for (let i = 1; i < lines.length; i++) {
-      const rowNum = i + 1;
-      const values = parseCsvRow(lines[i]).map(v => v.trim().replace(/^["']|["']$/g, ''));
-      const rowObj: any = {};
-      headers.forEach((h, idx) => {
-        rowObj[h] = values[idx] || '';
+    rawRows.forEach((r, idx) => {
+      const rowNum = idx + 2;
+
+      // Build key-normalized map
+      const normMap: Record<string, any> = {};
+      Object.entries(r).forEach(([k, v]) => {
+        const cleanK = String(k)
+          .replace(/^\uFEFF/, '')
+          .trim()
+          .toLowerCase()
+          .replace(/[\s\-_]+/g, '_');
+        normMap[cleanK] = typeof v === 'string' ? v.trim() : v;
       });
 
-      const fullName = rowObj.full_name || rowObj.name || rowObj['student name'] || '';
-      const guardianName = rowObj.guardian_name || rowObj.father_name || rowObj['guardian name'] || '';
-      const guardianPhone = rowObj.guardian_phone || rowObj.guardian_mobile || rowObj.phone || '';
-      const targetBatch = rowObj.batch_id || batchId || '';
+      const fullName = String(
+        normMap.full_name ||
+        normMap.name ||
+        normMap.student_name ||
+        normMap.student ||
+        normMap.candidate_name ||
+        ''
+      ).trim();
 
-      if (!fullName.trim()) {
-        errors.push(`Row ${rowNum}: Student Full Name is missing (compulsory).`);
-      }
-      if (!guardianName.trim()) {
-        errors.push(`Row ${rowNum}: Guardian / Father Name is missing (compulsory).`);
-      }
-      if (!guardianPhone.trim()) {
-        errors.push(`Row ${rowNum}: Guardian Phone is missing (compulsory).`);
-      }
-      if (!targetBatch) {
-        errors.push(`Row ${rowNum}: Target Section/Batch is not selected (compulsory).`);
+      const guardianName = String(
+        normMap.guardian_name ||
+        normMap.father_name ||
+        normMap.parent_name ||
+        normMap.guardian ||
+        normMap.father ||
+        ''
+      ).trim();
+
+      const guardianPhone = String(
+        normMap.guardian_phone ||
+        normMap.father_phone ||
+        normMap.guardian_mobile ||
+        normMap.father_mobile ||
+        normMap.parent_phone ||
+        normMap.phone ||
+        normMap.mobile ||
+        normMap.cell ||
+        ''
+      ).trim();
+
+      // Resolve batch
+      const rawBatchTarget = String(
+        normMap.batch_id ||
+        normMap.batch ||
+        normMap.batch_name ||
+        normMap.class ||
+        normMap.section ||
+        normMap.target_section ||
+        normMap.target_batch ||
+        ''
+      ).trim();
+
+      const effectiveFallbackBatchId = fallbackBatchId || bulkImportBatchId || (selectedBatchFilter !== 'all' ? selectedBatchFilter : '') || batches[0]?.id || '';
+      let targetBatchObj: Batch | undefined = undefined;
+
+      if (rawBatchTarget) {
+        const cleanTarget = rawBatchTarget.toLowerCase().replace(/[\s\-_]+/g, ' ').trim();
+
+        // 1. Exact ID match
+        targetBatchObj = batches.find(b => b.id === rawBatchTarget);
+
+        // 2. Exact or normalized batch name match
+        if (!targetBatchObj) {
+          targetBatchObj = batches.find(b => {
+            const bNameClean = b.name.toLowerCase().replace(/[\s\-_]+/g, ' ').trim();
+            return bNameClean === cleanTarget;
+          });
+        }
+
+        // 3. Combined Program Name + Batch Name match (e.g. "Class 10 - Section A" or "MDCAT Prep - Batch 2026-A")
+        if (!targetBatchObj) {
+          targetBatchObj = batches.find(b => {
+            const progName = getProgramName(b.program_id) || '';
+            const combined = `${progName} ${b.name}`.toLowerCase().replace(/[\s\-_]+/g, ' ').trim();
+            const revCombined = `${b.name} ${progName}`.toLowerCase().replace(/[\s\-_]+/g, ' ').trim();
+            return combined === cleanTarget || revCombined === cleanTarget;
+          });
+        }
+
+        // 4. Batch code match
+        if (!targetBatchObj) {
+          targetBatchObj = batches.find(b =>
+            Boolean((b as any).code) && String((b as any).code).toLowerCase().trim() === cleanTarget
+          );
+        }
+
+        // 5. Substring match: if cleanTarget contains batch name (e.g. "class 10 section a" contains "section a")
+        if (!targetBatchObj) {
+          targetBatchObj = batches.find(b => {
+            const bNameClean = b.name.toLowerCase().replace(/[\s\-_]+/g, ' ').trim();
+            return bNameClean.length >= 2 && cleanTarget.includes(bNameClean);
+          });
+        }
+
+        // 6. Program name match: if cleanTarget matches a Program, pick first batch in that program
+        if (!targetBatchObj) {
+          const matchedProg = programs.find(p => {
+            const pNameClean = p.name.toLowerCase().replace(/[\s\-_]+/g, ' ').trim();
+            return pNameClean === cleanTarget || cleanTarget.includes(pNameClean);
+          });
+          if (matchedProg) {
+            targetBatchObj = batches.find(b => b.program_id === matchedProg.id);
+          }
+        }
       }
 
-      rows.push({
-        full_name: fullName.trim(),
-        phone: rowObj.phone || rowObj.mobile || undefined,
-        email: rowObj.email || undefined,
-        guardian_name: guardianName.trim() || 'Guardian',
-        guardian_phone: guardianPhone.trim() || undefined,
-        guardian_id_card: rowObj.guardian_id_card || rowObj.guardian_cnic || rowObj.cnic || undefined,
-        guardian_relation: rowObj.guardian_relation || rowObj.relation || 'Father',
-        batch_id: targetBatch || undefined,
-        gender: rowObj.gender || undefined,
-        blood_group: rowObj.blood_group || undefined,
-        roll_number: rowObj.roll_number || rowObj.roll || undefined,
-        date_of_birth: rowObj.date_of_birth || rowObj.dob || undefined,
-        student_b_form: rowObj.student_b_form || rowObj.b_form || rowObj.bform || undefined,
-        previous_school: rowObj.previous_school || rowObj.previous_academy || rowObj.last_school || undefined,
-        religion: rowObj.religion || undefined,
-        residential_address: rowObj.residential_address || rowObj.address || undefined,
-        city: rowObj.city || undefined,
-        father_name: rowObj.father_name || guardianName || undefined,
-        father_cnic: rowObj.father_cnic || rowObj.guardian_id_card || undefined,
-        father_phone: rowObj.father_phone || guardianPhone || undefined,
+      // 7. Fallback to the selected Class / Section dropdown
+      if (!targetBatchObj && effectiveFallbackBatchId) {
+        targetBatchObj = batches.find(b => b.id === effectiveFallbackBatchId);
+      }
+
+      // Check required fields
+      if (!fullName) {
+        errors.push(`Row ${rowNum}: Student Name is missing.`);
+      }
+      if (!guardianName) {
+        errors.push(`Row ${rowNum}: Father / Guardian Name is missing.`);
+      }
+      if (!guardianPhone) {
+        errors.push(`Row ${rowNum}: Guardian Phone Number is missing.`);
+      }
+      if (!targetBatchObj) {
+        errors.push(`Row ${rowNum}: Please select a Class / Section.`);
+      }
+
+      // Check roll number uniqueness within this batch
+      const rawRoll = String(normMap.roll_number || normMap.roll_no || normMap.roll || normMap.reg_no || '').trim();
+      if (rawRoll) {
+        const rollKey = `${targetBatchObj?.id || 'batch'}_${rawRoll.toLowerCase()}`;
+        if (seenRolls.has(rollKey)) {
+          errors.push(`Row ${rowNum}: Duplicate roll number "${rawRoll}".`);
+        } else {
+          seenRolls.add(rollKey);
+        }
+      }
+
+      // Format Date of Birth
+      let dobStr: string | undefined = undefined;
+      const rawDob = normMap.date_of_birth || normMap.dob || normMap.birth_date;
+      if (rawDob) {
+        if (typeof rawDob === 'number') {
+          const d = new Date((rawDob - 25569) * 86400 * 1000);
+          if (!isNaN(d.getTime())) {
+            dobStr = d.toISOString().split('T')[0];
+          }
+        } else if (rawDob instanceof Date) {
+          dobStr = rawDob.toISOString().split('T')[0];
+        } else if (typeof rawDob === 'string' && rawDob.trim()) {
+          dobStr = rawDob.trim();
+        }
+      }
+
+      // Parse fees
+      const rawTuition = normMap.base_tuition || normMap.tuition || normMap.tuition_fee || normMap.monthly_fee || normMap.fee;
+      const rawAdmFee = normMap.admission_fee || normMap.admission || normMap.admission_charges;
+      const parsedTuition = rawTuition !== undefined && rawTuition !== '' ? Number(rawTuition) : ((targetBatchObj as any)?.default_monthly_fee ?? undefined);
+      const parsedAdmFee = rawAdmFee !== undefined && rawAdmFee !== '' ? Number(rawAdmFee) : undefined;
+
+      const guardianCnic = String(
+        normMap.guardian_id_card ||
+        normMap.guardian_cnic ||
+        normMap.father_cnic ||
+        normMap.cnic ||
+        normMap.nic ||
+        normMap.id_card ||
+        ''
+      ).trim() || undefined;
+
+      const studentBForm = String(
+        normMap.student_b_form ||
+        normMap.b_form ||
+        normMap.bform ||
+        normMap.bay_form ||
+        normMap.form_b ||
+        ''
+      ).trim() || undefined;
+
+      // Clean email
+      let cleanEmail: string | undefined = String(normMap.student_email || normMap.email || '').trim();
+      if (!cleanEmail || /^(n\/?a|nil|none|no|null|-)$/i.test(cleanEmail) || !cleanEmail.includes('@')) {
+        cleanEmail = undefined;
+      }
+
+      normalizedRows.push({
+        _rowNum: rowNum,
+        _batchName: targetBatchObj
+          ? (getProgramName(targetBatchObj.program_id) ? `${getProgramName(targetBatchObj.program_id)} — ${targetBatchObj.name}` : targetBatchObj.name)
+          : (rawBatchTarget || 'Unassigned'),
+        _isValid: Boolean(fullName && guardianName && guardianPhone && targetBatchObj),
+        full_name: fullName,
+        phone: String(normMap.phone || normMap.student_phone || normMap.mobile || guardianPhone).trim() || undefined,
+        email: cleanEmail,
+        guardian_name: guardianName || 'Guardian',
+        guardian_phone: guardianPhone,
+        guardian_id_card: guardianCnic,
+        guardian_relation: String(normMap.guardian_relation || normMap.relation || 'Father').trim(),
+        batch_id: targetBatchObj?.id || undefined,
+        batch_name: targetBatchObj?.name || rawBatchTarget || undefined,
+        gender: String(normMap.gender || normMap.sex || 'Male').trim(),
+        blood_group: String(normMap.blood_group || normMap.blood || '').trim() || undefined,
+        roll_number: rawRoll || undefined,
+        date_of_birth: dobStr,
+        student_b_form: studentBForm,
+        previous_school: String(normMap.previous_school || normMap.last_school || normMap.previous_academy || '').trim() || undefined,
+        religion: String(normMap.religion || 'Islam').trim() || undefined,
+        residential_address: String(normMap.residential_address || normMap.address || normMap.home_address || '').trim() || undefined,
+        city: String(normMap.city || 'Lahore').trim() || undefined,
+        father_name: guardianName || undefined,
+        father_cnic: guardianCnic,
+        father_phone: guardianPhone || undefined,
+        base_tuition: parsedTuition,
+        admission_fee: parsedAdmFee,
+        elective_group: String(normMap.elective_group || normMap.elective || normMap.stream || '').trim() || undefined,
       });
-    }
+    });
 
+    setBulkImportParsedRows(normalizedRows);
     setBulkImportValidationErrors(errors);
-    return { rows, errors };
+    return { rows: normalizedRows, errors };
   };
 
-  // Bulk CSV Import Handler with validation
-  const handleExecuteBulkImport = async () => {
-    if (!token || !bulkImportCsvText.trim()) return;
-    const { rows, errors } = validateCsvRows(bulkImportCsvText, bulkImportBatchId);
-    if (errors.length > 0) {
-      alert(`Cannot import: Please correct ${errors.length} compulsory validation issue(s) first.`);
+  // Handle direct file upload (.xlsx, .xls, .csv, .txt)
+  const handleBulkSpreadsheetFileChange = async (file: File) => {
+    if (!file) return;
+    try {
+      const buffer = await file.arrayBuffer();
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+
+      let rawRows: any[] = [];
+      let detectedSheet = 'Sheet1';
+
+      if (['xlsx', 'xls', 'xlsm', 'xlsb'].includes(ext)) {
+        const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
+        detectedSheet = wb.SheetNames[0] || 'Sheet1';
+        const sheet = wb.Sheets[detectedSheet];
+        rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      } else {
+        const decoder = new TextDecoder('utf-8');
+        let text = decoder.decode(buffer).replace(/^\uFEFF/, '');
+        const wb = XLSX.read(text, { type: 'string', raw: true });
+        detectedSheet = wb.SheetNames[0] || 'CSV';
+        const sheet = wb.Sheets[detectedSheet];
+        rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      }
+
+      setBulkImportRawRows(rawRows);
+      setBulkImportFileMeta({
+        name: file.name,
+        size: file.size,
+        sheetName: detectedSheet,
+        totalRows: rawRows.length,
+      });
+
+      const effectiveBatch = bulkImportBatchId || (selectedBatchFilter !== 'all' ? selectedBatchFilter : '') || batches[0]?.id || '';
+      if (!bulkImportBatchId && effectiveBatch) {
+        setBulkImportBatchId(effectiveBatch);
+      }
+      processRawSpreadsheetRows(rawRows, effectiveBatch);
+    } catch (err: any) {
+      console.error('Failed reading spreadsheet file:', err);
+      alert(`Failed to parse file "${file.name}": ${err.message || 'Invalid spreadsheet format'}`);
+    }
+  };
+
+  // Handle CSV textarea change
+
+  // Download export of created credentials
+  const handleDownloadCredentialsReport = () => {
+    if (!bulkImportResult?.credentials || bulkImportResult.credentials.length === 0) {
+      alert('No credentials available to export.');
       return;
     }
-    if (rows.length === 0) {
-      alert('No student records found to import.');
+    const headers = [
+      'Student Name',
+      'Admission Number',
+      'Roll Number',
+      'Class / Section',
+      'Guardian Name',
+      'Guardian Portal Login ID',
+      'Initial Password',
+      'First Month Invoice #',
+      'First Month Amount (PKR)'
+    ];
+    const dataRows = bulkImportResult.credentials.map(c => [
+      c.student_name,
+      c.admission_number,
+      c.roll_number,
+      c.batch_name,
+      c.guardian_name,
+      c.guardian_login,
+      c.default_password,
+      c.invoice_number || 'Billed via Ledger',
+      c.first_month_amount ?? 0
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 3, 16) }));
+    XLSX.utils.book_append_sheet(wb, ws, 'Student Credentials');
+    XLSX.writeFile(wb, `student_enrollment_credentials_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  // Bulk Import Executor
+  const handleExecuteBulkImport = async () => {
+    if (!token || bulkImportParsedRows.length === 0) return;
+    if (bulkImportValidationErrors.length > 0) {
+      alert(`Cannot import: Please correct ${bulkImportValidationErrors.length} compulsory validation issue(s) before proceeding.`);
       return;
     }
 
     setIsBulkImporting(true);
     setBulkImportResult(null);
     try {
+      // Strip UI metadata keys like _rowNum, _batchName, _isValid
+      const cleanStudents = bulkImportParsedRows.map(r => {
+        const { _rowNum, _batchName, _isValid, ...rest } = r;
+        return rest;
+      });
+
       const res = await fetch('/api/v1/sis/students/bulk-import', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ students: rows, batch_id: bulkImportBatchId || undefined })
+        body: JSON.stringify({
+          students: cleanStudents,
+          batch_id: bulkImportBatchId || undefined,
+          generate_invoices: bulkImportGenerateInvoices
+        })
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -2708,18 +3080,20 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             )}
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('new_admission')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'new_admission'
-                ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <UserPlus className="w-3.5 h-3.5 text-slate-500" />
-            <span>New Admission</span>
-          </button>
+          {!user?.year_closed && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('new_admission')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'new_admission'
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <UserPlus className="w-3.5 h-3.5 text-slate-500" />
+              <span>New Admission</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -2757,19 +3131,21 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               className="absolute right-0 top-full mt-1.5 w-60 bg-white rounded-xl border border-slate-200 shadow-xl py-1 z-50 divide-y divide-slate-100 text-left animate-in fade-in zoom-in-95 duration-100"
             >
               {/* Primary Action - Dark Theme Orange/Amber Button */}
-              <div className="p-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModuleMenu(false);
-                    setActiveTab('new_admission');
-                  }}
-                  className="w-full px-3 py-2 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 font-semibold shadow-xs transition-colors cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5 text-white" />
-                  <span>New Admission</span>
-                </button>
-              </div>
+              {!user?.year_closed && (
+                <div className="p-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      setActiveTab('new_admission');
+                    }}
+                    className="w-full px-3 py-2 text-xs text-white bg-amber-600 hover:bg-amber-700 active:bg-amber-800 rounded-lg flex items-center gap-2 font-semibold shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-white" />
+                    <span>New Admission</span>
+                  </button>
+                </div>
+              )}
 
               {/* Navigation Section */}
               <div className="py-1">
@@ -2856,20 +3232,25 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
                   Tools
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowModuleMenu(false);
-                    setShowBulkImportModal(true);
-                    setBulkImportResult(null);
-                    setBulkImportCsvText('');
-                    setBulkImportValidationErrors([]);
-                  }}
-                  className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
-                >
-                  <Upload className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Bulk Excel or CSV Import</span>
-                </button>
+                {!user?.year_closed && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModuleMenu(false);
+                      setShowBulkImportModal(true);
+                      setBulkImportResult(null);
+                      setBulkImportParsedRows([]);
+                      setBulkImportFileMeta(null);
+                      setBulkImportValidationErrors([]);
+                      const defaultBatch = (selectedBatchFilter !== 'all' ? selectedBatchFilter : '') || batches[0]?.id || '';
+                      setBulkImportBatchId(defaultBatch);
+                    }}
+                    className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Import Students from Excel</span>
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -2887,6 +3268,14 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
           )}
         </div>
       </div>
+
+      {/* Closed Year Banner */}
+      {user?.year_closed && (
+        <div className="bg-slate-100 border border-slate-200 text-slate-700 text-xs px-3 py-2 rounded-xl flex items-center gap-2 shadow-xs">
+          <Info className="w-4 h-4 text-slate-500 flex-shrink-0" />
+          <span>Viewing {user?.working_session || tenant?.academic_session || 'this session'}. These records cannot be changed.</span>
+        </div>
+      )}
 
       {/* Error state */}
       {error && (
@@ -3125,7 +3514,21 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
               <button
                 type="button"
-                onClick={() => setShowBulkIdCardsModal(true)}
+                onClick={() => {
+                  const effectiveSession = working_session || tenant?.academic_session;
+                  if (effectiveSession) {
+                    const selectedStudents = students.filter(s => selectedDirectoryStudentIds.has(s.id));
+                    const anyWithoutClass = selectedStudents.some(s => {
+                      const b = batches.find(batch => batch.id === s.batch_id);
+                      return !s.batch_id || (b && b.academic_session !== effectiveSession);
+                    });
+                    if (selectedStudents.length === 1 && anyWithoutClass) {
+                      alert('This student has no class in this year.');
+                      return;
+                    }
+                  }
+                  setShowBulkIdCardsModal(true);
+                }}
                 className="flex-1 sm:flex-initial h-8.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-colors cursor-pointer"
               >
                 <CreditCard className="w-3.5 h-3.5 shrink-0" />
@@ -3636,7 +4039,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <div className="flex items-center gap-2.5">
                   <h2 className="text-base font-bold text-slate-900">Admissions & Inquiries Register</h2>
                   <span className="text-[10.5px] font-mono font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                    Session: {tenant?.academic_session || '2026-2027'}
+                    Session: {user?.working_session || tenant?.academic_session || '2026-2027'}
                   </span>
                   <span className="text-[10.5px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                     Total Inquiries: {inquiries.length}
@@ -4173,14 +4576,16 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             <span>Quick Log</span>
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAdmitInquiryModal(inq)}
-                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
-                            title="Direct Admission and Fee Challan"
-                          >
-                            Admit
-                          </button>
+                          {!user?.year_closed && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAdmitInquiryModal(inq)}
+                              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+                              title="Direct Admission and Fee Challan"
+                            >
+                              Admit
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -4601,7 +5006,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                                   </button>
                                 )}
 
-                                {inq.stage !== 'admitted' && (
+                                {inq.stage !== 'admitted' && !user?.year_closed && (
                                   <button
                                     type="button"
                                     onClick={() => handleOpenAdmitInquiryModal(inq)}
@@ -4729,7 +5134,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                             <span>Logs</span>
                           </button>
 
-                          {inq.stage !== 'admitted' && (
+                          {inq.stage !== 'admitted' && !user?.year_closed && (
                             <button
                               type="button"
                               onClick={() => handleOpenAdmitInquiryModal(inq)}
@@ -4803,7 +5208,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <div className="flex items-center gap-2.5">
                   <h2 className="text-base font-bold text-slate-900">New Student Registration</h2>
                   <span className="text-[11px] font-bold font-mono px-2.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
-                    Session: {tenant?.academic_session || '2026-2027'}
+                    Session: {user?.working_session || tenant?.academic_session || '2026-2027'}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
@@ -8273,6 +8678,13 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 onClick={() => {
                   const s = mobileActionStudent;
                   setMobileActionStudent(null);
+                  if (!s) return;
+                  const effectiveSession = working_session || tenant?.academic_session;
+                  const b = batches.find(batch => batch.id === s.batch_id);
+                  if (!s.batch_id || (effectiveSession && b && b.academic_session !== effectiveSession)) {
+                    alert('This student has no class in this year.');
+                    return;
+                  }
                   setSelectedDirectoryStudentIds(new Set([s.id]));
                   setShowBulkIdCardsModal(true);
                 }}
@@ -8478,7 +8890,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             <div id="admission-receipt-slip" className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 font-sans text-xs">
               <div className="text-center pb-3 border-b border-slate-200">
                 <h4 className="font-bold text-sm text-slate-900 uppercase tracking-wide">
-                  {tenant?.name || 'Apex Academy'}
+                  {tenant?.name || 'Academy'}
                 </h4>
                 <p className="text-[11px] text-slate-500 font-medium">OFFICIAL ADMISSION & FEE RECEIPT</p>
                 <p className="text-[10px] font-mono text-slate-400 mt-0.5">
@@ -8584,7 +8996,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                   type="button"
                   onClick={() => {
                     const cleanPhone = cleanPhoneForWhatsApp(receiptModalData.student.guardian_whatsapp || receiptModalData.student.guardian_phone);
-                    const academyTitle = tenant?.name || 'Apex Academy';
+                    const academyTitle = tenant?.name || 'Academy';
                     const finalBalance = Math.max(0, receiptModalData.totalDue - (receiptModalData.discountAmount || 0) - receiptModalData.amountPaid);
                     const lines = [
                       `*${academyTitle.toUpperCase()}*`,
@@ -8619,7 +9031,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
                 <button
                   type="button"
                   onClick={() => {
-                    const academyTitle = tenant?.name || 'Apex Academy';
+                    const academyTitle = tenant?.name || 'Academy';
                     const finalBalance = Math.max(0, receiptModalData.totalDue - (receiptModalData.discountAmount || 0) - receiptModalData.amountPaid);
                     const lines = [
                       `*${academyTitle.toUpperCase()}*`,
@@ -8679,15 +9091,23 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         document.body
       )}
       {/* ========================================================================= */}
-      {/* BULK CSV IMPORT MODAL                                                     */}
+      {/* BULK EXCEL & CSV ENROLLMENT MODAL                                          */}
       {/* ========================================================================= */}
       {showBulkImportModal && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150 mobile-sheet">
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[90dvh] overflow-y-auto mobile-sheet-card">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                <FileSpreadsheet className="w-4 h-4 text-amber-600" />
-                <span>Bulk Student CSV / Excel Import</span>
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl max-w-4xl w-full p-4 sm:p-6 shadow-2xl border border-slate-200 ring-1 ring-slate-900/10 space-y-4 max-h-[92dvh] overflow-y-auto mobile-sheet-card flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 leading-tight">Import Students from Excel</h3>
+                  <p className="text-[11px] text-slate-500 font-normal">
+                    Upload an Excel file (.xlsx) or CSV to enroll students into your academy.
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
@@ -8699,43 +9119,49 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </button>
             </div>
 
-            {/* Step 1: Download Sample Excel Template */}
-            <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <h4 className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                  <FileSpreadsheet className="w-4 h-4 text-amber-700" />
-                  Excel / CSV Template
-                </h4>
-                <p className="text-[11px] text-amber-900/80 mt-0.5">
-                  Download the sample template, fill in your student roster in Excel, and upload below.
-                </p>
+            {/* Template Download Ribbon */}
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shrink-0">
+              <div className="text-xs text-slate-600">
+                <span className="font-semibold text-slate-800">Need a sample file?</span> Download our ready-to-fill template:
               </div>
-              <button
-                type="button"
-                onClick={handleDownloadSampleCsv}
-                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer shrink-0"
-              >
-                <Download className="w-3.5 h-3.5 text-white" />
-                <span>Download Sample (.csv)</span>
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleDownloadSampleXlsx}
+                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-white" />
+                  <span>Download Excel (.xlsx)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDownloadSampleCsv}
+                  className="px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg text-xs font-medium flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                >
+                  <Download className="w-3 h-3 text-slate-500" />
+                  <span>CSV</span>
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-3">
+            {/* Class & Invoicing Settings */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 shrink-0 items-end">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  1. Target Class & Section Batch <span className="text-rose-500">*</span>
+                  Class / Section <span className="text-rose-500">*</span>
                 </label>
                 <select
                   value={bulkImportBatchId}
                   onChange={e => {
-                    setBulkImportBatchId(e.target.value);
-                    if (bulkImportCsvText.trim()) {
-                      validateCsvRows(bulkImportCsvText, e.target.value);
+                    const newBatchId = e.target.value;
+                    setBulkImportBatchId(newBatchId);
+                    if (bulkImportRawRows.length > 0) {
+                      processRawSpreadsheetRows(bulkImportRawRows, newBatchId);
                     }
                   }}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                 >
-                  <option value="">-- Select Target Section or Batch --</option>
+                  <option value="">-- Select Class / Section --</option>
                   {batches.map(b => (
                     <option key={b.id} value={b.id}>
                       {getProgramName(b.program_id) ? `${getProgramName(b.program_id)} — ` : ''}{b.name}
@@ -8745,107 +9171,179 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  2. Upload CSV / Excel File
-                </label>
-                <label
-                  htmlFor="bulk-student-file-input"
-                  className="border-2 border-dashed border-slate-300 hover:border-amber-500 bg-slate-50/60 hover:bg-amber-50/20 rounded-xl p-3 text-center cursor-pointer transition-colors block"
-                >
-                  <Upload className="w-5 h-5 text-amber-600 mx-auto mb-1" />
-                  <span className="text-xs font-semibold text-slate-700 block">
-                    Choose CSV file or drag & drop here
-                  </span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5">
-                    Accepts standard .csv format exported from Excel / Google Sheets
-                  </span>
+                <label className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer text-xs font-medium text-slate-800 hover:bg-slate-100 transition-colors">
                   <input
-                    id="bulk-student-file-input"
-                    type="file"
-                    accept=".csv,text/csv,text/plain"
-                    onChange={handleBulkCsvFileChange}
-                    className="hidden"
+                    type="checkbox"
+                    checked={bulkImportGenerateInvoices}
+                    onChange={e => setBulkImportGenerateInvoices(e.target.checked)}
+                    className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
                   />
+                  <span>Generate admission &amp; monthly fee challan</span>
+                </label>
+              </div>
+            </div>
+
+            {/* File Upload Box */}
+            <div className="shrink-0 space-y-2">
+              <div
+                onDragOver={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setBulkImportIsDragging(true);
+                }}
+                onDragEnter={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setBulkImportIsDragging(true);
+                }}
+                onDragLeave={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setBulkImportIsDragging(false);
+                }}
+                onDrop={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setBulkImportIsDragging(false);
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) handleBulkSpreadsheetFileChange(file);
+                }}
+                className={`border-2 border-dashed rounded-xl p-4 text-center transition-all ${
+                  bulkImportIsDragging
+                    ? 'border-amber-500 bg-amber-50/60'
+                    : 'border-slate-300 hover:border-slate-400 bg-slate-50/50'
+                }`}
+              >
+                <input
+                  id="bulk-student-spreadsheet-file"
+                  type="file"
+                  accept=".xlsx,.xls,.csv,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleBulkSpreadsheetFileChange(file);
+                    e.target.value = '';
+                  }}
+                  className="hidden"
+                />
+                <label htmlFor="bulk-student-spreadsheet-file" className="cursor-pointer block">
+                  <Upload className="w-6 h-6 mx-auto mb-1 text-slate-400" />
+                  <span className="text-xs font-semibold text-slate-800 block">
+                    {bulkImportFileMeta ? 'Click to change file' : 'Click to choose Excel or CSV file'}
+                  </span>
+                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                    or drag and drop your file here (.xlsx, .xls, .csv)
+                  </span>
                 </label>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-slate-700">Or Paste / Preview CSV Text</label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const sample = `full_name,phone,guardian_name,guardian_phone,guardian_relation,guardian_id_card\nAhmad Khan,03001234567,Tariq Khan,03007654321,Father,35201-1234567-1\nSara Ali,03121234567,Ali Raza,03127654321,Father,35201-7654321-3`;
-                      setBulkImportCsvText(sample);
-                      validateCsvRows(sample, bulkImportBatchId);
-                    }}
-                    className="text-[11px] text-amber-700 hover:underline font-semibold"
-                  >
-                    Paste Sample CSV
-                  </button>
-                </div>
-                <textarea
-                  rows={5}
-                  value={bulkImportCsvText}
-                  onChange={e => {
-                    setBulkImportCsvText(e.target.value);
-                    validateCsvRows(e.target.value, bulkImportBatchId);
-                  }}
-                  placeholder="full_name,phone,guardian_name,guardian_phone,guardian_relation,guardian_id_card&#10;Muhammad Bilal,03001234567,Tariq Bilal,03009876543,Father,35202-1234567-1"
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                />
-              </div>
-
-              {/* Compulsory Fields Validation Status Badge / Warning */}
-              {bulkImportCsvText.trim() && (
-                <div className="space-y-1.5">
-                  {bulkImportValidationErrors.length > 0 ? (
-                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 space-y-1">
-                      <div className="font-bold flex items-center gap-1.5 text-rose-700">
-                        <AlertCircle className="w-4 h-4 shrink-0" />
-                        <span>Compulsory Fields Missing ({bulkImportValidationErrors.length} validation issues):</span>
-                      </div>
-                      <ul className="list-disc list-inside text-[11px] font-mono space-y-0.5 pl-1 max-h-24 overflow-y-auto">
-                        {bulkImportValidationErrors.map((err, i) => (
-                          <li key={i}>{err}</li>
-                        ))}
-                      </ul>
-                      <p className="text-[10.5px] text-rose-600 font-sans pt-1">
-                        Compulsory items: Full Name, Guardian Name, Guardian Phone, and Target Class/Batch.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2 font-semibold">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <span>
-                        All compulsory fields verified! Ready to import{' '}
-                        {bulkImportCsvText.trim().split(/\r?\n/).length - 1} student(s).
-                      </span>
-                    </div>
-                  )}
+              {bulkImportFileMeta && (
+                <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span className="font-semibold text-slate-800">{bulkImportFileMeta.name}</span>
+                    <span className="text-slate-400">•</span>
+                    <span className="text-slate-500 font-mono">{(bulkImportFileMeta.size / 1024).toFixed(1)} KB</span>
+                  </div>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[11px] rounded font-mono">
+                    {bulkImportParsedRows.length} Students Found
+                  </span>
                 </div>
               )}
             </div>
 
-            {/* Import Results Banner */}
-            {bulkImportResult && (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
-                <div className="flex items-center gap-2 font-bold">
-                  {bulkImportResult.imported_count > 0 ? (
-                    <span className="text-emerald-700 flex items-center gap-1">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Successfully imported {bulkImportResult.imported_count} student(s).
-                    </span>
-                  ) : null}
-                  {bulkImportResult.failed_count > 0 ? (
-                    <span className="text-rose-600 flex items-center gap-1">
-                      <AlertCircle className="w-4 h-4" />
-                      {bulkImportResult.failed_count} row(s) failed validation.
-                    </span>
-                  ) : null}
+            {/* Student Preview Table */}
+            {bulkImportParsedRows.length > 0 && (
+              <div className="space-y-2 flex-1 min-h-[140px] flex flex-col">
+                {/* Validation Warnings List */}
+                {bulkImportValidationErrors.length > 0 && (
+                  <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 space-y-1 shrink-0">
+                    <div className="font-semibold flex items-center gap-1.5 text-rose-700">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>Please fix the following issues before importing:</span>
+                    </div>
+                    <ul className="list-disc list-inside text-[11px] font-mono space-y-0.5 pl-1 max-h-20 overflow-y-auto">
+                      {bulkImportValidationErrors.map((err, i) => (
+                        <li key={i}>{err}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Table */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden flex-1 overflow-y-auto max-h-56 bg-white shadow-2xs">
+                  <table className="w-full text-left border-collapse text-[11px]">
+                    <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 sticky top-0 z-10">
+                      <tr>
+                        <th className="py-2 px-2.5 w-10 text-center">#</th>
+                        <th className="py-2 px-2.5">Student Name</th>
+                        <th className="py-2 px-2.5">Father / Guardian</th>
+                        <th className="py-2 px-2.5">Phone</th>
+                        <th className="py-2 px-2.5">CNIC / B-Form</th>
+                        <th className="py-2 px-2.5">Class</th>
+                        <th className="py-2 px-2.5">Roll #</th>
+                        <th className="py-2 px-2.5 text-right">Tuition</th>
+                        <th className="py-2 px-2.5 text-right">Admission</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {bulkImportParsedRows.map((r, i) => (
+                        <tr key={i} className={`hover:bg-slate-50/80 transition-colors ${!r._isValid ? 'bg-rose-50/40' : ''}`}>
+                          <td className="py-1.5 px-2.5 text-center font-mono text-slate-400">{r._rowNum}</td>
+                          <td className="py-1.5 px-2.5 font-bold text-slate-900">{r.full_name || <span className="text-rose-500 italic">Missing</span>}</td>
+                          <td className="py-1.5 px-2.5 text-slate-700">
+                            {r.guardian_name} {r.guardian_relation ? <span className="text-slate-400">({r.guardian_relation})</span> : null}
+                          </td>
+                          <td className="py-1.5 px-2.5 font-mono text-slate-600">{r.guardian_phone || <span className="text-rose-500 italic">Missing</span>}</td>
+                          <td className="py-1.5 px-2.5 font-mono text-slate-600">{r.guardian_id_card || r.student_b_form || '—'}</td>
+                          <td className="py-1.5 px-2.5 font-medium text-slate-800">{r._batchName}</td>
+                          <td className="py-1.5 px-2.5 font-mono text-slate-600">{r.roll_number || <span className="text-slate-400 italic">Auto</span>}</td>
+                          <td className="py-1.5 px-2.5 text-right font-mono font-semibold text-slate-800">
+                            {r.base_tuition !== undefined ? `PKR ${r.base_tuition.toLocaleString()}` : '—'}
+                          </td>
+                          <td className="py-1.5 px-2.5 text-right font-mono text-slate-600">
+                            {r.admission_fee !== undefined ? `PKR ${r.admission_fee.toLocaleString()}` : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
+              </div>
+            )}
+
+            {/* Post-Import Results */}
+            {bulkImportResult && (
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs shrink-0">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {bulkImportResult.imported_count > 0 && (
+                      <span className="text-emerald-800 font-bold flex items-center gap-1.5 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        Successfully enrolled {bulkImportResult.imported_count} student(s).
+                      </span>
+                    )}
+                    {bulkImportResult.failed_count > 0 && (
+                      <span className="text-rose-800 font-bold flex items-center gap-1.5 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200">
+                        <AlertCircle className="w-4 h-4 text-rose-600" />
+                        {bulkImportResult.failed_count} row(s) failed.
+                      </span>
+                    )}
+                  </div>
+
+                  {bulkImportResult.credentials && bulkImportResult.credentials.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleDownloadCredentialsReport}
+                      className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-white" />
+                      <span>Download Login Slips (.xlsx)</span>
+                    </button>
+                  )}
+                </div>
+
                 {bulkImportResult.errors && bulkImportResult.errors.length > 0 && (
-                  <div className="max-h-24 overflow-y-auto space-y-1 text-[11px] text-rose-700 font-mono bg-rose-50 p-2 rounded border border-rose-200">
+                  <div className="max-h-20 overflow-y-auto space-y-1 text-[11px] text-rose-700 font-mono bg-rose-50 p-2 rounded-lg border border-rose-200">
                     {bulkImportResult.errors.map((err, idx) => (
                       <div key={idx}>Row {err.row}: {err.error}</div>
                     ))}
@@ -8855,32 +9353,41 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
             )}
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
-              <button
-                type="button"
-                onClick={() => setShowBulkImportModal(false)}
-                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={handleExecuteBulkImport}
-                disabled={isBulkImporting || !bulkImportCsvText.trim() || bulkImportValidationErrors.length > 0}
-                className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-xs"
-              >
-                {isBulkImporting ? (
-                  <>
-                    <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Importing...</span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Execute Import</span>
-                  </>
+            <div className="flex items-center justify-between pt-3 border-t border-slate-200 shrink-0">
+              <div className="text-xs text-slate-500 font-medium">
+                {bulkImportParsedRows.length > 0 && (
+                  <span>
+                    Total: <strong className="text-slate-800">{bulkImportParsedRows.length}</strong> students
+                  </span>
                 )}
-              </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkImportModal(false)}
+                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteBulkImport}
+                  disabled={isBulkImporting || bulkImportParsedRows.length === 0 || bulkImportValidationErrors.length > 0}
+                  className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-xs"
+                >
+                  {isBulkImporting ? (
+                    <>
+                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Enrolling Students...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Import {bulkImportParsedRows.length > 0 ? `${bulkImportParsedRows.length} ` : ''}Students</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>,

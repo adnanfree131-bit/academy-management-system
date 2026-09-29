@@ -239,6 +239,20 @@ export interface IDataStore {
     status?: TenantStatus;
   }): Promise<{ tenant: Tenant; admin: User }>;
   updateTenantSettings(tenantId: string, updates: { name?: string; slug?: string; settings?: Partial<TenantSettings> }): Promise<Tenant | null>;
+  ensureTenantSessions(tenant: Tenant): void;
+  resolveWorkingSession(tenantId: string, user: User, headerValue?: string): string;
+  batchesForSession(tenantId: string, session: string): Batch[];
+  isYearClosed(tenantId: string, session: string): boolean;
+  assertYearWritable(tenantId: string, session: string): void;
+  backfillAcademicSessions(): boolean;
+  copyClassesIntoSession(tenantId: string, sourceSession: string, targetSession: string): Promise<{ created_count: number; batches: Batch[] }>;
+  enrollStudentsIntoSession(
+    tenantId: string,
+    sourceSession: string,
+    targetSession: string,
+    mappings: Array<{ source_batch_id: string; action: 'move' | 'retain' | 'leave'; target_batch_id?: string }>
+  ): Promise<{ moved: number; retained: number; left: number; skipped: number }>;
+  schedulePersist(): void;
   getUserByEmail(tenantId: string, email: string): Promise<User | null>;
   getUserById(tenantId: string, userId: string): Promise<User | null>;
   getUserByEmailGlobal(email: string): Promise<User[]>;
@@ -265,7 +279,7 @@ export interface IDataStore {
   createSubjectGroup(data: Omit<SubjectGroup, 'id' | 'created_at'>): Promise<SubjectGroup>;
   deleteSubjectGroup(tenantId: string, id: string): Promise<boolean>;
 
-  getBatches(tenantId: string, programId?: string, cohortType?: 'section' | 'batch'): Promise<Batch[]>;
+  getBatches(tenantId: string, programId?: string, cohortType?: 'section' | 'batch', session?: string, includeArchived?: boolean): Promise<Batch[]>;
   createBatch(data: Omit<Batch, 'id' | 'created_at' | 'updated_at' | 'current_enrollment'>): Promise<Batch>;
   updateBatch(tenantId: string, id: string, data: Partial<Omit<Batch, 'id' | 'tenant_id' | 'created_at' | 'updated_at'>>): Promise<Batch | null>;
   deleteBatch(tenantId: string, id: string): Promise<boolean>;
@@ -283,8 +297,8 @@ export interface IDataStore {
   deleteInquiry(tenantId: string, id: string): Promise<boolean>;
 
   // Student SIS (Phase 2)
-  getStudents(tenantId: string, batchId?: string): Promise<Student[]>;
-  getStudentById(tenantId: string, id: string): Promise<Student | null>;
+  getStudents(tenantId: string, batchId?: string, session?: string): Promise<Student[]>;
+  getStudentById(tenantId: string, id: string, session?: string): Promise<Student | null>;
   getStudentAcademicSummary(tenantId: string, studentId: string): Promise<{
     exams: any[];
     homework: any[];
@@ -336,7 +350,24 @@ export interface IDataStore {
     defaultBatchId?: string,
     rows?: Array<any>,
     generateInvoices?: boolean
-  ): Promise<{ imported_count: number; failed_count: number; students: Student[]; errors: Array<{ row: number; error: string }> }>;
+  ): Promise<{
+    imported_count: number;
+    failed_count: number;
+    students: Student[];
+    errors: Array<{ row: number; error: string }>;
+    credentials?: Array<{
+      student_id: string;
+      student_name: string;
+      admission_number: string;
+      roll_number: string;
+      batch_name: string;
+      guardian_name: string;
+      guardian_login: string;
+      default_password: string;
+      invoice_number?: string;
+      first_month_amount?: number;
+    }>;
+  }>;
   logStudentProfileChange(tenantId: string, data: {
     student_id: string;
     action?: string;
@@ -539,7 +570,7 @@ export interface IDataStore {
   // --- Phase 4: Fee Structures & Invoicing ---
   getFeeStructures(tenantId: string, batchId?: string, studentId?: string): Promise<StudentFeeStructure[]>;
   saveFeeStructure(data: Omit<StudentFeeStructure, 'id' | 'created_at' | 'updated_at'>): Promise<StudentFeeStructure>;
-  getInvoices(tenantId: string, options?: { studentId?: string; student_id?: string; batchId?: string; batch_id?: string; billingMonth?: string; billing_month?: string; status?: InvoiceStatus }): Promise<StudentInvoice[]>;
+  getInvoices(tenantId: string, options?: { studentId?: string; student_id?: string; batchId?: string; batch_id?: string; billingMonth?: string; billing_month?: string; status?: InvoiceStatus; session?: string }): Promise<StudentInvoice[]>;
   getInvoiceById(tenantId: string, id: string): Promise<StudentInvoice | null>;
   generateInvoice(tenantId: string, data: {
     student_id: string;
@@ -751,7 +782,7 @@ export interface IDataStore {
   getSubscriptionReceipts(tenantId?: string): Promise<SubscriptionPaymentReceipt[]>;
   reviewSubscriptionReceipt(receiptId: string, status: SubscriptionReceiptStatus, reviewedByEmail: string): Promise<SubscriptionPaymentReceipt>;
   activateAcademy(tenantId: string, durationMonths: number, reviewedByEmail?: string): Promise<Tenant>;
-  getTeacherPortalOverview(tenantId: string, teacherId: string, date?: string): Promise<TeacherPortalOverview>;
+  getTeacherPortalOverview(tenantId: string, teacherId: string, date?: string, session?: string): Promise<TeacherPortalOverview>;
   getStudentParentPortalOverview(tenantId: string, studentId?: string, enrollmentId?: string, date?: string): Promise<StudentParentPortalOverview>;
   getSuperAdminOverview(): Promise<SuperAdminOverview>;
   getPlatformConfig(): Promise<PlatformGlobalConfig>;
@@ -1235,6 +1266,51 @@ export class InMemoryDataStore implements IDataStore {
       }
     }
     this.recalculateBatchSeats();
+    this.backfillAcademicSessions();
+  }
+
+  public backfillAcademicSessions(): boolean {
+    let changed = false;
+
+    // Ensure all tenants have sessions initialized
+    for (const tenant of this.tenants.values()) {
+      this.ensureTenantSessions(tenant);
+    }
+
+    // 1. Every batch with empty academic_session gets tenant active year
+    for (const batch of this.batches) {
+      if (!batch.academic_session) {
+        const tenant = this.tenants.get(batch.tenant_id);
+        batch.academic_session = tenant?.settings?.academic_session || '2026-2027';
+        changed = true;
+      }
+    }
+
+    // 2. Every enrollment with empty academic_session gets batch.academic_session or tenant active year
+    for (const enrollment of this.studentEnrollments) {
+      if (!enrollment.academic_session) {
+        const batch = this.batches.find(b => b.id === enrollment.batch_id && b.tenant_id === enrollment.tenant_id);
+        const tenant = this.tenants.get(enrollment.tenant_id);
+        enrollment.academic_session = batch?.academic_session || tenant?.settings?.academic_session || '2026-2027';
+        changed = true;
+      }
+    }
+
+    // 3. Every invoice gets academic_session from its batch, then enrollment, then tenant active year
+    for (const inv of this.invoices) {
+      if (!inv.academic_session) {
+        const batch = inv.batch_id ? this.batches.find(b => b.id === inv.batch_id && b.tenant_id === inv.tenant_id) : undefined;
+        const enrollment = inv.enrollment_id ? this.studentEnrollments.find(e => e.id === inv.enrollment_id && e.tenant_id === inv.tenant_id) : undefined;
+        const tenant = this.tenants.get(inv.tenant_id);
+        inv.academic_session = batch?.academic_session || enrollment?.academic_session || tenant?.settings?.academic_session || '2026-2027';
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this.schedulePersist();
+    }
+    return changed;
   }
 
   /** Restore fee heads / class fees when a snapshot wiped the catalog. */
@@ -1492,6 +1568,7 @@ export class InMemoryDataStore implements IDataStore {
         for (const tenant of this.tenants.values()) {
           if (tenant.settings?.is_platform) continue;
           this.ensureDefaultFeeCatalog(tenant.id);
+          this.ensureDefaultAcademicCatalog(tenant.id);
         }
         this.persistAllowed = true;
         this.persistQueued = true;
@@ -3013,21 +3090,408 @@ export class InMemoryDataStore implements IDataStore {
     return tenant;
   }
 
-  private ensureTenantSessions(tenant: Tenant): void {
+  public ensureTenantSessions(tenant: Tenant): void {
     if (!tenant.settings) return;
     if (!tenant.settings.academic_sessions || tenant.settings.academic_sessions.length === 0) {
       tenant.settings.academic_sessions = defaultAcademicSessions(tenant.settings.academic_session);
-    } else {
-      const nowYear = new Date().getFullYear();
-      const active = tenant.settings.academic_sessions.find(s => s.is_active);
-      const minYear = active?.start_year ? Math.min(nowYear, active.start_year) : nowYear;
-      tenant.settings.academic_sessions = tenant.settings.academic_sessions.filter(s => s.start_year >= minYear || s.is_active);
-      if (tenant.settings.academic_sessions.length === 0) {
-        tenant.settings.academic_sessions = defaultAcademicSessions(tenant.settings.academic_session);
+    }
+
+    // Keep all existing session rows.
+    // Restore or retain any session that has batches or enrollments on this tenant.
+    const existing = tenant.settings.academic_sessions;
+    const knownNames = new Set(existing.map(s => s.name));
+    const usedSessions = new Set<string>();
+
+    for (const b of this.batches) {
+      if (b.tenant_id === tenant.id && b.academic_session) {
+        usedSessions.add(b.academic_session);
       }
     }
+    for (const e of this.studentEnrollments) {
+      if (e.tenant_id === tenant.id && e.academic_session) {
+        usedSessions.add(e.academic_session);
+      }
+    }
+
+    for (const sessionName of usedSessions) {
+      if (!knownNames.has(sessionName)) {
+        const m = sessionName.match(/^(\d{4})/);
+        const startY = m ? parseInt(m[1], 10) : new Date().getFullYear();
+        const endY = startY + 1;
+        existing.push({
+          id: `session-${startY}`,
+          name: sessionName,
+          start_year: startY,
+          end_year: endY,
+          is_active: false,
+        });
+        knownNames.add(sessionName);
+      }
+    }
+
     const active = tenant.settings.academic_sessions.find(s => s.is_active);
-    if (active) tenant.settings.academic_session = active.name;
+    if (active) {
+      tenant.settings.academic_session = active.name;
+    } else if (tenant.settings.academic_sessions.length > 0) {
+      const match = tenant.settings.academic_sessions.find(s => s.name === tenant.settings.academic_session) || tenant.settings.academic_sessions[0];
+      match.is_active = true;
+      tenant.settings.academic_session = match.name;
+    }
+  }
+
+  resolveWorkingSession(tenantId: string, user: User, headerValue?: string): string {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) return '2026-2027';
+    this.ensureTenantSessions(tenant);
+    const activeYear = tenant.settings?.academic_session || '2026-2027';
+    if (user.role === 'student' || user.role === 'parent') {
+      return activeYear;
+    }
+    const sessionNames = (tenant.settings?.academic_sessions || []).map(s => s.name);
+    const candidate = (headerValue && typeof headerValue === 'string' ? headerValue.trim() : '')
+      || (user.metadata && typeof (user.metadata as any).working_session === 'string' ? (user.metadata as any).working_session.trim() : '')
+      || activeYear;
+
+    if (sessionNames.includes(candidate)) {
+      return candidate;
+    }
+    return activeYear;
+  }
+
+  batchesForSession(tenantId: string, session: string): Batch[] {
+    const tenant = this.tenants.get(tenantId);
+    const activeSession = tenant?.settings?.academic_session || '2026-2027';
+    return this.batches.filter(b => {
+      if (b.tenant_id !== tenantId) return false;
+      const bSession = b.academic_session || activeSession;
+      return bSession === session;
+    });
+  }
+
+  isYearClosed(tenantId: string, session: string): boolean {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) return false;
+    this.ensureTenantSessions(tenant);
+    const activeYear = tenant.settings?.academic_session || '2026-2027';
+    return session !== activeYear;
+  }
+
+  assertYearWritable(tenantId: string, session: string): void {
+    if (this.isYearClosed(tenantId, session)) {
+      const err: any = new Error('This year is closed. Open the active year to make changes.');
+      err.code = 'YEAR_CLOSED';
+      throw err;
+    }
+  }
+
+  async copyClassesIntoSession(tenantId: string, sourceSession: string, targetSession: string): Promise<{ created_count: number; batches: Batch[] }> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) throw new Error('Tenant not found');
+    this.ensureTenantSessions(tenant);
+
+    const activeSession = tenant.settings?.academic_session || '2026-2027';
+    if (sourceSession !== activeSession) {
+      const err: any = new Error('Source session must be the active academic session.');
+      err.code = 'INVALID_SOURCE_SESSION';
+      throw err;
+    }
+
+    const sessionNames = (tenant.settings?.academic_sessions || []).map(s => s.name);
+    if (!sessionNames.includes(targetSession) || targetSession === sourceSession) {
+      const err: any = new Error('Target session is invalid or identical to source session.');
+      err.code = 'INVALID_TARGET_SESSION';
+      throw err;
+    }
+
+    const targetHasBatches = this.batches.some(b => b.tenant_id === tenantId && b.academic_session === targetSession);
+    if (targetHasBatches) {
+      const err: any = new Error('That year already has classes. Open it to edit them.');
+      err.code = 'YEAR_NOT_EMPTY';
+      throw err;
+    }
+
+    const shiftDateOneYear = (d?: string | null): string | null | undefined => {
+      if (!d) return d;
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d);
+      if (m) {
+        const nextYear = parseInt(m[1], 10) + 1;
+        if (m[2] === '02' && m[3] === '29') {
+          return `${nextYear}-02-28`;
+        }
+        return `${nextYear}-${m[2]}-${m[3]}`;
+      }
+      return d;
+    };
+
+    const sourceBatches = this.batches.filter(b => b.tenant_id === tenantId && b.academic_session === sourceSession);
+    const newBatches: Batch[] = [];
+
+    for (const src of sourceBatches) {
+      const newBatch: Batch = {
+        id: crypto.randomUUID(),
+        tenant_id: tenantId,
+        program_id: src.program_id,
+        name: src.name,
+        cohort_type: src.cohort_type,
+        shift: src.shift,
+        start_time: src.start_time,
+        end_time: src.end_time,
+        start_date: shiftDateOneYear(src.start_date),
+        end_date: shiftDateOneYear(src.end_date),
+        billing_mode: src.billing_mode,
+        fee_amount: src.fee_amount,
+        room_number: src.room_number,
+        max_capacity: src.max_capacity,
+        class_teacher_id: src.class_teacher_id,
+        class_teacher_name: src.class_teacher_name,
+        subject_ids: src.subject_ids ? [...src.subject_ids] : [],
+        fee_schedule: src.fee_schedule ? JSON.parse(JSON.stringify(src.fee_schedule)) : undefined,
+        academic_session: targetSession,
+        current_enrollment: 0,
+        status: 'active',
+        copied_from_batch_id: src.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      this.batches.push(newBatch);
+      newBatches.push(newBatch);
+    }
+
+    this.recalculateBatchSeats(tenantId);
+    this.schedulePersist();
+    return { created_count: newBatches.length, batches: newBatches };
+  }
+
+  async enrollStudentsIntoSession(
+    tenantId: string,
+    sourceSession: string,
+    targetSession: string,
+    mappings: Array<{ source_batch_id: string; action: 'move' | 'retain' | 'leave'; target_batch_id?: string }>
+  ): Promise<{ moved: number; retained: number; left: number; skipped: number }> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) throw new Error('Tenant not found');
+    this.ensureTenantSessions(tenant);
+
+    const activeSession = tenant.settings?.academic_session || '2026-2027';
+    if (sourceSession !== activeSession) {
+      const err: any = new Error('Source session must be the active academic session.');
+      err.code = 'INVALID_SOURCE_SESSION';
+      throw err;
+    }
+
+    const sessionNames = (tenant.settings?.academic_sessions || []).map(s => s.name);
+    if (!sessionNames.includes(targetSession) || targetSession === sourceSession) {
+      const err: any = new Error('Target session is invalid or identical to source session.');
+      err.code = 'INVALID_TARGET_SESSION';
+      throw err;
+    }
+
+    // Validate mappings and calculate incoming counts per target batch
+    const incomingByTarget = new Map<string, number>();
+
+    for (const mapping of mappings) {
+      const sourceBatch = this.batches.find(b => b.id === mapping.source_batch_id && b.tenant_id === tenantId);
+      if (!sourceBatch) throw new Error(`Source batch not found: ${mapping.source_batch_id}`);
+
+      if (mapping.action === 'move' || mapping.action === 'retain') {
+        if (!mapping.target_batch_id) {
+          throw new Error(`Target batch is required for mapping action "${mapping.action}"`);
+        }
+        const targetBatch = this.batches.find(b => b.id === mapping.target_batch_id && b.tenant_id === tenantId);
+        if (!targetBatch) {
+          throw new Error(`Target batch not found: ${mapping.target_batch_id}`);
+        }
+
+        const sourceEnrollments = this.studentEnrollments.filter(e =>
+          e.tenant_id === tenantId &&
+          e.batch_id === mapping.source_batch_id &&
+          (e.status === 'active' || e.status === 'on_leave')
+        );
+
+        for (const enr of sourceEnrollments) {
+          const alreadyInTarget = this.studentEnrollments.some(te =>
+            te.tenant_id === tenantId &&
+            te.student_id === enr.student_id &&
+            te.batch_id === mapping.target_batch_id &&
+            te.academic_session === targetSession &&
+            (te.status === 'active' || te.status === 'on_leave')
+          );
+          if (!alreadyInTarget) {
+            incomingByTarget.set(mapping.target_batch_id, (incomingByTarget.get(mapping.target_batch_id) || 0) + 1);
+          }
+        }
+      }
+    }
+
+    // Capacity verification
+    for (const [targetBatchId, incomingCount] of incomingByTarget.entries()) {
+      const targetBatch = this.batches.find(b => b.id === targetBatchId && b.tenant_id === tenantId)!;
+      const currentOccupancy = this.studentEnrollments.filter(e =>
+        e.tenant_id === tenantId &&
+        e.batch_id === targetBatchId &&
+        (e.status === 'active' || e.status === 'on_leave')
+      ).length;
+      if (targetBatch.max_capacity && (currentOccupancy + incomingCount > targetBatch.max_capacity)) {
+        const err: any = new Error(`Target batch capacity exceeded. Batch '${targetBatch.name}' capacity: ${targetBatch.max_capacity}, currently enrolled: ${currentOccupancy}, incoming: ${incomingCount}`);
+        err.code = 'CAPACITY_EXCEEDED';
+        throw err;
+      }
+    }
+
+    let moved = 0;
+    let retained = 0;
+    let left = 0;
+    let skipped = 0;
+    const affectedStudentIds = new Set<string>();
+    const today = new Date().toISOString().split('T')[0];
+
+    for (const mapping of mappings) {
+      if (mapping.action === 'leave') {
+        const sourceEnrollments = this.studentEnrollments.filter(e =>
+          e.tenant_id === tenantId &&
+          e.batch_id === mapping.source_batch_id &&
+          (e.status === 'active' || e.status === 'on_leave')
+        );
+        for (const oldEnr of sourceEnrollments) {
+          oldEnr.status = 'completed';
+          oldEnr.ended_at = today;
+          oldEnr.is_primary = false;
+          oldEnr.updated_at = new Date().toISOString();
+          affectedStudentIds.add(oldEnr.student_id);
+          left++;
+        }
+      } else {
+        const targetBatch = this.batches.find(b => b.id === mapping.target_batch_id && b.tenant_id === tenantId)!;
+        const targetProgram = targetBatch.program_id
+          ? this.programs.find(p => p.id === targetBatch.program_id && p.tenant_id === tenantId)
+          : undefined;
+        const targetCompGroup = targetProgram
+          ? this.subjectGroups.find(g => g.tenant_id === tenantId && g.program_id === targetProgram.id && g.type === 'compulsory')
+          : undefined;
+
+        const sourceEnrollments = this.studentEnrollments.filter(e =>
+          e.tenant_id === tenantId &&
+          e.batch_id === mapping.source_batch_id &&
+          (e.status === 'active' || e.status === 'on_leave' || (e.status === 'completed' && this.studentEnrollments.some(te =>
+            te.tenant_id === tenantId &&
+            te.student_id === e.student_id &&
+            te.batch_id === targetBatch.id &&
+            te.academic_session === targetSession
+          )))
+        );
+
+        for (const oldEnr of sourceEnrollments) {
+          const alreadyInTarget = this.studentEnrollments.some(te =>
+            te.tenant_id === tenantId &&
+            te.student_id === oldEnr.student_id &&
+            te.batch_id === targetBatch.id &&
+            te.academic_session === targetSession &&
+            (te.status === 'active' || te.status === 'on_leave')
+          );
+
+          if (alreadyInTarget) {
+            skipped++;
+            continue;
+          }
+
+          const student = this.students.find(s => s.id === oldEnr.student_id && s.tenant_id === tenantId);
+          let roll = oldEnr.roll_number || student?.roll_number;
+          const rollClash = this.studentEnrollments.some(e =>
+            e.tenant_id === tenantId &&
+            e.batch_id === targetBatch.id &&
+            e.id !== oldEnr.id &&
+            e.status !== 'archived' &&
+            Boolean(e.roll_number) &&
+            e.roll_number?.trim().toLowerCase() === roll?.trim().toLowerCase()
+          );
+
+          if (rollClash || !roll) {
+            const rNums = this.studentEnrollments
+              .filter(e => e.tenant_id === tenantId && e.batch_id === targetBatch.id && e.roll_number?.startsWith('R-'))
+              .map(e => parseInt(e.roll_number!.replace('R-', ''), 10))
+              .filter(n => !isNaN(n));
+            const nextR = rNums.length > 0 ? Math.max(...rNums) + 1 : 1;
+            roll = `R-${nextR}`;
+          }
+
+          const compSubjects = (targetCompGroup && targetCompGroup.subject_ids && targetCompGroup.subject_ids.length > 0)
+            ? targetCompGroup.subject_ids
+            : (oldEnr.subjects || []);
+
+          const newEnrollment: StudentEnrollment = {
+            id: crypto.randomUUID(),
+            tenant_id: tenantId,
+            student_id: oldEnr.student_id,
+            batch_id: targetBatch.id,
+            program_id: targetBatch.program_id || oldEnr.program_id,
+            academic_session: targetSession,
+            admission_date: today,
+            roll_number: roll,
+            subjects: [...compSubjects],
+            fee_structure: oldEnr.fee_structure ? JSON.parse(JSON.stringify(oldEnr.fee_structure)) : undefined,
+            billing_mode: oldEnr.billing_mode,
+            is_primary: Boolean(oldEnr.is_primary),
+            status: 'active',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+
+          this.studentEnrollments.push(newEnrollment);
+
+          // Mark source enrollment completed
+          oldEnr.status = 'completed';
+          oldEnr.ended_at = today;
+          oldEnr.is_primary = false;
+          oldEnr.updated_at = new Date().toISOString();
+
+          affectedStudentIds.add(oldEnr.student_id);
+          if (mapping.action === 'move') {
+            moved++;
+          } else {
+            retained++;
+          }
+        }
+      }
+    }
+
+    // Synchronize affected student master records
+    for (const studentId of affectedStudentIds) {
+      const student = this.students.find(s => s.id === studentId && s.tenant_id === tenantId);
+      if (!student) continue;
+
+      const activeEnrs = this.studentEnrollments.filter(e =>
+        e.tenant_id === tenantId &&
+        e.student_id === studentId &&
+        (e.status === 'active' || e.status === 'on_leave')
+      );
+
+      if (activeEnrs.length === 0) {
+        student.status = 'alumni';
+        if (student.user_id) {
+          const user = this.users.get(student.user_id);
+          if (user && user.tenant_id === tenantId) {
+            if (!user.metadata) user.metadata = {};
+            (user.metadata as any).portal_blocked = true;
+          }
+        }
+      } else {
+        const targetPrimary = activeEnrs.find(e => e.academic_session === targetSession && e.is_primary)
+          || activeEnrs.find(e => e.academic_session === targetSession)
+          || activeEnrs[0];
+
+        student.batch_id = targetPrimary.batch_id;
+        if (targetPrimary.program_id) student.program_id = targetPrimary.program_id;
+        if (targetPrimary.roll_number) student.roll_number = targetPrimary.roll_number;
+        if (targetPrimary.subjects) student.subjects = [...targetPrimary.subjects];
+        if (targetPrimary.fee_structure) student.fee_structure = JSON.parse(JSON.stringify(targetPrimary.fee_structure));
+        if (targetPrimary.billing_mode) student.billing_mode = targetPrimary.billing_mode;
+      }
+      student.updated_at = new Date().toISOString();
+    }
+
+    this.recalculateBatchSeats(tenantId);
+    this.schedulePersist();
+    return { moved, retained, left, skipped };
   }
 
   async getUserByEmail(tenantId: string, email: string): Promise<User | null> {
@@ -3136,6 +3600,9 @@ export class InMemoryDataStore implements IDataStore {
   // --- Academic Hierarchy Methods ---
   async getPrograms(tenantId: string): Promise<AcademicProgram[]> {
     const progs = this.programs.filter(p => p.tenant_id === tenantId);
+    progs.forEach(p => {
+      p.total_enrollments = (this.studentEnrollments || []).filter(e => e.tenant_id === tenantId && e.program_id === p.id).length;
+    });
     return progs.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }
 
@@ -3316,14 +3783,17 @@ export class InMemoryDataStore implements IDataStore {
     return false;
   }
 
-  async getBatches(tenantId: string, programId?: string, cohortType?: 'section' | 'batch'): Promise<Batch[]> {
+  async getBatches(tenantId: string, programId?: string, cohortType?: 'section' | 'batch', session?: string, includeArchived: boolean = false): Promise<Batch[]> {
     return this.batches.filter(b => {
       if (b.tenant_id !== tenantId) return false;
+      if (!includeArchived && b.status === 'archived') return false;
       if (programId && b.program_id !== programId) return false;
+      if (session && b.academic_session !== session) return false;
       if (cohortType) {
         const resolvedType = b.cohort_type || (b.name && /section/i.test(b.name) ? 'section' : 'batch');
         if (resolvedType !== cohortType) return false;
       }
+      b.total_enrollments = (this.studentEnrollments || []).filter(e => e.tenant_id === tenantId && e.batch_id === b.id).length;
       return true;
     });
   }
@@ -3375,7 +3845,11 @@ export class InMemoryDataStore implements IDataStore {
     if (count > 0) {
       const isSec = (batch.cohort_type || (/section/i.test(batch.name) ? 'section' : 'batch')) === 'section';
       const label = isSec ? 'section' : 'batch';
-      throw new Error(`Cannot delete ${label} "${batch.name}": There are ${count} student record(s) currently assigned to this ${label}. Please transfer or delete all student records before deleting this ${label}.`);
+      const err: any = new Error(`Cannot delete ${label} "${batch.name}": This class has student history (${count} student record(s) currently assigned). Archive it or keep it for past years.`);
+      err.code = 'BATCH_HAS_STUDENTS';
+      err.status = 400;
+      err.statusCode = 400;
+      throw err;
     }
 
     // Clean up timetable periods referencing this batch
@@ -3529,7 +4003,7 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   // --- Student SIS Methods ---
-  async getStudents(tenantId: string, batchId?: string): Promise<Student[]> {
+  async getStudents(tenantId: string, batchId?: string, session?: string): Promise<Student[]> {
     this.ensureStudentEnrollments();
     const tenantInvoices = this.invoices.filter(i => i.tenant_id === tenantId);
 
@@ -3540,7 +4014,13 @@ export class InMemoryDataStore implements IDataStore {
       return activeEnrollments.map((e): Student | null => {
         const s = this.students.find(std => std.id === e.student_id && std.tenant_id === tenantId);
         if (!s) return null;
-        const sInvs = tenantInvoices.filter(i => i.student_id === s.id);
+        let sInvs = tenantInvoices.filter(i => i.student_id === s.id);
+        if (session && this.isYearClosed(tenantId, session)) {
+          sInvs = sInvs.filter(i => {
+            const invSess = i.academic_session || (i.batch_id ? this.batches.find(b => b.id === i.batch_id)?.academic_session : undefined);
+            return invSess === session;
+          });
+        }
         const unpaid = sInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
         const isDefaulter = sInvs.some(i => (i.status as any) === 'overdue' || (Boolean(i.due_date) && new Date(i.due_date.includes('T') ? i.due_date : i.due_date + 'T23:59:59.999Z') < new Date() && ((i.balance_due ?? i.balance_amount ?? 0) > 0)));
         const allEnrollments = this.studentEnrollments.filter(en => en.tenant_id === tenantId && en.student_id === s.id);
@@ -3562,33 +4042,101 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     const list = this.students.filter(s => s.tenant_id === tenantId);
-    return list.map(s => {
-      const sInvs = tenantInvoices.filter(i => i.student_id === s.id);
+    let sessionBatchIds: Set<string> | null = null;
+    if (session) {
+      const sessionBatches = this.batchesForSession(tenantId, session);
+      sessionBatchIds = new Set(sessionBatches.map(b => b.id));
+    }
+
+    const results: Student[] = [];
+    for (const s of list) {
+      const enrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.student_id === s.id);
+      
+      let primaryEnrollment: StudentEnrollment | undefined;
+      if (session) {
+        const yearEnrollments = enrollments.filter(e => e.academic_session === session || (sessionBatchIds && sessionBatchIds.has(e.batch_id)));
+        if (yearEnrollments.length === 0) {
+          // Omit from directory list when student has no enrollment in this year
+          continue;
+        }
+        primaryEnrollment = yearEnrollments.find(e => e.is_primary) ||
+          yearEnrollments.find(e => e.status === 'active' || e.status === 'on_leave') ||
+          yearEnrollments[0];
+      }
+
+      let sInvs = tenantInvoices.filter(i => i.student_id === s.id);
+      if (session && this.isYearClosed(tenantId, session)) {
+        sInvs = sInvs.filter(i => {
+          const invSess = i.academic_session || (i.batch_id ? this.batches.find(b => b.id === i.batch_id)?.academic_session : undefined);
+          return invSess === session;
+        });
+      }
       const unpaid = sInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
       const isDefaulter = sInvs.some(i => (i.status as any) === 'overdue' || (Boolean(i.due_date) && new Date(i.due_date.includes('T') ? i.due_date : i.due_date + 'T23:59:59.999Z') < new Date() && ((i.balance_due ?? i.balance_amount ?? 0) > 0)));
-      const enrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.student_id === s.id);
       const activeCount = enrollments.filter(e => e.status === 'active' || e.status === 'on_leave').length;
-      return {
+
+      results.push({
         ...s,
+        ...(primaryEnrollment ? {
+          batch_id: primaryEnrollment.batch_id,
+          program_id: primaryEnrollment.program_id || s.program_id,
+          roll_number: primaryEnrollment.roll_number || s.roll_number,
+          subjects: (primaryEnrollment.subjects && primaryEnrollment.subjects.length > 0) ? primaryEnrollment.subjects : s.subjects,
+          enrollment_id: primaryEnrollment.id,
+        } : {}),
         active_enrollments_count: activeCount,
         enrollments,
         unpaid_balance: unpaid,
         fee_clearance_status: unpaid === 0 ? 'cleared' : (isDefaulter ? 'defaulter' : 'partial'),
-      };
-    });
+      });
+    }
+
+    return results;
   }
 
-  async getStudentById(tenantId: string, id: string): Promise<Student | null> {
+  async getStudentById(tenantId: string, id: string, session?: string): Promise<Student | null> {
     this.ensureStudentEnrollments();
     const student = this.students.find(s => s.id === id && s.tenant_id === tenantId);
     if (!student) return null;
-    const sInvs = this.invoices.filter(i => i.tenant_id === tenantId && i.student_id === student.id);
+    let sInvs = this.invoices.filter(i => i.tenant_id === tenantId && i.student_id === student.id);
+    if (session && this.isYearClosed(tenantId, session)) {
+      sInvs = sInvs.filter(i => {
+        const invSess = i.academic_session || (i.batch_id ? this.batches.find(b => b.id === i.batch_id)?.academic_session : undefined);
+        return invSess === session;
+      });
+    }
     const unpaid = sInvs.reduce((sum, inv) => sum + (inv.balance_due ?? inv.balance_amount ?? 0), 0);
     const isDefaulter = sInvs.some(i => (i.status as any) === 'overdue' || (Boolean(i.due_date) && new Date(i.due_date.includes('T') ? i.due_date : i.due_date + 'T23:59:59.999Z') < new Date() && ((i.balance_due ?? i.balance_amount ?? 0) > 0)));
     const enrollments = await this.getStudentEnrollments(tenantId, id);
     const activeCount = enrollments.filter(e => e.status === 'active' || e.status === 'on_leave').length;
+
+    let overlay: Partial<Student> = {};
+    if (session) {
+      const sessionBatches = this.batchesForSession(tenantId, session);
+      const sessionBatchIds = new Set(sessionBatches.map(b => b.id));
+      const yearEnrollments = enrollments.filter(e => e.academic_session === session || sessionBatchIds.has(e.batch_id));
+      if (yearEnrollments.length > 0) {
+        const primaryEnrollment = yearEnrollments.find(e => e.is_primary) ||
+          yearEnrollments.find(e => e.status === 'active' || e.status === 'on_leave') ||
+          yearEnrollments[0];
+        overlay = {
+          batch_id: primaryEnrollment.batch_id,
+          program_id: primaryEnrollment.program_id || student.program_id,
+          roll_number: primaryEnrollment.roll_number || student.roll_number,
+          subjects: (primaryEnrollment.subjects && primaryEnrollment.subjects.length > 0) ? primaryEnrollment.subjects : student.subjects,
+          enrollment_id: primaryEnrollment.id,
+        };
+      } else {
+        overlay = {
+          batch_id: null as any,
+          enrollment_id: undefined,
+        };
+      }
+    }
+
     return {
       ...student,
+      ...overlay,
       enrollments,
       active_enrollments_count: activeCount,
       unpaid_balance: unpaid,
@@ -4764,6 +5312,14 @@ export class InMemoryDataStore implements IDataStore {
       .map(id => this.students.find(s => s.id === id && s.tenant_id === tenantId))
       .filter((s): s is Student => Boolean(s));
 
+    const firstStudent = studentsToPromote[0];
+    const sourceBatch = firstStudent ? this.batches.find(b => b.id === firstStudent.batch_id && b.tenant_id === tenantId) : undefined;
+    if (sourceBatch && targetBatch.academic_session && sourceBatch.academic_session && sourceBatch.academic_session !== targetBatch.academic_session) {
+      const err: any = new Error('Use Start next session to move students into a new year.');
+      err.code = 'YEAR_MISMATCH';
+      throw err;
+    }
+
     // Promotion capacity counts enrollments that are active or on_leave
     const currentOccupied = this.studentEnrollments.filter(e =>
       e.tenant_id === tenantId &&
@@ -5216,20 +5772,44 @@ export class InMemoryDataStore implements IDataStore {
     defaultBatchId?: string,
     rows: Array<any> = [],
     generateInvoices: boolean = true
-  ): Promise<{ imported_count: number; failed_count: number; students: Student[]; errors: Array<{ row: number; error: string }> }> {
+  ): Promise<{
+    imported_count: number;
+    failed_count: number;
+    students: Student[];
+    errors: Array<{ row: number; error: string }>;
+    credentials?: Array<{
+      student_id: string;
+      student_name: string;
+      admission_number: string;
+      roll_number: string;
+      batch_name: string;
+      guardian_name: string;
+      guardian_login: string;
+      default_password: string;
+      invoice_number?: string;
+      first_month_amount?: number;
+    }>;
+  }> {
     const createdList: Student[] = [];
     const errors: Array<{ row: number; error: string }> = [];
+    const credentials: Array<any> = [];
 
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
-      const targetBatchId = r.batch_id || defaultBatchId;
+      const targetBatchId = r.batch_id || r.batch_name || defaultBatchId;
       if (!targetBatchId) {
-        errors.push({ row: i + 1, error: 'Missing batch_id for student record' });
+        errors.push({ row: i + 1, error: 'Missing batch_id or batch_name for student record' });
         continue;
       }
-      const batch = this.batches.find(b => b.id === targetBatchId && b.tenant_id === tenantId);
+      const batch = this.batches.find(b =>
+        b.tenant_id === tenantId && (
+          b.id === targetBatchId ||
+          b.name.trim().toLowerCase() === String(targetBatchId).trim().toLowerCase() ||
+          ((b as any).code && (b as any).code.trim().toLowerCase() === String(targetBatchId).trim().toLowerCase())
+        )
+      );
       if (!batch) {
-        errors.push({ row: i + 1, error: `Batch ID ${targetBatchId} not found` });
+        errors.push({ row: i + 1, error: `Batch '${targetBatchId}' not found` });
         continue;
       }
       if (batch.current_enrollment >= batch.max_capacity) {
@@ -5241,11 +5821,32 @@ export class InMemoryDataStore implements IDataStore {
         const compGroup = this.subjectGroups.find(g => g.tenant_id === tenantId && g.program_id === batch.program_id && g.type === 'compulsory');
         const subjects = compGroup ? [...compGroup.subject_ids] : [];
 
-        const fs = (r.base_tuition !== undefined || r.admission_fee !== undefined) ? {
-          base_tuition: r.base_tuition ?? 0,
-          admission_fee: r.admission_fee ?? 0,
-          net_tuition: r.base_tuition ?? 0,
-          first_month_total: (r.base_tuition ?? 0) + (r.admission_fee ?? 0),
+        let electiveGroupId = r.elective_group_id;
+        if (!electiveGroupId && r.elective_group) {
+          const eg = this.subjectGroups.find(g =>
+            g.tenant_id === tenantId &&
+            g.program_id === batch.program_id &&
+            g.type === 'elective_track' &&
+            g.name.trim().toLowerCase() === String(r.elective_group).trim().toLowerCase()
+          );
+          if (eg) {
+            electiveGroupId = eg.id;
+            subjects.push(...eg.subject_ids);
+          }
+        }
+
+        const tuitionAmt = (r.base_tuition !== undefined && r.base_tuition !== null && r.base_tuition !== '')
+          ? Number(r.base_tuition)
+          : (batch.fee_amount ?? (batch as any).default_monthly_fee ?? undefined);
+        const admissionAmt = (r.admission_fee !== undefined && r.admission_fee !== null && r.admission_fee !== '')
+          ? Number(r.admission_fee)
+          : 0;
+
+        const fs = (tuitionAmt !== undefined || admissionAmt > 0) ? {
+          base_tuition: tuitionAmt ?? 0,
+          admission_fee: admissionAmt,
+          net_tuition: tuitionAmt ?? 0,
+          first_month_total: (tuitionAmt ?? 0) + admissionAmt,
         } : undefined;
 
         const student = await this.createStudent({
@@ -5275,6 +5876,7 @@ export class InMemoryDataStore implements IDataStore {
           primary_contact: r.primary_contact || 'father',
           program_id: batch.program_id,
           batch_id: batch.id,
+          elective_group_id: electiveGroupId,
           status: 'active',
           subjects,
           fee_structure: fs,
@@ -5284,6 +5886,28 @@ export class InMemoryDataStore implements IDataStore {
         } as any);
 
         createdList.push(student);
+
+        // Gather parent/guardian credential metadata for distribution
+        const rawGuardianCnic = student.guardian_id_card || (student as any).father_cnic;
+        const cleanCnic = rawGuardianCnic ? rawGuardianCnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : null;
+        const tenantObj = this.tenants.get(tenantId);
+        const tenantDomain = tenantObj?.slug ? `${tenantObj.slug}.academy` : 'apex.academy';
+        const gLogin = student.guardian_email || (cleanCnic ? `guardian.${cleanCnic}@${tenantDomain}` : (student.guardian_phone || 'Parent Portal Phone Login'));
+        
+        const recentInvoice = this.invoices.find(inv => inv.tenant_id === tenantId && inv.student_id === student.id && inv.status !== 'voided' && (inv.status as any) !== 'cancelled');
+
+        credentials.push({
+          student_id: student.id,
+          student_name: student.full_name,
+          admission_number: student.admission_number,
+          roll_number: student.roll_number,
+          batch_name: batch.name,
+          guardian_name: student.guardian_name,
+          guardian_login: gLogin,
+          default_password: 'Parent@123',
+          invoice_number: recentInvoice?.invoice_number,
+          first_month_amount: recentInvoice?.total_amount,
+        });
       } catch (err: any) {
         errors.push({ row: i + 1, error: err.message || 'Failed creating student' });
       }
@@ -5295,6 +5919,7 @@ export class InMemoryDataStore implements IDataStore {
       failed_count: errors.length,
       students: createdList,
       errors,
+      credentials,
     };
   }
 
@@ -8535,10 +9160,12 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   // --- Invoicing & Challans ---
-  async getInvoices(tenantId: string, options?: { studentId?: string; student_id?: string; batchId?: string; batch_id?: string; billingMonth?: string; billing_month?: string; status?: InvoiceStatus }): Promise<StudentInvoice[]> {
+  async getInvoices(tenantId: string, options?: { studentId?: string; student_id?: string; batchId?: string; batch_id?: string; billingMonth?: string; billing_month?: string; status?: InvoiceStatus; session?: string }): Promise<StudentInvoice[]> {
     const targetStudentId = options?.student_id || options?.studentId;
     const targetBatchId = options?.batch_id || options?.batchId;
     const targetBillingMonth = options?.billing_month || options?.billingMonth;
+    const session = options?.session;
+    const isClosed = session ? this.isYearClosed(tenantId, session) : false;
 
     return this.invoices.filter(i => {
       if (i.tenant_id !== tenantId) return false;
@@ -8546,6 +9173,20 @@ export class InMemoryDataStore implements IDataStore {
       if (targetBatchId && i.batch_id !== targetBatchId) return false;
       if (targetBillingMonth && !isSameBillingMonth(i.billing_month, targetBillingMonth)) return false;
       if (options?.status && i.status !== options.status) return false;
+
+      if (session) {
+        const invSession = i.academic_session || (i.batch_id ? this.batches.find(b => b.id === i.batch_id)?.academic_session : undefined);
+        if (isClosed) {
+          if (invSession !== session) return false;
+        } else {
+          // Active year: include that year's invoices PLUS unpaid/partial from older years (arrears)
+          const isCurrentSession = invSession === session;
+          const statusStr = String(i.status || '').toLowerCase();
+          const isOlderUnpaid = invSession !== session && ((i.balance_due ?? i.balance_amount ?? 0) > 0 || ['unpaid', 'partial', 'partially_paid', 'overdue'].includes(statusStr));
+          if (!isCurrentSession && !isOlderUnpaid) return false;
+        }
+      }
+
       return true;
     }).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
@@ -11647,7 +12288,7 @@ export class InMemoryDataStore implements IDataStore {
     return { ...tenant };
   }
 
-  async getTeacherPortalOverview(tenantId: string, teacherId: string, date?: string): Promise<TeacherPortalOverview> {
+  async getTeacherPortalOverview(tenantId: string, teacherId: string, date?: string, session?: string): Promise<TeacherPortalOverview> {
     const tenant = this.tenants.get(tenantId);
     const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
     const today = date || campusToday(tenantTimezone);
@@ -11662,11 +12303,36 @@ export class InMemoryDataStore implements IDataStore {
     const teacherName = teacherUser.full_name;
     const teacherUserId = teacherUser.id;
 
+    // Batches assigned via teaching assignments or timetable schedule
+    const assignments: StaffTeachingAssignment[] = (teacherUser.metadata?.teaching_assignments as StaffTeachingAssignment[]) || [];
+    const assignedBatchIds = new Set(assignments.map(a => a.batch_id).filter(Boolean));
+    const allTeacherSlots = this.timetableSlots.filter(
+      s => s.tenant_id === tenantId && !s.is_cancelled && (s.teacher_id === teacherUserId || s.substitutions?.some(sub => sub.substitute_teacher_id === teacherUserId))
+    );
+    for (const s of allTeacherSlots) {
+      if (s.batch_id) assignedBatchIds.add(s.batch_id);
+    }
+
+    const hasAllClasses = teacherUser.role === 'tenant_admin' ||
+                          teacherUser.role === 'super_admin' ||
+                          teacherUser.role === 'academic_head' ||
+                          can(teacherUser, 'all_classes', 'view');
+
+    let assignedBatches = assignedBatchIds.size > 0
+      ? this.batches.filter(b => b.tenant_id === tenantId && assignedBatchIds.has(b.id))
+      : (hasAllClasses ? this.batches.filter(b => b.tenant_id === tenantId) : []);
+
+    if (session) {
+      const activeSession = tenant?.settings?.academic_session || '2026-2027';
+      assignedBatches = assignedBatches.filter(b => (b.academic_session || activeSession) === session);
+    }
+    const finalBatchIds = new Set(assignedBatches.map(b => b.id));
+
     // Timetable slots for this teacher today:
-    // slots where day_of_week === campusDayOfWeek(campusToday) and (teacher_id === teacher or today’s substitution names this teacher). Sort by start_time. Apply the substitution overlay the student portal already applies.
     const matchingSlots = this.timetableSlots.filter(s => {
       if (s.tenant_id !== tenantId || s.is_cancelled) return false;
       if (s.day_of_week !== currentDayOfWeek) return false;
+      if (session && s.batch_id && !finalBatchIds.has(s.batch_id)) return false;
       const todaySub = (s.substitutions || []).find(sub => sub.date === today);
       const isSubstitutedIn = todaySub?.substitute_teacher_id === teacherUserId;
       const isOriginalTeacher = s.teacher_id === teacherUserId;
@@ -11686,25 +12352,6 @@ export class InMemoryDataStore implements IDataStore {
         };
       });
 
-    // Batches assigned via teaching assignments or timetable schedule
-    const assignments: StaffTeachingAssignment[] = (teacherUser.metadata?.teaching_assignments as StaffTeachingAssignment[]) || [];
-    const assignedBatchIds = new Set(assignments.map(a => a.batch_id).filter(Boolean));
-    const allTeacherSlots = this.timetableSlots.filter(
-      s => s.tenant_id === tenantId && !s.is_cancelled && (s.teacher_id === teacherUserId || s.substitutions?.some(sub => sub.substitute_teacher_id === teacherUserId))
-    );
-    for (const s of allTeacherSlots) {
-      if (s.batch_id) assignedBatchIds.add(s.batch_id);
-    }
-
-    const hasAllClasses = teacherUser.role === 'tenant_admin' ||
-                          teacherUser.role === 'super_admin' ||
-                          teacherUser.role === 'academic_head' ||
-                          can(teacherUser, 'all_classes', 'view');
-
-    const assignedBatches = assignedBatchIds.size > 0
-      ? this.batches.filter(b => b.tenant_id === tenantId && assignedBatchIds.has(b.id))
-      : (hasAllClasses ? this.batches.filter(b => b.tenant_id === tenantId) : []);
-
     // Attendance pending batches for today
     const markedBatchIds = new Set(
       this.studentAttendance
@@ -11714,15 +12361,15 @@ export class InMemoryDataStore implements IDataStore {
     const pendingAttendanceBatches = assignedBatches.filter(b => !markedBatchIds.has(b.id));
 
     // Exams with pending evaluations
-    const pendingGradingExams = assignedBatchIds.size > 0
-      ? this.exams.filter(e => e.tenant_id === tenantId && e.status === 'PUBLISHED' && assignedBatchIds.has(e.batch_id))
-      : (hasAllClasses ? this.exams.filter(e => e.tenant_id === tenantId && e.status === 'PUBLISHED') : []);
+    const pendingGradingExams = this.exams.filter(
+      e => e.tenant_id === tenantId && e.status === 'PUBLISHED' && finalBatchIds.has(e.batch_id)
+    );
 
     // Recent diary entries
-    const recentDiary = (assignedBatchIds.size > 0
-      ? this.homeworkAssignments.filter(h => h.tenant_id === tenantId && assignedBatchIds.has(h.batch_id))
-      : (hasAllClasses ? this.homeworkAssignments.filter(h => h.tenant_id === tenantId) : [])
-    ).slice(0, 5);
+    const recentDiary = this.homeworkAssignments
+      .filter(h => h.tenant_id === tenantId && finalBatchIds.has(h.batch_id))
+      .sort((a, b) => (b.due_date || b.created_at || '').localeCompare(a.due_date || a.created_at || ''))
+      .slice(0, 5);
 
     // Geofence status
     const clockInRecord = this.staffAttendance.find(
@@ -11738,6 +12385,7 @@ export class InMemoryDataStore implements IDataStore {
       pending_attendance_batches: pendingAttendanceBatches,
       pending_grading_exams: pendingGradingExams,
       recent_diary_entries: recentDiary,
+      homework: recentDiary,
       geofence_status: {
         is_clocked_in: !!clockInRecord && (clockInRecord.status === 'on_time' || clockInRecord.status === 'late'),
         clocked_in_at: clockInRecord?.clock_in_time || null,
@@ -11760,14 +12408,29 @@ export class InMemoryDataStore implements IDataStore {
     }
 
     this.ensureStudentEnrollments();
+    const tenant = this.tenants.get(tenantId);
+    const activeSession = tenant?.settings?.academic_session || '2026-2027';
+
     const studentEnrollments = this.studentEnrollments.filter(e => e.tenant_id === tenantId && e.student_id === student.id);
+
+    // Active academic session enrollments for student/parent portal overview
+    const activeSessionEnrollments = studentEnrollments.filter(e => {
+      const b = this.batches.find(bat => bat.id === e.batch_id && bat.tenant_id === tenantId);
+      const sess = e.academic_session || b?.academic_session;
+      return (sess === activeSession || !sess) && (e.status === 'active' || e.status === 'on_leave');
+    });
+
+    const portalEnrollments = activeSessionEnrollments.length > 0
+      ? activeSessionEnrollments
+      : studentEnrollments.filter(e => e.status !== 'completed');
+
     let selectedEnrollment = enrollmentId
-      ? studentEnrollments.find(e => e.id === enrollmentId)
+      ? (portalEnrollments.find(e => e.id === enrollmentId) || studentEnrollments.find(e => e.id === enrollmentId))
       : null;
     if (!selectedEnrollment) {
-      selectedEnrollment = studentEnrollments.find(e => e.is_primary && (e.status === 'active' || e.status === 'on_leave'))
-        || studentEnrollments.find(e => e.status === 'active' || e.status === 'on_leave')
-        || studentEnrollments[0]
+      selectedEnrollment = portalEnrollments.find(e => e.is_primary && (e.status === 'active' || e.status === 'on_leave'))
+        || portalEnrollments.find(e => e.status === 'active' || e.status === 'on_leave')
+        || portalEnrollments[0]
         || null;
     }
 
@@ -11777,7 +12440,6 @@ export class InMemoryDataStore implements IDataStore {
     const program = this.programs.find(p => p.id === effectiveProgramId && p.tenant_id === tenantId);
 
     // Timetable Slots: Today's schedule for this batch
-    const tenant = this.tenants.get(tenantId);
     const tenantTimezone = tenant?.settings?.timezone || 'Asia/Karachi';
     const todayDateStr = date || campusToday(tenantTimezone);
     const currentDayOfWeek = campusDayOfWeek(todayDateStr, tenantTimezone);
@@ -11967,7 +12629,7 @@ export class InMemoryDataStore implements IDataStore {
       return sub ? sub.name : sid;
     });
 
-    const enrichedEnrollments = studentEnrollments.map(e => {
+    const enrichedEnrollments = portalEnrollments.map(e => {
       const b = this.batches.find(bat => bat.id === e.batch_id && bat.tenant_id === tenantId);
       const p = this.programs.find(prg => prg.id === (e.program_id || b?.program_id) && prg.tenant_id === tenantId);
       const eInvs = this.invoices.filter(i => i.tenant_id === tenantId && i.student_id === student.id && (i.enrollment_id === e.id || (!i.enrollment_id && i.batch_id === e.batch_id)) && i.status !== 'voided' && (i.status as any) !== 'cancelled');
@@ -11982,6 +12644,15 @@ export class InMemoryDataStore implements IDataStore {
         unpaid_balance: unpaid,
       };
     });
+
+    const classesList = enrichedEnrollments.map(e => ({
+      id: e.id,
+      program_name: e.program_name,
+      batch_name: e.batch_name,
+      roll_number: e.roll_number,
+      status: e.status,
+      is_primary: e.is_primary,
+    }));
 
     return {
       student_profile: {
@@ -12005,9 +12676,11 @@ export class InMemoryDataStore implements IDataStore {
         subjects: resolvedSubjects,
         admission_date: selectedEnrollment?.admission_date || student.admission_date,
         enrollments: enrichedEnrollments,
+        classes: classesList,
         selected_enrollment_id: selectedEnrollment?.id || null,
       },
       enrollments: enrichedEnrollments,
+      classes: classesList,
       selected_enrollment_id: selectedEnrollment?.id || null,
       today_schedule: effectiveSchedule,
       weekly_schedule: batchSlots.map(slot => ({

@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { IDataStore } from '../services/store.js';
 import { JWTPayload, Exam, ExamQuestion, ExamQuestionType, QuestionDifficulty, ExamStatus, EvaluationStatus } from '@apex/shared-types';
-import { can, batchScope } from '../lib/access.js';
+import { can, batchScope, assertYearWritable } from '../lib/access.js';
 
 export function examRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -40,6 +40,7 @@ export function examRoutes(store: IDataStore) {
     fastify.get('/exams/chapters', getChaptersHandler);
 
     const createChapterHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!can(user, 'exams_bank', 'edit')) {
         return reply.status(403).send({
@@ -107,6 +108,7 @@ export function examRoutes(store: IDataStore) {
     fastify.get('/exams/questions', getQuestionsHandler);
 
     const createQuestionHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!can(user, 'exams_bank', 'edit')) {
         return reply.status(403).send({
@@ -144,6 +146,7 @@ export function examRoutes(store: IDataStore) {
     fastify.post('/exams/questions', createQuestionHandler);
 
     const deleteQuestionHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!can(user, 'exams_bank', 'edit')) {
         return reply.status(403).send({
@@ -170,6 +173,7 @@ export function examRoutes(store: IDataStore) {
     // 3. EXCEL CHAPTER UPLOAD (Flow A: In-Context Chapter Excel/CSV Upload)
     // =========================================================================
     const importExcelHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!can(user, 'exams_bank', 'edit')) {
         return reply.status(403).send({
@@ -254,6 +258,12 @@ export function examRoutes(store: IDataStore) {
       }
       const { batch_id, subject_id } = request.query as { batch_id?: string; subject_id?: string };
       let exams = await store.getExams(user.tenant_id, batch_id, subject_id);
+      const workingSession = (request.user as any)?.working_session || request.working_session;
+      if (workingSession && user.role !== 'student' && user.role !== 'parent') {
+        const sessionBatches = store.batchesForSession(user.tenant_id, workingSession);
+        const sessionBatchIds = new Set(sessionBatches.map(b => b.id));
+        exams = exams.filter(e => sessionBatchIds.has(e.batch_id));
+      }
 
       const scope = batchScope(user);
       if (user.role === 'teacher' && scope !== 'all') {
@@ -304,6 +314,7 @@ export function examRoutes(store: IDataStore) {
     fastify.get('/exams/:id', getExamByIdHandler);
 
     const createExamHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!can(user, 'exams_bank', 'edit') && !can(user, 'exams_marks', 'edit')) {
         return reply.status(403).send({
@@ -356,6 +367,7 @@ export function examRoutes(store: IDataStore) {
     fastify.post('/exams', createExamHandler);
 
     const updateExamHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!can(user, 'exams_bank', 'edit') && !can(user, 'exams_marks', 'edit')) {
         return reply.status(403).send({
@@ -427,6 +439,7 @@ export function examRoutes(store: IDataStore) {
     fastify.get('/exams/:id/questions', getExamQuestionsHandler);
 
     const addExamQuestionsHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!can(user, 'exams_bank', 'edit') && !can(user, 'exams_marks', 'edit')) {
         return reply.status(403).send({
@@ -475,6 +488,7 @@ export function examRoutes(store: IDataStore) {
     // 6. HYBRID EVALUATION (Instant Auto MCQs + Short/Long Teacher Remarks)
     // =========================================================================
     const evaluateHandler = async (request: any, reply: any) => {
+      if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!can(user, 'exams_marks', 'edit')) {
         return reply.status(403).send({

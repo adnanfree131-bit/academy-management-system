@@ -254,3 +254,22 @@ export function batchScope(user: any): string[] | 'all' {
   const batchIds = Array.from(new Set(assignments.map(a => a.batch_id).filter(Boolean)));
   return batchIds;
 }
+
+/**
+ * Asserts that the working session is not closed for write operations.
+ * If user.year_closed is true, replies with 403 YEAR_CLOSED and returns false.
+ */
+export function assertYearWritable(request: any, reply: any): boolean {
+  if (request.user?.year_closed) {
+    reply.status(403).send({
+      success: false,
+      error: {
+        code: 'YEAR_CLOSED',
+        message: 'This year is closed. Open the active year to make changes.',
+      },
+      timestamp: new Date().toISOString(),
+    });
+    return false;
+  }
+  return true;
+}
