@@ -1103,7 +1103,21 @@ export class InMemoryDataStore implements IDataStore {
     }
     if (payload.customFields) this.customFields = asArray(payload.customFields);
     if (payload.inquiries) this.inquiries = asArray(payload.inquiries);
-    if (payload.students) this.students = asArray<Student>(payload.students);
+    if (payload.students) {
+      this.students = asArray<Student>(payload.students);
+      for (const s of this.students) {
+        if (!s.user_id) {
+          if (s.id === 'stud-1') {
+            s.user_id = 'a1000000-0000-0000-0000-000000000005';
+          } else {
+            const matchedUser = Array.from(this.users.values()).find(
+              u => u.tenant_id === s.tenant_id && u.role === 'student' && (u.email === s.email || (u.metadata as any)?.admission_number === s.admission_number)
+            );
+            if (matchedUser) s.user_id = matchedUser.id;
+          }
+        }
+      }
+    }
     if (payload.studentEnrollments) this.studentEnrollments = asArray<StudentEnrollment>(payload.studentEnrollments);
     if (payload.rooms) this.rooms = asArray<any>(payload.rooms);
 
