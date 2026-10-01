@@ -327,7 +327,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           logout();
           return;
         }
-        setAuthError('Unable to load your account. Please try signing in again.');
+        setAuthError(res.status === 431
+          ? 'Your saved sign-in session needs to be refreshed. Sign in again below.'
+          : 'Unable to load your account. Please try signing in again.');
         setIsLoading(false);
         return;
       }
@@ -761,7 +763,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options: {
         data: {
           full_name: payload.admin_name.trim(),
-          pending_tenant: onboardingPayload,
+          // Academy drafts (including inline logos) stay in browser storage,
+          // not auth metadata, which Supabase embeds in every access token.
         },
         emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/#onboarding-confirmed` : undefined,
       },

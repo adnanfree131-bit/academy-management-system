@@ -55,7 +55,7 @@ export function AuthCallbackNotice({ successOnly = false }: { successOnly?: bool
       <div className="flex items-start gap-3">
         {isError ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />}
         <div className="min-w-0 flex-1">
-          <h3 className={`text-sm font-semibold ${isError ? 'text-rose-900' : 'text-emerald-900'}`}>{authError && !successOnly ? 'Account unavailable' : callback.error ? 'Confirmation link unavailable' : 'Email confirmed'}</h3>
+          <h3 className={`text-sm font-semibold ${isError ? 'text-rose-900' : 'text-emerald-900'}`}>{authError && !successOnly ? 'Sign-in needs attention' : callback.error ? 'Confirmation link unavailable' : 'Email confirmed'}</h3>
           <p className={`mt-1 text-xs leading-relaxed ${isError ? 'text-rose-800' : 'text-emerald-800'}`} role={isError ? 'alert' : 'status'}>{message}</p>
           {callback.error && !successOnly && <form onSubmit={resend} className="mt-3 space-y-2">
             <label htmlFor="confirmation-email" className="block text-xs font-semibold text-slate-700">Email address</label>
