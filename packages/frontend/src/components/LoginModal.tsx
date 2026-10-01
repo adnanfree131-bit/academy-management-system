@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { AuthCallbackNotice } from './AuthCallbackNotice';
 import { useAuth } from '../context/AuthContext';
 import { 
   Mail, 
@@ -615,6 +616,8 @@ export const LoginModal: React.FC<{ initialMode?: 'login' | 'register' }> = ({ i
               </p>
             </div>
 
+
+            <AuthCallbackNotice />
 
             {/* Error Message */}
             {error && (

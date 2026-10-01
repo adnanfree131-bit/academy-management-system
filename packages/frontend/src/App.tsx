@@ -668,7 +668,7 @@ const MainLayout: React.FC = () => {
 export function App() {
   return (
     <AuthProvider>
-      <AuthCallbackNotice />
+      <AuthCallbackNotice successOnly />
       <MainLayout />
     </AuthProvider>
   );
