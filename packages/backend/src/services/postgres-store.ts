@@ -122,10 +122,16 @@ export class PostgresDataStore implements IDataStore {
   private async getClient(): Promise<{ query: (sql: string, params?: any[]) => Promise<any>; release: () => void }> {
     const requestDb = getRequestContextDb();
     if (requestDb) {
-      return {
+      const client = requestDb as typeof requestDb & { __in_transaction?: boolean; __tx_depth?: number };
+      const scopedClient = {
         query: (sql: string, params?: any[]) => requestDb.query(sql, params),
         release: () => {}, // No-op: client release is managed by Fastify request lifecycle
+        get __in_transaction() { return client.__in_transaction; },
+        set __in_transaction(value: boolean | undefined) { client.__in_transaction = value; },
+        get __tx_depth() { return client.__tx_depth; },
+        set __tx_depth(value: number | undefined) { client.__tx_depth = value; },
       };
+      return scopedClient;
     }
     if (typeof (this.pool as any).connect === 'function') {
       return await (this.pool as any).connect(); // bypass-ok: non-request fallback

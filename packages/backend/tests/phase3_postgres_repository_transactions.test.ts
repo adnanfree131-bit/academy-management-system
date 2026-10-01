@@ -9,6 +9,8 @@ import {
   withTenantTransaction,
 } from '../src/db/transactions.js';
 import { buildApp } from '../src/app.js';
+import { PostgresDataStore } from '../src/services/postgres-store.js';
+import { dbContextStorage } from '../src/db/context.js';
 
 describe('Phase 3: Normalized PostgreSQL Repository, RLS & Transaction Invariants', () => {
   let db: PGlite;
@@ -110,6 +112,31 @@ describe('Phase 3: Normalized PostgreSQL Repository, RLS & Transaction Invariant
       `SELECT * FROM public.student_invoices WHERE invoice_number = 'INV-ROLLBACK-001'`
     );
     expect(invoiceCheck.rows.length).toBe(0);
+  });
+
+  it('request onboarding preserves the outer transaction and persists provisioning settings before commit', async () => {
+    await db.exec('BEGIN');
+    const client = {
+      query: (sql: string, params?: any[]) => db.query(sql, params),
+      __in_transaction: true,
+      __tx_depth: 1,
+    };
+    const store = new PostgresDataStore({} as any);
+    let tenantId: string;
+    try {
+      await dbContextStorage.run({ client: client as any, authUserId: TENANT_A_AUTH_ID }, async () => {
+        const result = await store.onboardTenant(TENANT_A_AUTH_ID, 'adnan@apexacademy.edu.pk', 'Director', { name: 'Interrupted Setup', slug: 'nested-onboarding' });
+        tenantId = result.tenant.id;
+        expect(client.__in_transaction).toBe(true);
+        expect(client.__tx_depth).toBe(1);
+        const saved = await store.updateTenantSettings(tenantId, { settings: { domain_provisioning_status: 'failed' } as any });
+        expect(saved?.settings.domain_provisioning_status).toBe('failed');
+      });
+    } finally {
+      await db.exec('ROLLBACK; SET ROLE postgres');
+    }
+    const remaining = await db.query('SELECT id FROM public.tenants WHERE slug = $1', ['nested-onboarding']);
+    expect(remaining.rows).toHaveLength(0);
   });
 
   it('Gate 3: Multi-row Admission Workflow commits atomically on success', async () => {
