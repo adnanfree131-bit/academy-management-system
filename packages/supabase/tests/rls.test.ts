@@ -69,6 +69,20 @@ describe('Phase 1 & 2: Multi-Tenant Row-Level Security (RLS) Isolation Suite', (
     expect(tenantsRes.rows[0].count).toBe('0');
   });
 
+  it('central sign-in discovers only the current identity memberships without opening table RLS', async () => {
+    await db.exec(`SET app.current_user_id = '${TENANT_A_AUTH_ID}'`);
+    const own = await db.query<any>('SELECT * FROM public.lookup_memberships_by_auth_id($1::uuid)', [TENANT_A_AUTH_ID]);
+    expect(own.rows).toHaveLength(1);
+    expect(own.rows[0].membership.auth_user_id).toBe(TENANT_A_AUTH_ID);
+    expect(own.rows[0].tenant.id).toBe(TENANT_A_ID);
+    const other = await db.query('SELECT * FROM public.lookup_memberships_by_auth_id($1::uuid)', [TENANT_B_AUTH_ID]);
+    expect(other.rows).toHaveLength(0);
+    expect((await db.query('SELECT * FROM public.tenants')).rows).toHaveLength(0);
+    expect((await db.query('SELECT * FROM public.tenant_memberships')).rows).toHaveLength(0);
+    await db.exec('SET ROLE anon');
+    await expect(db.query('SELECT * FROM public.lookup_memberships_by_auth_id($1::uuid)', [TENANT_A_AUTH_ID])).rejects.toThrow(/permission denied/);
+  });
+
   it('Gate 2: Tenant A context must ONLY see Tenant A memberships and tenants', async () => {
     await asTenantA();
 

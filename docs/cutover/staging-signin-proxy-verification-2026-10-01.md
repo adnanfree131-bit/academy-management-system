@@ -32,3 +32,7 @@ Future signup sends full_name and bounded scalar academy details as authenticati
 ## Saved registration recovery
 
 When the confirmed identity has no memberships and no matching browser draft, the provider recovers pending_tenant from that same authenticated identity and resumes the canonical onboard-tenant request. A failed continuation retains a prefilled draft for correction. Staging without Cloudflare credentials now reports failed provisioning, rather than simulating an active domain. DNS cutover is not included in this change.
+
+## Central membership discovery under runtime RLS
+
+Live staging recovery created the saved academy and logo successfully (onboard-tenant HTTP 201), but subsequent central session discovery returned zero memberships. Existing RLS requires a selected tenant for direct membership/tenant reads; central login has no selected tenant. Migration 00031 adds a SECURITY DEFINER resolver restricted to the current authenticated identity, active memberships, and active tenants. Ordinary table policies remain unchanged. Anonymous execution is revoked; a different requested identity returns no rows. The backend uses this resolver before selecting a tenant. Database suite: 60 passed, including own-identity discovery and cross-identity/anonymous denial.

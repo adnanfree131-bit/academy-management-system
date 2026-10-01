@@ -466,13 +466,10 @@ export class PostgresDataStore implements IDataStore {
 
   async getMembershipsByAuthId(authUserId: string): Promise<Array<TenantMembership & { tenant: any }>> {
     const res = await this.db.query(
-      `SELECT m.*, row_to_json(t.*) as tenant
-       FROM public.tenant_memberships m
-       JOIN public.tenants t ON m.tenant_id = t.id
-       WHERE m.auth_user_id = $1 AND m.status = 'active'`,
+      `SELECT membership, tenant FROM public.lookup_memberships_by_auth_id($1::uuid)`,
       [authUserId]
     );
-    return res.rows;
+    return res.rows.map(row => ({ ...row.membership, tenant: row.tenant }));
   }
 
   async getMembership(tenantId: string, authUserId: string): Promise<TenantMembership | null> {
