@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthCallbackNotice } from './components/AuthCallbackNotice';
 import { LoginModal } from './components/LoginModal';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -667,6 +668,7 @@ const MainLayout: React.FC = () => {
 export function App() {
   return (
     <AuthProvider>
+      <AuthCallbackNotice />
       <MainLayout />
     </AuthProvider>
   );

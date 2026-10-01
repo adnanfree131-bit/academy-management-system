@@ -70,6 +70,7 @@ interface AuthContextType {
   resolvedTenantSlug: string | null;
   resolvedTenantId: string | null;
   resolvedTenantName: string | null;
+  authError: string | null;
   isPasswordRecovery: boolean;
   setIsPasswordRecovery: (val: boolean) => void;
   setWorkingSession: (name: string) => Promise<void>;
@@ -101,6 +102,7 @@ import { apiFetch, setApiContext } from '../lib/api-client';
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [authError, setAuthError] = useState<string | null>(null);
   const [user, setUser] = useState<UserSession | null>(null);
   const [tenant, setTenant] = useState<TenantSession | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -291,6 +293,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
    */
   const bootstrapSession = useCallback(async (accessToken: string) => {
     if (isBootstrappingRef.current) return;
+    setAuthError(null);
     isBootstrappingRef.current = true;
     bootstrappedTokenRef.current = accessToken;
 
@@ -305,6 +308,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (!res.ok) {
+        bootstrappedTokenRef.current = null;
         console.warn('[Auth] /session bootstrap returned status:', res.status);
         if (res.status === 404) {
           const body = await res.json().catch(() => null);
@@ -319,9 +323,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         if (res.status === 401 || res.status === 403) {
           // Account suspended or revoked
+          setAuthError('Your account session could not be verified. Please sign in again.');
           logout();
           return;
         }
+        setAuthError('Unable to load your account. Please try signing in again.');
         setIsLoading(false);
         return;
       }
@@ -499,6 +505,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setMembershipState('tenant_selection_required');
       }
     } catch (err) {
+      setAuthError('Unable to connect to your academy account. Please try again.');
+      bootstrappedTokenRef.current = null;
       console.error('[Auth] Session bootstrap error:', err);
     } finally {
       isBootstrappingRef.current = false;
@@ -530,7 +538,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // 2. Subscribe to auth events (sign-in, token refresh, sign-out)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
 
       if (event === 'SIGNED_OUT' || !session) {
@@ -566,7 +574,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setApiContext({ token: session.access_token });
         // Only run full bootstrap if token is fresh or user profile not loaded
         if (session.access_token !== bootstrappedTokenRef.current || !userRef.current) {
-          await bootstrapSession(session.access_token);
+          // Leave the Supabase auth callback before any session-dependent work.
+          setTimeout(() => { if (mounted) void bootstrapSession(session.access_token); }, 0);
         }
       }
     });
@@ -624,9 +633,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(error.message || 'Invalid email or password.');
       }
 
-      if (data?.session) {
-        await bootstrapSession(data.session.access_token);
+      if (!data?.session) {
+        throw new Error('Sign in did not create a session. Please confirm your email and try again.');
       }
+      await bootstrapSession(data.session.access_token);
       return { success: true };
     }
   };
@@ -957,6 +967,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         resolvedTenantSlug,
         resolvedTenantId,
         resolvedTenantName,
+        authError,
         isPasswordRecovery,
         setIsPasswordRecovery,
         setWorkingSession,
