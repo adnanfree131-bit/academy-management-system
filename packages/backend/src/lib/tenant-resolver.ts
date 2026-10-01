@@ -46,7 +46,7 @@ export function normalizeEffectiveHostname(request: FastifyRequest): string {
     const secretMatches = typeof receivedSecret === 'string' && receivedSecret === configuredSecret;
 
     if (secretMatches) {
-      const forwardedHost = request.headers['x-forwarded-host'];
+      const forwardedHost = request.headers['x-kampus-edge-host'] || request.headers['x-forwarded-host'];
       if (forwardedHost) {
         const raw = Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost;
         const clean = raw.split(',')[0].split(':')[0].trim().toLowerCase().replace(/\.$/, '');

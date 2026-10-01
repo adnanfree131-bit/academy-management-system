@@ -43,12 +43,15 @@ export const onRequest = async (context: PagesContext): Promise<Response> => {
 
   // Strip incoming client-supplied spoofing headers
   reqHeaders.delete('x-forwarded-host');
+  reqHeaders.delete('x-kampus-edge-host');
   reqHeaders.delete('x-forwarded-proto');
   reqHeaders.delete('x-edge-proxy-secret');
 
   // Inject verified edge forwarding headers
   const clientHost = url.hostname.toLowerCase().trim();
   reqHeaders.set('X-Forwarded-Host', clientHost);
+  // Intermediate hosting proxies may overwrite the standard forwarded host.
+  reqHeaders.set('X-Kampus-Edge-Host', clientHost);
   reqHeaders.set('X-Forwarded-Proto', url.protocol.replace(':', ''));
   if (context.env.EDGE_PROXY_SECRET) {
     reqHeaders.set('X-Edge-Proxy-Secret', context.env.EDGE_PROXY_SECRET);

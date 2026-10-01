@@ -1,3 +1,4 @@
+import { onRequest } from '../../../functions/api/[[catchall]]';
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
@@ -68,6 +69,15 @@ describe('Milestone M2 Unit & Integration Suite: Edge-to-Backend Multi-Tenancy &
   });
 
   describe('1. normalizeEffectiveHostname Anti-Spoofing', () => {
+    it('preserves the verified edge host after an intermediate proxy rewrites forwarded host', () => {
+      const request: any = { headers: { host: 'staging-api.kampus.pk', 'x-forwarded-host': 'staging-api.kampus.pk', 'x-kampus-edge-host': 'alpha.kampus.pk', 'x-edge-proxy-secret': PROXY_SECRET } };
+      expect(normalizeEffectiveHostname(request)).toBe('alpha.kampus.pk');
+      request.headers['x-edge-proxy-secret'] = 'forged';
+      expect(normalizeEffectiveHostname(request)).toBe('staging-api.kampus.pk');
+      delete request.headers['x-edge-proxy-secret'];
+      expect(normalizeEffectiveHostname(request)).toBe('staging-api.kampus.pk');
+    });
+
     it('1.1 Trusts X-Forwarded-Host when X-Edge-Proxy-Secret matches', () => {
       const req: any = {
         hostname: 'direct-backend.sslip.io',
@@ -352,5 +362,17 @@ describe('Milestone M2 Unit & Integration Suite: Edge-to-Backend Multi-Tenancy &
         globalThis.fetch = originalFetch;
       }
     });
+  });
+});
+
+describe('Edge host preservation', () => {
+  it('replaces a client-supplied dedicated host with the real URL hostname', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
+    try {
+      await onRequest({ request: new Request('https://alpha.kampus.pk/api/v1/auth/session', { headers: { 'x-kampus-edge-host': 'victim.kampus.pk', 'x-edge-proxy-secret': 'forged' } }), env: { BACKEND_API_URL: 'https://staging-api.kampus.pk', EDGE_PROXY_SECRET: 'test-server-secret-32-characters-long' }, next: async () => new Response() });
+      const headers = fetchMock.mock.calls[0][1]?.headers as Headers;
+      expect(headers.get('x-kampus-edge-host')).toBe('alpha.kampus.pk');
+      expect(headers.get('x-edge-proxy-secret')).toBe('test-server-secret-32-characters-long');
+    } finally { fetchMock.mockRestore(); }
   });
 });
