@@ -58,6 +58,15 @@ describe('Milestone M2 Unit & Integration Suite: Edge-to-Backend Multi-Tenancy &
   // ---------------------------------------------------------------------------
   // 1. normalizeEffectiveHostname Anti-Spoofing & Normalization
   // ---------------------------------------------------------------------------
+  it('recognizes the specific staging Pages hostname without resolving a tenant', async () => {
+    const pool = { query: vi.fn(async () => ({ rows: [] })) };
+    const central = await resolveHostTenant('academy-management-system.pages.dev', pool);
+    expect(central).toMatchObject({ isCentralHost: true, isBrandedHost: false, isUnmapped: false });
+    expect(pool.query).not.toHaveBeenCalled();
+    const unknown = await resolveHostTenant('unrelated.pages.dev', pool);
+    expect(unknown).toMatchObject({ isCentralHost: false, isBrandedHost: true, isUnmapped: true });
+  });
+
   describe('1. normalizeEffectiveHostname Anti-Spoofing', () => {
     it('1.1 Trusts X-Forwarded-Host when X-Edge-Proxy-Secret matches', () => {
       const req: any = {

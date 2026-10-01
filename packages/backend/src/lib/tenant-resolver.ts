@@ -21,6 +21,7 @@ const CENTRAL_HOSTNAMES = new Set([
   'api.kampus.pk',
   'kampus.pk',
   'kampus-academy.pages.dev',
+  'academy-management-system.pages.dev',
   'app.toolnestr.com',
   'edu.toolnestr.com',
 ]);

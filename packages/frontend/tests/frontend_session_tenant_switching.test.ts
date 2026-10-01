@@ -11,6 +11,7 @@ describe('Phase 5: Host Resolution & Branded Tenant Boundary', () => {
       'app.kampus.pk',
       'edu.kampus.pk',
       'kampus-academy.pages.dev',
+      'academy-management-system.pages.dev',
       'app.toolnestr.com',
       'edu.toolnestr.com',
     ];

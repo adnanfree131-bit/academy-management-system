@@ -34,6 +34,7 @@ export function resolveHostInfo(
     host === `app.${baseDomain}` ||
     host === `edu.${baseDomain}` ||
     host === 'kampus-academy.pages.dev' ||
+    host === 'academy-management-system.pages.dev' ||
     host === 'app.kampus.pk' ||
     host === 'edu.kampus.pk';
 

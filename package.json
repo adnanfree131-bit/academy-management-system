@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "pnpm --parallel --filter @apex/backend --filter @apex/frontend dev",
     "build": "pnpm -r run build",
+    "build:backend": "pnpm --filter @apex/backend... run build",
+    "start:backend": "node packages/backend/dist/server.js",
     "test": "pnpm -r run test",
     "test:rls": "pnpm --filter @apex/supabase test",
     "db:migrate": "pnpm --filter @apex/supabase run migrate",

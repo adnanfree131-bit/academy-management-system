@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { resolveSslCa, getDatabaseSslConfig } from '../src/db/connection.js';
+import os from 'node:os';
+import pg from 'pg';
+import { rootCertificates } from 'node:tls';
+import { resolveSslCa, getDatabaseSslConfig, parseDatabaseConfig, getDatabaseTlsDiagnostics } from '../src/db/connection.js';
 import { maskConnectionString, runPreflight } from '../src/scripts/db-preflight.js';
 import { sanitizeSensitiveString } from '../src/app.js';
 
@@ -72,6 +75,56 @@ describe('Phase 13: Database Preflight, TLS & Sanitization Unit Tests', () => {
       } finally {
         fs.unlinkSync(tmpPath);
       }
+    });
+
+    it('reports missing mounted CA files explicitly without disclosing the path', () => {
+      expect(() => resolveSslCa('/missing/private-certificate.crt')).toThrow(/configured file was not found/);
+    });
+
+    it.each(['require', 'verify-full', 'no-verify', 'disable'])('preserves CA and strict verification through the pg driver with sslmode=%s', (mode) => {
+      process.env.DATABASE_SSL_CA = rootCertificates[0].replace(/\n/g, '\\n');
+      const config = parseDatabaseConfig(`postgres://user:secret@remote.example/db?sslmode=${mode}&application_name=staging`);
+      const client = new pg.Client(config);
+      // Check what the real driver will use, rather than only our config object.
+      const effective = (client as any).connectionParameters;
+      expect(effective.ssl.ca).toBe(rootCertificates[0]);
+      expect(effective.ssl.rejectUnauthorized).toBe(true);
+      expect(effective.application_name).toBe('staging');
+    });
+
+    it('preserves strict TLS for bracketed pooler credentials', () => {
+      process.env.DATABASE_SSL_CA = rootCertificates[0];
+      const config = parseDatabaseConfig('postgres://fastify_runtime.project:[pass@word]@remote.example:5432/postgres?sslmode=no-verify');
+      const effective = (new pg.Client(config) as any).connectionParameters;
+      expect(effective.password).toBe('pass@word');
+      expect(effective.ssl).toEqual({ ca: rootCertificates[0], rejectUnauthorized: true });
+    });
+
+    it('does not mistake localhost in credentials for a local database', () => {
+      expect(getDatabaseSslConfig('postgres://localhost:pass@remote.example/db')).toEqual({ rejectUnauthorized: true });
+    });
+
+    it('returns identical safe metadata for mounted and escaped inline certificates', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'staging-ca-'));
+      const file = path.join(dir, 'root.crt');
+      fs.writeFileSync(file, rootCertificates[0]);
+      try {
+        process.env.DATABASE_SSL_CA = file;
+        const mounted = getDatabaseTlsDiagnostics(parseDatabaseConfig('postgres://user:privatePassword@remote.example/db'));
+        process.env.DATABASE_SSL_CA = rootCertificates[0].replace(/\n/g, '\\n');
+        const inline = getDatabaseTlsDiagnostics(parseDatabaseConfig('postgres://user:privatePassword@remote.example/db'));
+        expect(inline).toEqual(mounted);
+        expect(inline).toMatchObject({ caLoaded: true, rejectUnauthorized: true });
+        expect(inline.fingerprint256).toMatch(/^[0-9A-F:]+$/);
+        expect(JSON.stringify(inline)).not.toMatch(/privatePassword|BEGIN CERTIFICATE|postgres:\/\//);
+      } finally {
+        fs.rmSync(dir, { recursive: true });
+      }
+    });
+
+    it('rejects malformed certificate contents before connecting', () => {
+      process.env.DATABASE_SSL_CA = '-----BEGIN CERTIFICATE-----\nBROKEN\n-----END CERTIFICATE-----';
+      expect(() => getDatabaseTlsDiagnostics(parseDatabaseConfig('postgres://user:pass@remote.example/db'))).toThrow(/invalid PEM certificate/);
     });
 
     it('enforces rejectUnauthorized: true on remote URLs', () => {

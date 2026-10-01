@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import pg from 'pg';
+import { X509Certificate } from 'node:crypto';
 import { validateAuthConfig } from '../config/env.js';
 
 let pool: pg.Pool | null = null;
@@ -20,11 +21,15 @@ export function resolveSslCa(rawCa?: string): string | undefined {
   if (fs.existsSync(rootCandidate)) {
     return fs.readFileSync(rootCandidate, 'utf8');
   }
-  return trimmed.replace(/\\n/g, '\n');
+  if (!trimmed.startsWith('-----BEGIN CERTIFICATE-----')) {
+    throw new Error('DATABASE_SSL_CA must be a readable certificate file or a PEM certificate. The configured file was not found.');
+  }
+  return trimmed.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
 }
 
 export function getDatabaseSslConfig(url: string, rawCa?: string): pg.ConnectionConfig['ssl'] {
-  const isLocal = /localhost|127\.0\.0\.1/.test(url);
+  const hostname = new URL(url).hostname;
+  const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(hostname);
   const ca = resolveSslCa(rawCa ?? process.env.DATABASE_SSL_CA);
 
   if (isLocal && !ca) {
@@ -86,9 +91,39 @@ export function parseDatabaseConfig(raw: string): pg.PoolConfig {
     }
   }
 
+  // pg replaces the explicit ssl object when these URL options are present.
+  // Application TLS policy is authoritative, including certificate verification.
+  const connectionUrl = new URL(cleaned);
+  for (const key of ['ssl', 'sslmode', 'sslcert', 'sslkey', 'sslrootcert', 'uselibpqcompat']) {
+    connectionUrl.searchParams.delete(key);
+  }
   return {
-    connectionString: cleaned,
+    connectionString: connectionUrl.toString(),
     ssl,
+  };
+}
+
+/** Public certificate metadata only; never log the URL, password, or PEM. */
+export function getDatabaseTlsDiagnostics(config: pg.PoolConfig) {
+  const ssl = typeof config.ssl === 'object' ? config.ssl : undefined;
+  const ca = ssl?.ca;
+  const rawCa = Array.isArray(ca) ? ca[0] : ca;
+  let certificate: X509Certificate | undefined;
+  if (rawCa) {
+    try {
+      certificate = new X509Certificate(rawCa);
+    } catch {
+      throw new Error('DATABASE_SSL_CA contains an invalid PEM certificate. Supply the complete certificate with PEM headers and line breaks.');
+    }
+  }
+  return {
+    caLoaded: Boolean(certificate),
+    rejectUnauthorized: ssl ? ssl.rejectUnauthorized !== false : null,
+    ...(certificate ? {
+      fingerprint256: certificate.fingerprint256,
+      subject: certificate.subject,
+      issuer: certificate.issuer,
+    } : {}),
   };
 }
 
@@ -104,6 +139,10 @@ export function getDatabasePool(): pg.Pool {
     }
     currentPoolUrl = url;
     const poolConfig = parseDatabaseConfig(url);
+    const tlsDiagnostics = getDatabaseTlsDiagnostics(poolConfig);
+    if (process.env.NODE_ENV !== 'test') {
+      console.info('Database TLS configuration:', tlsDiagnostics);
+    }
 
     pool = new pg.Pool({
       ...poolConfig,
