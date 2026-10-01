@@ -196,13 +196,13 @@ export class CloudflareService implements ICloudflareService {
     }
 
     if (!this.apiToken || !this.zoneId) {
-      if (process.env.NODE_ENV === 'production') {
-        console.error('[Cloudflare SaaS] Missing credentials in production!');
+      if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'development') {
+        console.error('[Cloudflare SaaS] Missing credentials for this deployment!');
         return {
           success: false,
           domain,
           status: 'failed',
-          error: 'Cloudflare credentials not configured in production',
+          error: 'Cloudflare credentials not configured for this deployment',
         };
       }
       // Offline / Local / Dev Simulation
@@ -311,13 +311,13 @@ export class CloudflareService implements ICloudflareService {
     const cleanHost = val.normalized;
 
     if (!this.apiToken || !this.zoneId) {
-      if (process.env.NODE_ENV === 'production') {
+      if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'development') {
         return {
           success: false,
           hostname: cleanHost,
           status: 'failed',
           cname_target: this.pagesTarget,
-          error: 'Cloudflare credentials not configured in production',
+          error: 'Cloudflare credentials not configured for this deployment',
         };
       }
       // Mock / Local mode: generate deterministic verification instructions
@@ -562,8 +562,8 @@ export class CloudflareService implements ICloudflareService {
   }> {
     const clean = domain.toLowerCase().trim();
     if (!this.apiToken || !this.zoneId) {
-      if (process.env.NODE_ENV === 'production') {
-        return { success: false, status: 'failed', error: 'Cloudflare credentials not configured in production' };
+      if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'development') {
+        return { success: false, status: 'failed', error: 'Cloudflare credentials not configured for this deployment' };
       }
       return { success: true, status: 'active' };
     }

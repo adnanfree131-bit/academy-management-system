@@ -27,4 +27,8 @@ The real registered account remained blocked after the routing repair. Its Supab
 
 The registered account's original onboarding metadata was preserved privately on the VPS at /home/ubuntu/kampus-staging-onboarding-metadata-backup.json (mode 0600). Only pending_tenant.logo_url was removed from its authentication metadata; resulting metadata size 276 bytes, profile active, confirmation preserved. Existing browser-held access tokens require a fresh sign-in to pick up the corrected metadata.
 
-Future signup sends only full_name as authentication metadata. Full academy details and uploaded logo remain in the browser onboarding draft and the authenticated onboard-tenant request. A rendered provider regression verifies that a 36-KB logo remains in the draft but is excluded from signUp authentication metadata. Frontend suite: 60 passed across eight files; build passed.
+Future signup sends full_name and bounded scalar academy details as authentication metadata, excluding inline logos. This allows recovery after confirmation in a different browser. Full academy details and uploaded logo remain in the browser onboarding draft and the authenticated onboard-tenant request. A rendered provider regression verifies that a 36-KB logo remains in the draft but is excluded from signUp authentication metadata. Frontend suite: 60 passed across eight files; build passed.
+
+## Saved registration recovery
+
+When the confirmed identity has no memberships and no matching browser draft, the provider recovers pending_tenant from that same authenticated identity and resumes the canonical onboard-tenant request. A failed continuation retains a prefilled draft for correction. Staging without Cloudflare credentials now reports failed provisioning, rather than simulating an active domain. DNS cutover is not included in this change.

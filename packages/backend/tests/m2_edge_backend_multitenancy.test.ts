@@ -376,3 +376,18 @@ describe('Edge host preservation', () => {
     } finally { fetchMock.mockRestore(); }
   });
 });
+
+
+describe('Deployed domain provisioning status', () => {
+  it('fails honestly in staging when Cloudflare credentials are absent without making network calls', async () => {
+    vi.stubEnv('NODE_ENV', 'staging');
+    vi.stubEnv('CLOUDFLARE_API_TOKEN', '');
+    vi.stubEnv('CLOUDFLARE_ZONE_ID', '');
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    try {
+      const result = await new CloudflareService().provisionSubdomain('actual-academy');
+      expect(result).toMatchObject({ success: false, status: 'failed' });
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally { fetchMock.mockRestore(); vi.unstubAllEnvs(); }
+  });
+});

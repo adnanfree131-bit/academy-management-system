@@ -21,12 +21,19 @@ export const CreateAcademyModal: React.FC<CreateAcademyModalProps> = ({ onCancel
 
   const activeEmail = authenticatedIdentity?.email || user?.email || '';
 
-  // Form Fields
-  const [name, setName] = useState<string>('');
-  const [slug, setSlug] = useState<string>('');
-  const [campusName, setCampusName] = useState<string>('Main Campus');
-  const [city, setCity] = useState<string>('');
-  const [phone, setPhone] = useState<string>('');
+  // Keep an interrupted registration available for correction and retry.
+  const [savedDraft] = useState(() => {
+    try {
+      const draft = JSON.parse(localStorage.getItem('apex_pending_onboarding_draft') || 'null');
+      return activeEmail && draft?.email?.toLowerCase().trim() === activeEmail.toLowerCase().trim()
+        ? draft.payload : null;
+    } catch { return null; }
+  });
+  const [name, setName] = useState<string>(savedDraft?.name || '');
+  const [slug, setSlug] = useState<string>(savedDraft?.slug || '');
+  const [campusName, setCampusName] = useState<string>(savedDraft?.campus_name || 'Main Campus');
+  const [city, setCity] = useState<string>(savedDraft?.city || '');
+  const [phone, setPhone] = useState<string>(savedDraft?.phone || '');
 
   // Slug Availability
   const [slugAvailability, setSlugAvailability] = useState<{
@@ -41,7 +48,7 @@ export const CreateAcademyModal: React.FC<CreateAcademyModalProps> = ({ onCancel
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Auto-generate slug from academy name if not manually modified
-  const [isSlugManual, setIsSlugManual] = useState<boolean>(false);
+  const [isSlugManual, setIsSlugManual] = useState<boolean>(Boolean(savedDraft?.slug));
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -178,6 +185,7 @@ export const CreateAcademyModal: React.FC<CreateAcademyModalProps> = ({ onCancel
         campus_name: campusName.trim() || undefined,
         city: city.trim() || undefined,
         phone: phone.trim() || undefined,
+        logo_url: savedDraft?.logo_url || undefined,
       });
 
       if (res.success) {

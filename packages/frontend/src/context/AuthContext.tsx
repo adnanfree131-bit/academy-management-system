@@ -445,7 +445,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Central Platform mode: app.kampus.pk / localhost
       if (normalizedMemberships.length === 0) {
         // Check for pending onboarding draft (Finding B04)
-        const draftRaw = typeof window !== 'undefined' ? localStorage.getItem('apex_pending_onboarding_draft') : null;
+        let draftRaw = typeof window !== 'undefined' ? localStorage.getItem('apex_pending_onboarding_draft') : null;
+        let hasMatchingDraft = false;
+        try {
+          const saved = draftRaw ? JSON.parse(draftRaw) : null;
+          hasMatchingDraft = Boolean(saved?.payload && saved?.email?.toLowerCase().trim() === profile?.email?.toLowerCase().trim());
+        } catch { /* Recover from the authenticated account instead of a corrupt draft. */ }
+        if (!hasMatchingDraft) {
+          const { data } = await supabase.auth.getSession();
+          const identity = data?.session?.user;
+          const pending = identity?.user_metadata?.pending_tenant;
+          if (identity?.id === profile?.id && pending?.name && pending?.slug) {
+            draftRaw = JSON.stringify({ payload: pending, email: profile.email, timestamp: Date.now() });
+            localStorage.setItem('apex_pending_onboarding_draft', draftRaw);
+          } else {
+            draftRaw = null;
+          }
+        }
         if (draftRaw) {
           try {
             const draft = JSON.parse(draftRaw);
@@ -763,8 +779,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options: {
         data: {
           full_name: payload.admin_name.trim(),
-          // Academy drafts (including inline logos) stay in browser storage,
-          // not auth metadata, which Supabase embeds in every access token.
+          // Keep only bounded setup text for confirmation on another device.
+          // Images remain in the browser draft and never enter access tokens.
+          pending_tenant: {
+            name: onboardingPayload.name.slice(0, 200),
+            slug: onboardingPayload.slug.slice(0, 100),
+            campus_name: onboardingPayload.campus_name?.slice(0, 200),
+            city: onboardingPayload.city?.slice(0, 100),
+            phone: onboardingPayload.phone?.slice(0, 40),
+          },
         },
         emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/#onboarding-confirmed` : undefined,
       },
