@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   PhoneForwarded,
@@ -149,12 +150,12 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
       const headers = { authorization: `Bearer ${token}` };
 
       const [fRes, kpiRes, retRes, tmplRes, logRes, batchRes] = await Promise.all([
-        fetch(`/api/v1/absentee?date=${selectedDate}${selectedBatchId !== 'ALL' ? `&batch_id=${selectedBatchId}` : ''}${selectedStatusFilter !== 'ALL' ? `&status=${selectedStatusFilter}` : ''}`, { headers }),
-        fetch(`/api/v1/absentee/kpi?date=${selectedDate}`, { headers }),
-        fetch('/api/v1/absentee/retention', { headers }),
-        fetch('/api/v1/whatsapp/templates', { headers }),
-        fetch('/api/v1/whatsapp/audit-logs', { headers }),
-        fetch('/api/v1/academic/batches', { headers })
+        apiFetch(`/api/v1/absentee?date=${selectedDate}${selectedBatchId !== 'ALL' ? `&batch_id=${selectedBatchId}` : ''}${selectedStatusFilter !== 'ALL' ? `&status=${selectedStatusFilter}` : ''}`, { headers }),
+        apiFetch(`/api/v1/absentee/kpi?date=${selectedDate}`, { headers }),
+        apiFetch('/api/v1/absentee/retention', { headers }),
+        apiFetch('/api/v1/whatsapp/templates', { headers }),
+        apiFetch('/api/v1/whatsapp/audit-logs', { headers }),
+        apiFetch('/api/v1/academic/batches', { headers })
       ]);
 
       if (!fRes.ok) {
@@ -208,7 +209,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
     setLoadingReport(true);
     try {
       const monthStr = selectedDate ? selectedDate.substring(0, 7) : campusToday().substring(0, 7);
-      const res = await fetch(`/api/v1/absentee/reports/resolution?month=${monthStr}`, {
+      const res = await apiFetch(`/api/v1/absentee/reports/resolution?month=${monthStr}`, {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -258,7 +259,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
     // Check duplicate
     try {
-      const res = await fetch(`/api/v1/whatsapp/check-duplicate?student_id=${item.student_id}&category=ABSENCE`, {
+      const res = await apiFetch(`/api/v1/whatsapp/check-duplicate?student_id=${item.student_id}&category=ABSENCE`, {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -297,7 +298,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
 
     try {
       // 1. Generate link first
-      const linkRes = await fetch('/api/v1/whatsapp/generate-link', {
+      const linkRes = await apiFetch('/api/v1/whatsapp/generate-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -329,7 +330,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
       }
 
       // 3. Post dispatch audit log
-      await fetch('/api/v1/whatsapp/dispatch', {
+      await apiFetch('/api/v1/whatsapp/dispatch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -370,7 +371,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
     if (!activeLogFollowup || !token) return;
 
     try {
-      const res = await fetch(`/api/v1/absentee/${activeLogFollowup.id}/response`, {
+      const res = await apiFetch(`/api/v1/absentee/${activeLogFollowup.id}/response`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -399,7 +400,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
     if (!activeRetentionCase || !token || !meetingDate || !meetingNotes) return;
 
     try {
-      const res = await fetch(`/api/v1/absentee/retention/${activeRetentionCase.id}/meeting`, {
+      const res = await apiFetch(`/api/v1/absentee/retention/${activeRetentionCase.id}/meeting`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -427,7 +428,7 @@ export const AbsenteeRetentionDeskView: React.FC = () => {
     if (!newTmplTitle || !newTmplBody || !token) return;
 
     try {
-      const res = await fetch('/api/v1/whatsapp/templates', {
+      const res = await apiFetch('/api/v1/whatsapp/templates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({

@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
@@ -361,7 +362,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
   const fetchCashbook = useCallback(async () => {
     if (!token) return;
     try {
-      const cashRes = await fetch(
+      const cashRes = await apiFetch(
         `/api/v1/finance/reports/cashbook?startDate=${encodeURIComponent(reportStartDate)}&endDate=${encodeURIComponent(reportEndDate)}`,
         { headers: { authorization: `Bearer ${token}` } },
       );
@@ -380,7 +381,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 6000);
       const headers = { authorization: `Bearer ${token}` };
-      const safeFetch = (url: string) => fetch(url, { headers, signal: controller.signal }).catch(() => null);
+      const safeFetch = (url: string) => apiFetch(url, { headers, signal: controller.signal }).catch(() => null);
 
       const [invRes, headsRes, discRes, studRes, batchRes, progRes, settRes, priorityRes, payRes] = await Promise.all([
         safeFetch('/api/v1/finance/invoices'),
@@ -450,7 +451,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
   const fetchDayCloseData = useCallback(async (dateStr: string) => {
     if (!token) return;
     try {
-      const res = await fetch(`/api/v1/finance/reports/cashbook?date=${dateStr}`, {
+      const res = await apiFetch(`/api/v1/finance/reports/cashbook?date=${dateStr}`, {
         headers: { authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -489,7 +490,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
   // Load student ledger when selected
   useEffect(() => {
     if (token && ledgerStudentId) {
-      fetch(`/api/v1/finance/reports/student-ledger/${ledgerStudentId}`, {
+      apiFetch(`/api/v1/finance/reports/student-ledger/${ledgerStudentId}`, {
         headers: { authorization: `Bearer ${token}` }
       })
         .then(r => r.json())
@@ -947,7 +948,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
 
     setIsSubmittingFamily(true);
     try {
-      const res = await fetch('/api/v1/finance/family-payment', {
+      const res = await apiFetch('/api/v1/finance/family-payment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1613,7 +1614,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
 
     // Fetch backend distribution preview asynchronously in the background
     if (token) {
-      fetch('/api/v1/finance/distribute-preview', {
+      apiFetch('/api/v1/finance/distribute-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({ invoice_id: inv.id, amount: amountToPay })
@@ -1636,7 +1637,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
     if (!activeInvoice || !token) return;
     const numAmt = amt === '' ? 0 : amt;
     try {
-      const res = await fetch('/api/v1/finance/distribute-preview', {
+      const res = await apiFetch('/api/v1/finance/distribute-preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({ invoice_id: activeInvoice.id, amount: numAmt })
@@ -1677,7 +1678,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
     const currentAllocSum = currentItems.reduce((s, i) => s + Number(i.allocated_amount), 0);
     if (Math.abs(currentAllocSum - numCollectionAmount) > 0.05 && !isOverrideActive) {
       try {
-        const previewRes = await fetch('/api/v1/finance/distribute-preview', {
+        const previewRes = await apiFetch('/api/v1/finance/distribute-preview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
           body: JSON.stringify({ invoice_id: activeInvoice.id, amount: numCollectionAmount }),
@@ -1719,7 +1720,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
       // 1. Process head-wise counter concessions or quick discount if applied
       if (activeCounterEntries.length > 0) {
         for (const [headId, val] of activeCounterEntries) {
-          const discRes = await fetch('/api/v1/finance/discounts', {
+          const discRes = await apiFetch('/api/v1/finance/discounts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
             body: JSON.stringify({
@@ -1736,7 +1737,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
             throw new Error(discData.error?.message || 'Concession was not applied. Payment was not recorded.');
           }
         }
-        const previewRes = await fetch('/api/v1/finance/distribute-preview', {
+        const previewRes = await apiFetch('/api/v1/finance/distribute-preview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
           body: JSON.stringify({ invoice_id: activeInvoice.id, amount: numCollectionAmount }),
@@ -1748,7 +1749,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
         }
       } else if (quickDiscountAmount > 0) {
         const primaryHeadId = activeInvoice.items[0]?.fee_head_id;
-        const discRes = await fetch('/api/v1/finance/discounts', {
+        const discRes = await apiFetch('/api/v1/finance/discounts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -1764,7 +1765,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
         if (!discRes.ok || !discData.success) {
           throw new Error(discData.error?.message || 'Concession was not applied. Payment was not recorded.');
         }
-        const previewRes = await fetch('/api/v1/finance/distribute-preview', {
+        const previewRes = await apiFetch('/api/v1/finance/distribute-preview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
           body: JSON.stringify({ invoice_id: activeInvoice.id, amount: numCollectionAmount }),
@@ -1781,7 +1782,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
       }
 
       // 2. Commit payment with custom payment_date
-      const res = await fetch('/api/v1/finance/payments', {
+      const res = await apiFetch('/api/v1/finance/payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -1997,7 +1998,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
     setActiveInvoice(inv);
     try {
       if (token) {
-        const res = await fetch(`/api/v1/finance/payments?invoice_id=${inv.id}`, {
+        const res = await apiFetch(`/api/v1/finance/payments?invoice_id=${inv.id}`, {
           headers: { authorization: `Bearer ${token}` }
         });
         const data = await res.json();
@@ -2021,7 +2022,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
     if (!token || !cancelInvoiceTarget || !cancelInvoiceReason.trim()) return;
     setCancelSubmitting(true);
     try {
-      const res = await fetch(`/api/v1/finance/invoices/${cancelInvoiceTarget.id}/cancel`, {
+      const res = await apiFetch(`/api/v1/finance/invoices/${cancelInvoiceTarget.id}/cancel`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2061,7 +2062,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
 
     setIsSubmittingBulkRev(true);
     try {
-      const res = await fetch('/api/v1/finance/fees/bulk-increment', {
+      const res = await apiFetch('/api/v1/finance/fees/bulk-increment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2139,7 +2140,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
 
     try {
       if (editingHead) {
-        const res = await fetch(`/api/v1/finance/heads/${editingHead.id}`, {
+        const res = await apiFetch(`/api/v1/finance/heads/${editingHead.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -2159,7 +2160,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
           alert(data.error?.message || 'Failed to update fee head');
         }
       } else {
-        const res = await fetch('/api/v1/finance/heads', {
+        const res = await apiFetch('/api/v1/finance/heads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -2197,7 +2198,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
 
     setVoidSubmitting(true);
     try {
-      const res = await fetch(`/api/v1/finance/payments/${voidPaymentModal.id}/void`, {
+      const res = await apiFetch(`/api/v1/finance/payments/${voidPaymentModal.id}/void`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ reason: voidReasonText, void_reason: voidReasonText })
@@ -2230,7 +2231,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
     setFeeHeads(newHeads);
 
     try {
-      const res = await fetch('/api/v1/finance/priority-config', {
+      const res = await apiFetch('/api/v1/finance/priority-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ priority_order: newHeads.map(h => h.id) })
@@ -2256,7 +2257,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
     if (!confirm(`Are you sure you want to delete fee head "${head.name}"?`)) return;
 
     try {
-      const res = await fetch(`/api/v1/finance/heads/${headId}`, {
+      const res = await apiFetch(`/api/v1/finance/heads/${headId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -2286,7 +2287,7 @@ export const FeeDeskView: React.FC<FeeDeskViewProps> = ({ initialStudentId }) =>
     }
 
     try {
-      const res = await fetch('/api/v1/finance/discounts', {
+      const res = await apiFetch('/api/v1/finance/discounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({

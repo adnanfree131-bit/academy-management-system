@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -78,7 +79,7 @@ export const AcceptInvitationView: React.FC<AcceptInvitationViewProps> = ({
     setInspectError(null);
 
     try {
-      const res = await fetch(`/api/v1/auth/invitations/${encodeURIComponent(token)}/inspect`);
+      const res = await apiFetch(`/api/v1/auth/invitations/${encodeURIComponent(token)}/inspect`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -187,7 +188,7 @@ export const AcceptInvitationView: React.FC<AcceptInvitationViewProps> = ({
         throw new Error('Authentication required. Please sign in before accepting this invitation.');
       }
 
-      const res = await fetch('/api/v1/auth/invitations/accept', {
+      const res = await apiFetch('/api/v1/auth/invitations/accept', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

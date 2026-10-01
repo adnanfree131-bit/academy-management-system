@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -88,11 +89,11 @@ export const PayrollDeskView: React.FC = () => {
     try {
       const isoMonth = getIsoMonth(selectedMonth);
       const [profRes, payRes, attRes] = await Promise.all([
-        fetch('/api/v1/payroll/profiles', { headers: { authorization: `Bearer ${token}` } }),
-        fetch(`/api/v1/payroll/payslips?payroll_month=${encodeURIComponent(selectedMonth)}`, {
+        apiFetch('/api/v1/payroll/profiles', { headers: { authorization: `Bearer ${token}` } }),
+        apiFetch(`/api/v1/payroll/payslips?payroll_month=${encodeURIComponent(selectedMonth)}`, {
           headers: { authorization: `Bearer ${token}` }
         }),
-        fetch(`/api/v1/geofence/attendance/monthly-summary?month=${encodeURIComponent(isoMonth)}`, {
+        apiFetch(`/api/v1/geofence/attendance/monthly-summary?month=${encodeURIComponent(isoMonth)}`, {
           headers: { authorization: `Bearer ${token}` }
         }).catch(() => null),
       ]);
@@ -134,7 +135,7 @@ export const PayrollDeskView: React.FC = () => {
     }
     let cancelled = false;
     setAttPreviewError(null);
-    fetch(`/api/v1/payroll/attendance-preview?staff_id=${encodeURIComponent(selectedStaffId)}&payroll_month=${encodeURIComponent(selectedMonth)}`, {
+    apiFetch(`/api/v1/payroll/attendance-preview?staff_id=${encodeURIComponent(selectedStaffId)}&payroll_month=${encodeURIComponent(selectedMonth)}`, {
       headers: { authorization: `Bearer ${token}` }
     })
       .then(async r => {
@@ -237,7 +238,7 @@ export const PayrollDeskView: React.FC = () => {
     }
 
     try {
-      const res = await fetch('/api/v1/payroll/payslips/generate', {
+      const res = await apiFetch('/api/v1/payroll/payslips/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -269,7 +270,7 @@ export const PayrollDeskView: React.FC = () => {
     setDisburseError(null);
 
     try {
-      const res = await fetch(`/api/v1/payroll/payslips/${activePayslip.id}/pay`, {
+      const res = await apiFetch(`/api/v1/payroll/payslips/${activePayslip.id}/pay`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({

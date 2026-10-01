@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Menu, Search, ChevronDown, LogOut, Shield, Settings, Users, Bell, Calendar, Building2 } from 'lucide-react';
@@ -33,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
   // Fetch pending absentee count for notification bell dot
   useEffect(() => {
     if (!token || user?.role === 'super_admin' || user?.role === 'student' || user?.role === 'parent') return;
-    fetch('/api/v1/absentee/kpi', { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch('/api/v1/absentee/kpi', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(body => {
         const kpi = body.data || {};

@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect } from 'react';
 import {
   Calendar,
@@ -185,16 +186,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ onNavigate }) => {
         inqRes,
         examRes,
       ] = await Promise.all([
-        fetch('/api/v1/sis/students', { headers }).catch(() => null),
-        fetch('/api/v1/academic/batches', { headers }).catch(() => null),
-        fetch('/api/v1/academic/programs', { headers }).catch(() => null),
-        fetch('/api/v1/finance/invoices', { headers }).catch(() => null),
-        fetch(`/api/v1/attendance/students?date=${today}`, { headers }).catch(() => null),
-        fetch(`/api/v1/geofence/roster?date=${today}`, { headers }).catch(() => null),
-        fetch(`/api/v1/timetable?day=${campusDayOfWeek(today)}`, { headers }).catch(() => null),
-        fetch('/api/v1/homework', { headers }).catch(() => null),
-        fetch('/api/v1/sis/inquiries', { headers }).catch(() => null),
-        fetch('/api/v1/exams', { headers }).catch(() => null),
+        apiFetch('/api/v1/sis/students', { headers }).catch(() => null),
+        apiFetch('/api/v1/academic/batches', { headers }).catch(() => null),
+        apiFetch('/api/v1/academic/programs', { headers }).catch(() => null),
+        apiFetch('/api/v1/finance/invoices', { headers }).catch(() => null),
+        apiFetch(`/api/v1/attendance/students?date=${today}`, { headers }).catch(() => null),
+        apiFetch(`/api/v1/geofence/roster?date=${today}`, { headers }).catch(() => null),
+        apiFetch(`/api/v1/timetable?day=${campusDayOfWeek(today)}`, { headers }).catch(() => null),
+        apiFetch('/api/v1/homework', { headers }).catch(() => null),
+        apiFetch('/api/v1/sis/inquiries', { headers }).catch(() => null),
+        apiFetch('/api/v1/exams', { headers }).catch(() => null),
       ]);
 
       const json = async (res: Response | null) => (res && res.ok ? (await res.json()).data : null);

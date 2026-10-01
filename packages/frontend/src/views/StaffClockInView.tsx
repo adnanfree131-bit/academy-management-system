@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
@@ -436,7 +437,7 @@ export const StaffClockInView: React.FC = () => {
   const fetchGeofenceConfig = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch('/api/v1/geofence/config', {
+      const res = await apiFetch('/api/v1/geofence/config', {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -468,7 +469,7 @@ export const StaffClockInView: React.FC = () => {
   const fetchDailyRoster = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch(`/api/v1/geofence/attendance/roster?date=${selectedDate}`, {
+      const res = await apiFetch(`/api/v1/geofence/attendance/roster?date=${selectedDate}`, {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -483,7 +484,7 @@ export const StaffClockInView: React.FC = () => {
   const fetchMonthlySummary = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch(`/api/v1/geofence/attendance/monthly-summary?month=${selectedMonth}`, {
+      const res = await apiFetch(`/api/v1/geofence/attendance/monthly-summary?month=${selectedMonth}`, {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -498,7 +499,7 @@ export const StaffClockInView: React.FC = () => {
   const fetchAuditLogs = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch('/api/v1/geofence/attendance/audit-logs', {
+      const res = await apiFetch('/api/v1/geofence/attendance/audit-logs', {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -514,7 +515,7 @@ export const StaffClockInView: React.FC = () => {
     if (!token || !staffId) return;
     setLoadingPersonalHistory(true);
     try {
-      const res = await fetch(`/api/v1/geofence/attendance/staff`, {
+      const res = await apiFetch(`/api/v1/geofence/attendance/staff`, {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -544,7 +545,7 @@ export const StaffClockInView: React.FC = () => {
   const fetchSelfTodayAttendance = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch(`/api/v1/geofence/attendance/staff/me?date=${todayStr}`, {
+      const res = await apiFetch(`/api/v1/geofence/attendance/staff/me?date=${todayStr}`, {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -559,7 +560,7 @@ export const StaffClockInView: React.FC = () => {
   const fetchRegularizationRequests = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch('/api/v1/geofence/attendance/regularization-requests', {
+      const res = await apiFetch('/api/v1/geofence/attendance/regularization-requests', {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -575,7 +576,7 @@ export const StaffClockInView: React.FC = () => {
     if (!token) return;
     setLoadingFacultyRecords(true);
     try {
-      const res = await fetch('/api/v1/geofence/attendance/staff', {
+      const res = await apiFetch('/api/v1/geofence/attendance/staff', {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -731,7 +732,7 @@ export const StaffClockInView: React.FC = () => {
       const clockInIso = localTimeToIso(selectedDate, editClockIn);
       const clockOutIso = localTimeToIso(selectedDate, editClockOut);
 
-      const res = await fetch('/api/v1/geofence/attendance/staff/manual', {
+      const res = await apiFetch('/api/v1/geofence/attendance/staff/manual', {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -777,7 +778,7 @@ export const StaffClockInView: React.FC = () => {
     setSettingsFeedback(null);
 
     try {
-      const res = await fetch('/api/v1/geofence/config', {
+      const res = await apiFetch('/api/v1/geofence/config', {
         method: 'PUT',
         headers: {
           'content-type': 'application/json',
@@ -1166,7 +1167,7 @@ export const StaffClockInView: React.FC = () => {
             ? '/api/v1/geofence/attendance/staff/clock-in'
             : '/api/v1/geofence/attendance/staff/clock-out';
 
-          const res = await fetch(endpoint, {
+          const res = await apiFetch(endpoint, {
             method: 'POST',
             headers: {
               'content-type': 'application/json',
@@ -1227,7 +1228,7 @@ export const StaffClockInView: React.FC = () => {
       const clockInIso = regClockIn ? localTimeToIso(regDate, regClockIn) : undefined;
       const clockOutIso = regClockOut ? localTimeToIso(regDate, regClockOut) : undefined;
 
-      const res = await fetch('/api/v1/geofence/attendance/regularization-requests', {
+      const res = await apiFetch('/api/v1/geofence/attendance/regularization-requests', {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -1267,7 +1268,7 @@ export const StaffClockInView: React.FC = () => {
     if (!token) return;
     setIsReviewingRegId(requestId);
     try {
-      const res = await fetch(`/api/v1/geofence/attendance/regularization-requests/${requestId}/review`, {
+      const res = await apiFetch(`/api/v1/geofence/attendance/regularization-requests/${requestId}/review`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -1705,7 +1706,7 @@ export const StaffClockInView: React.FC = () => {
         targetRecords = staffPersonalRecords;
         if (token) {
           try {
-            const res = await fetch('/api/v1/geofence/attendance/staff', {
+            const res = await apiFetch('/api/v1/geofence/attendance/staff', {
               headers: { authorization: `Bearer ${token}` }
             });
             const body = await res.json();
@@ -1757,7 +1758,7 @@ export const StaffClockInView: React.FC = () => {
         targetRecords = staffPersonalRecords;
         if (token) {
           try {
-            const res = await fetch('/api/v1/geofence/attendance/staff', {
+            const res = await apiFetch('/api/v1/geofence/attendance/staff', {
               headers: { authorization: `Bearer ${token}` }
             });
             const body = await res.json();

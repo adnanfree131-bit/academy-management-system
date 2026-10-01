@@ -163,7 +163,7 @@ describe('Phase 5 Rendered Component Flows: C01-C03, B04, B05, B07', () => {
       }
 
       if (url.includes('/invitations/inv-token-abc/accept') || url.includes('/invitations/accept')) {
-        interceptedAuthHeader = init?.headers?.Authorization || init?.headers?.authorization || null;
+        interceptedAuthHeader = new Headers(init?.headers).get('Authorization');
         acceptedUrl = url;
         return new Response(
           JSON.stringify({
@@ -232,7 +232,7 @@ describe('Phase 5 Rendered Component Flows: C01-C03, B04, B05, B07', () => {
       }
 
       if (url.includes('/accept')) {
-        interceptedAuthHeader = init?.headers?.Authorization || init?.headers?.authorization || null;
+        interceptedAuthHeader = new Headers(init?.headers).get('Authorization');
         acceptedUrl = url;
         return new Response(
           JSON.stringify({

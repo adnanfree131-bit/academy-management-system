@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -65,9 +66,9 @@ export const StudentIDCardDesk: React.FC<StudentIDCardDeskProps> = ({
     const headers = { Authorization: `Bearer ${token}` };
 
     Promise.all([
-      fetch('/api/v1/sis/students', { headers }).then(r => r.json()),
-      fetch('/api/v1/academic/batches', { headers }).then(r => r.json()),
-      fetch('/api/v1/academic/programs', { headers }).then(r => r.json()),
+      apiFetch('/api/v1/sis/students', { headers }).then(r => r.json()),
+      apiFetch('/api/v1/academic/batches', { headers }).then(r => r.json()),
+      apiFetch('/api/v1/academic/programs', { headers }).then(r => r.json()),
     ])
       .then(([sData, bData, pData]) => {
         if (!isMounted) return;

@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -173,9 +174,9 @@ export const IncomeExpenseDeskView: React.FC = () => {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const [headsRes, txRes, plRes] = await Promise.all([
-        fetch('/api/v1/finance/account-heads', { headers }),
-        fetch('/api/v1/finance/transactions', { headers }),
-        fetch(`/api/v1/finance/reports/profit-loss?month=${selectedMonth}`, { headers }),
+        apiFetch('/api/v1/finance/account-heads', { headers }),
+        apiFetch('/api/v1/finance/transactions', { headers }),
+        apiFetch(`/api/v1/finance/reports/profit-loss?month=${selectedMonth}`, { headers }),
       ]);
 
       if (!headsRes.ok || !txRes.ok || !plRes.ok) {
@@ -220,7 +221,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
 
     setIsSubmittingVoucher(true);
     try {
-      const res = await fetch('/api/v1/finance/transactions', {
+      const res = await apiFetch('/api/v1/finance/transactions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -267,7 +268,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
 
     setIsSubmittingHead(true);
     try {
-      const res = await fetch('/api/v1/finance/account-heads', {
+      const res = await apiFetch('/api/v1/finance/account-heads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -300,7 +301,7 @@ export const IncomeExpenseDeskView: React.FC = () => {
     if (!confirm(`Are you sure you want to delete Account Head "${name}"?`)) return;
     setDeskActionError(null);
     try {
-      const res = await fetch(`/api/v1/finance/account-heads/${id}`, {
+      const res = await apiFetch(`/api/v1/finance/account-heads/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

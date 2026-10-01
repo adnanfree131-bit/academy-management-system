@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { PlatformAnnouncement } from '@apex/shared-types';
@@ -16,7 +17,7 @@ export const AnnouncementPopupModal: React.FC = () => {
     let isMounted = true;
     const checkActivePopup = async () => {
       try {
-        const res = await fetch(`/api/v1/saas/tenant/active-popup?tenant_id=${encodeURIComponent(user.tenant_id)}&user_id=${encodeURIComponent(user.id)}`, {
+        const res = await apiFetch(`/api/v1/saas/tenant/active-popup?tenant_id=${encodeURIComponent(user.tenant_id)}&user_id=${encodeURIComponent(user.id)}`, {
           headers: {
             authorization: `Bearer ${token}`
           }
@@ -43,7 +44,7 @@ export const AnnouncementPopupModal: React.FC = () => {
     if (!announcement || !user?.tenant_id) return;
     setDismissing(true);
     try {
-      const res = await fetch(`/api/v1/saas/tenant/announcements/${announcement.id}/dismiss`, {
+      const res = await apiFetch(`/api/v1/saas/tenant/announcements/${announcement.id}/dismiss`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

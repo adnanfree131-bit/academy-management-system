@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -139,10 +140,10 @@ export const AcademySettingsView: React.FC = () => {
     if (!token) return;
     try {
       const [srcRes, tgtRes] = await Promise.all([
-        fetch(`/api/v1/academic/batches?academic_session=${encodeURIComponent(sourceSess)}`, {
+        apiFetch(`/api/v1/academic/batches?academic_session=${encodeURIComponent(sourceSess)}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`/api/v1/academic/batches?academic_session=${encodeURIComponent(targetSess)}`, {
+        apiFetch(`/api/v1/academic/batches?academic_session=${encodeURIComponent(targetSess)}`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -179,7 +180,7 @@ export const AcademySettingsView: React.FC = () => {
     setNextSessionError(null);
 
     try {
-      const res = await fetch('/api/v1/academic/sessions/copy-classes', {
+      const res = await apiFetch('/api/v1/academic/sessions/copy-classes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -223,7 +224,7 @@ export const AcademySettingsView: React.FC = () => {
     }));
 
     try {
-      const res = await fetch('/api/v1/academic/sessions/move-students', {
+      const res = await apiFetch('/api/v1/academic/sessions/move-students', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -263,7 +264,7 @@ export const AcademySettingsView: React.FC = () => {
         is_active: s.name === targetSessionName,
       }));
 
-      const res = await fetch('/api/v1/saas/settings', {
+      const res = await apiFetch('/api/v1/saas/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -276,7 +277,7 @@ export const AcademySettingsView: React.FC = () => {
       });
 
       if (res.ok) {
-        await fetch('/api/v1/academic/working-session', {
+        await apiFetch('/api/v1/academic/working-session', {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -374,7 +375,7 @@ export const AcademySettingsView: React.FC = () => {
     if (!token) return;
     setIsLoading(true);
     try {
-      const res = await fetch('/api/v1/academic/academy-settings', {
+      const res = await apiFetch('/api/v1/academic/academy-settings', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -444,7 +445,7 @@ export const AcademySettingsView: React.FC = () => {
         }
       }
 
-      fetch('/api/v1/academic/batches', {
+      apiFetch('/api/v1/academic/batches', {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then(r => r.json())
@@ -455,7 +456,7 @@ export const AcademySettingsView: React.FC = () => {
         })
         .catch(() => {});
 
-      const headsRes = await fetch('/api/v1/finance/heads', {
+      const headsRes = await apiFetch('/api/v1/finance/heads', {
         headers: { Authorization: `Bearer ${token}` },
       });
       const headsBody = await headsRes.json().catch(() => ({}));
@@ -536,7 +537,7 @@ export const AcademySettingsView: React.FC = () => {
 
   const refreshFeeHeads = async () => {
     if (!token) return;
-    const headsRes = await fetch('/api/v1/finance/heads', { headers: { Authorization: `Bearer ${token}` } });
+    const headsRes = await apiFetch('/api/v1/finance/heads', { headers: { Authorization: `Bearer ${token}` } });
     const headsBody = await headsRes.json().catch(() => ({}));
     const heads = (headsBody.data || []).map((h: any) => ({
       id: String(h.id || ''),
@@ -556,7 +557,7 @@ export const AcademySettingsView: React.FC = () => {
   const handleAddFeeHead = async () => {
     if (!token || !newHeadName.trim()) return;
     const code = newHeadName.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').slice(0, 16);
-    const res = await fetch('/api/v1/finance/heads', {
+    const res = await apiFetch('/api/v1/finance/heads', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newHeadName.trim(), code, default_amount: 0, priority_order: feeHeads.length + 1 }),
@@ -569,7 +570,7 @@ export const AcademySettingsView: React.FC = () => {
 
   const handleSaveHeadName = async (id: string) => {
     if (!token || !editingHeadName.trim()) return;
-    await fetch(`/api/v1/finance/heads/${id}`, {
+    await apiFetch(`/api/v1/finance/heads/${id}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: editingHeadName.trim() }),
@@ -580,7 +581,7 @@ export const AcademySettingsView: React.FC = () => {
 
   const handleDeleteFeeHead = async (id: string) => {
     if (!token) return;
-    await fetch(`/api/v1/finance/heads/${id}`, {
+    await apiFetch(`/api/v1/finance/heads/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -592,7 +593,7 @@ export const AcademySettingsView: React.FC = () => {
     setIsReconcilingDomain(true);
     setDomainReconcileMessage(null);
     try {
-      const res = await fetch('/api/v1/auth/reconcile-domain', {
+      const res = await apiFetch('/api/v1/auth/reconcile-domain', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -684,7 +685,7 @@ export const AcademySettingsView: React.FC = () => {
     };
 
     try {
-      const res = await fetch('/api/v1/academic/academy-settings', {
+      const res = await apiFetch('/api/v1/academic/academy-settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
@@ -109,7 +110,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     if (!token) return;
     setIsArchivingStudent(true);
     try {
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/archive`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}/archive`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,7 +141,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     if (!token) return;
     setIsArchivingStudent(true);
     try {
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/unarchive`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}/unarchive`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -170,7 +171,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setIsDeletingStudent(true);
     setDeleteModalError(null);
     try {
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -211,7 +212,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setResetErrorMsg(null);
 
     try {
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/reset-password`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}/reset-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -279,7 +280,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setStatusErrorMsg(null);
 
     try {
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/status`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}/status`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -387,7 +388,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
     setUpdatingDocCode(headCode);
     try {
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -438,7 +439,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     if (!token) return;
     setLoadingAuditLogs(true);
     try {
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/audit-logs`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}/audit-logs`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -521,7 +522,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
     setIsSavingParticulars(true);
     try {
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -681,7 +682,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setEditSubjectsError(null);
 
     try {
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -719,7 +720,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     if (!token || !currentStudent.id) return;
     setIsLoadingFinance(true);
     try {
-      const res = await fetch(`/api/v1/finance/invoices?student_id=${currentStudent.id}`, {
+      const res = await apiFetch(`/api/v1/finance/invoices?student_id=${currentStudent.id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -788,7 +789,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     if (!token || !currentStudent.id) return;
     setIsLoadingEnrollments(true);
     try {
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/enrollments`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}/enrollments`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -825,7 +826,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const handleMakePrimary = async (enrollmentId: string) => {
     if (!token || !currentStudent.id) return;
     try {
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/enrollments/${enrollmentId}/make-primary`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}/enrollments/${enrollmentId}/make-primary`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -861,7 +862,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     setLeaveClassError(null);
     const effectiveReason = leaveClassReason.trim() || 'Left class';
     try {
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/enrollments/${leaveClassEnrollment.id}/status`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}/enrollments/${leaveClassEnrollment.id}/status`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -934,7 +935,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
         };
       }
 
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/enrollments/${transferEnrollment.id}`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}/enrollments/${transferEnrollment.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -957,7 +958,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           fetchEnrollments(),
           fetchInvoices(),
         ]);
-        const sRes = await fetch(`/api/v1/sis/students/${currentStudent.id}`, {
+        const sRes = await apiFetch(`/api/v1/sis/students/${currentStudent.id}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const sData = await sRes.json();
@@ -1047,7 +1048,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       if (addClassElectiveGroupId) {
         payload.elective_group_id = addClassElectiveGroupId;
       }
-      const res = await fetch(`/api/v1/sis/students/${currentStudent.id}/enrollments`, {
+      const res = await apiFetch(`/api/v1/sis/students/${currentStudent.id}/enrollments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1121,7 +1122,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     if (!token || !currentStudent.id) return;
     setIsLoadingAttendance(true);
     const headers = { Authorization: `Bearer ${token}` };
-    fetch(`/api/v1/attendance/attendance/students?student_id=${currentStudent.id}`, { headers })
+    apiFetch(`/api/v1/attendance/attendance/students?student_id=${currentStudent.id}`, { headers })
       .then(r => r.json())
       .then(body => {
         if (body.success && Array.isArray(body.data)) {
@@ -1170,7 +1171,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   useEffect(() => {
     if (!token || !currentStudent.id) return;
     const headers = { Authorization: `Bearer ${token}` };
-    fetch(`/api/v1/sis/students/${currentStudent.id}/academic-summary`, { headers })
+    apiFetch(`/api/v1/sis/students/${currentStudent.id}/academic-summary`, { headers })
       .then(r => r.json())
       .then(body => {
         if (body.success && body.data) {

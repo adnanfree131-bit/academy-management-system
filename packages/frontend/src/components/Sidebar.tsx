@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AcademyLogo } from './AcademyLogo';
@@ -51,7 +52,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   useEffect(() => {
     if (!token || role === 'super_admin') return;
-    fetch('/api/v1/absentee/kpi', { headers: { Authorization: `Bearer ${token}` } })
+    apiFetch('/api/v1/absentee/kpi', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(body => {
         const kpi = body.data || {};

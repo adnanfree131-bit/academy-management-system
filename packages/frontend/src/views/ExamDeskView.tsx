@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -148,13 +149,13 @@ export const ExamDeskView: React.FC = () => {
       const headers = { authorization: `Bearer ${token}` };
 
       const [examsRes, chapRes, qRes, batchRes, subRes, progRes, studRes] = await Promise.all([
-        fetch('/api/v1/exams', { headers }),
-        fetch('/api/v1/exams/chapters', { headers }),
-        fetch('/api/v1/exams/questions', { headers }),
-        fetch('/api/v1/academic/batches', { headers }),
-        fetch('/api/v1/academic/subjects', { headers }),
-        fetch('/api/v1/academic/programs', { headers }),
-        fetch('/api/v1/sis/students', { headers }),
+        apiFetch('/api/v1/exams', { headers }),
+        apiFetch('/api/v1/exams/chapters', { headers }),
+        apiFetch('/api/v1/exams/questions', { headers }),
+        apiFetch('/api/v1/academic/batches', { headers }),
+        apiFetch('/api/v1/academic/subjects', { headers }),
+        apiFetch('/api/v1/academic/programs', { headers }),
+        apiFetch('/api/v1/sis/students', { headers }),
       ]);
 
       if (examsRes.ok) {
@@ -220,7 +221,7 @@ export const ExamDeskView: React.FC = () => {
     setExamEvaluations([]);
     const fetchEvals = async () => {
       try {
-        const res = await fetch(`/api/v1/exams/${evalSelectedExamId}/evaluations`, {
+        const res = await apiFetch(`/api/v1/exams/${evalSelectedExamId}/evaluations`, {
           headers: { authorization: `Bearer ${token}` }
         });
         if (res.ok) {
@@ -323,7 +324,7 @@ export const ExamDeskView: React.FC = () => {
     setEvalSaveSuccess('');
 
     try {
-      const res = await fetch(`/api/v1/exams/${evalSelectedExamId}/evaluate`, {
+      const res = await apiFetch(`/api/v1/exams/${evalSelectedExamId}/evaluate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -346,7 +347,7 @@ export const ExamDeskView: React.FC = () => {
         setEvalError('');
         fetchData();
         // Refresh evaluations list
-        const evRes = await fetch(`/api/v1/exams/${evalSelectedExamId}/evaluations`, {
+        const evRes = await apiFetch(`/api/v1/exams/${evalSelectedExamId}/evaluations`, {
           headers: { authorization: `Bearer ${token}` }
         });
         if (evRes.ok) {
@@ -372,7 +373,7 @@ export const ExamDeskView: React.FC = () => {
     const mcqTotal = newExamMcqCount * newExamMcqMarksPerQ;
 
     try {
-      const res = await fetch('/api/v1/exams', {
+      const res = await apiFetch('/api/v1/exams', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -427,7 +428,7 @@ export const ExamDeskView: React.FC = () => {
     }
 
     try {
-      const res = await fetch('/api/v1/exams/questions', {
+      const res = await apiFetch('/api/v1/exams/questions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -548,7 +549,7 @@ export const ExamDeskView: React.FC = () => {
 
     setExcelImportError(null);
     try {
-      const res = await fetch('/api/v1/exams/questions/import-excel', {
+      const res = await apiFetch('/api/v1/exams/questions/import-excel', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -591,7 +592,7 @@ export const ExamDeskView: React.FC = () => {
   const handleOpenReportCard = async (examId: string, studentId: string) => {
     if (!token) return;
     try {
-      const res = await fetch(`/api/v1/exams/${examId}/report-card/${studentId}`, {
+      const res = await apiFetch(`/api/v1/exams/${examId}/report-card/${studentId}`, {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {

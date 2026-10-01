@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import ExcelJS from 'exceljs';
@@ -537,7 +538,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       const existing = (tenant?.settings?.document_checklist_heads || docHeads || []) as DocumentChecklistHead[];
       const updatedHeads = [...existing, newHead];
 
-      const res = await fetch('/api/v1/academic/academy-settings', {
+      const res = await apiFetch('/api/v1/academic/academy-settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -574,7 +575,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     try {
       const existing = (tenant?.settings?.document_checklist_heads || docHeads || []) as DocumentChecklistHead[];
       const updatedHeads = existing.filter(h => h.code !== code);
-      const res = await fetch('/api/v1/academic/academy-settings', {
+      const res = await apiFetch('/api/v1/academic/academy-settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -616,7 +617,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       const toAdd = standardHeads.filter(h => !existingTitles.has((h.title || '').toLowerCase()));
       const updatedHeads = [...existing, ...toAdd];
 
-      const res = await fetch('/api/v1/academic/academy-settings', {
+      const res = await apiFetch('/api/v1/academic/academy-settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -676,7 +677,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
-        const res = await fetch(url, { headers, signal: controller.signal });
+        const res = await apiFetch(url, { headers, signal: controller.signal });
         clearTimeout(timeoutId);
         if (!res.ok) return null;
         return await res.json();
@@ -1141,7 +1142,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       const ids = Array.from(selectedInquiryIds);
       await Promise.all(
         ids.map(id =>
-          fetch(`/api/v1/sis/inquiries/${id}/follow-ups`, {
+          apiFetch(`/api/v1/sis/inquiries/${id}/follow-ups`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({
@@ -1178,7 +1179,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       const ids = Array.from(selectedInquiryIds);
       await Promise.all(
         ids.map(id =>
-          fetch(`/api/v1/sis/inquiries/${id}/stage`, {
+          apiFetch(`/api/v1/sis/inquiries/${id}/stage`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             body: JSON.stringify({
@@ -1210,7 +1211,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     d.setDate(d.getDate() + 1);
     const nextDate = d.toISOString().substring(0, 10);
     try {
-      const res = await fetch(`/api/v1/sis/inquiries/${inq.id}/follow-ups`, {
+      const res = await apiFetch(`/api/v1/sis/inquiries/${inq.id}/follow-ups`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -1250,7 +1251,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         quickFollowUpOutcome === 'no_answer' ? 'No Answer / Phone Switched Off' :
         quickFollowUpOutcome === 'dropped' ? 'Not Interested / Dropped' : quickFollowUpOutcome;
 
-      const res = await fetch(`/api/v1/sis/inquiries/${inquiryQuickFollowUpModal.id}/follow-ups`, {
+      const res = await apiFetch(`/api/v1/sis/inquiries/${inquiryQuickFollowUpModal.id}/follow-ups`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1295,7 +1296,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     }
 
     try {
-      const res = await fetch(`/api/v1/sis/inquiries/${inquiryId}/stage`, {
+      const res = await apiFetch(`/api/v1/sis/inquiries/${inquiryId}/stage`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -1337,7 +1338,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       const netTuition = Math.max(0, tuition - concession);
       const firstMonthTotal = netTuition + admissionFee;
 
-      const res = await fetch(`/api/v1/sis/inquiries/${admitInquiryModal.id}/admit`, {
+      const res = await apiFetch(`/api/v1/sis/inquiries/${admitInquiryModal.id}/admit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1952,7 +1953,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         return rest;
       });
 
-      const res = await fetch('/api/v1/sis/students/bulk-import', {
+      const res = await apiFetch('/api/v1/sis/students/bulk-import', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2052,7 +2053,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         },
       };
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -2087,7 +2088,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     if (!activeTimelineInquiry || !newFollowUpNote.trim()) return;
     setIsSubmittingFollowUp(true);
     try {
-      const res = await fetch(`/api/v1/sis/inquiries/${activeTimelineInquiry.id}/follow-ups`, {
+      const res = await apiFetch(`/api/v1/sis/inquiries/${activeTimelineInquiry.id}/follow-ups`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2120,7 +2121,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const handleConfirmCloseInquiry = async () => {
     if (!closeInquiryModal) return;
     try {
-      const res = await fetch(`/api/v1/sis/inquiries/${closeInquiryModal.id}/stage`, {
+      const res = await apiFetch(`/api/v1/sis/inquiries/${closeInquiryModal.id}/stage`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -2150,7 +2151,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const handleDeleteInquiry = async () => {
     if (!inquiryToDelete) return;
     try {
-      const res = await fetch(`/api/v1/sis/inquiries/${inquiryToDelete.id}`, {
+      const res = await apiFetch(`/api/v1/sis/inquiries/${inquiryToDelete.id}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -2174,7 +2175,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     if (!studentToArchive || !token) return;
     setIsArchiving(true);
     try {
-      const res = await fetch(`/api/v1/sis/students/${studentToArchive.id}/archive`, {
+      const res = await apiFetch(`/api/v1/sis/students/${studentToArchive.id}/archive`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2213,7 +2214,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   const handleUnarchiveStudent = async (student: Student) => {
     if (!token) return;
     try {
-      const res = await fetch(`/api/v1/sis/students/${student.id}/unarchive`, {
+      const res = await apiFetch(`/api/v1/sis/students/${student.id}/unarchive`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2250,7 +2251,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     setIsDeleting(true);
     setDeleteErrorMessage(null);
     try {
-      const res = await fetch(`/api/v1/sis/students/${studentToDelete.id}`, {
+      const res = await apiFetch(`/api/v1/sis/students/${studentToDelete.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -2287,7 +2288,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     if (selectedDirectoryStudentIds.size === 0 || !token) return;
     setIsBulkOperating(true);
     try {
-      const res = await fetch('/api/v1/sis/students/bulk-archive', {
+      const res = await apiFetch('/api/v1/sis/students/bulk-archive', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2329,7 +2330,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     if (selectedDirectoryStudentIds.size === 0 || !token) return;
     setIsBulkOperating(true);
     try {
-      const res = await fetch('/api/v1/sis/students/bulk-delete', {
+      const res = await apiFetch('/api/v1/sis/students/bulk-delete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2615,7 +2616,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     const subjectIds = selectedEnrollSubjectIds.length > 0 ? selectedEnrollSubjectIds : defaultIds;
 
     try {
-      const res = await fetch('/api/v1/sis/students', {
+      const res = await apiFetch('/api/v1/sis/students', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -2717,7 +2718,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         // Apply desk discount to the first invoice if requested
         if (collectInitialPayment && result.data.first_invoice_id && deskDiscountVal > 0) {
           try {
-            await fetch('/api/v1/finance/discounts', {
+            await apiFetch('/api/v1/finance/discounts', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -2744,7 +2745,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
         // Collect initial payment if requested and invoice exists
         if (collectInitialPayment && result.data.first_invoice_id && payAmt > 0) {
           try {
-            const payRes = await fetch('/api/v1/finance/payments', {
+            const payRes = await apiFetch('/api/v1/finance/payments', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -2920,7 +2921,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
     try {
       let inv: any = null;
       if (student.first_invoice_id) {
-        const invRes = await fetch(`/api/v1/finance/invoices/${student.first_invoice_id}`, {
+        const invRes = await apiFetch(`/api/v1/finance/invoices/${student.first_invoice_id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         const invJson = await invRes.json();

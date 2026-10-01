@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -187,13 +188,13 @@ export const FeeChallansView: React.FC = () => {
     setIsLoading(true);
     try {
       const [invRes, studRes, progRes, batchRes, structRes, settRes, headsRes] = await Promise.all([
-        fetch('/api/v1/finance/invoices', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/sis/students', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/academic/programs', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/academic/batches', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/finance/structures', { headers: { authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/academic/academy-settings', { headers: { authorization: `Bearer ${token}` } }).catch(() => null),
-        fetch('/api/v1/finance/heads', { headers: { authorization: `Bearer ${token}` } }).catch(() => null),
+        apiFetch('/api/v1/finance/invoices', { headers: { authorization: `Bearer ${token}` } }),
+        apiFetch('/api/v1/sis/students', { headers: { authorization: `Bearer ${token}` } }),
+        apiFetch('/api/v1/academic/programs', { headers: { authorization: `Bearer ${token}` } }),
+        apiFetch('/api/v1/academic/batches', { headers: { authorization: `Bearer ${token}` } }),
+        apiFetch('/api/v1/finance/structures', { headers: { authorization: `Bearer ${token}` } }),
+        apiFetch('/api/v1/academic/academy-settings', { headers: { authorization: `Bearer ${token}` } }).catch(() => null),
+        apiFetch('/api/v1/finance/heads', { headers: { authorization: `Bearer ${token}` } }).catch(() => null),
       ]);
 
       if (invRes.ok) setInvoices((await invRes.json()).data || []);
@@ -331,7 +332,7 @@ export const FeeChallansView: React.FC = () => {
     setGenErrorMessage(null);
 
     try {
-      const res = await fetch('/api/v1/finance/invoices/generate', {
+      const res = await apiFetch('/api/v1/finance/invoices/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -389,7 +390,7 @@ export const FeeChallansView: React.FC = () => {
         additional_heads: validHeads.length > 0 ? validHeads : undefined,
       };
 
-      const res = await fetch('/api/v1/finance/invoices/generate-batch', {
+      const res = await apiFetch('/api/v1/finance/invoices/generate-batch', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -439,7 +440,7 @@ export const FeeChallansView: React.FC = () => {
     if (!token || !editingInvoice) return;
     setIsSavingEdit(true);
     try {
-      const res = await fetch(`/api/v1/finance/invoices/${editingInvoice.id}`, {
+      const res = await apiFetch(`/api/v1/finance/invoices/${editingInvoice.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -469,7 +470,7 @@ export const FeeChallansView: React.FC = () => {
     if (!token || !deletingInvoice) return;
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/v1/finance/invoices/${deletingInvoice.id}`, {
+      const res = await apiFetch(`/api/v1/finance/invoices/${deletingInvoice.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

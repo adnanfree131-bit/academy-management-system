@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { TenantTrialStatus } from '@apex/shared-types';
@@ -35,7 +36,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
   const fetchTrialStatus = async () => {
     if (!tenant?.id) return;
     try {
-      const res = await fetch(`/api/v1/saas/trial-status?tenant_id=${tenant.id}`, {
+      const res = await apiFetch(`/api/v1/saas/trial-status?tenant_id=${tenant.id}`, {
         headers: token ? { authorization: `Bearer ${token}` } : {}
       });
       if (res.ok) {
@@ -67,7 +68,7 @@ export const TrialExpiredLockoutModal: React.FC<LockoutModalProps> = ({ onUnlock
     setSubmitting(true);
 
     try {
-      const res = await fetch('/api/v1/saas/receipts', {
+      const res = await apiFetch('/api/v1/saas/receipts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

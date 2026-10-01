@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { academyLetterheadFromAuth, buildSimpleStatementPdf, downloadPdfBytes } from '../lib/officialDocumentPdf';
@@ -147,9 +148,9 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
     try {
       const [progRes, bRes, lRes] = await Promise.all([
-        fetch('/api/v1/academic/programs', { headers }),
-        fetch('/api/v1/academic/batches', { headers }),
-        fetch('/api/v1/attendance/leaves', { headers }),
+        apiFetch('/api/v1/academic/programs', { headers }),
+        apiFetch('/api/v1/academic/batches', { headers }),
+        apiFetch('/api/v1/attendance/leaves', { headers }),
       ]);
 
       const [progData, bData, lData] = await Promise.all([progRes.json(), bRes.json(), lRes.json()]);
@@ -219,8 +220,8 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
     try {
       const [studRes, attRes] = await Promise.all([
-        fetch(`/api/v1/sis/students?batch_id=${selectedBatchId}`, { headers }),
-        fetch(`/api/v1/attendance/students?batch_id=${selectedBatchId}&date=${selectedDate}`, { headers }),
+        apiFetch(`/api/v1/sis/students?batch_id=${selectedBatchId}`, { headers }),
+        apiFetch(`/api/v1/attendance/students?batch_id=${selectedBatchId}&date=${selectedDate}`, { headers }),
       ]);
 
       if (!studRes.ok || !attRes.ok) {
@@ -284,7 +285,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
     const headers = { Authorization: `Bearer ${token}` };
 
     try {
-      const res = await fetch(`/api/v1/attendance/students?batch_id=${selectedBatchId}&month=${selectedMonth}`, { headers });
+      const res = await apiFetch(`/api/v1/attendance/students?batch_id=${selectedBatchId}&month=${selectedMonth}`, { headers });
       const data = await res.json();
       if (data.success) {
         setMonthlyRecords(data.data || []);
@@ -434,7 +435,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
     };
 
     try {
-      const res = await fetch('/api/v1/attendance/students/batch', {
+      const res = await apiFetch('/api/v1/attendance/students/batch', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -466,7 +467,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
     setIsSubmittingLeave(true);
     try {
-      const res = await fetch('/api/v1/attendance/leaves', {
+      const res = await apiFetch('/api/v1/attendance/leaves', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -501,7 +502,7 @@ export const AttendanceDeskView: React.FC<AttendanceDeskViewProps> = ({ onNaviga
 
     setIsReviewing(true);
     try {
-      const res = await fetch(`/api/v1/attendance/leaves/${reviewingLeave.id}/review`, {
+      const res = await apiFetch(`/api/v1/attendance/leaves/${reviewingLeave.id}/review`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -245,7 +246,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
       if (targetEnrId) params.append('enrollment_id', targetEnrId);
       const queryStr = params.toString();
       const url = queryStr ? `/api/v1/portal/student-parent?${queryStr}` : '/api/v1/portal/student-parent';
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         headers: { authorization: `Bearer ${token}` }
       });
       const body = await res.json().catch(() => null);
@@ -283,7 +284,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
     setIsSubmittingLeave(true);
     setLeaveSuccessMsg(null);
     try {
-      const res = await fetch('/api/v1/attendance/leaves', {
+      const res = await apiFetch('/api/v1/attendance/leaves', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

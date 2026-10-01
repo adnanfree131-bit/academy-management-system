@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -136,7 +137,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
   const fetchOverview = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/v1/saas/superadmin/overview', {
+      const res = await apiFetch('/api/v1/saas/superadmin/overview', {
         headers: {
           ...(token ? { authorization: `Bearer ${token}` } : {})
         }
@@ -183,7 +184,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
 
   const fetchAnnouncements = async () => {
     try {
-      const res = await fetch('/api/v1/saas/announcements?include_inactive=true', {
+      const res = await apiFetch('/api/v1/saas/announcements?include_inactive=true', {
         headers: {
           ...(token ? { authorization: `Bearer ${token}` } : {})
         }
@@ -200,7 +201,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
   const fetchBackups = async () => {
     setBackupsLoading(true);
     try {
-      const res = await fetch('/api/v1/saas/backups', {
+      const res = await apiFetch('/api/v1/saas/backups', {
         headers: token ? { authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
@@ -216,7 +217,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
 
   const handleDownloadBackup = async () => {
     try {
-      const res = await fetch('/api/v1/saas/backups/export', {
+      const res = await apiFetch('/api/v1/saas/backups/export', {
         headers: token ? { authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error('Download failed');
@@ -243,7 +244,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
     if (typed !== 'RESTORE') return;
     try {
       const parsed = JSON.parse(await file.text());
-      const res = await fetch('/api/v1/saas/backups/import', {
+      const res = await apiFetch('/api/v1/saas/backups/import', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -264,7 +265,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
 
   const handleCreateBackup = async () => {
     try {
-      const res = await fetch('/api/v1/saas/backups', {
+      const res = await apiFetch('/api/v1/saas/backups', {
         method: 'POST',
         headers: token ? { authorization: `Bearer ${token}` } : {},
       });
@@ -286,7 +287,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
     );
     if (typed !== 'RESTORE') return;
     try {
-      const res = await fetch(`/api/v1/saas/backups/${id}/restore`, {
+      const res = await apiFetch(`/api/v1/saas/backups/${id}/restore`, {
         method: 'POST',
         headers: token ? { authorization: `Bearer ${token}` } : {},
       });
@@ -328,7 +329,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
         individual_grace_period_days: Number(dossierGracePeriod)
       };
 
-      const res = await fetch(`/api/v1/saas/tenants/${selectedTenantForDossier.id}/billing`, {
+      const res = await apiFetch(`/api/v1/saas/tenants/${selectedTenantForDossier.id}/billing`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -356,7 +357,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
   const handleOneClickExtendOneMonth = async (tenant: SuperAdminTenantSummary) => {
     try {
       const rate = tenant.custom_monthly_fee ?? (overview?.banking_config?.monthly_subscription_fee || 15000);
-      const res = await fetch(`/api/v1/saas/tenants/${tenant.id}/renew`, {
+      const res = await apiFetch(`/api/v1/saas/tenants/${tenant.id}/renew`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -420,7 +421,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
         notes: advanceNotes.trim() || undefined
       };
 
-      const res = await fetch(`/api/v1/saas/tenants/${selectedTenantForAdvance.id}/renew`, {
+      const res = await apiFetch(`/api/v1/saas/tenants/${selectedTenantForAdvance.id}/renew`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -455,7 +456,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
     if (!window.confirm(confirmPrompt)) return;
 
     try {
-      const res = await fetch(`/api/v1/saas/tenants/${tenant.id}/archive`, {
+      const res = await apiFetch(`/api/v1/saas/tenants/${tenant.id}/archive`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -496,7 +497,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
     setPurgingTenant(true);
     setActionErrorMsg('');
     try {
-      const res = await fetch(`/api/v1/saas/tenants/${selectedTenantForHardDelete.id}/purge`, {
+      const res = await apiFetch(`/api/v1/saas/tenants/${selectedTenantForHardDelete.id}/purge`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -538,7 +539,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
     setRenameLoading(true);
     setActionErrorMsg('');
     try {
-      const res = await fetch(`/api/v1/saas/tenants/${selectedTenantForRename.id}/subdomain`, {
+      const res = await apiFetch(`/api/v1/saas/tenants/${selectedTenantForRename.id}/subdomain`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -576,7 +577,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
     setSuspendLoading(true);
     setActionErrorMsg('');
     try {
-      const res = await fetch(`/api/v1/saas/tenants/${selectedTenantForSuspend.id}/suspend`, {
+      const res = await apiFetch(`/api/v1/saas/tenants/${selectedTenantForSuspend.id}/suspend`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -604,7 +605,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
   // Reinstate Academy
   const handleReinstate = async (tenant: SuperAdminTenantSummary) => {
     try {
-      const res = await fetch(`/api/v1/saas/tenants/${tenant.id}/reinstate`, {
+      const res = await apiFetch(`/api/v1/saas/tenants/${tenant.id}/reinstate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -628,7 +629,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
   // Review Receipt
   const handleReviewReceipt = async (receiptId: string, status: 'APPROVED' | 'REJECTED') => {
     try {
-      const res = await fetch(`/api/v1/saas/receipts/${receiptId}/review`, {
+      const res = await apiFetch(`/api/v1/saas/receipts/${receiptId}/review`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -653,7 +654,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
     setSavingConfig(true);
     setActionErrorMsg('');
     try {
-      const res = await fetch('/api/v1/saas/platform-config', {
+      const res = await apiFetch('/api/v1/saas/platform-config', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -697,7 +698,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
     setCreatingAnnouncement(true);
     setActionErrorMsg('');
     try {
-      const res = await fetch('/api/v1/saas/announcements', {
+      const res = await apiFetch('/api/v1/saas/announcements', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -754,7 +755,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
     setSavingNoticeEdit(true);
     setActionErrorMsg('');
     try {
-      const res = await fetch(`/api/v1/saas/announcements/${selectedNoticeForEdit.id}`, {
+      const res = await apiFetch(`/api/v1/saas/announcements/${selectedNoticeForEdit.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -793,12 +794,12 @@ export const SuperAdminControlPlaneView: React.FC = () => {
 
     try {
       const headers: Record<string, string> = token ? { authorization: `Bearer ${token}` } : {};
-      let res = await fetch(`/api/v1/saas/announcements/${noticeId}`, {
+      let res = await apiFetch(`/api/v1/saas/announcements/${noticeId}`, {
         method: 'DELETE',
         headers,
       });
       if (!res.ok) {
-        res = await fetch(`/api/v1/saas/announcements/${noticeId}/delete`, {
+        res = await apiFetch(`/api/v1/saas/announcements/${noticeId}/delete`, {
           method: 'POST',
           headers: {
             ...headers,
@@ -825,7 +826,7 @@ export const SuperAdminControlPlaneView: React.FC = () => {
   // Toggle Announcement
   const handleToggleAnnouncement = async (id: string, currentActive: boolean) => {
     try {
-      const res = await fetch(`/api/v1/saas/announcements/${id}/toggle`, {
+      const res = await apiFetch(`/api/v1/saas/announcements/${id}/toggle`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

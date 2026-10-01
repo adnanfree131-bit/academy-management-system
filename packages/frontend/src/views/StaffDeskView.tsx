@@ -227,11 +227,11 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       const todayStr = new Date().toISOString().split('T')[0];
 
       const [staffRes, progRes, batchRes, subjRes, attRes] = await Promise.all([
-        fetch('/api/v1/academic/staff', { headers }),
-        fetch('/api/v1/academic/programs', { headers }).catch(() => null),
-        fetch('/api/v1/academic/batches', { headers }).catch(() => null),
-        fetch('/api/v1/academic/subjects', { headers }).catch(() => null),
-        fetch(`/api/v1/geofence/attendance/staff?date=${todayStr}`, { headers }).catch(() => null),
+        apiFetch('/api/v1/academic/staff', { headers }),
+        apiFetch('/api/v1/academic/programs', { headers }).catch(() => null),
+        apiFetch('/api/v1/academic/batches', { headers }).catch(() => null),
+        apiFetch('/api/v1/academic/subjects', { headers }).catch(() => null),
+        apiFetch(`/api/v1/geofence/attendance/staff?date=${todayStr}`, { headers }).catch(() => null),
       ]);
 
       if (!staffRes.ok) {
@@ -435,7 +435,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
     };
 
     try {
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: {
           Authorization: `Bearer ${token}`,
@@ -496,7 +496,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
     setSavingAccessId(staff.id);
     const newPermissions = derivePermissions(newAccess);
     try {
-      const res = await fetch(`/api/v1/academic/staff/${staff.id}/access`, {
+      const res = await apiFetch(`/api/v1/academic/staff/${staff.id}/access`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ access: newAccess, permissions: newPermissions }),
@@ -565,7 +565,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   const saveTeachingAssignments = async () => {
     if (!teachingModalStaff || !token) return;
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/v1/academic/staff/${teachingModalStaff.id}/teaching-assignments`,
         {
           method: 'PUT',
@@ -614,7 +614,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   const executeArchive = async () => {
     if (!archiveTarget || !token) return;
     try {
-      const res = await fetch(`/api/v1/academic/staff/${archiveTarget.id}/archive`, {
+      const res = await apiFetch(`/api/v1/academic/staff/${archiveTarget.id}/archive`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: archiveReason }),
@@ -632,7 +632,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   const executeRestore = async (staff: StaffMemberRecord) => {
     if (!token) return;
     try {
-      const res = await fetch(`/api/v1/academic/staff/${staff.id}/restore`, {
+      const res = await apiFetch(`/api/v1/academic/staff/${staff.id}/restore`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
@@ -649,7 +649,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   const executeDelete = async () => {
     if (!deleteTarget || !token) return;
     try {
-      const res = await fetch(`/api/v1/academic/staff/${deleteTarget.id}`, {
+      const res = await apiFetch(`/api/v1/academic/staff/${deleteTarget.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });

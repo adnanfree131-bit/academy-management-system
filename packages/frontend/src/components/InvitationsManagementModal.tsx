@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -69,7 +70,7 @@ export const InvitationsManagementModal: React.FC<InvitationsManagementModalProp
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const res = await fetch('/api/v1/auth/invitations', {
+      const res = await apiFetch('/api/v1/auth/invitations', {
         headers: {
           Authorization: `Bearer ${token}`,
           'X-Tenant-ID': tenant.id,
@@ -121,7 +122,7 @@ export const InvitationsManagementModal: React.FC<InvitationsManagementModalProp
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/v1/auth/invitations', {
+      const res = await apiFetch('/api/v1/auth/invitations', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -170,7 +171,7 @@ export const InvitationsManagementModal: React.FC<InvitationsManagementModalProp
     if (!token || !tenant?.id) return;
     setIsRevoking(true);
     try {
-      const res = await fetch(`/api/v1/auth/invitations/${id}/revoke`, {
+      const res = await apiFetch(`/api/v1/auth/invitations/${id}/revoke`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

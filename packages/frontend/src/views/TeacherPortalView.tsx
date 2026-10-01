@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { TeacherPortalOverview, TimetableSlot, Batch, Exam } from '@apex/shared-types';
@@ -39,7 +40,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
   const fetchTodayAttendance = async () => {
     if (!token) return;
     try {
-      const res = await fetch(`/api/v1/geofence/attendance/staff/me?date=${todayStr}`, {
+      const res = await apiFetch(`/api/v1/geofence/attendance/staff/me?date=${todayStr}`, {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {
@@ -68,7 +69,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
             ? '/api/v1/geofence/attendance/staff/clock-in'
             : '/api/v1/geofence/attendance/staff/clock-out';
 
-          const res = await fetch(endpoint, {
+          const res = await apiFetch(endpoint, {
             method: 'POST',
             headers: {
               'content-type': 'application/json',
@@ -116,7 +117,7 @@ export const TeacherPortalView: React.FC<TeacherPortalProps> = ({ onNavigate }) 
   const fetchOverview = async () => {
     if (!token) return;
     try {
-      const res = await fetch('/api/v1/portal/teacher', {
+      const res = await apiFetch('/api/v1/portal/teacher', {
         headers: { authorization: `Bearer ${token}` }
       });
       if (res.ok) {

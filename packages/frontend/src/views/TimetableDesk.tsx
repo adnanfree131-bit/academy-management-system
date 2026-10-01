@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -106,12 +107,12 @@ export const TimetableDesk: React.FC = () => {
 
     try {
       const [progRes, batchRes, subRes, roomRes, slotsRes, geoRes] = await Promise.all([
-        fetch('/api/v1/academic/programs', { headers }),
-        fetch('/api/v1/academic/batches', { headers }),
-        fetch('/api/v1/academic/subjects', { headers }),
-        fetch('/api/v1/timetable/rooms', { headers }),
-        fetch('/api/v1/timetable/timetable', { headers }),
-        fetch('/api/v1/geofence/config', { headers }),
+        apiFetch('/api/v1/academic/programs', { headers }),
+        apiFetch('/api/v1/academic/batches', { headers }),
+        apiFetch('/api/v1/academic/subjects', { headers }),
+        apiFetch('/api/v1/timetable/rooms', { headers }),
+        apiFetch('/api/v1/timetable/timetable', { headers }),
+        apiFetch('/api/v1/geofence/config', { headers }),
       ]);
 
       const [progData, batchData, subData, roomData, slotsData, geoData] = await Promise.all([
@@ -157,7 +158,7 @@ export const TimetableDesk: React.FC = () => {
     const checkCollision = async () => {
       setIsCheckingCollision(true);
       try {
-        const res = await fetch('/api/v1/timetable/check-collision', {
+        const res = await apiFetch('/api/v1/timetable/check-collision', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -204,7 +205,7 @@ export const TimetableDesk: React.FC = () => {
 
     const fetchTeachers = async () => {
       try {
-        const res = await fetch(
+        const res = await apiFetch(
           `/api/v1/timetable/available-teachers?day=${scheduleForm.day_of_week}&start_time=${scheduleForm.start_time}&end_time=${scheduleForm.end_time}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -269,7 +270,7 @@ export const TimetableDesk: React.FC = () => {
         : '/api/v1/timetable/timetable';
       const method = editingSlotId ? 'PATCH' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -305,7 +306,7 @@ export const TimetableDesk: React.FC = () => {
     if (!newRoomName.trim()) return;
     setIsCreatingRoom(true);
     try {
-      const res = await fetch('/api/v1/timetable/rooms', {
+      const res = await apiFetch('/api/v1/timetable/rooms', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -336,7 +337,7 @@ export const TimetableDesk: React.FC = () => {
     if (!slotToDelete) return;
     setIsDeletingSlot(true);
     try {
-      const res = await fetch(`/api/v1/timetable/timetable/${slotToDelete.id}`, {
+      const res = await apiFetch(`/api/v1/timetable/timetable/${slotToDelete.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -354,7 +355,7 @@ export const TimetableDesk: React.FC = () => {
 
   const loadSubstituteCandidates = async (slot: TimetableSlot, dateStr: string) => {
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/v1/timetable/available-teachers?day=${slot.day_of_week}&start_time=${slot.start_time}&end_time=${slot.end_time}&date=${encodeURIComponent(dateStr)}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -387,7 +388,7 @@ export const TimetableDesk: React.FC = () => {
 
     setIsAssigningSub(true);
     try {
-      const res = await fetch(`/api/v1/timetable/timetable/${substituteSlot.id}/substitute`, {
+      const res = await apiFetch(`/api/v1/timetable/timetable/${substituteSlot.id}/substitute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

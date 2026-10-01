@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -60,7 +61,7 @@ export const ComplaintsDeskView: React.FC = () => {
     const headers = { Authorization: `Bearer ${token}` };
 
     try {
-      const res = await fetch('/api/v1/complaints/complaints', { headers });
+      const res = await apiFetch('/api/v1/complaints/complaints', { headers });
       const data = await res.json();
       if (data.success) {
         setTickets(data.data || []);
@@ -75,7 +76,7 @@ export const ComplaintsDeskView: React.FC = () => {
   useEffect(() => {
     fetchTickets();
     if (isStaff && token) {
-      fetch('/api/v1/sis/students', {
+      apiFetch('/api/v1/sis/students', {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then(res => res.json())
@@ -112,7 +113,7 @@ export const ComplaintsDeskView: React.FC = () => {
           payload.student_id = parentStudentId;
         }
       }
-      const res = await fetch('/api/v1/complaints/complaints', {
+      const res = await apiFetch('/api/v1/complaints/complaints', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -147,7 +148,7 @@ export const ComplaintsDeskView: React.FC = () => {
 
     setIsUpdating(true);
     try {
-      const res = await fetch(`/api/v1/complaints/complaints/${selectedTicket.id}/status`, {
+      const res = await apiFetch(`/api/v1/complaints/complaints/${selectedTicket.id}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

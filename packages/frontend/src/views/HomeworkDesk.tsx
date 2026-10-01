@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -92,9 +93,9 @@ export const HomeworkDesk: React.FC = () => {
 
     try {
       const [pRes, bRes, sRes] = await Promise.all([
-        fetch('/api/v1/academic/programs', { headers }),
-        fetch('/api/v1/academic/batches', { headers }),
-        fetch('/api/v1/academic/subjects', { headers }),
+        apiFetch('/api/v1/academic/programs', { headers }),
+        apiFetch('/api/v1/academic/batches', { headers }),
+        apiFetch('/api/v1/academic/subjects', { headers }),
       ]);
 
       const [pData, bData, sData] = await Promise.all([pRes.json(), bRes.json(), sRes.json()]);
@@ -161,7 +162,7 @@ export const HomeworkDesk: React.FC = () => {
       const url = selectedBatchId 
         ? `/api/v1/homework/homework?batch_id=${selectedBatchId}` 
         : '/api/v1/homework/homework';
-      const res = await fetch(url, { headers });
+      const res = await apiFetch(url, { headers });
       const data = await res.json();
 
       if (data.success) {
@@ -195,8 +196,8 @@ export const HomeworkDesk: React.FC = () => {
 
     try {
       const [rosterRes, chkRes] = await Promise.all([
-        fetch(`/api/v1/homework/homework/${targetHwId}/roster`, { headers }),
-        fetch(`/api/v1/homework/homework/${targetHwId}/checks`, { headers }),
+        apiFetch(`/api/v1/homework/homework/${targetHwId}/roster`, { headers }),
+        apiFetch(`/api/v1/homework/homework/${targetHwId}/checks`, { headers }),
       ]);
 
       const [rosterData, chkData] = await Promise.all([rosterRes.json(), chkRes.json()]);
@@ -271,7 +272,7 @@ export const HomeworkDesk: React.FC = () => {
     if (!token) return;
 
     try {
-      const res = await fetch(`/api/v1/homework/homework/${hw.id}`, {
+      const res = await apiFetch(`/api/v1/homework/homework/${hw.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -308,7 +309,7 @@ export const HomeworkDesk: React.FC = () => {
         : '/api/v1/homework/homework';
       const method = editingAssignmentId ? 'PATCH' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -360,7 +361,7 @@ export const HomeworkDesk: React.FC = () => {
     };
 
     try {
-      const res = await fetch(`/api/v1/homework/homework/${selectedAssignment.id}/checks`, {
+      const res = await apiFetch(`/api/v1/homework/homework/${selectedAssignment.id}/checks`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

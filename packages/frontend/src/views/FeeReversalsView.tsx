@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
@@ -97,12 +98,12 @@ export const FeeReversalsView: React.FC = () => {
     try {
       setIsLoading(true);
       const [studRes, progRes, batchRes, invRes, payRes, logsRes] = await Promise.all([
-        fetch('/api/v1/sis/students', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/academic/programs', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/academic/batches', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/finance/invoices', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/finance/payments', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/v1/finance/audit-logs', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
+        apiFetch('/api/v1/sis/students', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch('/api/v1/academic/programs', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch('/api/v1/academic/batches', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch('/api/v1/finance/invoices', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch('/api/v1/finance/payments', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }),
+        apiFetch('/api/v1/finance/audit-logs', { credentials: 'include', headers: { Authorization: `Bearer ${token}` } }).catch(() => null),
       ]);
 
       const [studData, progData, batchData, invData, payData] = await Promise.all([
@@ -404,7 +405,7 @@ export const FeeReversalsView: React.FC = () => {
 
     try {
       setIsSubmittingReversal(true);
-      const res = await fetch(`/api/v1/finance/payments/${reverseTargetPayment.id}/reverse`, {
+      const res = await apiFetch(`/api/v1/finance/payments/${reverseTargetPayment.id}/reverse`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -444,7 +445,7 @@ export const FeeReversalsView: React.FC = () => {
 
     try {
       setIsSubmittingDeleteChallan(true);
-      const res = await fetch(`/api/v1/finance/invoices/${deleteTargetChallan.id}`, {
+      const res = await apiFetch(`/api/v1/finance/invoices/${deleteTargetChallan.id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

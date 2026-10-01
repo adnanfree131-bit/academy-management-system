@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -89,7 +90,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
     let cancelled = false;
     setLoading(true);
     Promise.allSettled([
-      fetch('/api/v1/sis/students', { headers: { Authorization: `Bearer ${token}` } })
+      apiFetch('/api/v1/sis/students', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
         .then(body => {
           if (!cancelled && body.success && Array.isArray(body.data)) {
@@ -102,7 +103,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ open, onClose, o
             })));
           }
         }),
-      fetch('/api/v1/finance/invoices', { headers: { Authorization: `Bearer ${token}` } })
+      apiFetch('/api/v1/finance/invoices', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
         .then(body => {
           if (!cancelled && Array.isArray(body.data)) {

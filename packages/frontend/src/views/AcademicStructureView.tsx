@@ -1,3 +1,4 @@
+import { apiFetch } from '../lib/api-client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -197,13 +198,13 @@ export const AcademicStructureView: React.FC = () => {
 
     try {
       const [progRes, batchRes, subRes, groupRes, studRes, staffRes, headsRes] = await Promise.all([
-        fetch('/api/v1/academic/programs', { headers }),
-        fetch('/api/v1/academic/batches?include_archived=1', { headers }),
-        fetch('/api/v1/academic/subjects', { headers }),
-        fetch('/api/v1/academic/groups', { headers }),
-        fetch('/api/v1/sis/students', { headers }),
-        fetch('/api/v1/academic/staff', { headers }).catch(() => null),
-        fetch('/api/v1/finance/heads', { headers }).catch(() => null),
+        apiFetch('/api/v1/academic/programs', { headers }),
+        apiFetch('/api/v1/academic/batches?include_archived=1', { headers }),
+        apiFetch('/api/v1/academic/subjects', { headers }),
+        apiFetch('/api/v1/academic/groups', { headers }),
+        apiFetch('/api/v1/sis/students', { headers }),
+        apiFetch('/api/v1/academic/staff', { headers }).catch(() => null),
+        apiFetch('/api/v1/finance/heads', { headers }).catch(() => null),
       ]);
 
       const [progs, bts, subs, grps, studs] = await Promise.all([
@@ -386,7 +387,7 @@ export const AcademicStructureView: React.FC = () => {
 
     try {
       const ordered_ids = currentPrograms.map(p => p.id);
-      await fetch('/api/v1/academic/programs/reorder', {
+      await apiFetch('/api/v1/academic/programs/reorder', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ordered_ids }),
@@ -433,7 +434,7 @@ export const AcademicStructureView: React.FC = () => {
         fee_schedule,
       };
 
-      const res = await fetch('/api/v1/academic/programs', {
+      const res = await apiFetch('/api/v1/academic/programs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
@@ -505,7 +506,7 @@ export const AcademicStructureView: React.FC = () => {
         fee_schedule,
       };
 
-      const res = await fetch(`/api/v1/academic/programs/${activeProgram.id}`, {
+      const res = await apiFetch(`/api/v1/academic/programs/${activeProgram.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload),
@@ -547,7 +548,7 @@ export const AcademicStructureView: React.FC = () => {
   const executeDeleteProgram = async (id: string, name: string) => {
     setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/v1/academic/programs/${id}`, {
+      const res = await apiFetch(`/api/v1/academic/programs/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -580,7 +581,7 @@ export const AcademicStructureView: React.FC = () => {
     try {
       // If an existing compulsory group exists, delete it first to replace with clean set
       if (activeCompulsoryGroup) {
-        const delRes = await fetch(`/api/v1/academic/groups/${activeCompulsoryGroup.id}`, {
+        const delRes = await apiFetch(`/api/v1/academic/groups/${activeCompulsoryGroup.id}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -591,7 +592,7 @@ export const AcademicStructureView: React.FC = () => {
       }
 
       if (compulsorySelectedSubjectIds.length > 0) {
-        const res = await fetch('/api/v1/academic/groups', {
+        const res = await apiFetch('/api/v1/academic/groups', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -630,7 +631,7 @@ export const AcademicStructureView: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/v1/academic/groups', {
+      const res = await apiFetch('/api/v1/academic/groups', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -657,7 +658,7 @@ export const AcademicStructureView: React.FC = () => {
   const handleDeleteSubjectGroup = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to remove elective group "${name}"?`)) return;
     try {
-      const res = await fetch(`/api/v1/academic/groups/${id}`, {
+      const res = await apiFetch(`/api/v1/academic/groups/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -688,7 +689,7 @@ export const AcademicStructureView: React.FC = () => {
     setIsSubmitting(true);
     try {
       const teacher = teachers.find(t => t.id === sectionForm.class_teacher_id);
-      const res = await fetch('/api/v1/academic/batches', {
+      const res = await apiFetch('/api/v1/academic/batches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -736,7 +737,7 @@ export const AcademicStructureView: React.FC = () => {
     setIsSubmitting(true);
     try {
       const teacher = teachers.find(t => t.id === editSectionForm.class_teacher_id);
-      const res = await fetch(`/api/v1/academic/batches/${editingSection.id}`, {
+      const res = await apiFetch(`/api/v1/academic/batches/${editingSection.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -795,7 +796,7 @@ export const AcademicStructureView: React.FC = () => {
     try {
       const teacher = teachers.find(t => t.id === batchForm.class_teacher_id);
       const targetProg = batchForm.program_id ? programs.find(p => p.id === batchForm.program_id) : null;
-      const res = await fetch('/api/v1/academic/batches', {
+      const res = await apiFetch('/api/v1/academic/batches', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -858,7 +859,7 @@ export const AcademicStructureView: React.FC = () => {
     setIsSubmitting(true);
     try {
       const teacher = teachers.find(t => t.id === editBatchForm.class_teacher_id);
-      const res = await fetch(`/api/v1/academic/batches/${editingBatch.id}`, {
+      const res = await apiFetch(`/api/v1/academic/batches/${editingBatch.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
@@ -901,7 +902,7 @@ export const AcademicStructureView: React.FC = () => {
       return;
     }
     try {
-      const res = await fetch(`/api/v1/academic/batches/${b.id}`, {
+      const res = await apiFetch(`/api/v1/academic/batches/${b.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -946,7 +947,7 @@ export const AcademicStructureView: React.FC = () => {
       const bObj = batches.find(x => x.id === batchId);
       const isSec = (bObj?.cohort_type || (/section/i.test(batchName) ? 'section' : 'batch')) === 'section';
       const typeLabel = isSec ? 'Section' : 'Batch';
-      const res = await fetch(`/api/v1/academic/batches/${batchId}`, {
+      const res = await apiFetch(`/api/v1/academic/batches/${batchId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -1006,7 +1007,7 @@ export const AcademicStructureView: React.FC = () => {
     setIsPromoting(true);
     try {
       const targetBatch = batches.find(b => b.id === promoteTargetBatchId);
-      const res = await fetch('/api/v1/academic/students/promote', {
+      const res = await apiFetch('/api/v1/academic/students/promote', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1041,7 +1042,7 @@ export const AcademicStructureView: React.FC = () => {
     if (!token || !subjectForm.name) return;
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/v1/academic/subjects', {
+      const res = await apiFetch('/api/v1/academic/subjects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ...subjectForm, code: subjectForm.code.trim() }),
@@ -1063,7 +1064,7 @@ export const AcademicStructureView: React.FC = () => {
   const handleDeleteSubject = async (id: string, name: string) => {
     if (!confirm(`Are you sure you want to delete subject "${name}" from the catalog?`)) return;
     try {
-      const res = await fetch(`/api/v1/academic/subjects/${id}`, {
+      const res = await apiFetch(`/api/v1/academic/subjects/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -1091,7 +1092,7 @@ export const AcademicStructureView: React.FC = () => {
     if (!token || !editingSubject || !editSubjectForm.name.trim()) return;
     setIsSubmitting(true);
     try {
-      const res = await fetch(`/api/v1/academic/subjects/${editingSubject.id}`, {
+      const res = await apiFetch(`/api/v1/academic/subjects/${editingSubject.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
