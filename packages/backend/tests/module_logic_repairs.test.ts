@@ -30,7 +30,7 @@ describe('Module Logic Repairs - Phase 1: Sign-in Truth Verification', () => {
     await app.close();
   });
 
-  it('1. Login without tenant_slug or tenant_id returns 400 TENANT_REQUIRED', async () => {
+  it('1. Login without tenant_slug or tenant_id returns 410 LEGACY_AUTH_DEPRECATED', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
@@ -40,15 +40,14 @@ describe('Module Logic Repairs - Phase 1: Sign-in Truth Verification', () => {
       },
     });
 
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(410);
     const body = JSON.parse(res.body);
     expect(body.success).toBe(false);
     expect(body.error).toBeDefined();
-    expect(body.error.code).toBe('TENANT_REQUIRED');
-    expect(body.error.message).toBe('Academy identifier (tenant_slug or tenant_id) is required.');
+    expect(body.error.code).toBe('LEGACY_AUTH_DEPRECATED');
   });
 
-  it('2. Login with empty string tenant_slug and tenant_id returns 400 TENANT_REQUIRED', async () => {
+  it('2. Login with empty string tenant_slug and tenant_id returns 410 LEGACY_AUTH_DEPRECATED', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
@@ -60,10 +59,10 @@ describe('Module Logic Repairs - Phase 1: Sign-in Truth Verification', () => {
       },
     });
 
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(410);
     const body = JSON.parse(res.body);
     expect(body.success).toBe(false);
-    expect(body.error.code).toBe('TENANT_REQUIRED');
+    expect(body.error.code).toBe('LEGACY_AUTH_DEPRECATED');
   });
 
   it('3. Login with platform email skips tenant requirement (does not return 400 TENANT_REQUIRED)', async () => {
@@ -426,7 +425,7 @@ describe('Module Logic Repairs - Phase 3: Seats, opening challan, and failed cha
     expect(user.status).toBe('inactive');
     expect(user.metadata.portal_blocked).toBe(true);
 
-    // Portal login attempt using guardian CNIC is blocked
+    // Portal login attempt returns 410 Gone (legacy auth retired)
     const loginRes = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
@@ -436,9 +435,7 @@ describe('Module Logic Repairs - Phase 3: Seats, opening challan, and failed cha
         tenant_id: tenantId,
       },
     });
-    expect(loginRes.statusCode).toBe(401);
-    const loginBody = loginRes.json();
-    expect(loginBody.error?.message).toMatch(/portal access has been restricted|inactive/);
+    expect(loginRes.statusCode).toBe(410);
 
     // Creating a student directly with status 'waitlisted'
     const wlStudent = await store.createStudent({
@@ -1144,7 +1141,7 @@ describe('Module Logic Repairs - Phase 5: Examinations & Question Security', () 
     });
     await app.ready();
 
-    const tenant = await store.createTenant({
+    const { tenant } = await store.createTenant({
       name: 'Exam Security Academy',
       slug: 'exam-security',
       campus_name: 'Main Campus',
@@ -2034,6 +2031,7 @@ describe('Module Logic Repairs - Phase 6: Payroll and Expense Vouchers', () => {
       tenant_id: noHeadTenantId,
       email: noHeadAdmin.email,
       role: 'tenant_admin',
+      aal: 'aal2',
     });
 
     const payRes = await app.inject({

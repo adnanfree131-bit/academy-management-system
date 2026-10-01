@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
-import fjwt from '@fastify/jwt';
+import * as jose from 'jose';
 import { InMemoryDataStore } from '../src/services/store.js';
 import { sisRoutes } from '../src/routes/sis.ts';
 import { financeRoutes } from '../src/routes/finance.ts';
@@ -15,16 +15,19 @@ describe('Student Admission Refactor & Bug Fixes: Verification', () => {
   let store: InMemoryDataStore;
   let adminToken: string;
   const tenantId = 'a0000000-0000-0000-0000-000000000001';
+  const testSecret = new TextEncoder().encode('test-secret-key-1234567890123456');
 
   beforeAll(async () => {
     store = new InMemoryDataStore();
 
     app = Fastify();
-    await app.register(fjwt, { secret: 'test-secret-key-1234567890123456' });
 
     app.decorate('authenticate', async (request: any, reply: any) => {
       try {
-        await request.jwtVerify();
+        const authHeader = request.headers.authorization;
+        if (!authHeader?.startsWith('Bearer ')) throw new Error('Missing token');
+        const { payload } = await jose.jwtVerify(authHeader.slice(7), testSecret);
+        request.user = payload;
       } catch (err) {
         reply.status(401).send({ error: 'Unauthorized' });
       }
@@ -48,7 +51,9 @@ describe('Student Admission Refactor & Bug Fixes: Verification', () => {
       email: 'admin@apexacademy.edu.pk',
       role: 'tenant_admin',
     };
-    adminToken = app.jwt.sign(payload);
+    adminToken = await new jose.SignJWT(payload as any)
+      .setProtectedHeader({ alg: 'HS256' })
+      .sign(testSecret);
   });
 
   afterAll(async () => {

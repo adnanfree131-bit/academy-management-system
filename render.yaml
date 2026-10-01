@@ -12,8 +12,20 @@ services:
         value: production
       - key: PORT
         value: 10000
-      - key: JWT_SECRET
-        generateValue: true
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_ISSUER
+        sync: false
+      - key: SUPABASE_JWKS_URL
+        sync: false
+      - key: SUPABASE_JWT_AUDIENCE
+        value: authenticated
+      - key: AUTH_REDIRECT_URL
+        value: https://app.kampus.pk/auth/callback
       - key: DATABASE_URL
         sync: false
       - key: CLIENT_URL
@@ -38,8 +50,6 @@ services:
         value: admissions@apexacademy.edu.pk
       - key: BREVO_SENDER_NAME
         value: Apex Academy ERP
-      - key: DEV_STATIC_OTP
-        value: ""
       - key: FIREBASE_PROJECT_ID
         sync: false
       - key: FIREBASE_CLIENT_EMAIL

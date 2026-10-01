@@ -18,6 +18,8 @@ describe('Phase 4: Finance, Fee Vouchers, Priority Auto-Distribution & Staff Pay
       tenant_id: tenantId,
       email: 'adnan@apexacademy.edu.pk',
       role: 'tenant_admin',
+      aal: 'aal2',
+      amr: [{ method: 'totp', timestamp: Math.floor(Date.now() / 1000) }],
     });
   });
 

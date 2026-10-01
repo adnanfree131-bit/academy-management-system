@@ -3,7 +3,6 @@ import { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { InMemoryDataStore } from '../src/services/store.js';
 import { IMailerService } from '../src/services/mailer.js';
-import { hashPassword } from '../src/services/password.js';
 
 describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement', () => {
   let app: FastifyInstance;
@@ -344,16 +343,16 @@ describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement',
   // Test 5: Login with CNIC + Parent@123 and no tenant -> 400.
   // With tenant B only, must not return academy A.
   // ---------------------------------------------------------------------------
-  it('Test 5: Login with CNIC and no tenant returns 400 TENANT_REQUIRED; login with tenant B rejects academy A user', async () => {
+  it('Test 5: Legacy login endpoint returns 410 Gone (retired in favor of Supabase Auth)', async () => {
     const parentUser = (await store.getUserByEmail(TENANT_A_ID, 'parent.hamza@gmail.com'))!;
-    parentUser.password_hash = hashPassword('Parent@123');
+    parentUser.password_hash = 'dummy_hash';
     parentUser.metadata = {
       ...parentUser.metadata,
       guardian_id_card: '35202-7777777-1',
       clean_guardian_id_card: '3520277777771',
     };
 
-    // 1. Without tenant identifier -> 400 TENANT_REQUIRED
+    // 1. Without tenant identifier -> 410 LEGACY_AUTH_DEPRECATED
     const resNoTenant = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
@@ -362,11 +361,11 @@ describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement',
         password: 'Parent@123',
       },
     });
-    expect(resNoTenant.statusCode).toBe(400);
+    expect(resNoTenant.statusCode).toBe(410);
     const bodyNoTenant = JSON.parse(resNoTenant.body);
-    expect(bodyNoTenant.error.code).toBe('TENANT_REQUIRED');
+    expect(bodyNoTenant.error.code).toBe('LEGACY_AUTH_DEPRECATED');
 
-    // 2. With Tenant B slug -> 401 invalid credentials (cannot resolve from Tenant A)
+    // 2. With Tenant B slug -> 410 LEGACY_AUTH_DEPRECATED
     const resTenantB = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
@@ -376,9 +375,9 @@ describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement',
         tenant_slug: 'crescent',
       },
     });
-    expect(resTenantB.statusCode).toBe(401);
+    expect(resTenantB.statusCode).toBe(410);
     const bodyTenantB = JSON.parse(resTenantB.body);
-    expect(bodyTenantB.success).toBe(false);
+    expect(bodyTenantB.error.code).toBe('LEGACY_AUTH_DEPRECATED');
   });
 
   // ---------------------------------------------------------------------------
@@ -413,7 +412,7 @@ describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement',
       full_name: 'User Roll 100',
       role: 'student' as const,
       status: 'active' as const,
-      password_hash: hashPassword('Student@123'),
+      password_hash: 'dummy_hash',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -582,24 +581,17 @@ describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement',
   // ---------------------------------------------------------------------------
   // Test 12: Production boot without JWT_SECRET throws / exits before listen.
   // ---------------------------------------------------------------------------
-  it('Test 12: Production boot without JWT_SECRET throws before listen', async () => {
+  it('Test 12: Production boot fails closed when database or required config is missing', async () => {
     const originalEnv = process.env.NODE_ENV;
-    const originalSecret = process.env.JWT_SECRET;
     try {
       process.env.NODE_ENV = 'production';
-      delete process.env.JWT_SECRET;
-
       await expect(
         buildApp({
           store,
-          jwtSecret: undefined,
         })
-      ).rejects.toThrow(/FATAL: JWT_SECRET environment variable is required in production/);
+      ).rejects.toThrow(/FATAL: (Missing required Supabase Auth production environment variables|Production database connection failed|Insecure local default DATABASE_URL)/);
     } finally {
       process.env.NODE_ENV = originalEnv;
-      if (originalSecret) {
-        process.env.JWT_SECRET = originalSecret;
-      }
     }
   });
 
@@ -730,7 +722,7 @@ describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement',
       full_name: 'Roll 1 Imposter',
       role: 'student' as const,
       status: 'active' as const,
-      password_hash: await hashPassword('Student@123'),
+      password_hash: 'dummy_hash',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -811,4 +803,3 @@ describe('Fine-Grained Role-Based Access Control (RBAC) & Security Enforcement',
     expect(sisBodyAll.data.length).toBeGreaterThan(0);
   });
 });
-

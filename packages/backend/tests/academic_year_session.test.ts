@@ -46,19 +46,14 @@ describe('Academic Year & Session Management (Phase 1)', () => {
     });
     await app.ready();
 
-    // Log in teacher (tariq@apexacademy.edu.pk)
-    const teacherLogin = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/login',
-      payload: {
-        email: 'tariq@apexacademy.edu.pk',
-        password: 'Admin@123',
-        tenant_slug: 'apex',
-      },
+    // Teacher token (role: teacher)
+    teacherToken = app.jwt.sign({
+      sub: 'a1000000-0000-0000-0000-000000000002',
+      user_id: 'a1000000-0000-0000-0000-000000000002',
+      tenant_id: apex!.id,
+      email: 'tariq@apexacademy.edu.pk',
+      role: 'teacher',
     });
-    // Teacher token
-    const teacherBody = JSON.parse(teacherLogin.body);
-    teacherToken = teacherBody.data.token;
 
     // Admin token (role: tenant_admin)
     adminToken = app.jwt.sign({
@@ -67,6 +62,8 @@ describe('Academic Year & Session Management (Phase 1)', () => {
       tenant_id: apex!.id,
       email: 'adnan@apexacademy.edu.pk',
       role: 'tenant_admin',
+      aal: 'aal2',
+      amr: [{ method: 'totp', timestamp: Math.floor(Date.now() / 1000) }],
     });
 
     // Student token (role: student)

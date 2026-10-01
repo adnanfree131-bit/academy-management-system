@@ -47,13 +47,15 @@ describe('Phase 7: Multi-Portal Dashboards, SaaS Billing Lockout & Control Plane
       role: 'student'
     });
 
-    // 4. Authenticate Super Admin
+    // 4. Authenticate Super Admin (with AAL2 MFA for high-risk platform operations)
     superAdminToken = app.jwt.sign({
       sub: 'a1000000-0000-0000-0000-000000000006',
       user_id: 'a1000000-0000-0000-0000-000000000006',
       tenant_id: TENANT_A_ID,
       email: 'kampuserp@gmail.com',
-      role: 'super_admin'
+      role: 'super_admin',
+      aal: 'aal2',
+      amr: [{ method: 'totp', timestamp: Math.floor(Date.now() / 1000) }]
     });
 
     // 5. Authenticate Crescent Academy Admin (Locked Tenant)

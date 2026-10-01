@@ -36,6 +36,7 @@ google-services.json
 .agent/
 .agents/skills.json
 .agents/skills/gstack.bak/
+.agents/teamwork/
 .gstack/
 .local-store-snapshot.json
 *.local-snapshot.json
@@ -45,3 +46,4 @@ scratch/
 *.backup.tsx
 *.before-claude-code
 live-backup-*.json
+.secrets/

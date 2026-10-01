@@ -5,13 +5,14 @@ import { InMemoryDataStore } from '../src/services/store.js';
 
 describe('Phase 6: WhatsApp Messaging Engine & Absentee Retention Desk', () => {
   let app: FastifyInstance;
+  let store: InMemoryDataStore;
   let token: string;
   let tenantBToken: string;
   const tenantId = 'a0000000-0000-0000-0000-000000000001'; // Apex Academy
   const tenantBId = 'b0000000-0000-0000-0000-000000000002'; // Crescent Academy
 
   beforeAll(async () => {
-    const store = new InMemoryDataStore();
+    store = new InMemoryDataStore();
     app = await buildApp({ store });
 
     token = app.jwt.sign({
@@ -112,7 +113,7 @@ describe('Phase 6: WhatsApp Messaging Engine & Absentee Retention Desk', () => {
       // 1. Initial check - should not be dispatched today
       const checkRes = await app.inject({
         method: 'GET',
-        url: '/api/v1/whatsapp/check-duplicate?student_id=stud-2&category=ABSENCE',
+        url: '/api/v1/whatsapp/check-duplicate?student_id=stud-1&category=ABSENCE',
         headers: { authorization: `Bearer ${token}` }
       });
       expect(checkRes.statusCode).toBe(200);
@@ -124,7 +125,7 @@ describe('Phase 6: WhatsApp Messaging Engine & Absentee Retention Desk', () => {
         url: '/api/v1/whatsapp/dispatch',
         headers: { authorization: `Bearer ${token}` },
         payload: {
-          student_id: 'stud-2',
+          student_id: 'stud-1',
           recipient_phone: '+923001234567',
           phone_type: 'PRIMARY',
           message_body: 'Dear Tariq, Hamza was marked absent today.',
@@ -139,11 +140,33 @@ describe('Phase 6: WhatsApp Messaging Engine & Absentee Retention Desk', () => {
       // 3. Subsequent check - should flag as dispatched today
       const recheckRes = await app.inject({
         method: 'GET',
-        url: '/api/v1/whatsapp/check-duplicate?student_id=stud-2&category=ABSENCE',
+        url: '/api/v1/whatsapp/check-duplicate?student_id=stud-1&category=ABSENCE',
         headers: { authorization: `Bearer ${token}` }
       });
       expect(recheckRes.statusCode).toBe(200);
       expect(JSON.parse(recheckRes.payload).data.wasDispatchedToday).toBe(true);
+    });
+
+    it('rejects a dispatch for a student owned by another tenant', async () => {
+      const foreignStudentId = '8ff11bf7-72aa-4fd8-97e6-d51df58303b3';
+      const foreignStudent = await store.getStudentById('1944a64d-41f8-42e1-ada7-fb1bfd7d6e75', foreignStudentId);
+      expect(foreignStudent).not.toBeNull();
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/v1/whatsapp/dispatch',
+        headers: { authorization: `Bearer ${token}` },
+        payload: {
+          student_id: foreignStudentId,
+          recipient_phone: '+923001234567',
+          phone_type: 'PRIMARY',
+          message_body: 'Cross-tenant dispatch attempt',
+          status: 'SENT'
+        }
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(JSON.parse(response.payload).error.code).toBe('STUDENT_NOT_FOUND');
     });
   });
 

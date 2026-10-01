@@ -117,12 +117,12 @@ export type UserStatus = 'active' | 'inactive' | 'suspended' | 'pending_verifica
 export interface User {
     id: string;
     tenant_id: string;
+    auth_user_id?: string;
     email: string;
     phone?: string | null;
     full_name: string;
     role: UserRole;
     status: UserStatus;
-    password_hash?: string;
     avatar_url?: string | null;
     metadata?: Record<string, unknown>;
     working_session?: string;
@@ -203,6 +203,7 @@ export interface JWTPayload {
     tenant_id: string;
     email: string;
     role: UserRole;
+    auth_version?: number;
     student_id?: string;
     admission_number?: string;
     cnic?: string;
@@ -262,9 +263,23 @@ export interface LoginWithPasswordRequest {
     password: string;
     tenant_slug?: string;
 }
+export interface OnboardTenantPayload {
+    name: string;
+    slug: string;
+    campus_name?: string;
+    city?: string;
+    phone?: string;
+    logo_url?: string;
+}
+export interface RegisterAcademyPayload extends OnboardTenantPayload {
+    admin_name: string;
+    admin_email: string;
+    password: string;
+}
 export interface RegisterAcademyRequest {
     name: string;
     slug: string;
+    campus_name?: string;
     city?: string;
     phone?: string;
     logo_url?: string;
@@ -1631,4 +1646,65 @@ export interface RenewTenantSubscriptionRequest {
     reference_number?: string;
     notes?: string;
 }
+export declare const RESERVED_PLATFORM_SLUGS: readonly ["admin", "api", "app", "auth", "billing", "cdn", "dashboard", "dev", "dns", "edu", "mail", "portal", "root", "saas", "server", "smtp", "ssl", "staging", "status", "superadmin", "support", "test", "www"];
+export type ReservedPlatformSlug = typeof RESERVED_PLATFORM_SLUGS[number];
+export declare function isReservedSlug(slug: string): boolean;
+export type PlatformRole = 'user' | 'super_admin';
+export type ProfileStatus = 'active' | 'suspended' | 'archived';
+export interface UserProfile {
+    id: string;
+    email: string;
+    display_name: string;
+    phone?: string | null;
+    avatar_url?: string | null;
+    platform_role: PlatformRole;
+    status: ProfileStatus;
+    created_at: string;
+    updated_at: string;
+}
+export interface TenantMembership {
+    id: string;
+    tenant_id: string;
+    auth_user_id: string;
+    role: UserRole;
+    status: UserStatus;
+    full_name: string;
+    email: string;
+    phone?: string | null;
+    avatar_url?: string | null;
+    metadata?: Record<string, any> | null;
+    last_login_at?: string | null;
+    created_at: string;
+    updated_at: string;
+}
+export interface TenantInvitation {
+    id: string;
+    tenant_id: string;
+    email: string;
+    role: UserRole;
+    invited_by_membership_id?: string | null;
+    expires_at: string;
+    accepted_at?: string | null;
+    revoked_at?: string | null;
+    created_at: string;
+    updated_at: string;
+}
+export interface AuthenticatedBootstrapSession {
+    profile: UserProfile;
+    memberships: Array<TenantMembership & {
+        tenant: {
+            id: string;
+            name: string;
+            slug: string;
+            status: TenantStatus;
+            logo_url?: string | null;
+            campus_name?: string | null;
+            academic_session?: string | null;
+        };
+    }>;
+    active_membership: TenantMembership | null;
+    active_tenant: Tenant | null;
+}
+export type Profile = UserProfile;
+export type AuthBootstrapResponse = AuthenticatedBootstrapSession;
 //# sourceMappingURL=index.d.ts.map

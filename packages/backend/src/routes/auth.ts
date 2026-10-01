@@ -1,20 +1,19 @@
-import { randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
-import { AuthService } from '../services/auth.js';
 import { IDataStore } from '../services/store.js';
 import { IMailerService } from '../services/mailer.js';
 import { ICloudflareService, CloudflareService } from '../services/cloudflare.js';
-import { hashPassword } from '../services/password.js';
-import { JWTPayload, AuthSessionResponse, User, Student } from '@apex/shared-types';
+import { isReservedSlug } from '@apex/shared-types';
 import { resolveUserAccess, derivePermissions } from '../lib/access.js';
+import { normalizeEffectiveHostname, resolveHostTenant } from '../lib/tenant-resolver.js';
+import { getDatabasePool } from '../db/connection.js';
 
 export function authRoutes(
   store: IDataStore,
-  mailer: IMailerService,
+  _mailer?: IMailerService,
   cloudflare?: ICloudflareService
 ) {
-  const authService = new AuthService(store, mailer);
   const cloudflareService = cloudflare || new CloudflareService();
 
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
@@ -32,6 +31,19 @@ export function authRoutes(
       }
 
       const domain = `${slug}.${process.env.BASE_DOMAIN || 'kampus.pk'}`;
+
+      if (isReservedSlug(slug)) {
+        return reply.send({
+          success: true,
+          data: {
+            slug,
+            available: false,
+            domain,
+            message: `'${slug}' is a reserved platform subdomain and cannot be used.`,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       // Store is the source of truth for registered academies.
       const isStoreAvailable = await store.checkSlugAvailable(slug);
@@ -74,628 +86,30 @@ export function authRoutes(
       });
     });
 
-    const resolveStudentForUser = async (tenantId: string, user: User): Promise<Student | undefined> => {
-      if (user.role !== 'student') return undefined;
-      const allStudents = await store.getStudents(tenantId);
-      return allStudents.find(std => 
-        std.user_id === user.id || 
-        (std.email && std.email.toLowerCase() === user.email.toLowerCase()) || 
-        (user.metadata?.admission_number && std.admission_number === user.metadata.admission_number) ||
-        (user.metadata?.roll_number && std.roll_number === user.metadata.roll_number)
-      );
+    // -------------------------------------------------------------------------
+    // Deprecated Legacy Auth Endpoints (Return 410 Gone)
+    // Supabase Auth is the authoritative provider for all credentials & sessions.
+    // -------------------------------------------------------------------------
+    const legacyAuthDeprecationHandler = async (_request: any, reply: any) => {
+      return reply.status(410).send({
+        success: false,
+        error: {
+          code: 'LEGACY_AUTH_DEPRECATED',
+          message: 'Custom password, OTP, and app-signed JWT endpoints have been retired. Use Supabase Auth directly.',
+        },
+        timestamp: new Date().toISOString(),
+      });
     };
 
-    const buildJwtPayload = async (tenantId: string, user: User): Promise<JWTPayload> => {
-      const boundStudent = await resolveStudentForUser(tenantId, user);
-      return {
-        sub: user.id,
-        user_id: user.id,
-        tenant_id: tenantId,
-        email: user.email,
-        role: user.role,
-        must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
-        ...(boundStudent ? {
-          student_id: boundStudent.id,
-          admission_number: boundStudent.admission_number,
-          cnic: boundStudent.guardian_id_card || (user.metadata as any)?.guardian_id_card,
-        } : (user.role === 'parent' ? {
-          cnic: (user.metadata as any)?.guardian_id_card || (user.metadata as any)?.clean_guardian_id_card,
-        } : {})),
-      };
-    };
-
-    // -------------------------------------------------------------------------
-    // 2. Email / Password Login (Daily Operational Sign In)
-    // -------------------------------------------------------------------------
-    fastify.post('/login', async (request: any, reply) => {
-      const schema = z.object({
-        email: z.string().min(1),
-        password: z.string().min(1),
-        tenant_slug: z.string().optional(),
-        tenant_id: z.string().optional(),
-      });
-
-      const parseResult = schema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.status(400).send({
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Invalid login payload. Email and password are required.',
-            details: parseResult.error.flatten(),
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      try {
-        let { email, password, tenant_slug, tenant_id } = parseResult.data;
-        if ((!tenant_id || !tenant_id.trim()) && (!tenant_slug || !tenant_slug.trim())) {
-          if (email.toLowerCase().trim() === 'kampuserp@gmail.com') {
-            tenant_id = 'p0000000-0000-0000-0000-000000000001';
-          } else {
-            const resolved = await authService.resolveTenantForEmail(email.toLowerCase().trim(), password);
-            if (resolved?.tenantId) {
-              tenant_id = resolved.tenantId;
-            } else if (resolved?.tenantSlug) {
-              tenant_slug = resolved.tenantSlug;
-            } else {
-              return reply.status(400).send({
-                success: false,
-                error: {
-                  code: 'TENANT_REQUIRED',
-                  message: 'Academy identifier (tenant_slug or tenant_id) is required.',
-                },
-                timestamp: new Date().toISOString(),
-              });
-            }
-          }
-        }
-        const { user, tenant } = await authService.loginWithPassword(email, password, tenant_slug, tenant_id);
-        
-        // C1: Flag must_change_password if using known default credentials
-        if (password === 'Student@123' || password === 'Parent@123') {
-          if (!user.metadata) user.metadata = {};
-          (user.metadata as any).must_change_password = true;
-        }
-
-        const jwtPayload = await buildJwtPayload(tenant.id, user);
-
-        const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
-
-        store.ensureTenantSessions(tenant);
-        const workingSession = store.resolveWorkingSession(tenant.id, user);
-        const yearClosed = store.isYearClosed(tenant.id, workingSession);
-
-        const userAccess = resolveUserAccess(user);
-        const sessionResponse: AuthSessionResponse = {
-          token,
-          expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
-          user: {
-            id: user.id,
-            tenant_id: user.tenant_id,
-            email: user.email,
-            full_name: user.full_name,
-            role: user.role,
-            avatar_url: user.avatar_url,
-            access: userAccess as any,
-            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : derivePermissions(userAccess),
-            designation: (user.metadata?.designation as string) || undefined,
-            must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
-            working_session: workingSession,
-            year_closed: yearClosed,
-          },
-          tenant: {
-            id: tenant.id,
-            name: tenant.name,
-            slug: tenant.slug,
-            status: tenant.status,
-            academic_session: tenant.settings?.academic_session || '2026-2027',
-            academic_sessions: tenant.settings?.academic_sessions || [],
-            campus_name: tenant.settings?.campus_name || 'Main Campus',
-            logo_url: tenant.settings?.logo_url || (tenant.slug === 'tsa' ? '/tsa-logo.png' : null),
-            city: tenant.settings?.city || null,
-            settings: tenant.settings || null,
-          },
-        };
-
-        return reply.send({
-          success: true,
-          data: sessionResponse,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (err: any) {
-        return reply.status(401).send({
-          success: false,
-          error: {
-            code: 'AUTH_FAILED',
-            message: err.message || 'Invalid email or password.',
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-    });
-
-    // -------------------------------------------------------------------------
-    // 3. Register Academy: Provisions Subdomain in Cloudflare & Dispatches Brevo OTP
-    // -------------------------------------------------------------------------
-    fastify.post('/register', async (request, reply) => {
-      const schema = z.object({
-        name: z.string().min(2, 'Academy name must be at least 2 characters'),
-        slug: z.string().min(2, 'Subdomain identifier must be at least 2 characters'),
-        city: z.string().optional(),
-        phone: z.string().optional(),
-        logo_url: z.string().optional(),
-        campus_name: z.string().optional(),
-        admin_name: z.string().min(2, 'Administrator name is required'),
-        admin_email: z.string().email('Valid institutional email is required'),
-        password: z.string().min(6, 'Password must be at least 6 characters'),
-      });
-
-      const parseResult = schema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.status(400).send({
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Please complete all required fields.',
-            details: parseResult.error.flatten(),
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      try {
-        const { name, slug, city, phone, logo_url, campus_name, admin_name, admin_email, password } = parseResult.data;
-        const cleanSlug = slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
-
-        // Check if slug is taken
-        const existingTenant = await store.getTenantBySlug(cleanSlug);
-        if (existingTenant) {
-          if (existingTenant.status === 'pending_verification') {
-            const existingAdmin = await store.getUserByEmail(existingTenant.id, admin_email.toLowerCase().trim());
-            if (existingAdmin) {
-              // Idempotent recovery for pending_verification tenant with matching admin email
-              existingTenant.name = name.trim();
-              if (existingTenant.settings) {
-                if (campus_name) existingTenant.settings.campus_name = campus_name.trim();
-                if (city) existingTenant.settings.city = city.trim();
-                if (phone) existingTenant.settings.phone = phone.trim();
-                if (logo_url) existingTenant.settings.logo_url = logo_url;
-              }
-              existingTenant.updated_at = new Date().toISOString();
-
-              existingAdmin.full_name = admin_name.trim();
-              existingAdmin.password_hash = hashPassword(password);
-              existingAdmin.updated_at = new Date().toISOString();
-
-              await cloudflareService.provisionSubdomain(cleanSlug);
-
-              const otpResult = await authService.requestOTP(existingAdmin.email, existingTenant.slug);
-
-              return reply.status(201).send({
-                success: true,
-                data: {
-                  tenant: {
-                    id: existingTenant.id,
-                    name: existingTenant.name,
-                    slug: existingTenant.slug,
-                    domain: existingTenant.domain,
-                    campus_name: existingTenant.settings?.campus_name,
-                    logo_url: existingTenant.settings?.logo_url,
-                    city: existingTenant.settings?.city,
-                  },
-                  admin: {
-                    email: existingAdmin.email,
-                    full_name: existingAdmin.full_name,
-                  },
-                  otp_preview: otpResult.dev_otp_preview,
-                  message: `A 6-digit verification code has been sent to ${existingAdmin.email}. Please enter the code below to complete setup.`,
-                },
-                timestamp: new Date().toISOString(),
-              });
-            }
-          }
-
-          return reply.status(409).send({
-            success: false,
-            error: {
-              code: 'SLUG_IN_USE',
-              message: `The subdomain identifier '${cleanSlug}' is already registered. Please choose another identifier.`,
-            },
-            timestamp: new Date().toISOString(),
-          });
-        }
-
-        // Auto-provision domain in Cloudflare for SaaS
-        await cloudflareService.provisionSubdomain(cleanSlug);
-
-        // Hash password with scrypt
-        const passwordHash = hashPassword(password);
-
-        // Create tenant & admin user
-        const { tenant, admin } = await store.createTenant({
-          name,
-          slug: cleanSlug,
-          campus_name: campus_name || 'Main Campus',
-          city,
-          phone,
-          logo_url,
-          admin_name,
-          admin_email,
-          password_hash: passwordHash,
-          status: 'pending_verification' as any,
-        });
-
-        // Dispatch OTP verification code via Brevo
-        const otpResult = await authService.requestOTP(admin.email, tenant.slug);
-
-        return reply.status(201).send({
-          success: true,
-          data: {
-            tenant: {
-              id: tenant.id,
-              name: tenant.name,
-              slug: tenant.slug,
-              domain: tenant.domain,
-              campus_name: tenant.settings?.campus_name,
-              logo_url: tenant.settings?.logo_url,
-              city: tenant.settings?.city,
-            },
-            admin: {
-              email: admin.email,
-              full_name: admin.full_name,
-            },
-            otp_preview: otpResult.dev_otp_preview,
-            message: `A 6-digit verification code has been sent to ${admin.email}. Please enter the code below to complete setup.`,
-          },
-          timestamp: new Date().toISOString(),
-        });
-      } catch (err: any) {
-        return reply.status(500).send({
-          success: false,
-          error: {
-            code: 'REGISTRATION_FAILED',
-            message: err.message || 'Failed to register academy.',
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-    });
-
-    // -------------------------------------------------------------------------
-    // 4. Verify Registration OTP: Activates Tenant and Issues JWT Session
-    // -------------------------------------------------------------------------
-    fastify.post('/verify-registration-otp', async (request, reply) => {
-      const schema = z.object({
-        email: z.string().email(),
-        otp: z.string().length(6, 'Verification code must be 6 digits'),
-        tenant_slug: z.string().min(1),
-      });
-
-      const parseResult = schema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.status(400).send({
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Valid 6-digit code and email are required.',
-            details: parseResult.error.flatten(),
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      try {
-        const { email, otp, tenant_slug } = parseResult.data;
-        const { user, tenant } = await authService.verifyOTP(email, otp, tenant_slug);
-        const jwtPayload = await buildJwtPayload(tenant.id, user);
-
-        const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
-
-        store.ensureTenantSessions(tenant);
-        const workingSession = store.resolveWorkingSession(tenant.id, user);
-        const yearClosed = store.isYearClosed(tenant.id, workingSession);
-
-        const userAccess = resolveUserAccess(user);
-        const sessionResponse: AuthSessionResponse = {
-          token,
-          expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
-          user: {
-            id: user.id,
-            tenant_id: user.tenant_id,
-            email: user.email,
-            full_name: user.full_name,
-            role: user.role,
-            avatar_url: user.avatar_url,
-            access: userAccess as any,
-            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : derivePermissions(userAccess),
-            designation: (user.metadata?.designation as string) || undefined,
-            must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
-            working_session: workingSession,
-            year_closed: yearClosed,
-          },
-          tenant: {
-            id: tenant.id,
-            name: tenant.name,
-            slug: tenant.slug,
-            status: tenant.status,
-            academic_session: tenant.settings?.academic_session || '2026-2027',
-            academic_sessions: tenant.settings?.academic_sessions || [],
-            campus_name: tenant.settings?.campus_name || 'Main Campus',
-            logo_url: tenant.settings?.logo_url || null,
-            city: tenant.settings?.city || null,
-            settings: tenant.settings || null,
-          },
-        };
-
-        return reply.send({
-          success: true,
-          data: sessionResponse,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (err: any) {
-        return reply.status(401).send({
-          success: false,
-          error: {
-            code: 'AUTH_VERIFICATION_FAILED',
-            message: err.message || 'Invalid or expired verification code.',
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-    });
-
-    // -------------------------------------------------------------------------
-    // 5. Password Reset Request: Sends 6-digit OTP via Brevo
-    // -------------------------------------------------------------------------
-    fastify.post('/forgot-password', async (request, reply) => {
-      const schema = z.object({
-        email: z.string().email('Valid institutional email is required'),
-        tenant_slug: z.string().optional(),
-        tenant_id: z.string().optional(),
-      });
-
-      const parseResult = schema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.status(400).send({
-          success: false,
-          error: { code: 'VALIDATION_ERROR', message: 'Valid email is required.' },
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      try {
-        let { email, tenant_slug, tenant_id } = parseResult.data;
-        if ((!tenant_id || !tenant_id.trim()) && (!tenant_slug || !tenant_slug.trim())) {
-          if (email.toLowerCase().trim() === 'kampuserp@gmail.com') {
-            tenant_id = 'p0000000-0000-0000-0000-000000000001';
-          } else {
-            const resolved = await authService.resolveTenantForEmail(email.toLowerCase().trim());
-            if (resolved?.tenantId) {
-              tenant_id = resolved.tenantId;
-            } else if (resolved?.tenantSlug) {
-              tenant_slug = resolved.tenantSlug;
-            } else {
-              return reply.status(400).send({
-                success: false,
-                error: { code: 'TENANT_REQUIRED', message: 'Academy identifier (tenant_slug or tenant_id) is required.' },
-                timestamp: new Date().toISOString(),
-              });
-            }
-          }
-        }
-        const result = await authService.requestPasswordReset(email, tenant_slug, tenant_id);
-        return reply.send({
-          success: true,
-          data: result,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (err: any) {
-        return reply.status(400).send({
-          success: false,
-          error: { code: 'FORGOT_PASSWORD_FAILED', message: err.message || 'Failed to dispatch reset code.' },
-          timestamp: new Date().toISOString(),
-        });
-      }
-    });
-
-    // -------------------------------------------------------------------------
-    // 6. Reset Password Confirmation
-    // -------------------------------------------------------------------------
-    fastify.post('/reset-password', async (request, reply) => {
-      const schema = z.object({
-        email: z.string().email(),
-        otp: z.string().length(6, 'Verification code must be 6 digits'),
-        new_password: z.string().min(6, 'Password must be at least 6 characters'),
-        tenant_slug: z.string().optional(),
-        tenant_id: z.string().optional(),
-      });
-
-      const parseResult = schema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.status(400).send({
-          success: false,
-          error: { code: 'VALIDATION_ERROR', message: 'Please complete all fields with a valid 6-digit code.' },
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      try {
-        let { email, otp, new_password, tenant_slug, tenant_id } = parseResult.data;
-        if ((!tenant_id || !tenant_id.trim()) && (!tenant_slug || !tenant_slug.trim())) {
-          if (email.toLowerCase().trim() === 'kampuserp@gmail.com') {
-            tenant_id = 'p0000000-0000-0000-0000-000000000001';
-          } else {
-            const resolved = await authService.resolveTenantForEmail(email.toLowerCase().trim());
-            if (resolved?.tenantId) {
-              tenant_id = resolved.tenantId;
-            } else if (resolved?.tenantSlug) {
-              tenant_slug = resolved.tenantSlug;
-            } else {
-              return reply.status(400).send({
-                success: false,
-                error: { code: 'TENANT_REQUIRED', message: 'Academy identifier (tenant_slug or tenant_id) is required.' },
-                timestamp: new Date().toISOString(),
-              });
-            }
-          }
-        }
-        await authService.resetPassword(email, otp, new_password, tenant_slug, tenant_id);
-        return reply.send({
-          success: true,
-          message: 'Password updated successfully. You can now sign in with your new password.',
-          timestamp: new Date().toISOString(),
-        });
-      } catch (err: any) {
-        const statusCode = err.code === 'OTP_LOCKED' ? 429 : 400;
-        return reply.status(statusCode).send({
-          success: false,
-          error: {
-            code: err.code || 'RESET_PASSWORD_FAILED',
-            message: err.message || 'Failed to reset password.',
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-    });
-
-    // -------------------------------------------------------------------------
-    // 6.1 Change Password OTP Request: Dispatches 6-digit OTP via Brevo to Director
-    // -------------------------------------------------------------------------
-    fastify.post('/change-password-otp', {
-      onRequest: [(fastify as any).authenticate],
-    }, async (request: any, reply) => {
-      try {
-        const tenantId = request.user.tenant_id;
-        const email = request.user.email;
-        const result = await authService.requestChangePasswordOTP(tenantId, email);
-        return reply.send({
-          success: true,
-          data: result,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (err: any) {
-        const isCooldown = err.message?.includes('wait') || err.message?.includes('cooldown');
-        return reply.status(isCooldown ? 429 : 400).send({
-          success: false,
-          error: {
-            code: isCooldown ? 'COOLDOWN_ACTIVE' : 'OTP_REQUEST_FAILED',
-            message: err.message || 'Failed to dispatch verification code.',
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-    });
-
-    // -------------------------------------------------------------------------
-    // 6.2 Change Password Execution: Verifies Current Password & OTP, Issues Fresh JWT
-    // -------------------------------------------------------------------------
-    fastify.post('/change-password', {
-      onRequest: [(fastify as any).authenticate],
-    }, async (request: any, reply) => {
-      const isStudentOrParent = request.user?.role === 'student' || request.user?.role === 'parent';
-
-      const schema = z.object({
-        current_password: z.string().min(1, 'Current password is required'),
-        new_password: z.string().min(6, 'New password must be at least 6 characters'),
-        otp: isStudentOrParent
-          ? z.string().trim().optional()
-          : z.string().trim().length(6, 'Verification code must be 6 digits'),
-      });
-
-      const parseResult = schema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.status(400).send({
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Please complete all required fields with valid values.',
-            details: parseResult.error.flatten(),
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      try {
-        const tenantId = request.user.tenant_id;
-        const email = request.user.email;
-        const { current_password, new_password, otp } = parseResult.data;
-
-        const { user, tenant } = await authService.changePassword({
-          tenantId,
-          email,
-          currentPassword: current_password,
-          newPassword: new_password,
-          otp,
-          skipOTP: isStudentOrParent && !otp,
-        });
-
-        // Sign fresh 7-day JWT session
-        const jwtPayload = await buildJwtPayload(tenant.id, user);
-
-        const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
-
-        return reply.send({
-          success: true,
-          data: {
-            token,
-            expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
-            message: 'Password updated successfully.',
-            user: {
-              id: user.id,
-              tenant_id: user.tenant_id,
-              email: user.email,
-              full_name: user.full_name,
-              role: user.role,
-              avatar_url: user.avatar_url,
-              must_change_password: false,
-            },
-            tenant: {
-              id: tenant.id,
-              name: tenant.name,
-              slug: tenant.slug,
-              status: tenant.status,
-              academic_session: tenant.settings?.academic_session || '2026-2027',
-              campus_name: tenant.settings?.campus_name || 'Main Campus',
-              logo_url: tenant.settings?.logo_url || null,
-              city: tenant.settings?.city || null,
-              settings: tenant.settings || null,
-            },
-          },
-          timestamp: new Date().toISOString(),
-        });
-      } catch (err: any) {
-        if (err.code === 'INVALID_CURRENT_PASSWORD') {
-          return reply.status(401).send({
-            success: false,
-            error: {
-              code: 'INVALID_CURRENT_PASSWORD',
-              message: err.message || 'Current password is incorrect.',
-            },
-            timestamp: new Date().toISOString(),
-          });
-        }
-        if (err.code === 'OTP_LOCKED') {
-          return reply.status(429).send({
-            success: false,
-            error: {
-              code: 'OTP_LOCKED',
-              message: err.message,
-            },
-            timestamp: new Date().toISOString(),
-          });
-        }
-        return reply.status(400).send({
-          success: false,
-          error: {
-            code: err.code || 'PASSWORD_CHANGE_FAILED',
-            message: err.message || 'Failed to update password.',
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-    });
+    fastify.post('/login', legacyAuthDeprecationHandler);
+    fastify.post('/register', legacyAuthDeprecationHandler);
+    fastify.post('/verify-registration-otp', legacyAuthDeprecationHandler);
+    fastify.post('/forgot-password', legacyAuthDeprecationHandler);
+    fastify.post('/reset-password', legacyAuthDeprecationHandler);
+    fastify.post('/change-password-otp', legacyAuthDeprecationHandler);
+    fastify.post('/change-password', legacyAuthDeprecationHandler);
+    fastify.post('/request-otp', legacyAuthDeprecationHandler);
+    fastify.post('/verify-otp', legacyAuthDeprecationHandler);
 
     // -------------------------------------------------------------------------
     // 7. Public Tenant Branding Lookup (for White-Labeling & Subdomains)
@@ -730,124 +144,124 @@ export function authRoutes(
     });
 
     // -------------------------------------------------------------------------
-    // 8. Legacy / Direct OTP Endpoints (Maintained for Test Compatibility)
+    // 7.5 Public Host Boundary Resolution (Central Platform vs Academy)
     // -------------------------------------------------------------------------
-    fastify.post('/request-otp', async (request, reply) => {
-      const schema = z.object({
-        email: z.string().email(),
-        tenant_slug: z.string().min(1).default('apex'),
-      });
-
-      const parseResult = schema.safeParse(request.body);
-      if (!parseResult.success) {
+    fastify.get('/resolve-host', async (request: any, reply) => {
+      if (request.query?.host !== undefined && typeof request.query.host === 'string' && request.query.host.trim() === '') {
         return reply.status(400).send({
           success: false,
+          error: { code: 'INVALID_HOST', message: 'Host query parameter or valid Host header is required.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+      const rawHost = (request.query?.host as string | undefined) || normalizeEffectiveHostname(request);
+      const host = (rawHost || '').split(':')[0].trim().toLowerCase().replace(/\.$/, '');
+
+      if (!host) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'INVALID_HOST', message: 'Host query parameter or valid Host header is required.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      let pool: any = request.dbClient || (fastify as any).pg;
+      if (!pool) {
+        try {
+          pool = getDatabasePool();
+        } catch {
+          pool = null;
+        }
+      }
+
+      const resolution = await resolveHostTenant(host, pool, store);
+
+      if (resolution.isUnmapped) {
+        return reply.status(404).send({
+          success: false,
           error: {
-            code: 'VALIDATION_ERROR',
-            message: 'A valid email and academy tenant slug are required.',
-            details: parseResult.error.flatten(),
+            code: 'UNMAPPED_HOST',
+            message: `Host '${host}' is not associated with an active academy.`,
           },
           timestamp: new Date().toISOString(),
         });
       }
 
-      try {
-        const { email, tenant_slug } = parseResult.data;
-        const result = await authService.requestOTP(email, tenant_slug);
+      if (resolution.isCentralHost) {
         return reply.send({
           success: true,
-          data: result,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (err: any) {
-        return reply.status(400).send({
-          success: false,
-          error: {
-            code: 'AUTH_REQUEST_FAILED',
-            message: err.message || 'Failed to dispatch verification code.',
+          data: {
+            tenant_id: null,
+            slug: null,
+            name: 'Apex Academy Management System',
+            status: 'active',
+            is_custom_domain: false,
+            is_central_host: true,
           },
           timestamp: new Date().toISOString(),
         });
       }
+
+      // Branded host (platform subdomain or verified custom domain)
+      let tenant: any = null;
+      if (resolution.tenantId) {
+        tenant = await store.getTenantById(resolution.tenantId);
+      }
+      if (!tenant && resolution.tenantSlug) {
+        tenant = await store.getTenantBySlug(resolution.tenantSlug);
+      }
+      if (!tenant && pool && resolution.tenantId) {
+        try {
+          const res = await pool.query(
+            'SELECT id, name, slug, status FROM public.tenants WHERE id = $1',
+            [resolution.tenantId]
+          );
+          if (res.rows.length > 0) tenant = res.rows[0];
+        } catch {}
+      }
+
+      const tenantId = tenant?.id || resolution.tenantId;
+      const tenantSlug = tenant?.slug || resolution.tenantSlug;
+      const tenantName = tenant?.name || tenantSlug || 'Academy';
+      const tenantStatus = tenant?.status || 'active';
+      const isCustomDomain = !!resolution.isCustomDomain;
+
+      return reply.send({
+        success: true,
+        data: {
+          tenant_id: tenantId,
+          slug: tenantSlug,
+          name: tenantName,
+          status: tenantStatus,
+          is_custom_domain: isCustomDomain,
+        },
+        timestamp: new Date().toISOString(),
+      });
     });
 
-    fastify.post('/verify-otp', async (request, reply) => {
-      const schema = z.object({
-        email: z.string().email(),
-        otp: z.string().length(6, 'Verification code must be 6 digits'),
-        tenant_slug: z.string().min(1).default('apex'),
+
+    // -------------------------------------------------------------------------
+    // 8.5 Session Bootstrap Endpoint (Profile & Memberships)
+    // -------------------------------------------------------------------------
+    fastify.get('/session', {
+      onRequest: [(fastify as any).authenticate],
+    }, async (request: any, reply) => {
+      const auth = request.auth;
+      const memberships = await store.getMembershipsByAuthId(auth.user_id);
+      const activeTenantId = request.headers['x-tenant-id'] || request.headers['X-Tenant-ID'] || request.user?.tenant_id;
+      const activeMembership = activeTenantId ? await store.getMembership(activeTenantId, auth.user_id) : null;
+      const activeTenant = activeTenantId ? await store.getTenantById(activeTenantId) : null;
+
+      return reply.send({
+        success: true,
+        data: {
+          profile: auth.profile,
+          memberships,
+          active_membership: activeMembership,
+          active_tenant: activeTenant,
+        },
+        timestamp: new Date().toISOString(),
       });
-
-      const parseResult = schema.safeParse(request.body);
-      if (!parseResult.success) {
-        return reply.status(400).send({
-          success: false,
-          error: {
-            code: 'VALIDATION_ERROR',
-            message: 'Valid 6-digit code and email are required.',
-            details: parseResult.error.flatten(),
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      try {
-        const { email, otp, tenant_slug } = parseResult.data;
-        const { user, tenant } = await authService.verifyOTP(email, otp, tenant_slug);
-
-        const jwtPayload = await buildJwtPayload(tenant.id, user);
-
-        const token = fastify.jwt.sign(jwtPayload, { expiresIn: '7d', jti: randomUUID() });
-
-        store.ensureTenantSessions(tenant);
-        const workingSession = store.resolveWorkingSession(tenant.id, user);
-        const yearClosed = store.isYearClosed(tenant.id, workingSession);
-
-        const sessionResponse: AuthSessionResponse = {
-          token,
-          expires_at: new Date(Date.now() + 7 * 86400000).toISOString(),
-          user: {
-            id: user.id,
-            tenant_id: user.tenant_id,
-            email: user.email,
-            full_name: user.full_name,
-            role: user.role,
-            avatar_url: user.avatar_url,
-            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : undefined,
-            designation: (user.metadata?.designation as string) || undefined,
-            must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
-            working_session: workingSession,
-            year_closed: yearClosed,
-          },
-          tenant: {
-            id: tenant.id,
-            name: tenant.name,
-            slug: tenant.slug,
-            status: tenant.status,
-            academic_session: tenant.settings?.academic_session || '2026-2027',
-            academic_sessions: tenant.settings?.academic_sessions || [],
-            campus_name: tenant.settings?.campus_name || 'Main Campus',
-            logo_url: tenant.settings?.logo_url || null,
-            city: tenant.settings?.city || null,
-            settings: tenant.settings || null,
-          },
-        };
-
-        return reply.send({
-          success: true,
-          data: sessionResponse,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (err: any) {
-        return reply.status(401).send({
-          success: false,
-          error: {
-            code: 'AUTH_VERIFICATION_FAILED',
-            message: err.message || 'Invalid or expired verification code.',
-          },
-          timestamp: new Date().toISOString(),
-        });
-      }
     });
 
     // -------------------------------------------------------------------------
@@ -856,49 +270,589 @@ export function authRoutes(
     fastify.get('/me', {
       onRequest: [(fastify as any).authenticate],
     }, async (request: any, reply) => {
-      const jwtUser = request.user as JWTPayload;
-      const user = await store.getUserByEmail(jwtUser.tenant_id, jwtUser.email);
-      const tenant = await store.getTenantById(jwtUser.tenant_id);
+      const jwtUser = request.user;
+      let user: any = null;
+      if (jwtUser?.tenant_id) {
+        user = await store.getMembership(jwtUser.tenant_id, jwtUser.auth_user_id || jwtUser.id);
+        if (!user && jwtUser.email) {
+          user = await store.getUserByEmail(jwtUser.tenant_id, jwtUser.email);
+        }
+      }
+      if (!user && (jwtUser?.role === 'super_admin' || request.auth?.profile?.platform_role === 'super_admin')) {
+        user = user || {
+          id: request.auth?.user_id || jwtUser?.id,
+          tenant_id: '',
+          auth_user_id: request.auth?.user_id || jwtUser?.id,
+          email: request.auth?.profile?.email || jwtUser?.email,
+          full_name: request.auth?.profile?.display_name || jwtUser?.full_name || 'Platform Superadmin',
+          role: 'super_admin',
+          avatar_url: null,
+          metadata: { permissions: ['all'] },
+        };
+      }
+      const tenant = jwtUser?.tenant_id ? await store.getTenantById(jwtUser.tenant_id) : null;
 
-      if (!user || !tenant) {
+      if (!user && !jwtUser) {
         return reply.status(401).send({
           success: false,
-          error: { code: 'UNAUTHORIZED', message: 'User or tenant record no longer exists.' },
+          error: { code: 'UNAUTHORIZED', message: 'User record no longer exists.' },
           timestamp: new Date().toISOString(),
         });
       }
 
-      store.ensureTenantSessions(tenant);
-      const workingSession = request.working_session || request.user?.working_session || store.resolveWorkingSession(tenant.id, user);
-      const yearClosed = request.year_closed !== undefined ? request.year_closed : store.isYearClosed(tenant.id, workingSession);
+      if (tenant) {
+        store.ensureTenantSessions(tenant);
+      }
+      const workingSession = request.working_session || request.user?.working_session || (tenant ? store.resolveWorkingSession(tenant.id, user || jwtUser) : '2026-2027');
+      const yearClosed = request.year_closed !== undefined ? request.year_closed : (tenant ? store.isYearClosed(tenant.id, workingSession) : false);
 
+      const effectiveUser = user || jwtUser;
       return reply.send({
         success: true,
         data: {
           user: {
-            id: user.id,
-            tenant_id: user.tenant_id,
-            email: user.email,
-            full_name: user.full_name,
-            role: user.role,
-            avatar_url: user.avatar_url,
-            access: resolveUserAccess(user) as any,
-            permissions: Array.isArray(user.metadata?.permissions) ? user.metadata.permissions : derivePermissions(resolveUserAccess(user)),
-            designation: (user.metadata?.designation as string) || undefined,
-            must_change_password: Boolean((user.metadata as any)?.must_change_password || (user.metadata as any)?.requires_password_change),
+            id: effectiveUser.id,
+            tenant_id: effectiveUser.tenant_id,
+            auth_user_id: effectiveUser.auth_user_id || request.auth?.user_id,
+            email: effectiveUser.email,
+            full_name: effectiveUser.full_name,
+            role: effectiveUser.role,
+            avatar_url: effectiveUser.avatar_url,
+            access: resolveUserAccess(effectiveUser) as any,
+            permissions: Array.isArray(effectiveUser.metadata?.permissions) ? effectiveUser.metadata.permissions : derivePermissions(resolveUserAccess(effectiveUser)),
+            designation: (effectiveUser.metadata?.designation as string) || undefined,
+            must_change_password: Boolean((effectiveUser.metadata as any)?.must_change_password || (effectiveUser.metadata as any)?.requires_password_change),
             working_session: workingSession,
             year_closed: yearClosed,
           },
-          tenant: {
+          tenant: tenant ? {
             ...tenant,
             logo_url: tenant.settings?.logo_url || (tenant.slug === 'tsa' ? '/tsa-logo.png' : null),
             academic_session: tenant.settings?.academic_session || '2026-2027',
             academic_sessions: tenant.settings?.academic_sessions || [],
             campus_name: tenant.settings?.campus_name || 'Main Campus',
-          },
+          } : null,
         },
         timestamp: new Date().toISOString(),
       });
     });
+
+    // -------------------------------------------------------------------------
+    // 10. Authenticated Tenant Onboarding Endpoint
+    // -------------------------------------------------------------------------
+    fastify.post('/onboard-tenant', {
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: '1 minute',
+        },
+      },
+      onRequest: [(fastify as any).authenticate],
+    }, async (request: any, reply) => {
+      const auth = request.auth;
+      if (!auth || !auth.user_id) {
+        return reply.status(401).send({
+          success: false,
+          error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (auth.profile?.status !== 'active') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'User profile is not active or verified.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const schema = z.object({
+        name: z.string().optional(),
+        tenant_name: z.string().optional(),
+        slug: z.string().optional(),
+        tenant_slug: z.string().optional(),
+        campus_name: z.string().optional(),
+        city: z.string().optional(),
+        phone: z.string().optional(),
+        logo_url: z.string().optional(),
+      }).transform(data => {
+        const resolvedName = (data.name ?? data.tenant_name ?? '').trim();
+        const resolvedSlug = (data.slug ?? data.tenant_slug ?? '').trim().toLowerCase();
+        return {
+          name: resolvedName,
+          slug: resolvedSlug,
+          campus_name: data.campus_name?.trim() || undefined,
+          city: data.city?.trim() || undefined,
+          phone: data.phone?.trim() || undefined,
+          logo_url: data.logo_url?.trim() || undefined,
+        };
+      }).refine(data => data.name.length >= 2, {
+        message: 'Academy name must be at least 2 characters',
+        path: ['name'],
+      }).refine(data => data.slug.length >= 3 && data.slug.length <= 32, {
+        message: 'Academy slug must be between 3 and 32 characters',
+        path: ['slug'],
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const { name, slug, campus_name, city, phone, logo_url } = parseResult.data;
+      const cleanSlug = slug;
+
+      if (isReservedSlug(cleanSlug)) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'SLUG_RESERVED', message: `'${cleanSlug}' is a reserved platform identifier.` },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const result = await store.onboardTenant(auth.user_id, auth.profile.email, auth.profile.display_name, {
+          name,
+          slug: cleanSlug,
+          campusName: campus_name,
+          city,
+          phone,
+          logoUrl: logo_url,
+        });
+
+        // Trigger Cloudflare subdomain provisioning
+        let provisioningResult: { success: boolean; domain: string; status: 'active' | 'pending' | 'failed'; record_id?: string; error?: string };
+        try {
+          provisioningResult = await cloudflareService.provisionSubdomain(cleanSlug);
+        } catch (err: any) {
+          provisioningResult = {
+            success: false,
+            domain: `${cleanSlug}.${process.env.BASE_DOMAIN || 'kampus.pk'}`,
+            status: 'failed',
+            error: err.message || 'Network exception connecting to Cloudflare',
+          };
+        }
+
+        // Durably persist domain provisioning state onto the tenant settings
+        if (result.tenant?.id) {
+          try {
+            await store.updateTenantSettings(result.tenant.id, {
+              settings: {
+                domain: provisioningResult.domain,
+                subdomain: cleanSlug,
+                domain_verified: provisioningResult.status === 'active',
+                domain_provisioning_status: provisioningResult.status,
+                domain_provisioning_error: provisioningResult.error || null,
+                domain_provisioned_at: new Date().toISOString(),
+              } as any,
+            });
+            if (result.tenant.settings) {
+              result.tenant.settings.domain = provisioningResult.domain;
+              result.tenant.settings.subdomain = cleanSlug;
+              result.tenant.settings.domain_verified = provisioningResult.status === 'active';
+              result.tenant.settings.domain_provisioning_status = provisioningResult.status;
+              result.tenant.settings.domain_provisioning_error = provisioningResult.error || null;
+              result.tenant.settings.domain_provisioned_at = new Date().toISOString();
+            }
+          } catch (persistErr) {
+            console.error('[Onboard] Failed to persist provisioning status:', persistErr);
+          }
+        }
+
+        return reply.status(201).send({
+          success: true,
+          data: {
+            ...result,
+            domain_provisioning: provisioningResult,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        const status = err.code === 'SLUG_ALREADY_EXISTS' ? 409 : 400;
+        return reply.status(status).send({
+          success: false,
+          error: { code: err.code || 'ONBOARDING_FAILED', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    // -------------------------------------------------------------------------
+    // 10b. Reconcile / Retry Subdomain Provisioning (Finding C06)
+    // -------------------------------------------------------------------------
+    fastify.post('/reconcile-domain', {
+      onRequest: [(fastify as any).authenticate],
+    }, async (request: any, reply) => {
+      const user = request.user;
+      const auth = request.auth;
+
+      const isTenantAdmin =
+        user?.role === 'tenant_admin' ||
+        user?.role === 'director' ||
+        auth?.profile?.platform_role === 'super_admin';
+
+      if (!isTenantAdmin) {
+        return reply.status(403).send({
+          success: false,
+          error: {
+            code: 'FORBIDDEN',
+            message: 'Only tenant administrators or platform superadmins can reconcile domain provisioning.',
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const tenantId =
+        user?.tenant_id ||
+        (request.headers['x-tenant-id'] as string) ||
+        (request.headers['X-Tenant-ID'] as string);
+
+      if (!tenantId) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: 'TENANT_REQUIRED',
+            message: 'Tenant identifier is required for domain reconciliation.',
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const tenant = await store.getTenantById(tenantId);
+      if (!tenant) {
+        return reply.status(404).send({
+          success: false,
+          error: {
+            code: 'TENANT_NOT_FOUND',
+            message: `Tenant '${tenantId}' was not found.`,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      let provisioningResult: { success: boolean; domain: string; status: 'active' | 'pending' | 'failed'; record_id?: string; error?: string };
+      try {
+        provisioningResult = await cloudflareService.provisionSubdomain(tenant.slug);
+      } catch (err: any) {
+        provisioningResult = {
+          success: false,
+          domain: `${tenant.slug}.${process.env.BASE_DOMAIN || 'kampus.pk'}`,
+          status: 'failed',
+          error: err.message || 'Provisioning exception',
+        };
+      }
+
+      await store.updateTenantSettings(tenant.id, {
+        settings: {
+          domain: provisioningResult.domain,
+          subdomain: tenant.slug,
+          domain_verified: provisioningResult.status === 'active',
+          domain_provisioning_status: provisioningResult.status,
+          domain_provisioning_error: provisioningResult.error || null,
+          domain_provisioned_at: new Date().toISOString(),
+        } as any,
+      });
+
+      return reply.send({
+        success: true,
+        data: {
+          tenant_id: tenant.id,
+          slug: tenant.slug,
+          domain: provisioningResult.domain,
+          status: provisioningResult.status,
+          verified: provisioningResult.status === 'active',
+          error: provisioningResult.error || null,
+        },
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    // -------------------------------------------------------------------------
+    // 10b. List Tenant Invitations Endpoint (Finding B11)
+    // -------------------------------------------------------------------------
+    fastify.get('/invitations', {
+      onRequest: [(fastify as any).authenticate],
+    }, async (request: any, reply) => {
+      const user = request.user;
+      const auth = request.auth;
+
+      if (!user?.tenant_id) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'TENANT_REQUIRED', message: 'X-Tenant-ID header is required.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (user.role !== 'tenant_admin' && user.role !== 'owner' && auth?.profile?.platform_role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN_ROLE', message: 'Only academy administrators can view invitations.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const invitations = await store.listInvitations(user.tenant_id);
+        return reply.send({
+          success: true,
+          data: invitations,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        return reply.status(500).send({
+          success: false,
+          error: { code: err.code || 'LIST_INVITATIONS_FAILED', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    // -------------------------------------------------------------------------
+    // 11. Create Tenant Membership Invitation
+    // -------------------------------------------------------------------------
+    fastify.post('/invitations', {
+      onRequest: [(fastify as any).authenticate],
+    }, async (request: any, reply) => {
+      const user = request.user;
+      const auth = request.auth;
+
+      if (!user?.tenant_id) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'TENANT_REQUIRED', message: 'X-Tenant-ID header is required.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (user.role !== 'tenant_admin' && auth?.profile?.platform_role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only academy administrators can invite users.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const schema = z.object({
+        email: z.string().email(),
+        role: z.enum(['tenant_admin', 'academic_head', 'teacher', 'finance_manager', 'parent', 'student']),
+      });
+
+      const parseResult = schema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Invalid payload', details: parseResult.error.flatten() },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const { email, role } = parseResult.data;
+
+      try {
+        const result = await store.createInvitation(user.tenant_id, user.id, email, role);
+
+        return reply.status(201).send({
+          success: true,
+          data: {
+            invitation: result.invitation,
+            token: result.raw_token,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: err.code || 'INVITATION_FAILED', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    // -------------------------------------------------------------------------
+    // 12. Revoke Invitation
+    // -------------------------------------------------------------------------
+    fastify.post('/invitations/:id/revoke', {
+      onRequest: [(fastify as any).authenticate],
+    }, async (request: any, reply) => {
+      const user = request.user;
+      const auth = request.auth;
+      const { id } = request.params as { id: string };
+
+      if (!user?.tenant_id) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'TENANT_REQUIRED', message: 'X-Tenant-ID header is required.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      if (user.role !== 'tenant_admin' && auth?.profile?.platform_role !== 'super_admin') {
+        return reply.status(403).send({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Only academy administrators can revoke invitations.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        await store.revokeInvitation(user.tenant_id, id, user.id, user.email || auth.profile.email);
+
+        return reply.send({
+          success: true,
+          message: 'Invitation revoked successfully.',
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: err.code || 'REVOKE_FAILED', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    });
+
+    // -------------------------------------------------------------------------
+    // 13. Public Inspect Invitation Endpoint (supports both :token/inspect and :token)
+    // -------------------------------------------------------------------------
+    const inspectInvitationHandler = async (request: any, reply: any) => {
+      const { token } = request.params as { token: string };
+      if (!token || !token.trim()) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'TOKEN_REQUIRED', message: 'Invitation token is required.' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const tokenHash = createHash('sha256').update(token.trim()).digest('hex');
+
+      try {
+        const inv = await store.getInvitationByTokenHash(tokenHash);
+
+        if (!inv) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'INVITATION_NOT_FOUND', message: 'Invitation was not found.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (inv.revoked_at) {
+          return reply.status(410).send({
+            success: false,
+            error: { code: 'INVITATION_REVOKED', message: 'This invitation has been revoked.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (inv.accepted_at) {
+          return reply.status(410).send({
+            success: false,
+            error: { code: 'INVITATION_ALREADY_ACCEPTED', message: 'This invitation was already accepted.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        if (new Date(inv.expires_at).getTime() < Date.now()) {
+          return reply.status(410).send({
+            success: false,
+            error: { code: 'INVITATION_EXPIRED', message: 'This invitation has expired.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        return reply.send({
+          success: true,
+          data: {
+            tenant_name: inv.tenant_name,
+            tenant_slug: inv.tenant_slug,
+            email: inv.email,
+            role: inv.role,
+            expires_at: inv.expires_at,
+            is_valid: true,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        return reply.status(500).send({
+          success: false,
+          error: { code: 'INSPECT_FAILED', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+
+    fastify.get('/invitations/:token/inspect', inspectInvitationHandler);
+    fastify.get('/invitations/:token', inspectInvitationHandler);
+
+    // -------------------------------------------------------------------------
+    // 14. Accept Invitation Endpoint (supports both /accept and /:token/accept)
+    // -------------------------------------------------------------------------
+    const acceptInvitationHandler = async (request: any, reply: any) => {
+      const auth = request.auth;
+      const paramToken = (request.params as any)?.token;
+      const bodyToken = (request.body as any)?.token;
+      const token = (paramToken || bodyToken || '').trim();
+
+      if (!token) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'VALIDATION_ERROR', message: 'Token is required' },
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      try {
+        const result = await store.acceptInvitation(
+          token,
+          auth.user_id,
+          auth.profile.email,
+          auth.profile.display_name
+        );
+
+        return reply.send({
+          success: true,
+          data: result,
+          message: 'Invitation accepted successfully.',
+          timestamp: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        const status =
+          err.code === 'INVITATION_NOT_FOUND' ? 404 :
+          err.code === 'EMAIL_MISMATCH' ? 403 :
+          err.code === 'INVITATION_REVOKED' || err.code === 'INVITATION_EXPIRED' || err.code === 'INVITATION_ALREADY_ACCEPTED' ? 410 : 400;
+
+        return reply.status(status).send({
+          success: false,
+          error: { code: err.code || 'ACCEPT_FAILED', message: err.message },
+          timestamp: new Date().toISOString(),
+        });
+      }
+    };
+
+    fastify.post('/invitations/accept', {
+      config: {
+        rateLimit: {
+          max: 15,
+          timeWindow: '1 minute',
+        },
+      },
+      onRequest: [(fastify as any).authenticate],
+    }, acceptInvitationHandler);
+
+    fastify.post('/invitations/:token/accept', {
+      config: {
+        rateLimit: {
+          max: 15,
+          timeWindow: '1 minute',
+        },
+      },
+      onRequest: [(fastify as any).authenticate],
+    }, acceptInvitationHandler);
   };
 }

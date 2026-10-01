@@ -34,4 +34,35 @@ export function activeSessionStartYear(settings) {
         return parseInt(m[1], 10);
     return new Date().getFullYear();
 }
+// =============================================================================
+// SUPABASE AUTH & IDENTITY TYPES (CLEAN CUTOVER)
+// =============================================================================
+export const RESERVED_PLATFORM_SLUGS = [
+    'admin',
+    'api',
+    'app',
+    'auth',
+    'billing',
+    'cdn',
+    'dashboard',
+    'dev',
+    'dns',
+    'edu',
+    'mail',
+    'portal',
+    'root',
+    'saas',
+    'server',
+    'smtp',
+    'ssl',
+    'staging',
+    'status',
+    'superadmin',
+    'support',
+    'test',
+    'www',
+];
+export function isReservedSlug(slug) {
+    return RESERVED_PLATFORM_SLUGS.includes(slug.trim().toLowerCase());
+}
 //# sourceMappingURL=index.js.map

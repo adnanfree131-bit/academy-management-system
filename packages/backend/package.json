@@ -8,23 +8,30 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "lint": "tsc --noEmit --pretty false",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:preflight": "tsx src/scripts/db-preflight.ts",
+    "test:staging": "tsx src/scripts/run-staging-boundary.ts",
+    "check:request-db-bypass": "tsx src/scripts/verify-request-db-bypass.ts"
   },
   "dependencies": {
     "@apex/shared-types": "workspace:*",
     "@fastify/cors": "^10.0.1",
-    "@fastify/jwt": "^9.0.2",
+    "@fastify/rate-limit": "^11.2.0",
     "@fastify/sensible": "^6.0.1",
+    "@supabase/supabase-js": "^2.117.2",
     "@types/node": "^20.17.0",
     "@types/pg": "^8.23.1",
     "dotenv": "^16.4.7",
     "fastify": "^5.1.0",
+    "jose": "^6.2.12",
     "pg": "^8.23.0",
     "typescript": "^5.7.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.2.14",
     "tsx": "^4.19.2",
     "vitest": "^2.1.8"
   }

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Menu, Search, ChevronDown, LogOut, Shield, Settings, Users, Bell, Calendar } from 'lucide-react';
+import { Menu, Search, ChevronDown, LogOut, Shield, Settings, Users, Bell, Calendar, Building2 } from 'lucide-react';
 import { hapticLight } from '../lib/haptics';
 import { canOpenScreen } from '../lib/portalAccess';
+import { TenantSelectorModal } from './TenantSelectorModal';
+import { MfaSettingsModal } from './MfaSettingsModal';
 
 interface HeaderProps {
   section?: string;
@@ -20,9 +22,11 @@ export const Header: React.FC<HeaderProps> = ({
   onSwitchScreen,
   onOpenPortalProfile,
 }) => {
-  const { user, tenant, token, logout, setWorkingSession } = useAuth();
+  const { user, tenant, token, logout, setWorkingSession, memberships, activeTenantId, switchTenant, isBrandedHost } = useAuth();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [sessionListExpanded, setSessionListExpanded] = useState(false);
+  const [showTenantSelector, setShowTenantSelector] = useState(false);
+  const [showMfaModal, setShowMfaModal] = useState(false);
   const [absenteePending, setAbsenteePending] = useState(0);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -272,6 +276,35 @@ export const Header: React.FC<HeaderProps> = ({
                     </button>
                   </>
                 )}
+                {memberships.length > 1 && !isBrandedHost && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileMenuOpen(false);
+                      setShowTenantSelector(true);
+                    }}
+                    className="w-full text-left px-3.5 py-2 flex items-center justify-between gap-2 text-xs text-slate-700 hover:bg-slate-50 font-semibold"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Switch Academy</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                      {memberships.length}
+                    </span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileMenuOpen(false);
+                    setShowMfaModal(true);
+                  }}
+                  className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-xs text-slate-700 hover:bg-slate-50 font-semibold"
+                >
+                  <Shield className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Two-Factor Authentication</span>
+                </button>
                 <button
                   onClick={() => {
                     setProfileMenuOpen(false);
@@ -288,6 +321,27 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
       </div>
+
+      {showTenantSelector && (
+        <TenantSelectorModal
+          isOpen={showTenantSelector}
+          memberships={memberships}
+          activeTenantId={activeTenantId}
+          onSelectTenant={async (tId) => {
+            await switchTenant(tId);
+            setShowTenantSelector(false);
+          }}
+          onClose={() => setShowTenantSelector(false)}
+          canDismiss={true}
+        />
+      )}
+
+      {showMfaModal && (
+        <MfaSettingsModal
+          isOpen={showMfaModal}
+          onClose={() => setShowMfaModal(false)}
+        />
+      )}
     </header>
   );
 };

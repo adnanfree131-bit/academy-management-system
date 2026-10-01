@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tenant Domain & Cloudflare Resource Manifest",
+  "generated_at": "2026-09-29T18:38:00+05:00",
+  "base_domain": "kampus.pk",
+  "reserved_platform_hosts": [
+    "app.kampus.pk",
+    "api.kampus.pk",
+    "www.kampus.pk",
+    "admin.kampus.pk",
+    "auth.kampus.pk",
+    "support.kampus.pk",
+    "status.kampus.pk",
+    "mail.kampus.pk",
+    "cdn.kampus.pk",
+    "staging.kampus.pk",
+    "dev.kampus.pk",
+    "root.kampus.pk"
+  ],
+  "reserved_slugs": [
+    "admin",
+    "api",
+    "app",
+    "auth",
+    "cdn",
+    "dashboard",
+    "dev",
+    "dns",
+    "edu",
+    "mail",
+    "portal",
+    "root",
+    "saas",
+    "server",
+    "smtp",
+    "ssl",
+    "staging",
+    "status",
+    "support",
+    "test",
+    "www"
+  ],
+  "dummy_subdomains_to_clean": [
+    {
+      "hostname": "apex.kampus.pk",
+      "slug": "apex",
+      "database_record": "tenants.slug = 'apex'",
+      "cloudflare_dns": "CNAME apex -> kampus-academy.pages.dev",
+      "pages_custom_domain": "apex.kampus.pk",
+      "action": "DELETE_OR_DEACTIVATE"
+    },
+    {
+      "hostname": "crescent.kampus.pk",
+      "slug": "crescent",
+      "database_record": "tenants.slug = 'crescent'",
+      "cloudflare_dns": "CNAME crescent -> kampus-academy.pages.dev",
+      "pages_custom_domain": "crescent.kampus.pk",
+      "action": "DELETE_OR_DEACTIVATE"
+    },
+    {
+      "hostname": "tsa.kampus.pk",
+      "slug": "tsa",
+      "database_record": "tenant_slug_aliases or snapshot record",
+      "cloudflare_dns": "CNAME tsa -> kampus-academy.pages.dev",
+      "pages_custom_domain": "tsa.kampus.pk",
+      "action": "DELETE_OR_DEACTIVATE"
+    }
+  ],
+  "external_custom_domains_to_clean": [
+    {
+      "hostname": "portal.tsa.edu.pk",
+      "cloudflare_for_saas_custom_hostname": "portal.tsa.edu.pk",
+      "action": "REMOVE_CUSTOM_HOSTNAME"
+    },
+    {
+      "hostname": "crescent.edu.pk",
+      "cloudflare_for_saas_custom_hostname": "crescent.edu.pk",
+      "action": "REMOVE_CUSTOM_HOSTNAME"
+    }
+  ],
+  "routing_rules": {
+    "wildcard_behavior": "If *.kampus.pk wildcard DNS is present, retain it. Requests for unknown or deleted tenant hosts must return neutral 404 Unknown Academy, never fallback to a demo or platform tenant.",
+    "session_boundary": "Sessions are origin-scoped. No cross-subdomain JavaScript cookie sharing or token leakage in redirect query strings."
+  }
+}

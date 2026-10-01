@@ -21,14 +21,18 @@ describe('Fees Overhaul & Financial Integrity Verification', () => {
       tenant_id: tenantId,
       email: 'adnan@apexacademy.edu.pk',
       role: 'tenant_admin',
+      aal: 'aal2',
+      amr: [{ method: 'totp', timestamp: Math.floor(Date.now() / 1000) }],
     });
 
     financeManagerToken = app.jwt.sign({
-      sub: 'a1000000-0000-0000-0000-000000000003',
-      user_id: 'a1000000-0000-0000-0000-000000000003',
+      sub: 'fin-00000000-0000-0000-0000-000000000001',
+      user_id: 'fin-00000000-0000-0000-0000-000000000001',
       tenant_id: tenantId,
       email: 'finance@apexacademy.edu.pk',
       role: 'finance_manager',
+      aal: 'aal2',
+      amr: [{ method: 'totp', timestamp: Math.floor(Date.now() / 1000) }],
     });
 
     // Enroll a second active student so tenant has multiple active students for batch & family tests

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { useAuth } from '../context/AuthContext';
 import { 
   Users, 
@@ -1387,7 +1387,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   };
 
   // Download official sample Excel (.xlsx) template
-  const handleDownloadSampleXlsx = () => {
+  const handleDownloadSampleXlsx = async () => {
     const headers = [
       'Full Name',
       'Guardian Name',
@@ -1476,11 +1476,19 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       ]
     ];
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
-    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 3, 14) }));
-    XLSX.utils.book_append_sheet(wb, ws, 'Student Roster');
-    XLSX.writeFile(wb, 'student_bulk_enrollment_template.xlsx');
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet('Student Roster');
+    ws.addRow(headers);
+    sampleRows.forEach(r => ws.addRow(r));
+    ws.columns = headers.map(h => ({ width: Math.max(h.length + 3, 14) }));
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'student_bulk_enrollment_template.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Download official sample Excel-compatible CSV template
@@ -1813,17 +1821,53 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       let detectedSheet = 'Sheet1';
 
       if (['xlsx', 'xls', 'xlsm', 'xlsb'].includes(ext)) {
-        const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
-        detectedSheet = wb.SheetNames[0] || 'Sheet1';
-        const sheet = wb.Sheets[detectedSheet];
-        rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.worksheets[0];
+        detectedSheet = worksheet?.name || 'Sheet1';
+        if (worksheet) {
+          const headerRow: string[] = [];
+          worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) {
+              row.eachCell((cell, colNumber) => {
+                headerRow[colNumber] = String(cell.value || '').trim();
+              });
+            } else {
+              const rowData: Record<string, any> = {};
+              row.eachCell((cell, colNumber) => {
+                const header = headerRow[colNumber];
+                if (header) {
+                  let val = cell.value;
+                  if (val && typeof val === 'object' && 'text' in val) {
+                    val = (val as any).text;
+                  }
+                  rowData[header] = val !== null && val !== undefined ? String(val).trim() : '';
+                }
+              });
+              if (Object.keys(rowData).length > 0) {
+                rawRows.push(rowData);
+              }
+            }
+          });
+        }
       } else {
         const decoder = new TextDecoder('utf-8');
         let text = decoder.decode(buffer).replace(/^\uFEFF/, '');
-        const wb = XLSX.read(text, { type: 'string', raw: true });
-        detectedSheet = wb.SheetNames[0] || 'CSV';
-        const sheet = wb.Sheets[detectedSheet];
-        rawRows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        detectedSheet = 'CSV';
+        const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+        if (lines.length > 0) {
+          const headers = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
+          for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim().replace(/^["']|["']$/g, ''));
+            const rowData: Record<string, any> = {};
+            headers.forEach((h, idx) => {
+              if (h) rowData[h] = values[idx] || '';
+            });
+            if (Object.keys(rowData).length > 0) {
+              rawRows.push(rowData);
+            }
+          }
+        }
       }
 
       setBulkImportRawRows(rawRows);
@@ -1848,7 +1892,7 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
   // Handle CSV textarea change
 
   // Download export of created credentials
-  const handleDownloadCredentialsReport = () => {
+  const handleDownloadCredentialsReport = async () => {
     if (!bulkImportResult?.credentials || bulkImportResult.credentials.length === 0) {
       alert('No credentials available to export.');
       return;
@@ -1876,11 +1920,19 @@ export const EnrollmentView: React.FC<EnrollmentViewProps> = ({ defaultTab = 'di
       c.first_month_amount ?? 0
     ]);
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
-    ws['!cols'] = headers.map(h => ({ wch: Math.max(h.length + 3, 16) }));
-    XLSX.utils.book_append_sheet(wb, ws, 'Student Credentials');
-    XLSX.writeFile(wb, `student_enrollment_credentials_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet('Student Credentials');
+    ws.addRow(headers);
+    dataRows.forEach(r => ws.addRow(r));
+    ws.columns = headers.map(h => ({ width: Math.max(h.length + 3, 16) }));
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `student_enrollment_credentials_${new Date().toISOString().split('T')[0]}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Bulk Import Executor

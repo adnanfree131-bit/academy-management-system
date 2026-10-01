@@ -101,9 +101,13 @@ import {
   SuperAdminTenantSummary,
   defaultAcademicSessions,
   activeSessionStartYear,
+  UserProfile,
+  TenantMembership,
+  TenantInvitation,
+  ProfileStatus,
+  isReservedSlug,
 } from '@apex/shared-types';
-
-import { hashPassword, verifyPassword } from './password.js';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import {
   countRealAcademies,
   createManualBackup,
@@ -123,18 +127,6 @@ import {
   can,
 } from '../lib/access.js';
 import { campusToday, campusDayOfWeek, campusMinutes, parseTimeToMinutes, normalizeTimeString, getSundayExcludedWorkingDays } from '../lib/campus-date.js';
-
-export interface StoredOTP {
-  id: string;
-  tenant_id: string;
-  email: string;
-  code_hash: string;
-  attempts: number;
-  expires_at: Date;
-  used_at?: Date | null;
-  created_at?: Date;
-  purpose?: string;
-}
 
 export interface StaffLeaveRecord {
   id: string;
@@ -235,7 +227,6 @@ export interface IDataStore {
     admin_name: string;
     admin_email: string;
     logo_url?: string;
-    password_hash?: string;
     status?: TenantStatus;
   }): Promise<{ tenant: Tenant; admin: User }>;
   updateTenantSettings(tenantId: string, updates: { name?: string; slug?: string; settings?: Partial<TenantSettings> }): Promise<Tenant | null>;
@@ -256,13 +247,20 @@ export interface IDataStore {
   getUserByEmail(tenantId: string, email: string): Promise<User | null>;
   getUserById(tenantId: string, userId: string): Promise<User | null>;
   getUserByEmailGlobal(email: string): Promise<User[]>;
+  getProfileByAuthId(authUserId: string): Promise<UserProfile | null>;
+  getProfileByEmail(email: string): Promise<UserProfile | null>;
+  saveProfile(profile: UserProfile): Promise<UserProfile>;
+  updateProfileStatus(authUserId: string, status: ProfileStatus): Promise<UserProfile | null>;
+  getMembershipsByAuthId(authUserId: string): Promise<Array<TenantMembership & { tenant: any }>>;
+  getMembership(tenantId: string, authUserId: string): Promise<TenantMembership | null>;
+  setMembershipStatus(tenantId: string, membershipId: string, status: UserStatus): Promise<TenantMembership | null>;
   checkSlugAvailable(slug: string): Promise<boolean>;
-  updateUserPassword(tenantId: string, email: string, passwordHash: string): Promise<boolean>;
-  createOTP(tenantId: string, email: string, codeHash: string, expiresAt: Date, purpose?: string): Promise<StoredOTP>;
-  getActiveOTP(tenantId: string, email: string, purpose?: string): Promise<StoredOTP | null>;
-  getLatestOTP(tenantId: string, email: string, purpose?: string): Promise<StoredOTP | null>;
-  incrementOTPAttempts(id: string): Promise<void>;
-  markOTPUsed(id: string): Promise<void>;
+  createInvitation(tenantId: string, invitedByMembershipId: string, email: string, role: string): Promise<{ invitation: any; raw_token: string }>;
+  listInvitations(tenantId: string): Promise<TenantInvitation[]>;
+  getInvitationByTokenHash(tokenHash: string): Promise<any | null>;
+  revokeInvitation(tenantId: string, invitationId: string, revokedByMembershipId: string, revokerEmail: string): Promise<any>;
+  acceptInvitation(rawToken: string, authUserId: string, authEmail: string, authDisplayName?: string): Promise<{ membership: any; tenant_id: string }>;
+  onboardTenant(authUserId: string, authEmail: string, authDisplayName: string, payload: { name: string; slug: string; campusName?: string; city?: string; phone?: string; logoUrl?: string }): Promise<{ tenant: any; membership: any }>;
 
   getPrograms(tenantId: string): Promise<AcademicProgram[]>;
   createProgram(data: Omit<AcademicProgram, 'id' | 'created_at' | 'updated_at'>): Promise<AcademicProgram>;
@@ -886,7 +884,8 @@ export function mapHeadCategoryToStatus(category?: string, fallback: StaffAttend
 export class InMemoryDataStore implements IDataStore {
   private tenants: Map<string, Tenant> = new Map();
   private users: Map<string, User> = new Map();
-  private otps: StoredOTP[] = [];
+  private profiles: Map<string, UserProfile> = new Map();
+  private invitations: Map<string, any> = new Map();
 
   // Phase 2 Collections
   private programs: AcademicProgram[] = [];
@@ -998,9 +997,18 @@ export class InMemoryDataStore implements IDataStore {
       });
     }
 
-    this.seedPlatformOperator();
-    this.seedDemoAcademy();
-    this.seedTestData();
+    if (process.env.NODE_ENV === 'production' && (process.env.ALLOW_DEMO_SEED === 'true' || process.env.SEED_DEMO_DATA === 'true')) {
+      throw new Error('FATAL: Demo data seeding is strictly prohibited in production environments.');
+    }
+
+    const shouldSeedFixtureData =
+      process.env.NODE_ENV === 'test' ||
+      (process.env.NODE_ENV !== 'production' && (process.env.ALLOW_DEMO_SEED === 'true' || process.env.SEED_DEMO_DATA === 'true'));
+    if (shouldSeedFixtureData) {
+      this.seedPlatformOperator();
+      this.seedDemoAcademy();
+      this.seedTestData();
+    }
     this.ensureStudentEnrollments();
 
     if (persistenceEnabled()) {
@@ -1020,7 +1028,6 @@ export class InMemoryDataStore implements IDataStore {
     return {
       tenants: [...this.tenants.entries()],
       users: [...this.users.entries()],
-      otps: this.otps,
       programs: this.programs,
       subjects: this.subjects,
       subjectGroups: this.subjectGroups,
@@ -1085,10 +1092,10 @@ export class InMemoryDataStore implements IDataStore {
     }
     if (payload.users) {
       for (const [k, v] of asEntries<string, User>(payload.users)) {
+        (v as any).auth_version = Number((v as any).auth_version || 0);
         this.users.set(k, v);
       }
     }
-    if (payload.otps) this.otps = asArray(payload.otps);
     if (payload.programs) this.programs = asArray<AcademicProgram>(payload.programs);
     if (payload.subjects) this.subjects = asArray<Subject>(payload.subjects);
     if (payload.subjectGroups) this.subjectGroups = asArray<SubjectGroup>(payload.subjectGroups);
@@ -1610,6 +1617,9 @@ export class InMemoryDataStore implements IDataStore {
     } catch (err) {
       this.persistAllowed = false;
       console.error('[Store] Failed to hydrate from database; RAM seed will NOT overwrite stored academies:', err);
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(`FATAL: Database connection failed during production initialization. Halting boot: ${err instanceof Error ? err.message : String(err)}`);
+      }
     }
   }
 
@@ -1677,7 +1687,6 @@ export class InMemoryDataStore implements IDataStore {
       full_name: 'Super Administrator',
       role: 'super_admin',
       status: 'active',
-      password_hash: hashPassword('Aliadnan786@'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
@@ -1712,7 +1721,6 @@ export class InMemoryDataStore implements IDataStore {
     };
     this.tenants.set(primaryTenant.id, primaryTenant);
 
-    const defaultPasswordHash = hashPassword('Admin@123');
     const users: User[] = [
       {
         id: 'superadmin-0000-0000-0000-000000000001',
@@ -1721,7 +1729,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Super Administrator',
         role: 'super_admin',
         status: 'active',
-        password_hash: hashPassword('Aliadnan786@'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1732,7 +1739,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Campus Director',
         role: 'tenant_admin',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1743,7 +1749,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Academy Administrator',
         role: 'tenant_admin',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1767,7 +1772,6 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   private seedTestData() {
-    const defaultPasswordHash = hashPassword('Admin@123');
     const tenantAId = 'a0000000-0000-0000-0000-000000000001';
     const tenantB: Tenant = {
       id: 'b0000000-0000-0000-0000-000000000002',
@@ -1853,7 +1857,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Director Adnan',
         role: 'tenant_admin',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1868,7 +1871,6 @@ export class InMemoryDataStore implements IDataStore {
           permissions: ['classes'],
           access: { classes: 'view' },
         },
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1879,7 +1881,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Academy Accountant',
         role: 'finance_manager',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1890,7 +1891,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Academic Head',
         role: 'academic_head',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1901,7 +1901,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Sir Hamza Math',
         role: 'teacher',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1912,7 +1911,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Dr. Ayesha Biology',
         role: 'teacher',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1923,7 +1921,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Muhammad Ali Raza (Student / Parent)',
         role: 'student',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1934,7 +1931,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Super Administrator',
         role: 'super_admin',
         status: 'active',
-        password_hash: hashPassword('Aliadnan786@'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1945,7 +1941,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Principal Crescent Academy',
         role: 'tenant_admin',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1956,7 +1951,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Principal Fatima',
         role: 'tenant_admin',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1967,7 +1961,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Regular Teacher',
         role: 'teacher',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1978,7 +1971,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Principal Crescent',
         role: 'tenant_admin',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -1989,7 +1981,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'M. Hamza Guardian',
         role: 'parent',
         status: 'active',
-        password_hash: defaultPasswordHash,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -2000,7 +1991,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Adnan',
         role: 'tenant_admin',
         status: 'active',
-        password_hash: hashPassword('smart786'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -2011,7 +2001,6 @@ export class InMemoryDataStore implements IDataStore {
         full_name: 'Sir Adnan',
         role: 'teacher',
         status: 'active',
-        password_hash: hashPassword('smart786'),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
@@ -2472,6 +2461,24 @@ export class InMemoryDataStore implements IDataStore {
         updated_at: new Date().toISOString(),
       },
     );
+
+    const curMonth = campusToday().substring(0, 7);
+    if (curMonth !== '2026-09') {
+      this.studentAttendance.push({
+        id: 'att-seed-cur-1',
+        tenant_id: tenantAId,
+        student_id: 'stud-1',
+        student_name: 'Muhammad Ali Raza',
+        roll_number: 'A-101',
+        batch_id: batchA.id,
+        date: `${curMonth}-01`,
+        status: 'present',
+        check_in_time: '08:25 AM',
+        remarks: 'Present on time',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    }
 
     const headArrears: FeeHead = { id: 'head-arrears', tenant_id: tenantAId, name: 'Previous Arrears', code: 'ARREARS', is_system_default: true, default_amount: 0, priority_order: 1, show_at_admission: false, created_at: new Date().toISOString() };
     const headTuition: FeeHead = { id: 'head-tuition', tenant_id: tenantAId, name: 'Monthly Tuition Fee', code: 'TUITION', is_system_default: true, default_amount: 8000, priority_order: 2, show_at_admission: true, created_at: new Date().toISOString() };
@@ -3013,7 +3020,6 @@ export class InMemoryDataStore implements IDataStore {
     admin_name: string;
     admin_email: string;
     logo_url?: string;
-    password_hash?: string;
     status?: TenantStatus;
   }): Promise<{ tenant: Tenant; admin: User }> {
     const rawSlug = params.slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
@@ -3063,7 +3069,6 @@ export class InMemoryDataStore implements IDataStore {
       full_name: params.admin_name.trim(),
       role: 'tenant_admin',
       status: initialStatus === 'pending_verification' ? 'pending_verification' : 'active',
-      password_hash: params.password_hash || hashPassword('Admin@123'),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -3517,7 +3522,7 @@ export class InMemoryDataStore implements IDataStore {
 
   async getUserById(tenantId: string, userId: string): Promise<User | null> {
     for (const u of this.users.values()) {
-      if ((!tenantId || u.tenant_id === tenantId || u.role === 'super_admin') && u.id === userId) {
+      if ((!tenantId || u.tenant_id === tenantId) && u.id === userId) {
         return u;
       }
     }
@@ -3535,6 +3540,168 @@ export class InMemoryDataStore implements IDataStore {
     return results;
   }
 
+  async getProfileByAuthId(authUserId: string): Promise<UserProfile | null> {
+    const clean = authUserId.trim().toLowerCase();
+    const existing = this.profiles.get(clean);
+    if (existing) return existing;
+
+    // Check if any user matches this auth_user_id, id, or email
+    for (const u of this.users.values()) {
+      const match = (u.auth_user_id && u.auth_user_id.toLowerCase() === clean) ||
+        u.id.toLowerCase() === clean ||
+        u.email.toLowerCase() === clean;
+      if (match) {
+        const profile: UserProfile = {
+          id: u.auth_user_id || u.id,
+          email: u.email,
+          display_name: u.full_name,
+          phone: u.phone || null,
+          avatar_url: u.avatar_url || null,
+          platform_role: u.role === 'super_admin' ? 'super_admin' : 'user',
+          status: u.status === 'suspended' ? 'suspended' : 'active',
+          created_at: u.created_at,
+          updated_at: u.updated_at,
+        };
+        this.profiles.set(clean, profile);
+        this.profiles.set(profile.id.toLowerCase(), profile);
+        return profile;
+      }
+    }
+    return null;
+  }
+
+  async getProfileByEmail(email: string): Promise<UserProfile | null> {
+    const clean = email.trim().toLowerCase();
+    for (const p of this.profiles.values()) {
+      if (p.email.toLowerCase() === clean) return p;
+    }
+    return this.getProfileByAuthId(clean);
+  }
+
+  async saveProfile(profile: UserProfile): Promise<UserProfile> {
+    this.profiles.set(profile.id.toLowerCase(), profile);
+    this.profiles.set(profile.email.toLowerCase(), profile);
+    return profile;
+  }
+
+  async updateProfileStatus(authUserId: string, status: ProfileStatus): Promise<UserProfile | null> {
+    const profile = await this.getProfileByAuthId(authUserId);
+    if (!profile) return null;
+    profile.status = status;
+    profile.updated_at = new Date().toISOString();
+    this.profiles.set(profile.id.toLowerCase(), profile);
+
+    // Also update any matching users
+    const clean = authUserId.trim().toLowerCase();
+    for (const u of this.users.values()) {
+      if ((u.auth_user_id && u.auth_user_id.toLowerCase() === clean) ||
+          u.id.toLowerCase() === clean ||
+          u.email.toLowerCase() === profile.email.toLowerCase()) {
+        u.status = status === 'suspended' ? 'suspended' : 'active';
+        u.updated_at = new Date().toISOString();
+      }
+    }
+    return profile;
+  }
+
+  async getMembershipsByAuthId(authUserId: string): Promise<Array<TenantMembership & { tenant: any }>> {
+    const clean = authUserId.trim().toLowerCase();
+    const results: Array<TenantMembership & { tenant: any }> = [];
+    const seenTenants = new Set<string>();
+
+    for (const u of this.users.values()) {
+      const match = (u.auth_user_id && u.auth_user_id.toLowerCase() === clean) ||
+        u.id.toLowerCase() === clean ||
+        u.email.toLowerCase() === clean;
+      if (match && !seenTenants.has(u.tenant_id)) {
+        seenTenants.add(u.tenant_id);
+        const tenant = this.tenants.get(u.tenant_id);
+        if (tenant) {
+          results.push({
+            id: u.id,
+            tenant_id: u.tenant_id,
+            auth_user_id: u.auth_user_id || u.id,
+            role: u.role,
+            status: u.status,
+            full_name: u.full_name,
+            email: u.email,
+            phone: u.phone,
+            avatar_url: u.avatar_url,
+            metadata: u.metadata,
+            last_login_at: u.last_login_at,
+            created_at: u.created_at,
+            updated_at: u.updated_at,
+            tenant: {
+              id: tenant.id,
+              name: tenant.name,
+              slug: tenant.slug,
+              status: tenant.status,
+              logo_url: tenant.settings?.logo_url || null,
+              campus_name: tenant.settings?.campus_name || null,
+              academic_session: tenant.settings?.academic_session || null,
+            },
+          });
+        }
+      }
+    }
+    return results;
+  }
+
+  async getMembership(tenantId: string, authUserId: string): Promise<TenantMembership | null> {
+    const clean = authUserId.trim().toLowerCase();
+    for (const u of this.users.values()) {
+      if (u.tenant_id === tenantId) {
+        const match = (u.auth_user_id && u.auth_user_id.toLowerCase() === clean) ||
+          u.id.toLowerCase() === clean ||
+          u.email.toLowerCase() === clean;
+        if (match) {
+          return {
+            id: u.id,
+            tenant_id: u.tenant_id,
+            auth_user_id: u.auth_user_id || u.id,
+            role: u.role,
+            status: u.status,
+            full_name: u.full_name,
+            email: u.email,
+            phone: u.phone,
+            avatar_url: u.avatar_url,
+            metadata: u.metadata,
+            last_login_at: u.last_login_at,
+            created_at: u.created_at,
+            updated_at: u.updated_at,
+          };
+        }
+      }
+    }
+    return null;
+  }
+
+  async setMembershipStatus(tenantId: string, membershipId: string, status: UserStatus): Promise<TenantMembership | null> {
+    const clean = membershipId.trim().toLowerCase();
+    for (const u of this.users.values()) {
+      if (u.tenant_id === tenantId && (u.id.toLowerCase() === clean || (u.auth_user_id && u.auth_user_id.toLowerCase() === clean))) {
+        u.status = status;
+        u.updated_at = new Date().toISOString();
+        return {
+          id: u.id,
+          tenant_id: u.tenant_id,
+          auth_user_id: u.auth_user_id || u.id,
+          role: u.role,
+          status: u.status,
+          full_name: u.full_name,
+          email: u.email,
+          phone: u.phone,
+          avatar_url: u.avatar_url,
+          metadata: u.metadata,
+          last_login_at: u.last_login_at,
+          created_at: u.created_at,
+          updated_at: u.updated_at,
+        };
+      }
+    }
+    return null;
+  }
+
   async checkSlugAvailable(slug: string): Promise<boolean> {
     const clean = slug.toLowerCase().trim();
     if (!clean) return false;
@@ -3542,75 +3709,288 @@ export class InMemoryDataStore implements IDataStore {
     return !existing;
   }
 
-  async updateUserPassword(tenantId: string, email: string, passwordHash: string): Promise<boolean> {
-    const user = await this.getUserByEmail(tenantId, email);
-    if (!user) return false;
-    user.password_hash = passwordHash;
-    user.updated_at = new Date().toISOString();
-    return true;
-  }
+  async createInvitation(
+    tenantId: string,
+    invitedByMembershipId: string,
+    email: string,
+    role: string
+  ): Promise<{ invitation: any; raw_token: string }> {
+    const allowedRoles = ['tenant_admin', 'academic_head', 'teacher', 'finance_manager', 'parent', 'student'];
+    if (!allowedRoles.includes(role)) {
+      const err: any = new Error(`Invalid role '${role}' for invitation.`);
+      err.code = 'INVALID_ROLE';
+      throw err;
+    }
 
-  async createOTP(tenantId: string, email: string, codeHash: string, expiresAt: Date, purpose?: string): Promise<StoredOTP> {
-    const clean = email.toLowerCase().trim();
-    // Invalidate any previous unused OTP for this tenant, email, and purpose to prevent OTP pollution
-    if (purpose) {
-      for (const o of this.otps) {
-        if (o.tenant_id === tenantId && o.email === clean && o.purpose === purpose && !o.used_at) {
-          o.used_at = new Date();
-        }
+    const rawToken = randomBytes(32).toString('hex');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const cleanEmail = email.trim().toLowerCase();
+    for (const inv of this.invitations.values()) {
+      if (inv.tenant_id === tenantId && inv.email.toLowerCase() === cleanEmail && !inv.accepted_at && !inv.revoked_at) {
+        inv.revoked_at = new Date().toISOString();
+        inv.updated_at = new Date().toISOString();
       }
     }
 
-    const entry: StoredOTP = {
-      id: crypto.randomUUID(),
+    const inv = {
+      id: randomUUID(),
       tenant_id: tenantId,
-      email: clean,
-      code_hash: codeHash,
-      purpose,
-      attempts: 0,
+      email: cleanEmail,
+      role,
+      invited_by_membership_id: invitedByMembershipId,
+      token_hash: tokenHash,
       expires_at: expiresAt,
-      used_at: null,
-      created_at: new Date(),
+      accepted_at: null,
+      revoked_at: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
-    this.otps.push(entry);
-    return entry;
+
+    this.invitations.set(inv.id, inv);
+    return {
+      invitation: {
+        id: inv.id,
+        tenant_id: inv.tenant_id,
+        email: inv.email,
+        role: inv.role,
+        expires_at: inv.expires_at,
+        created_at: inv.created_at,
+      },
+      raw_token: rawToken,
+    };
   }
 
-  async getActiveOTP(tenantId: string, email: string, purpose?: string): Promise<StoredOTP | null> {
-    const now = new Date();
-    const clean = email.toLowerCase().trim();
-    const valid = this.otps
-      .filter(o => 
-        o.tenant_id === tenantId && 
-        o.email === clean && 
-        !o.used_at && 
-        o.expires_at > now &&
-        (!purpose || o.purpose === purpose)
-      )
-      .sort((a, b) => b.expires_at.getTime() - a.expires_at.getTime());
-    return valid[0] || null;
+  async listInvitations(tenantId: string): Promise<TenantInvitation[]> {
+    const results: any[] = [];
+    for (const inv of this.invitations.values()) {
+      if (inv.tenant_id === tenantId) {
+        let status = 'pending';
+        if (inv.revoked_at) {
+          status = 'revoked';
+        } else if (inv.accepted_at) {
+          status = 'accepted';
+        } else if (new Date(inv.expires_at).getTime() < Date.now()) {
+          status = 'expired';
+        }
+
+        const inviter = inv.invited_by_membership_id ? this.users.get(inv.invited_by_membership_id) : null;
+
+        results.push({
+          id: inv.id,
+          tenant_id: inv.tenant_id,
+          email: inv.email,
+          role: inv.role,
+          invited_by_membership_id: inv.invited_by_membership_id || null,
+          invited_by_name: inviter?.full_name || null,
+          invited_by_email: inviter?.email || null,
+          expires_at: inv.expires_at,
+          accepted_at: inv.accepted_at || null,
+          revoked_at: inv.revoked_at || null,
+          created_at: inv.created_at,
+          updated_at: inv.updated_at,
+          status,
+        });
+      }
+    }
+
+    results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return results;
   }
 
-  async getLatestOTP(tenantId: string, email: string, purpose?: string): Promise<StoredOTP | null> {
-    const clean = email.toLowerCase().trim();
-    const list = this.otps
-      .filter(o => 
-        o.tenant_id === tenantId && 
-        o.email === clean &&
-        (!purpose || o.purpose === purpose)
-      )
-      .sort((a, b) => ((b.created_at || b.expires_at).getTime()) - ((a.created_at || a.expires_at).getTime()));
-    return list[0] || null;
+  async getInvitationByTokenHash(tokenHash: string): Promise<any | null> {
+    for (const inv of this.invitations.values()) {
+      if (inv.token_hash === tokenHash) {
+        const tenant = this.tenants.get(inv.tenant_id);
+        return {
+          ...inv,
+          tenant_name: tenant?.name || 'Academy',
+          tenant_slug: tenant?.slug || 'academy',
+        };
+      }
+    }
+    return null;
   }
 
-  async incrementOTPAttempts(id: string): Promise<void> {
-    const otp = this.otps.find(o => o.id === id);
-    if (otp) otp.attempts += 1;
+  async revokeInvitation(
+    tenantId: string,
+    invitationId: string,
+    _revokedByMembershipId: string,
+    _revokerEmail: string
+  ): Promise<any> {
+    const inv = this.invitations.get(invitationId);
+    if (!inv || inv.tenant_id !== tenantId || inv.revoked_at || inv.accepted_at) {
+      const err: any = new Error('Invitation not found or cannot be revoked.');
+      err.code = 'INVITATION_CANNOT_REVOKE';
+      throw err;
+    }
+    inv.revoked_at = new Date().toISOString();
+    inv.updated_at = new Date().toISOString();
+    return inv;
   }
 
-  async markOTPUsed(id: string): Promise<void> {
-    const otp = this.otps.find(o => o.id === id);
-    if (otp) otp.used_at = new Date();
+  async acceptInvitation(
+    rawToken: string,
+    authUserId: string,
+    authEmail: string,
+    authDisplayName?: string
+  ): Promise<{ membership: any; tenant_id: string }> {
+    const tokenHash = createHash('sha256').update(rawToken.trim()).digest('hex');
+    let targetInv: any = null;
+    for (const inv of this.invitations.values()) {
+      if (inv.token_hash === tokenHash) {
+        targetInv = inv;
+        break;
+      }
+    }
+
+    if (!targetInv) {
+      const err: any = new Error('Invitation not found or token is invalid.');
+      err.code = 'INVITATION_NOT_FOUND';
+      throw err;
+    }
+
+    if (targetInv.revoked_at) {
+      const err: any = new Error('This invitation has been revoked by the administrator.');
+      err.code = 'INVITATION_REVOKED';
+      throw err;
+    }
+
+    if (targetInv.accepted_at) {
+      const err: any = new Error('This invitation has already been accepted.');
+      err.code = 'INVITATION_ALREADY_ACCEPTED';
+      throw err;
+    }
+
+    if (new Date(targetInv.expires_at).getTime() < Date.now()) {
+      const err: any = new Error('This invitation has expired.');
+      err.code = 'INVITATION_EXPIRED';
+      throw err;
+    }
+
+    if (targetInv.email.toLowerCase() !== authEmail.trim().toLowerCase()) {
+      const err: any = new Error(
+        `This invitation was issued to ${targetInv.email}, but you are signed in as ${authEmail}.`
+      );
+      err.code = 'EMAIL_MISMATCH';
+      throw err;
+    }
+
+    const cleanAuth = authUserId.trim().toLowerCase();
+    const cleanEmail = authEmail.trim().toLowerCase();
+    let membership: any = null;
+
+    for (const u of this.users.values()) {
+      if (u.tenant_id === targetInv.tenant_id && ((u.auth_user_id && u.auth_user_id.toLowerCase() === cleanAuth) || u.email.toLowerCase() === cleanEmail)) {
+        u.auth_user_id = authUserId;
+        u.role = targetInv.role;
+        u.status = 'active';
+        u.updated_at = new Date().toISOString();
+        membership = u;
+        break;
+      }
+    }
+
+    if (!membership) {
+      const newId = randomUUID();
+      membership = {
+        id: newId,
+        tenant_id: targetInv.tenant_id,
+        auth_user_id: authUserId,
+        email: cleanEmail,
+        full_name: authDisplayName || cleanEmail.split('@')[0],
+        role: targetInv.role,
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      this.users.set(newId, membership);
+    }
+
+    targetInv.accepted_at = new Date().toISOString();
+    targetInv.updated_at = new Date().toISOString();
+
+    return {
+      membership,
+      tenant_id: targetInv.tenant_id,
+    };
+  }
+
+  async onboardTenant(
+    authUserId: string,
+    authEmail: string,
+    authDisplayName: string,
+    payload: {
+      name: string;
+      slug: string;
+      campusName?: string;
+      city?: string;
+      phone?: string;
+      logoUrl?: string;
+    }
+  ): Promise<{ tenant: any; membership: any }> {
+    const cleanSlug = payload.slug.trim().toLowerCase();
+
+    if (isReservedSlug(cleanSlug)) {
+      const err: any = new Error(`The identifier '${cleanSlug}' is reserved by the platform.`);
+      err.code = 'SLUG_RESERVED';
+      throw err;
+    }
+
+    if (!/^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/.test(cleanSlug)) {
+      const err: any = new Error('Academy slug must be 3-30 lowercase alphanumeric characters and hyphens.');
+      err.code = 'INVALID_SLUG';
+      throw err;
+    }
+
+    for (const t of this.tenants.values()) {
+      if (t.slug.toLowerCase() === cleanSlug) {
+        const err: any = new Error(`Academy slug '${cleanSlug}' is already registered.`);
+        err.code = 'SLUG_ALREADY_EXISTS';
+        throw err;
+      }
+    }
+
+    const tenantId = randomUUID();
+    const newTenant: any = {
+      id: tenantId,
+      name: payload.name.trim(),
+      slug: cleanSlug,
+      status: 'active',
+      tier: 'starter',
+      trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      settings: {
+        campus_name: payload.campusName || 'Main Campus',
+        city: payload.city || null,
+        phone: payload.phone || null,
+        logo_url: payload.logoUrl || null,
+        currency: 'PKR',
+        academic_session: '2026-2027',
+      },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.tenants.set(tenantId, newTenant);
+
+    const membershipId = randomUUID();
+    const newMembership: any = {
+      id: membershipId,
+      tenant_id: tenantId,
+      auth_user_id: authUserId,
+      email: authEmail.trim().toLowerCase(),
+      full_name: authDisplayName.trim() || authEmail.split('@')[0],
+      role: 'tenant_admin',
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    this.users.set(membershipId, newMembership);
+
+    return {
+      tenant: newTenant,
+      membership: newMembership,
+    };
   }
 
   // --- Academic Hierarchy Methods ---
@@ -4033,7 +4413,7 @@ export class InMemoryDataStore implements IDataStore {
         let sInvs = tenantInvoices.filter(i => i.student_id === s.id);
         if (session && this.isYearClosed(tenantId, session)) {
           sInvs = sInvs.filter(i => {
-            const invSess = i.academic_session || (i.batch_id ? this.batches.find(b => b.id === i.batch_id)?.academic_session : undefined);
+            const invSess = i.academic_session || (i.batch_id ? this.batches.find(b => b.id === i.batch_id && b.tenant_id === tenantId)?.academic_session : undefined);
             return invSess === session;
           });
         }
@@ -4083,7 +4463,7 @@ export class InMemoryDataStore implements IDataStore {
       let sInvs = tenantInvoices.filter(i => i.student_id === s.id);
       if (session && this.isYearClosed(tenantId, session)) {
         sInvs = sInvs.filter(i => {
-          const invSess = i.academic_session || (i.batch_id ? this.batches.find(b => b.id === i.batch_id)?.academic_session : undefined);
+          const invSess = i.academic_session || (i.batch_id ? this.batches.find(b => b.id === i.batch_id && b.tenant_id === tenantId)?.academic_session : undefined);
           return invSess === session;
         });
       }
@@ -4117,7 +4497,7 @@ export class InMemoryDataStore implements IDataStore {
     let sInvs = this.invoices.filter(i => i.tenant_id === tenantId && i.student_id === student.id);
     if (session && this.isYearClosed(tenantId, session)) {
       sInvs = sInvs.filter(i => {
-        const invSess = i.academic_session || (i.batch_id ? this.batches.find(b => b.id === i.batch_id)?.academic_session : undefined);
+        const invSess = i.academic_session || (i.batch_id ? this.batches.find(b => b.id === i.batch_id && b.tenant_id === tenantId)?.academic_session : undefined);
         return invSess === session;
       });
     }
@@ -4305,7 +4685,7 @@ export class InMemoryDataStore implements IDataStore {
         e.roll_number?.trim().toLowerCase() === assignedRollNumber.toLowerCase()
       );
       if (existingWithRoll) {
-        const existingStudent = this.students.find(s => s.id === existingWithRoll.student_id);
+        const existingStudent = this.students.find(s => s.id === existingWithRoll.student_id && s.tenant_id === data.tenant_id);
         throw new Error(`Roll number "${assignedRollNumber}" is already assigned to student "${existingStudent?.full_name || 'Another Student'}" in this batch/section.`);
       }
     } else {
@@ -4405,7 +4785,6 @@ export class InMemoryDataStore implements IDataStore {
     const admClean = student.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '');
     const tenantDomain = tenant?.domain || (tenant?.slug ? `${tenant.slug}.kampus.pk` : 'kampus.pk');
     const userEmail = rawEmail || `std.${admClean}@${tenantDomain}`;
-
     if (!data.user_id) {
       const existingUser = Array.from(this.users.values()).find(u => u.tenant_id === data.tenant_id && u.email.toLowerCase() === userEmail);
       if (!existingUser) {
@@ -4416,7 +4795,6 @@ export class InMemoryDataStore implements IDataStore {
           full_name: data.full_name,
           role: 'student',
           status: 'active',
-          password_hash: hashPassword('Student@123'),
           phone: data.phone || undefined,
           metadata: {
             guardian_id_card: rawGuardianCnic || undefined,
@@ -4443,7 +4821,6 @@ export class InMemoryDataStore implements IDataStore {
           full_name: data.full_name,
           role: 'student',
           status: 'active',
-          password_hash: hashPassword('Student@123'),
           phone: data.phone || undefined,
           metadata: {
             guardian_id_card: rawGuardianCnic || undefined,
@@ -4483,7 +4860,6 @@ export class InMemoryDataStore implements IDataStore {
           full_name: data.guardian_name,
           role: 'parent',
           status: 'active',
-          password_hash: hashPassword('Parent@123'),
           phone: data.guardian_phone,
           metadata: {
             guardian_id_card: rawGuardianCnic || undefined,
@@ -5590,15 +5966,15 @@ export class InMemoryDataStore implements IDataStore {
       if (fs.tenant_id !== tenantId) continue;
       if (params.scope === 'batch' && params.batch_id && fs.batch_id !== params.batch_id) continue;
       if (params.scope === 'program' && params.program_id) {
-        const batch = this.batches.find(b => b.id === fs.batch_id);
+        const batch = this.batches.find(b => b.id === fs.batch_id && b.tenant_id === tenantId);
         if (batch && batch.program_id !== params.program_id) continue;
         if (fs.student_id) {
-          const stu = this.students.find(s => s.id === fs.student_id);
+          const stu = this.students.find(s => s.id === fs.student_id && s.tenant_id === tenantId);
           if (stu && stu.program_id !== params.program_id) continue;
         }
       }
       fs.items = fs.items.map(it => {
-        const head = this.feeHeads.find(h => h.id === it.fee_head_id);
+        const head = this.feeHeads.find(h => h.id === it.fee_head_id && h.tenant_id === tenantId);
         const isTuition = head?.code === 'TUITION' || (it.head_name || '').toLowerCase().includes('tuition');
         if (!isTuition) return it;
         let amt = Number(it.amount) || 0;
@@ -5691,8 +6067,9 @@ export class InMemoryDataStore implements IDataStore {
 
     const rawCnic = student.guardian_id_card?.trim() || '';
     const cleanCnic = rawCnic ? rawCnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase() : '';
-    const newPwd = options?.newPassword?.trim() || 'Student@123';
-    const pwdHash = hashPassword(newPwd);
+    const newPwd = options?.newPassword?.trim() || (
+      process.env.NODE_ENV === 'test' ? 'Student@123' : ''
+    );
 
     const tenant = this.tenants.get(tenantId);
     const tenantDomain = tenant?.domain || (tenant?.slug ? `${tenant.slug}.kampus.pk` : 'kampus.pk');
@@ -5729,14 +6106,13 @@ export class InMemoryDataStore implements IDataStore {
         ? student.email.toLowerCase().trim() 
         : `std.${admClean || crypto.randomUUID().slice(0, 8)}@${tenantDomain}`;
 
-      studentUser = {
+      const createdUser: User = {
         id: newUserId,
         tenant_id: tenantId,
         email: userEmail,
         full_name: student.full_name,
         role: 'student',
         status: 'active',
-        password_hash: pwdHash,
         metadata: {
           student_id: student.id,
           admission_number: student.admission_number,
@@ -5750,11 +6126,12 @@ export class InMemoryDataStore implements IDataStore {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      this.users.set(newUserId, studentUser);
-      this.users.set(`${tenantId}:${userEmail.toLowerCase()}`, studentUser);
+      this.users.set(newUserId, createdUser);
+      this.users.set(`${tenantId}:${userEmail.toLowerCase()}`, createdUser);
       student.user_id = newUserId;
+      studentUser = createdUser;
     } else {
-      studentUser.password_hash = pwdHash;
+      (studentUser as any).auth_version = ((studentUser as any).auth_version || 0) + 1;
       if (!studentUser.metadata) studentUser.metadata = {};
       studentUser.metadata.student_id = student.id;
       studentUser.metadata.admission_number = student.admission_number;
@@ -5933,7 +6310,9 @@ export class InMemoryDataStore implements IDataStore {
           batch_name: batch.name,
           guardian_name: student.guardian_name,
           guardian_login: gLogin,
-          default_password: 'Parent@123',
+          default_password: (student as any).temporary_guardian_password || (
+            process.env.NODE_ENV === 'test' ? 'Parent@123' : ''
+          ),
           invoice_number: recentInvoice?.invoice_number,
           first_month_amount: recentInvoice?.total_amount,
         });
@@ -7062,8 +7441,7 @@ export class InMemoryDataStore implements IDataStore {
     const days = dates.length;
 
     // Resolve user to decrement leave balance
-    const user = Array.from(this.users.values()).find(u => u.id === leave.staff_id && u.tenant_id === tenantId)
-      || Array.from(this.users.values()).find(u => u.id === leave.staff_id);
+    const user = Array.from(this.users.values()).find(u => u.id === leave.staff_id && u.tenant_id === tenantId);
 
     if (user) {
       if (!user.metadata) user.metadata = {};
@@ -7560,7 +7938,7 @@ export class InMemoryDataStore implements IDataStore {
     const dateStr = campusToday(tenantTimezone, now);
 
     // Resolve accurate user full name
-    const user = Array.from(this.users.values()).find(u => u.id === staffId);
+    const user = Array.from(this.users.values()).find(u => u.id === staffId && u.tenant_id === tenantId);
     const resolvedName = user?.full_name || staffName || 'Staff Member';
 
     // Check if record already exists for today
@@ -8790,7 +9168,6 @@ export class InMemoryDataStore implements IDataStore {
       full_name: data.full_name.trim(),
       role: userRole,
       status: (data.status as UserStatus) || 'active',
-      password_hash: hashPassword(passwordToUse),
       metadata: {
         employee_code: employeeCode,
         father_or_spouse_name: data.father_or_spouse_name || '',
@@ -9075,7 +9452,6 @@ export class InMemoryDataStore implements IDataStore {
     if (!user) return null;
     if (user.role === 'super_admin' || user.role === 'tenant_admin') return null;
 
-    user.password_hash = hashPassword(newPassword);
     user.updated_at = new Date().toISOString();
     this.schedulePersist();
     return user;
@@ -9204,7 +9580,7 @@ export class InMemoryDataStore implements IDataStore {
       if (options?.status && i.status !== options.status) return false;
 
       if (session) {
-        const invSession = i.academic_session || (i.batch_id ? this.batches.find(b => b.id === i.batch_id)?.academic_session : undefined);
+        const invSession = i.academic_session || (i.batch_id ? this.batches.find(b => b.id === i.batch_id && b.tenant_id === tenantId)?.academic_session : undefined);
         if (isClosed) {
           if (invSession !== session) return false;
         } else {
@@ -10146,7 +10522,7 @@ export class InMemoryDataStore implements IDataStore {
       invoice_id: invoice.id,
       student_id: invoice.student_id,
       student_name: invoice.student_name,
-      admission_number: invoice.admission_number || this.students.find(s => s.id === invoice.student_id)?.admission_number,
+      admission_number: invoice.admission_number || this.students.find(s => s.id === invoice.student_id && s.tenant_id === tenantId)?.admission_number,
       roll_number: invoice.roll_number,
       payment_date: data.payment_date || new Date().toISOString().split('T')[0],
       amount_paid: amountPaid,
@@ -10171,7 +10547,7 @@ export class InMemoryDataStore implements IDataStore {
     const year = new Date().getFullYear();
     const voucherNumber = `VCH-INC-${year}-${txCount.toString().padStart(4, '0')}`;
     const headId = (allocations && allocations[0]?.fee_head_id) || invoice.items[0]?.fee_head_id || 'fee-tuition';
-    const txAdm = invoice.admission_number || this.students.find(s => s.id === invoice.student_id)?.admission_number || invoice.roll_number;
+    const txAdm = invoice.admission_number || this.students.find(s => s.id === invoice.student_id && s.tenant_id === tenantId)?.admission_number || invoice.roll_number;
     const remarksSnippet = data.remarks ? ` [Notes: ${data.remarks}]` : '';
     const tx: FinancialTransaction = {
       id: crypto.randomUUID(),
@@ -10195,7 +10571,7 @@ export class InMemoryDataStore implements IDataStore {
 
     // Sync installment status on student record if this invoice belongs to an installment plan
     if (invoice.installment_number && (invoice.balance_amount <= 0 || invoice.status === 'paid')) {
-      const student = this.students.find(s => s.id === invoice.student_id);
+      const student = this.students.find(s => s.id === invoice.student_id && s.tenant_id === tenantId);
       if (student?.installment_plan?.installments) {
         const inst = student.installment_plan.installments.find(i => i.installment_number === invoice.installment_number || i.invoice_id === invoice.id);
         if (inst) {
@@ -10203,7 +10579,7 @@ export class InMemoryDataStore implements IDataStore {
         }
       }
       if (invoice.enrollment_id) {
-        const enr = this.studentEnrollments.find(e => e.id === invoice.enrollment_id);
+        const enr = this.studentEnrollments.find(e => e.id === invoice.enrollment_id && e.tenant_id === tenantId);
         if (enr?.installment_plan?.installments) {
           const inst = enr.installment_plan.installments.find((i: any) => i.installment_number === invoice.installment_number || i.invoice_id === invoice.id);
           if (inst) {
@@ -10245,12 +10621,12 @@ export class InMemoryDataStore implements IDataStore {
 
     const results: Array<{ payment: FeePayment; invoice: StudentInvoice }> = [];
     let totalAmount = 0;
-    const invoiceBackup = this.invoices.map(i => ({ ...i, items: i.items.map(it => ({ ...it })) }));
-    const studentBackup = this.students.map(s => ({
+    const invoiceBackup = this.invoices.filter(i => i.tenant_id === tenantId).map(i => ({ ...i, items: i.items.map(it => ({ ...it })) }));
+    const studentBackup = this.students.filter(s => s.tenant_id === tenantId).map(s => ({
       id: s.id,
       installment_plan: s.installment_plan ? JSON.parse(JSON.stringify(s.installment_plan)) : undefined,
     }));
-    const enrollmentBackup = this.studentEnrollments.map(e => ({
+    const enrollmentBackup = this.studentEnrollments.filter(e => e.tenant_id === tenantId).map(e => ({
       id: e.id,
       installment_plan: e.installment_plan ? JSON.parse(JSON.stringify(e.installment_plan)) : undefined,
     }));
@@ -10278,17 +10654,17 @@ export class InMemoryDataStore implements IDataStore {
       }
     } catch (err) {
       for (const b of invoiceBackup) {
-        const cur = this.invoices.find(i => i.id === b.id);
+        const cur = this.invoices.find(i => i.id === b.id && i.tenant_id === tenantId);
         if (cur) {
           Object.assign(cur, { ...b, items: b.items.map(it => ({ ...it })) });
         }
       }
       for (const sb of studentBackup) {
-        const s = this.students.find(st => st.id === sb.id);
+        const s = this.students.find(st => st.id === sb.id && st.tenant_id === tenantId);
         if (s) s.installment_plan = sb.installment_plan;
       }
       for (const eb of enrollmentBackup) {
-        const e = this.studentEnrollments.find(en => en.id === eb.id);
+        const e = this.studentEnrollments.find(en => en.id === eb.id && en.tenant_id === tenantId);
         if (e) e.installment_plan = eb.installment_plan;
       }
       this.feePayments.splice(paymentLen);
@@ -10902,8 +11278,7 @@ export class InMemoryDataStore implements IDataStore {
       } else if (lateRule === 'deduct_full_day_salary') {
         unpaidEquivalent += lateGroups * 1.0;
       } else if (lateRule === 'deduct_casual_leave') {
-        const staffUser = Array.from(this.users.values()).find(u => u.id === staffId && u.tenant_id === tenantId)
-          || Array.from(this.users.values()).find(u => u.id === staffId);
+        const staffUser = Array.from(this.users.values()).find(u => u.id === staffId && u.tenant_id === tenantId);
         if (staffUser) {
           const lb = staffUser.metadata?.leave_balance as any;
           const casualAllowed = lb?.casual_allowed ?? 12;
@@ -11063,8 +11438,7 @@ export class InMemoryDataStore implements IDataStore {
 
     // Deduct casual leave now that payslip is marked paid
     if (slip.casual_leave_deducted && slip.casual_leave_deducted > 0) {
-      const staffUser = Array.from(this.users.values()).find(u => u.id === slip.staff_id && u.tenant_id === tenantId)
-        || Array.from(this.users.values()).find(u => u.id === slip.staff_id);
+      const staffUser = Array.from(this.users.values()).find(u => u.id === slip.staff_id && u.tenant_id === tenantId);
       if (staffUser) {
         if (!staffUser.metadata) staffUser.metadata = {};
         if (!staffUser.metadata.leave_balance) {
@@ -11682,8 +12056,12 @@ export class InMemoryDataStore implements IDataStore {
   }
 
   async logWhatsAppDispatch(tenantId: string, data: Omit<WhatsAppAuditLog, 'id' | 'tenant_id' | 'dispatched_at'>): Promise<WhatsAppAuditLog> {
-    const student = this.students.find(s => s.id === data.student_id);
-    const user = data.dispatched_by ? Array.from(this.users.values()).find(u => u.id === data.dispatched_by) : undefined;
+    const student = this.students.find(s => s.id === data.student_id && s.tenant_id === tenantId);
+    if (!student) throw new Error('Student not found');
+    const user = data.dispatched_by
+      ? Array.from(this.users.values()).find(u => u.id === data.dispatched_by && u.tenant_id === tenantId)
+      : undefined;
+    if (data.dispatched_by && !user) throw new Error('Dispatching user not found');
 
     const log: WhatsAppAuditLog = {
       id: crypto.randomUUID(),
@@ -11946,7 +12324,9 @@ export class InMemoryDataStore implements IDataStore {
     const item = this.absenteeFollowups.find(f => f.id === id && f.tenant_id === tenantId);
     if (!item) return null;
 
-    const counselor = counselorId ? Array.from(this.users.values()).find(u => u.id === counselorId) : undefined;
+    const counselor = counselorId
+      ? Array.from(this.users.values()).find(u => u.id === counselorId && u.tenant_id === tenantId)
+      : undefined;
 
     item.call_outcome = data.call_outcome;
     item.reason_category = data.reason_category;
@@ -13256,4 +13636,3 @@ export class InMemoryDataStore implements IDataStore {
     return { academy_count: countRealAcademies(payload) };
   }
 }
-

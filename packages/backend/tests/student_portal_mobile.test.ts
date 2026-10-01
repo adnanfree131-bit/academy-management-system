@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app';
 import { InMemoryDataStore } from '../src/services/store';
-import { hashPassword } from '../src/services/password';
+import { createTestSupabaseToken } from '../src/lib/jwt-verifier.js';
 
 describe('Student & Parent Mobile Portal & Security Integrity Tests', () => {
   let app: FastifyInstance;
@@ -15,19 +15,23 @@ describe('Student & Parent Mobile Portal & Security Integrity Tests', () => {
   const TENANT_A_ID = 'a0000000-0000-0000-0000-000000000001'; // Apex Academy
 
   beforeAll(async () => {
+    process.env.NODE_ENV = 'test';
+    process.env.SUPABASE_JWT_ISSUER = 'https://test-project.supabase.co/auth/v1';
+    process.env.SUPABASE_JWT_AUDIENCE = 'authenticated';
+    process.env.TEST_JWT_SECRET = 'test-jwt-secret-key-at-least-32-chars-long';
     store = new InMemoryDataStore();
     app = await buildApp({ store });
     await app.ready();
 
     studentUserId = 'a1000000-0000-0000-0000-000000000005';
     // Student token (Muhammad Ali Raza, stud-1)
-    studentToken = app.jwt.sign({
+    studentToken = await createTestSupabaseToken({
       sub: studentUserId,
       user_id: studentUserId,
       tenant_id: TENANT_A_ID,
       email: 'student@apexacademy.edu.pk',
       role: 'student',
-    });
+    } as any);
 
     // Create a parent user with guardian_id_card matching stud-1 ('35201-1234567-1')
     parentUserId = 'p9000000-0000-0000-0000-000000000001';
@@ -39,7 +43,7 @@ describe('Student & Parent Mobile Portal & Security Integrity Tests', () => {
       full_name: 'Raza Ahmed Parent',
       role: 'parent' as const,
       status: 'active' as const,
-      password_hash: hashPassword('Parent@123'),
+      password_hash: 'dummy_hash',
       metadata: {
         guardian_id_card: '35201-1234567-1',
         clean_guardian_id_card: '3520112345671',
@@ -50,13 +54,13 @@ describe('Student & Parent Mobile Portal & Security Integrity Tests', () => {
     store.users.set(`${TENANT_A_ID}:${parentEmail.toLowerCase()}`, parentUserObj);
     store.users.set(parentUserId, parentUserObj);
 
-    parentToken = app.jwt.sign({
+    parentToken = await createTestSupabaseToken({
       sub: parentUserId,
       user_id: parentUserId,
       tenant_id: TENANT_A_ID,
       email: parentEmail,
       role: 'parent',
-    });
+    } as any);
   });
 
   afterAll(async () => {
@@ -241,33 +245,8 @@ describe('Student & Parent Mobile Portal & Security Integrity Tests', () => {
     expect(parentRes.statusCode).toBe(403);
   });
 
-  it('9. POST /api/v1/auth/change-password validates length >= 6 and rejects identical old password', async () => {
-    // 1. Rejects short password (< 6 chars)
-    const shortRes = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/change-password',
-      headers: { authorization: `Bearer ${studentToken}` },
-      payload: {
-        current_password: 'Admin@123',
-        new_password: '12345',
-      },
-    });
-    expect(shortRes.statusCode).toBe(400);
-
-    // 2. Rejects matching old password
-    const sameRes = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/change-password',
-      headers: { authorization: `Bearer ${studentToken}` },
-      payload: {
-        current_password: 'Admin@123',
-        new_password: 'Admin@123',
-      },
-    });
-    expect(sameRes.statusCode).toBe(400);
-
-    // 3. Succeeds with valid new password without requiring OTP for student
-    const validRes = await app.inject({
+  it('9. POST /api/v1/auth/change-password returns 410 Gone (retired in favor of Supabase Auth)', async () => {
+    const res = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/change-password',
       headers: { authorization: `Bearer ${studentToken}` },
@@ -276,9 +255,8 @@ describe('Student & Parent Mobile Portal & Security Integrity Tests', () => {
         new_password: 'NewSecretPass2026!',
       },
     });
-    expect(validRes.statusCode).toBe(200);
-    expect(validRes.json().success).toBe(true);
-    expect(validRes.json().data.token).toBeDefined();
+    expect(res.statusCode).toBe(410);
+    expect(res.json().error.code).toBe('LEGACY_AUTH_DEPRECATED');
   });
 
   it('10. GET /portal/student-parent as student with another student_id returns 403 UNAUTHORIZED_STUDENT_ACCESS', async () => {

@@ -71,7 +71,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
   openProfileSheet,
   onCloseProfileSheet,
 }) => {
-  const { token, tenant, refreshSession } = useAuth();
+  const { token, tenant, refreshSession, updatePassword } = useAuth();
   const [overview, setOverview] = useState<StudentParentPortalOverview | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -206,7 +206,7 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
       return;
     }
     if (newPasswordInput === currentPasswordInput) {
-      setPasswordChangeError('New password must be different from your temporary default password.');
+      setPasswordChangeError('New password must be different from your current password.');
       return;
     }
     if (newPasswordInput !== confirmPasswordInput) {
@@ -218,34 +218,16 @@ export const StudentParentPortalView: React.FC<StudentPortalProps> = ({
     setPasswordChangeSuccess(null);
 
     try {
-      const res = await fetch('/api/v1/auth/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          current_password: currentPasswordInput,
-          new_password: newPasswordInput,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setPasswordChangeSuccess('Your portal password has been updated successfully.');
-        setCurrentPasswordInput('');
-        setNewPasswordInput('');
-        setConfirmPasswordInput('');
-        if (data.data?.token) {
-          localStorage.setItem('apex_jwt_token', data.data.token);
-          if (refreshSession) {
-            await refreshSession();
-          }
-        }
-      } else {
-        setPasswordChangeError(data.error?.message || 'Failed to update password');
+      await updatePassword(newPasswordInput);
+      setPasswordChangeSuccess('Your portal password has been updated successfully.');
+      setCurrentPasswordInput('');
+      setNewPasswordInput('');
+      setConfirmPasswordInput('');
+      if (refreshSession) {
+        await refreshSession();
       }
     } catch (err: any) {
-      setPasswordChangeError(err.message || 'Network error updating password');
+      setPasswordChangeError(err.message || 'Failed to update password');
     } finally {
       setIsChangingPassword(false);
     }

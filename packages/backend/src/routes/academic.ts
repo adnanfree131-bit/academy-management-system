@@ -1032,15 +1032,12 @@ export function academicRoutes(store: IDataStore) {
           timestamp: new Date().toISOString(),
         });
       }
-      try {
-        const rawPassword = parse.data.password && parse.data.password.trim().length >= 6
-          ? parse.data.password.trim()
-          : `Apex-${Math.random().toString(36).slice(-4).toUpperCase()}#${Math.floor(100 + Math.random() * 900)}`;
 
+      try {
+        const { password: _ignoredPassword, ...staffData } = parse.data;
         const created = await store.createStaff({
           tenant_id: user.tenant_id,
-          ...parse.data,
-          password: rawPassword,
+          ...staffData,
           blood_group: parse.data.blood_group || null,
           role: parse.data.role || undefined,
           gender: parse.data.gender || 'male',
@@ -1057,7 +1054,7 @@ export function academicRoutes(store: IDataStore) {
         return reply.status(201).send({
           success: true,
           data: publicStaff(created),
-          temporary_password: rawPassword,
+          message: 'Staff profile created successfully. Invitation dispatched.',
           timestamp: new Date().toISOString(),
         });
       } catch (err: any) {
@@ -1180,6 +1177,8 @@ export function academicRoutes(store: IDataStore) {
           timestamp: new Date().toISOString(),
         });
       }
+      await (fastify as any).requireMFA(request, reply);
+      if (reply.sent) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         access: z.record(z.enum(['view', 'edit'])).optional().nullable(),
@@ -1224,22 +1223,28 @@ export function academicRoutes(store: IDataStore) {
         });
       }
       const { id } = request.params as { id: string };
-      const newPassword = (request.body?.password && request.body.password.trim().length >= 6)
-        ? request.body.password.trim()
-        : `Apex-${Math.random().toString(36).slice(-4).toUpperCase()}#${Math.floor(100 + Math.random() * 900)}`;
-
-      const updated = await store.resetStaffPassword(user.tenant_id, id, newPassword);
-      if (!updated) {
+      const staffMember = await store.getUserById(user.tenant_id, id);
+      if (!staffMember) {
         return reply.status(404).send({
           success: false,
           error: { code: 'NOT_FOUND', message: 'Staff member not found.' },
           timestamp: new Date().toISOString(),
         });
       }
+
+      try {
+        const { getSupabaseAdminClient } = await import('../lib/supabase.js');
+        const supabaseAdmin = getSupabaseAdminClient();
+        await supabaseAdmin.auth.resetPasswordForEmail(staffMember.email, {
+          redirectTo: process.env.AUTH_REDIRECT_URL || 'https://app.kampus.pk/reset-password',
+        });
+      } catch (err: any) {
+        request.log.warn({ err: err.message, email: staffMember.email }, 'Supabase reset password email dispatch warning');
+      }
+
       return reply.send({
         success: true,
-        temporary_password: newPassword,
-        message: 'Password reset successfully.',
+        message: `Password recovery link dispatched to ${staffMember.email}.`,
         timestamp: new Date().toISOString(),
       });
     };

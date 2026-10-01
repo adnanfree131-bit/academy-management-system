@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Lock, ShieldAlert, CheckCircle2, KeyRound } from 'lucide-react';
+import { ShieldAlert, CheckCircle2, KeyRound } from 'lucide-react';
 
 export const ForcePasswordChangeModal: React.FC = () => {
-  const { token, user, applySession, logout } = useAuth();
-  const [currentPassword, setCurrentPassword] = useState('');
+  const { user, logout, updatePassword } = useAuth();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -14,18 +13,8 @@ export const ForcePasswordChangeModal: React.FC = () => {
     e.preventDefault();
     setErrorMsg(null);
 
-    if (!currentPassword) {
-      setErrorMsg('Please enter your current default password.');
-      return;
-    }
-
     if (newPassword.length < 8) {
       setErrorMsg('New password must be at least 8 characters long.');
-      return;
-    }
-
-    if (newPassword === currentPassword) {
-      setErrorMsg('New password must be different from your temporary default password.');
       return;
     }
 
@@ -36,31 +25,13 @@ export const ForcePasswordChangeModal: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const res = await fetch('/api/v1/auth/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          current_password: currentPassword,
-          new_password: newPassword,
-        }),
-      });
-
-      const body = await res.json();
-      if (!res.ok || !body.success) {
-        setErrorMsg(body.error?.message || 'Failed to update password. Please check your current password.');
-        setIsSubmitting(false);
-        return;
+      await updatePassword(newPassword);
+      if (user) {
+        user.must_change_password = false;
       }
-
-      // Password updated successfully - apply updated session without must_change_password
-      if (body.data) {
-        applySession(body.data);
-      }
+      setIsSubmitting(false);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Network error occurred. Please try again.');
+      setErrorMsg(err.message || 'Failed to update password. Please try again.');
       setIsSubmitting(false);
     }
   };
@@ -73,17 +44,17 @@ export const ForcePasswordChangeModal: React.FC = () => {
             <ShieldAlert className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-900">Security Requirement: Change Password</h2>
-            <p className="text-xs text-slate-500">Initial temporary password must be replaced</p>
+            <h2 className="text-base font-bold text-slate-900">Security Requirement: Set New Password</h2>
+            <p className="text-xs text-slate-500">Choose a private password to secure your account</p>
           </div>
         </div>
 
         <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600 space-y-1">
           <p className="font-semibold text-slate-800">
-            Welcome to the Academy Portal, {user?.full_name || 'Student/Parent'}.
+            Welcome to the Academy Portal, {user?.full_name || 'User'}.
           </p>
           <p>
-            Your account is currently using a default setup credential. To secure your academic and financial records, you must choose a new private password before accessing the portal.
+            To secure your academic and financial records, please choose a new private password before accessing the portal.
           </p>
         </div>
 
@@ -95,22 +66,6 @@ export const ForcePasswordChangeModal: React.FC = () => {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Current Temporary Password
-            </label>
-            <div className="relative">
-              <input
-                type="password"
-                required
-                value={currentPassword}
-                onChange={e => setCurrentPassword(e.target.value)}
-                placeholder="Enter current password"
-                className="w-full px-3 py-2 pl-9 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 font-sans"
-              />
-              <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            </div>
-          </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">

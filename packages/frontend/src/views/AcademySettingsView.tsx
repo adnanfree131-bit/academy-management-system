@@ -25,24 +25,29 @@ import {
   Edit2,
   FileText,
   AlertCircle,
+  UserPlus,
 } from 'lucide-react';
 import { AcademicSession, TenantSettings, defaultAcademicSessions, DocumentChecklistHead } from '@apex/shared-types';
 import { compressImageFile } from '../components/LoginModal';
 import { PageHeading } from '../components/PageHeading';
 import { SectionInfo } from '../components/SectionInfo';
 import { InstitutionalLoader } from '../components/InstitutionalLoader';
+import { InvitationsManagementModal } from '../components/InvitationsManagementModal';
 
 export const AcademySettingsView: React.FC = () => {
-  const { token, tenant, user, applySession, refreshSession, setWorkingSession } = useAuth();
+  const { token, tenant, user, refreshSession, setWorkingSession, updatePassword, forgotPassword } = useAuth();
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'profile' | 'departments' | 'challan' | 'documents' | 'shifts' | 'security'>('profile');
   const [batches, setBatches] = useState<{ id: string; academic_session?: string }[]>([]);
+  const [showInvitationsModal, setShowInvitationsModal] = useState<boolean>(false);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isReconcilingDomain, setIsReconcilingDomain] = useState<boolean>(false);
+  const [domainReconcileMessage, setDomainReconcileMessage] = useState<string | null>(null);
 
   // Departments State
   const [departments, setDepartments] = useState<string[]>([
@@ -54,14 +59,12 @@ export const AcademySettingsView: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
-  const [otpCode, setOtpCode] = useState<string>('');
   const [showCurrentPassword, setShowCurrentPassword] = useState<boolean>(false);
   const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
-  const [isRequestingOtp, setIsRequestingOtp] = useState<boolean>(false);
+  const [isRequestingRecovery, setIsRequestingRecovery] = useState<boolean>(false);
   const [isChangingPassword, setIsChangingPassword] = useState<boolean>(false);
   const [securitySuccess, setSecuritySuccess] = useState<string | null>(null);
   const [securityError, setSecurityError] = useState<string | null>(null);
-  const [cooldown, setCooldown] = useState<number>(0);
 
   // Form State
   const [academyName, setAcademyName] = useState<string>('');
@@ -93,7 +96,6 @@ export const AcademySettingsView: React.FC = () => {
   const [newHeadName, setNewHeadName] = useState('');
   const [editingHeadId, setEditingHeadId] = useState<string | null>(null);
   const [editingHeadName, setEditingHeadName] = useState('');
-  const [otpModal, setOtpModal] = useState<'change' | 'reset' | null>(null);
 
   // Kinship Rules State
   const [kinshipEnabled, setKinshipEnabled] = useState<boolean>(true);
@@ -487,25 +489,11 @@ export const AcademySettingsView: React.FC = () => {
 
 
 
-  // 60-second cooldown timer effect (starts ONLY on 200 OK from server)
-  useEffect(() => {
-    if (cooldown <= 0) return;
-    const timer = setInterval(() => {
-      setCooldown(prev => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [cooldown]);
-
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token) return;
     setSecurityError(null);
     setSecuritySuccess(null);
 
-    if (!currentPassword) {
-      setSecurityError('Current password is required.');
-      return;
-    }
     if (newPassword.length < 6) {
       setSecurityError('New password must be at least 6 characters.');
       return;
@@ -514,78 +502,14 @@ export const AcademySettingsView: React.FC = () => {
       setSecurityError('New password and confirmation do not match.');
       return;
     }
-    if (newPassword === currentPassword) {
-      setSecurityError('New password cannot be the same as your current password.');
-      return;
-    }
 
     setIsChangingPassword(true);
     try {
-      const res = await fetch('/api/v1/auth/change-password-otp', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      const body = await res.json();
-      if (!res.ok) {
-        throw new Error(body.error?.message || 'Failed to send verification code.');
-      }
-      setCooldown(body.data?.cooldown_seconds || 60);
-      setOtpCode('');
-      setOtpModal('change');
-    } catch (err: any) {
-      setSecurityError(err.message || 'Failed to send verification code.');
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
-  const handleConfirmOtp = async () => {
-    if (!token || otpCode.trim().length !== 6) {
-      setSecurityError('Enter the 6-digit code from your email.');
-      return;
-    }
-    setIsChangingPassword(true);
-    setSecurityError(null);
-    try {
-      if (otpModal === 'reset') {
-        const res = await fetch('/api/v1/auth/reset-password', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: user?.email,
-            otp: otpCode.trim(),
-            new_password: newPassword,
-            tenant_slug: tenant?.slug,
-          }),
-        });
-        const body = await res.json();
-        if (!res.ok) throw new Error(body.error?.message || 'Failed to reset password.');
-      } else {
-        const res = await fetch('/api/v1/auth/change-password', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            current_password: currentPassword,
-            new_password: newPassword,
-            otp: otpCode.trim(),
-          }),
-        });
-        const body = await res.json();
-        if (!res.ok) throw new Error(body.error?.message || 'Failed to update password.');
-        if (applySession && body.data) applySession(body.data);
-      }
-      setSecuritySuccess('Password updated.');
+      await updatePassword(newPassword);
+      setSecuritySuccess('Password updated successfully.');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setOtpCode('');
-      setOtpModal(null);
     } catch (err: any) {
       setSecurityError(err.message || 'Failed to update password.');
     } finally {
@@ -596,21 +520,14 @@ export const AcademySettingsView: React.FC = () => {
   const handleForgotOldPassword = async () => {
     if (!user?.email) return;
     setSecurityError(null);
-    setIsRequestingOtp(true);
+    setIsRequestingRecovery(true);
     try {
-      const res = await fetch('/api/v1/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: user.email, tenant_slug: tenant?.slug }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error?.message || 'Failed to send code.');
-      setOtpCode('');
-      setOtpModal('reset');
+      await forgotPassword(user.email, tenant?.slug);
+      setSecuritySuccess('Password recovery email sent. Please check your inbox.');
     } catch (err: any) {
-      setSecurityError(err.message || 'Failed to send code.');
+      setSecurityError(err.message || 'Failed to send recovery email.');
     } finally {
-      setIsRequestingOtp(false);
+      setIsRequestingRecovery(false);
     }
   };
 
@@ -668,6 +585,33 @@ export const AcademySettingsView: React.FC = () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     await refreshFeeHeads();
+  };
+
+  const handleReconcileDomain = async () => {
+    if (!token) return;
+    setIsReconcilingDomain(true);
+    setDomainReconcileMessage(null);
+    try {
+      const res = await fetch('/api/v1/auth/reconcile-domain', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'X-Tenant-ID': tenant?.id || '',
+        },
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success) {
+        setDomainReconcileMessage('Domain reconciliation completed. Status: ' + (data.data?.status || 'updated'));
+        await refreshSession();
+      } else {
+        setDomainReconcileMessage(data?.error?.message || 'Domain reconciliation failed.');
+      }
+    } catch (err: any) {
+      setDomainReconcileMessage(err.message || 'Network error during domain reconciliation.');
+    } finally {
+      setIsReconcilingDomain(false);
+    }
   };
 
 
@@ -771,7 +715,18 @@ export const AcademySettingsView: React.FC = () => {
         title="Settings"
         description="Manage campus profile, bank accounts for fee challans, shift timings, and fee payment rules."
         icon={<Building2 className="w-4 h-4 text-slate-700" />}
-      />
+      >
+        {(user?.role === 'tenant_admin' || user?.role === 'super_admin') && (
+          <button
+            type="button"
+            onClick={() => setShowInvitationsModal(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 active:bg-black text-white rounded-lg text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+          >
+            <UserPlus className="w-3.5 h-3.5 text-slate-300" />
+            <span>Staff & Member Invitations</span>
+          </button>
+        )}
+      </PageHeading>
 
       {successMsg && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs flex items-center gap-2">
@@ -955,23 +910,102 @@ export const AcademySettingsView: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Dedicated Portal Domain Card (Verified & Active) */}
-                  <div className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0">
-                        <Globe className="w-4 h-4 text-slate-700" />
+                  {/* Dedicated Portal Domain Card with Dynamic Provisioning Status (Finding C06 & Note 1) */}
+                  <div className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 flex flex-col gap-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center shrink-0">
+                          <Globe className="w-4 h-4 text-slate-700" />
+                        </div>
+                        <div>
+                          <span className="block text-xs font-bold text-slate-800">Dedicated Portal Domain</span>
+                          <span className="block text-[11px] font-mono text-slate-600 mt-0.5">
+                            https://{subdomain}.kampus.pk
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="block text-xs font-bold text-slate-800">Dedicated Portal Domain</span>
-                        <span className="block text-[11px] font-mono text-slate-600 mt-0.5">
-                          https://{subdomain}.kampus.pk
-                        </span>
+
+                      {(() => {
+                        const status = (tenant?.settings as any)?.domain_provisioning_status;
+                        if (status === 'active') {
+                          return (
+                            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100/80 border border-emerald-300 text-emerald-800 rounded-full text-xs font-semibold">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Domain Verified & Active</span>
+                            </div>
+                          );
+                        }
+                        if (status === 'failed') {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-100 border border-rose-300 text-rose-800 rounded-full text-xs font-semibold">
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                                <span>Domain Setup Incomplete</span>
+                              </span>
+                              <button
+                                type="button"
+                                disabled={isReconcilingDomain}
+                                onClick={handleReconcileDomain}
+                                className="px-3 py-1 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                              >
+                                <RefreshCw className={`w-3 h-3 ${isReconcilingDomain ? 'animate-spin' : ''}`} />
+                                <span>{isReconcilingDomain ? 'Retrying...' : 'Retry Domain Setup'}</span>
+                              </button>
+                            </div>
+                          );
+                        }
+                        if (status === 'pending') {
+                          return (
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 border border-amber-300 text-amber-800 rounded-full text-xs font-semibold">
+                                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                                <span>DNS / Pages Attach Pending</span>
+                              </span>
+                              <button
+                                type="button"
+                                disabled={isReconcilingDomain}
+                                onClick={handleReconcileDomain}
+                                className="px-3 py-1 text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                              >
+                                <RefreshCw className={`w-3 h-3 ${isReconcilingDomain ? 'animate-spin' : ''}`} />
+                                <span>{isReconcilingDomain ? 'Checking...' : 'Check Status'}</span>
+                              </button>
+                            </div>
+                          );
+                        }
+                        // Missing, unverified, or unknown status
+                        return (
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 border border-slate-300 text-slate-700 rounded-full text-xs font-semibold">
+                              <AlertCircle className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Domain Status Unverified</span>
+                            </span>
+                            <button
+                              type="button"
+                              disabled={isReconcilingDomain}
+                              onClick={handleReconcileDomain}
+                              className="px-3 py-1 text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white rounded-lg flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                            >
+                              <RefreshCw className={`w-3 h-3 ${isReconcilingDomain ? 'animate-spin' : ''}`} />
+                              <span>{isReconcilingDomain ? 'Verifying...' : 'Verify Domain'}</span>
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {(tenant?.settings as any)?.domain_provisioning_error && (
+                      <div className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2.5">
+                        <span className="font-semibold">Setup Notice: </span>
+                        {(tenant?.settings as any).domain_provisioning_error}
                       </div>
-                    </div>
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100/80 border border-emerald-300 text-emerald-800 rounded-full text-xs font-semibold">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Domain Verified & Active</span>
-                    </div>
+                    )}
+
+                    {domainReconcileMessage && (
+                      <div className="text-[11px] text-slate-700 bg-white border border-slate-200 rounded-lg p-2.5">
+                        {domainReconcileMessage}
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1942,70 +1976,23 @@ export const AcademySettingsView: React.FC = () => {
                   <button
                     type="button"
                     onClick={handleForgotOldPassword}
-                    disabled={isRequestingOtp}
+                    disabled={isRequestingRecovery}
                     className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
                   >
-                    {isRequestingOtp ? 'Sending code…' : 'Forgot old password?'}
+                    {isRequestingRecovery ? 'Sending recovery link…' : 'Forgot password? Send recovery link'}
                   </button>
                   <button
                     type="submit"
-                    disabled={isChangingPassword || !currentPassword || !newPassword}
+                    disabled={isChangingPassword || !newPassword || !confirmPassword}
                     className="flex items-center gap-2 px-6 py-2.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-all disabled:opacity-50 cursor-pointer"
                   >
                     {isChangingPassword ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                    <span>{isChangingPassword ? 'Sending code…' : 'Update password'}</span>
+                    <span>{isChangingPassword ? 'Updating…' : 'Update password'}</span>
                   </button>
                 </div>
               </div>
             </form>
           )}
-        </div>
-      )}
-
-      {otpModal && (
-        <div className="fixed inset-0 z-[90] bg-slate-900/50 flex items-center justify-center p-4 no-sheet-overlay">
-          <div className="w-full max-w-sm bg-white rounded-2xl border border-slate-200 p-5 shadow-xl">
-            <h3 className="text-base font-semibold text-slate-900">Enter email code</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              A 6-digit code was sent to your email. It expires in 10 minutes.
-            </p>
-            {otpModal === 'reset' && (
-              <div className="mt-3 space-y-2">
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  className="w-full text-xs border border-slate-200 rounded-lg px-3 py-1.5"
-                />
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  className="w-full text-xs border border-slate-200 rounded-lg px-3 py-1.5"
-                />
-              </div>
-            )}
-            <input
-              autoFocus
-              value={otpCode}
-              onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
-              className="mt-3 w-full text-center text-base font-mono tracking-[0.3em] border border-slate-200 rounded-lg py-1.5"
-            />
-            {securityError && <p className="text-xs text-rose-600 mt-2">{securityError}</p>}
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={() => setOtpModal(null)} className="h-8.5 px-3.5 py-1.5 text-xs rounded-lg border border-slate-200 cursor-pointer">
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmOtp}
-                disabled={isChangingPassword || otpCode.length !== 6}
-                className="h-8.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white disabled:opacity-50 shadow-xs transition-colors cursor-pointer"
-              >
-                {isChangingPassword ? 'Checking…' : 'Confirm'}
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -2278,6 +2265,12 @@ export const AcademySettingsView: React.FC = () => {
           </div>
         </div>
       )}
+      
+      {/* Staff & Member Invitations Management Modal (Finding B11) */}
+      <InvitationsManagementModal
+        isOpen={showInvitationsModal}
+        onClose={() => setShowInvitationsModal(false)}
+      />
     </div>
   );
 };

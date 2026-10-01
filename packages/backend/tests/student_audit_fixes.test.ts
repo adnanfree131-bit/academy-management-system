@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
-import fjwt from '@fastify/jwt';
+import * as jose from 'jose';
 import { InMemoryDataStore } from '../src/services/store.js';
 import { sisRoutes } from '../src/routes/sis.ts';
 import { financeRoutes } from '../src/routes/finance.ts';
@@ -15,16 +15,19 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
   let store: InMemoryDataStore;
   let adminToken: string;
   const tenantId = 'a0000000-0000-0000-0000-000000000001';
+  const testSecret = new TextEncoder().encode('test-secret-key-1234567890123456');
 
   beforeAll(async () => {
     store = new InMemoryDataStore();
 
     app = Fastify();
-    await app.register(fjwt, { secret: 'test-secret-key-1234567890123456' });
 
     app.decorate('authenticate', async (request: any, reply: any) => {
       try {
-        await request.jwtVerify();
+        const authHeader = request.headers.authorization;
+        if (!authHeader?.startsWith('Bearer ')) throw new Error('Missing token');
+        const { payload } = await jose.jwtVerify(authHeader.slice(7), testSecret);
+        request.user = payload;
       } catch (err) {
         reply.status(401).send({ error: 'Unauthorized' });
       }
@@ -48,7 +51,9 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
       email: 'admin@apexacademy.edu.pk',
       role: 'tenant_admin',
     };
-    adminToken = app.jwt.sign(payload);
+    adminToken = await new jose.SignJWT(payload as any)
+      .setProtectedHeader({ alg: 'HS256' })
+      .sign(testSecret);
   });
 
   afterAll(async () => {
@@ -107,12 +112,16 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
     expect(parentUser?.role).toBe('parent');
   });
 
-  it('2. Student can log in with Father/Guardian CNIC only, not email', async () => {
+  it('2. Student account is provisioned with Father/Guardian CNIC', async () => {
     const students = await store.getStudents(tenantId);
     const student = students.find(s => s.full_name === 'Haris Rauf SIS')!;
     expect(student.guardian_id_card).toBe('35201-9988776-1');
 
-    // Login using Father/Guardian CNIC
+    const user = (await store.getTenantUsers(tenantId)).find(u => u.id === student.user_id);
+    expect(user).toBeDefined();
+    expect(user?.role).toBe('student');
+
+    // Legacy login returns 410 Gone
     const loginRes = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
@@ -123,36 +132,8 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
       },
     });
 
-    expect(loginRes.statusCode).toBe(200);
-    const loginBody = loginRes.json();
-    expect(loginBody.success).toBe(true);
-    expect(loginBody.data.user.role).toBe('student');
-    expect(loginBody.data.token).toBeDefined();
-
-    // Also verify login without dashes works seamlessly
-    const loginNoDashRes = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/login',
-      payload: {
-        email: '3520199887761',
-        password: 'Student@123',
-        tenant_id: tenantId,
-      },
-    });
-
-    expect(loginNoDashRes.statusCode).toBe(200);
-    expect(loginNoDashRes.json().success).toBe(true);
-
-    const emailLogin = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/login',
-      payload: {
-        email: student.email || 'haris.rauf@kampus.pk',
-        password: 'Student@123',
-        tenant_id: tenantId,
-      },
-    });
-    expect(emailLogin.statusCode).toBe(401);
+    expect(loginRes.statusCode).toBe(410);
+    expect(loginRes.json().error.code).toBe('LEGACY_AUTH_DEPRECATED');
   });
 
   it('3. GET /api/v1/sis/students/:id returns single student', async () => {
@@ -282,7 +263,7 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
     expect(parentUser).toBeDefined();
     expect(parentUser?.role).toBe('parent');
 
-    // Test Login 1: Formatted CNIC with dashes
+    // Legacy login endpoint returns 410 Gone
     const loginResFormatted = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
@@ -292,25 +273,8 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
         tenant_id: tenantId,
       },
     });
-    expect(loginResFormatted.statusCode).toBe(200);
-    const bodyFormatted = loginResFormatted.json();
-    expect(bodyFormatted.success).toBe(true);
-    expect(bodyFormatted.data.user.role).toBe('parent');
-
-    // Test Login 2: Plain numeric CNIC without dashes
-    const loginResNumeric = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/login',
-      payload: {
-        email: '3520198765431',
-        password: 'Parent@123',
-        tenant_id: tenantId,
-      },
-    });
-    expect(loginResNumeric.statusCode).toBe(200);
-    const bodyNumeric = loginResNumeric.json();
-    expect(bodyNumeric.success).toBe(true);
-    expect(bodyNumeric.data.user.role).toBe('parent');
+    expect(loginResFormatted.statusCode).toBe(410);
+    expect(loginResFormatted.json().error.code).toBe('LEGACY_AUTH_DEPRECATED');
   });
 
   it('8. Sibling student linkage and switching in Parent Portal', async () => {
@@ -352,18 +316,18 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
     expect(res2.statusCode).toBe(201);
     const child2 = res2.json().data;
 
-    // Login as Parent using CNIC
-    const loginRes = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/login',
-      payload: {
-        email: sharedCnic,
-        password: 'Parent@123',
-        tenant_id: tenantId,
-      },
-    });
-    expect(loginRes.statusCode).toBe(200);
-    const parentToken = loginRes.json().data.token;
+    // Sign Parent Token directly
+    const tenantUsers = await store.getTenantUsers(tenantId);
+    const parentUser = tenantUsers.find(u => u.metadata?.clean_guardian_id_card === sharedCnic.replace(/\D/g, ''));
+    const parentToken = await new jose.SignJWT({
+      sub: parentUser?.id || 'parent-qasim-id',
+      tenant_id: tenantId,
+      email: parentUser?.email || 'parent.qasim@example.com',
+      role: 'parent',
+      cnic: sharedCnic,
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .sign(testSecret);
 
     // Fetch Parent Portal Overview default
     const portalRes = await app.inject({
@@ -544,7 +508,6 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
     expect(resetRes.statusCode).toBe(200);
     const resetBody = resetRes.json();
     expect(resetBody.success).toBe(true);
-    expect(resetBody.data.default_password).toBe('NewStudent@456');
 
     // Verify audit trail logged
     const auditRes = await app.inject({
@@ -557,7 +520,7 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
     expect(resetLog).toBeDefined();
     expect(resetLog.reason).toBe('Parent requested password reset at campus reception');
 
-    // Login using Father/Guardian CNIC and reset password
+    // Legacy login returns 410 Gone
     const loginRes = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/login',
@@ -567,58 +530,22 @@ describe('Student Module Audit Fixes: Backend Verification', () => {
         tenant_id: tenantId,
       },
     });
-    expect(loginRes.statusCode).toBe(200);
-    const loginBody = loginRes.json();
-    expect(loginBody.success).toBe(true);
-    expect(loginBody.data.token).toBeDefined();
+    expect(loginRes.statusCode).toBe(410);
+    expect(loginRes.json().error.code).toBe('LEGACY_AUTH_DEPRECATED');
   });
 
-  it('13. Student can self-service change password in settings without email OTP', async () => {
-    const students = await store.getStudents(tenantId);
-    const targetStudent = students[0];
-    const guardianCnic = targetStudent.guardian_id_card || '35201-8889990-1';
-
-    // Login first to get student token
-    const loginRes = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/login',
-      payload: {
-        email: guardianCnic,
-        password: 'NewStudent@456',
-        tenant_id: tenantId,
-      },
-    });
-    expect(loginRes.statusCode).toBe(200);
-    const studentToken = loginRes.json().data.token;
-
-    // Self-service change password (no OTP required for student/parent)
+  it('13. Legacy change-password endpoint returns 410 Gone (retired in favor of Supabase Auth)', async () => {
     const changeRes = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/change-password',
-      headers: { authorization: `Bearer ${studentToken}` },
       payload: {
         current_password: 'NewStudent@456',
         new_password: 'UpdatedSecret@789',
       },
     });
 
-    expect(changeRes.statusCode).toBe(200);
-    const changeBody = changeRes.json();
-    expect(changeBody.success).toBe(true);
-    expect(changeBody.data.token).toBeDefined();
-
-    // Verify login with new password works
-    const newLoginRes = await app.inject({
-      method: 'POST',
-      url: '/api/v1/auth/login',
-      payload: {
-        email: guardianCnic,
-        password: 'UpdatedSecret@789',
-        tenant_id: tenantId,
-      },
-    });
-    expect(newLoginRes.statusCode).toBe(200);
-    expect(newLoginRes.json().success).toBe(true);
+    expect(changeRes.statusCode).toBe(410);
+    expect(changeRes.json().error.code).toBe('LEGACY_AUTH_DEPRECATED');
   });
 
   it('14. Student admission persists complete demographics, dual parents, and sibling linkage', async () => {

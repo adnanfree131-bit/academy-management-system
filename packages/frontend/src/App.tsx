@@ -12,6 +12,13 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ShieldAlert } from 'lucide-react';
 import { useMobileOverlay, popOverlay, hasActiveOverlay } from './lib/mobileOverlay';
+import { TenantSelectorModal } from './components/TenantSelectorModal';
+import { NoMembershipsAdvisory } from './components/NoMembershipsAdvisory';
+import { BrandedHostRestrictedAdvisory } from './components/BrandedHostRestrictedAdvisory';
+import { resolveHostInfo } from './lib/host';
+import { PasswordRecoveryModal } from './components/PasswordRecoveryModal';
+import { AcceptInvitationView } from './views/AcceptInvitationView';
+import { CreateAcademyModal } from './components/CreateAcademyModal';
 
 // Resilient lazy import that automatically refreshes on stale Vite chunk 404 after deployment
 function lazyWithRetry<T extends React.ComponentType<any>>(
@@ -158,6 +165,27 @@ const parseScreenFromHash = (): { screen: string; studentId?: string } | null =>
   }
 };
 
+export const parseInvitationToken = (): string | null => {
+  try {
+    if (typeof window === 'undefined') return null;
+    const hash = window.location.hash.replace(/^#\/?/, '').trim();
+    if (hash.startsWith('invite/')) {
+      const parts = hash.split('/');
+      const token = parts[1]?.split('?')[0]?.trim();
+      if (token) return token;
+    }
+    const path = window.location.pathname.replace(/^\//, '').trim();
+    if (path.startsWith('invite/')) {
+      const parts = path.split('/');
+      const token = parts[1]?.split('?')[0]?.trim();
+      if (token) return token;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 const getDefaultScreenForRole = (role?: string, permissions?: string[] | null): string => {
   if (role === 'teacher' && !isManagedStaff(role, permissions)) {
     return 'teacher';
@@ -170,7 +198,24 @@ const getDefaultScreenForRole = (role?: string, permissions?: string[] | null): 
 };
 
 const MainLayout: React.FC = () => {
-  const { user, tenant, isLoading, refreshSession, logout } = useAuth();
+  const {
+    user,
+    authenticatedIdentity,
+    tenant,
+    token,
+    isLoading,
+    refreshSession,
+    logout,
+    memberships,
+    activeTenantId,
+    selectTenant,
+    membershipState,
+    hostTenantSlug,
+    isPasswordRecovery,
+    setIsPasswordRecovery,
+  } = useAuth();
+  
+  const hostInfo = resolveHostInfo();
   
   const [previewStudentId, setPreviewStudentId] = useState<string | null>(() => {
     const parsed = parseScreenFromHash();
@@ -187,6 +232,21 @@ const MainLayout: React.FC = () => {
     } catch {}
     return 'dashboard';
   });
+
+  const [invitationToken, setInvitationToken] = useState<string | null>(() => parseInvitationToken());
+  const [isRegisteringAcademy, setIsRegisteringAcademy] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleUrlChange = () => {
+      setInvitationToken(parseInvitationToken());
+    };
+    window.addEventListener('hashchange', handleUrlChange);
+    window.addEventListener('popstate', handleUrlChange);
+    return () => {
+      window.removeEventListener('hashchange', handleUrlChange);
+      window.removeEventListener('popstate', handleUrlChange);
+    };
+  }, []);
 
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
   const [searchOpen, setSearchOpen] = useState<boolean>(false);
@@ -278,6 +338,15 @@ const MainLayout: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
+    if (membershipState === 'platform_superadmin' && (!currentScreen || currentScreen === 'dashboard')) {
+      setCurrentScreen('superadmin');
+      try {
+        localStorage.setItem('apex_active_screen', 'superadmin');
+        window.history.replaceState(null, '', '#superadmin');
+      } catch {}
+      return;
+    }
+
     // If currentScreen is already valid and permitted for this user, keep it!
     if (currentScreen && canOpenScreen(user.role, user.permissions, currentScreen, user.access, user.year_closed)) {
       try {
@@ -300,7 +369,7 @@ const MainLayout: React.FC = () => {
       localStorage.setItem('apex_active_screen', defaultScreen);
       window.history.replaceState(null, '', '#' + defaultScreen);
     } catch {}
-  }, [user?.id, user?.role]);
+  }, [user?.id, user?.role, membershipState]);
 
   if (isLoading) {
     return (
@@ -310,6 +379,88 @@ const MainLayout: React.FC = () => {
           <p className="text-xs font-semibold text-slate-600 tracking-wide">Loading Session...</p>
         </div>
       </div>
+    );
+  }
+
+  // Dedicated Password Recovery Flow (Finding B05)
+  if (isPasswordRecovery) {
+    return (
+      <PasswordRecoveryModal
+        onComplete={async () => {
+          setIsPasswordRecovery(false);
+          if (typeof window !== 'undefined' && window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+          await refreshSession();
+        }}
+        onCancel={() => {
+          setIsPasswordRecovery(false);
+          logout();
+        }}
+      />
+    );
+  }
+
+  // User Invitation Acceptance Flow (Finding B11)
+  if (invitationToken) {
+    return (
+      <AcceptInvitationView
+        token={invitationToken}
+        onComplete={() => {
+          setInvitationToken(null);
+          if (typeof window !== 'undefined' && window.location.hash.startsWith('#invite')) {
+            window.history.replaceState(null, '', window.location.pathname + '#dashboard');
+          }
+        }}
+      />
+    );
+  }
+
+  // Identity has zero academy memberships
+  if (membershipState === 'no_memberships') {
+    if (isRegisteringAcademy) {
+      return (
+        <CreateAcademyModal
+          onCancel={() => setIsRegisteringAcademy(false)}
+          onSuccess={async () => {
+            setIsRegisteringAcademy(false);
+          }}
+        />
+      );
+    }
+    return (
+      <NoMembershipsAdvisory
+        email={authenticatedIdentity?.email || user?.email}
+        onRefresh={refreshSession}
+        onLogout={logout}
+        onCreateAcademy={() => setIsRegisteringAcademy(true)}
+      />
+    );
+  }
+
+  // Identity visited a branded host where they do not hold an active membership
+  if (membershipState === 'unauthorized_for_branded_host') {
+    return (
+      <BrandedHostRestrictedAdvisory
+        email={authenticatedIdentity?.email || user?.email}
+        expectedSlug={hostTenantSlug || 'campus'}
+        isCustomDomain={hostInfo.isCustomDomain}
+        customDomain={hostInfo.isCustomDomain ? hostInfo.hostname : undefined}
+        onLogout={logout}
+      />
+    );
+  }
+
+  // Identity has multiple memberships and no active tenant selected
+  if (membershipState === 'tenant_selection_required' || (!user && token && memberships.length > 0)) {
+    return (
+      <TenantSelectorModal
+        isOpen={true}
+        memberships={memberships}
+        activeTenantId={activeTenantId}
+        onSelectTenant={selectTenant}
+        canDismiss={false}
+      />
     );
   }
 
@@ -424,7 +575,7 @@ const MainLayout: React.FC = () => {
               )
             ) : /* ROLE: SUPER ADMIN VIEW ROUTING */
             user.role === 'super_admin' ? (
-              currentScreen === 'superadmin' ? (
+              (currentScreen === 'superadmin' || !tenant) ? (
                 <SuperAdminControlPlaneView />
               ) : currentScreen === 'dashboard' ? (
                 <DashboardView onNavigate={handleSwitchScreen} />

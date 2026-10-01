@@ -7,94 +7,17 @@ import { resolveUserAccess, derivePermissions } from '../lib/access.js';
 export function saasRoutes(store: IDataStore) {
   return async function (fastify: FastifyInstance, _opts: FastifyPluginOptions) {
     const verifyLiveUser = async (req: any, reply: any): Promise<User | null> => {
-      try {
-        await req.jwtVerify();
-      } catch (err: any) {
-        reply.status(401).send({
-          success: false,
-          error: { code: 'UNAUTHORIZED', message: 'Valid authorization token required.' },
-          timestamp: new Date().toISOString(),
-        });
-        return null;
-      }
-
-      const payload = req.user as any;
-      const userId = payload?.sub || payload?.user_id;
-      const tenantId = payload?.tenant_id;
-
-      let dbUser: User | null = null;
-      if (payload?.email && tenantId) {
-        dbUser = await store.getUserByEmail(tenantId, payload.email);
-      }
-      if (!dbUser && userId) {
-        dbUser = await store.getUserById(tenantId, userId);
-      }
-      if (!dbUser && payload?.email) {
-        const globalUsers = await store.getUserByEmailGlobal(payload.email);
-        dbUser = globalUsers.find(u => u.role === 'super_admin') || null;
-      }
-      if (!dbUser) {
-        reply.status(401).send({
-          success: false,
-          error: { code: 'UNAUTHORIZED', message: 'User account no longer exists.' },
-          timestamp: new Date().toISOString(),
-        });
-        return null;
-      }
-
-      if (dbUser.status !== 'active') {
-        const errorCode = dbUser.status === 'archived' ? 'ACCOUNT_ARCHIVED' : 'ACCOUNT_NOT_ACTIVE';
-        reply.status(403).send({
-          success: false,
-          error: {
-            code: errorCode,
-            message: `Your account access has been revoked (status: ${dbUser.status}). Please contact academy administration.`,
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return null;
-      }
-
-      const portalBlocked = Boolean((dbUser.metadata as any)?.portal_blocked);
-      if (portalBlocked) {
-        reply.status(403).send({
-          success: false,
-          error: {
-            code: 'PORTAL_BLOCKED',
-            message: 'Student portal access has been blocked by the academy.',
-          },
-          timestamp: new Date().toISOString(),
-        });
-        return null;
-      }
-
-      const liveRole = dbUser.role;
-      const liveAccess = resolveUserAccess(dbUser);
-      const teachingAssignments = Array.isArray(dbUser.metadata?.teaching_assignments)
-        ? dbUser.metadata.teaching_assignments
-        : [];
-
-      req.user = {
-        ...payload,
-        id: dbUser.id,
-        sub: dbUser.id,
-        user_id: dbUser.id,
-        email: dbUser.email,
-        role: liveRole,
-        tenant_id: dbUser.tenant_id || tenantId,
-        access: liveAccess,
-        permissions: derivePermissions(liveAccess),
-        teaching_assignments: teachingAssignments,
-      };
-
-      return dbUser;
+      await (fastify as any).authenticate(req, reply);
+      if (reply.sent) return null;
+      return req.user as User;
     };
 
-    const requireSuperAdmin = async (req: any, reply: any): Promise<boolean> => {
+    const requireSuperAdmin = async (req: any, reply: any, requireMfa: boolean = false): Promise<boolean> => {
       const dbUser = await verifyLiveUser(req, reply);
       if (!dbUser) return false;
 
-      if (dbUser.role !== 'super_admin') {
+      const isSuperAdmin = req.auth?.profile?.platform_role === 'super_admin' || dbUser.role === 'super_admin';
+      if (!isSuperAdmin) {
         reply.status(403).send({
           success: false,
           error: { code: 'FORBIDDEN', message: 'Super Admin access required.' },
@@ -102,6 +25,12 @@ export function saasRoutes(store: IDataStore) {
         });
         return false;
       }
+
+      if (requireMfa) {
+        await (fastify as any).requireMFA(req, reply);
+        if (reply.sent) return false;
+      }
+
       return true;
     };
 
@@ -244,7 +173,7 @@ export function saasRoutes(store: IDataStore) {
 
     // 4. Review Subscription Receipt (Approve / Reject)
     const reviewReceiptHandler = async (req: any, reply: any) => {
-      if (!(await requireSuperAdmin(req, reply))) return;
+      if (!(await requireSuperAdmin(req, reply, true))) return;
       try {
         const { id } = req.params;
         const { status } = req.body;
@@ -296,7 +225,7 @@ export function saasRoutes(store: IDataStore) {
 
     // 6. Update Platform Banking Configuration
     const updateBankingConfigHandler = async (req: any, reply: any) => {
-      if (!(await requireSuperAdmin(req, reply))) return;
+      if (!(await requireSuperAdmin(req, reply, true))) return;
       try {
         const config = await store.updatePlatformBankingConfig(req.body);
         return reply.send({
@@ -318,7 +247,7 @@ export function saasRoutes(store: IDataStore) {
 
     // 7. Activate Academy (1 Mo, 6 Mo, 1 Yr, Lifetime)
     const activateAcademyHandler = async (req: any, reply: any) => {
-      if (!(await requireSuperAdmin(req, reply))) return;
+      if (!(await requireSuperAdmin(req, reply, true))) return;
       try {
         const { id } = req.params;
         const { duration_months } = req.body;
@@ -431,7 +360,7 @@ export function saasRoutes(store: IDataStore) {
 
     // 11. Suspend & Reinstate Academy
     const suspendTenantHandler = async (req: any, reply: any) => {
-      if (!(await requireSuperAdmin(req, reply))) return;
+      if (!(await requireSuperAdmin(req, reply, true))) return;
       try {
         const { id } = req.params;
         const { reason } = req.body || {};
@@ -451,7 +380,7 @@ export function saasRoutes(store: IDataStore) {
     };
 
     const reinstateTenantHandler = async (req: any, reply: any) => {
-      if (!(await requireSuperAdmin(req, reply))) return;
+      if (!(await requireSuperAdmin(req, reply, true))) return;
       try {
         const { id } = req.params;
         const tenant = await store.reinstateTenant(id);
@@ -535,7 +464,7 @@ export function saasRoutes(store: IDataStore) {
     };
 
     const hardDeleteTenantHandler = async (req: any, reply: any) => {
-      if (!(await requireSuperAdmin(req, reply))) return;
+      if (!(await requireSuperAdmin(req, reply, true))) return;
       try {
         const { id } = req.params;
         const result = await store.hardDeleteTenant(id);
@@ -755,70 +684,22 @@ export function saasRoutes(store: IDataStore) {
     fastify.post('/tenant/announcements/:id/dismiss', dismissAnnouncementHandler);
     fastify.post('/saas/tenant/announcements/:id/dismiss', dismissAnnouncementHandler);
 
-    const allowBackupExportToken = (req: any): boolean => {
-      const header = String(req.headers.authorization || '').replace(/^Bearer /i, '').trim();
-      const token = process.env.BACKUP_EXPORT_TOKEN || '';
-      return Boolean(token && header && header === token);
-    };
-
-    fastify.get('/backups', async (req: any, reply: any) => {
-      if (!(await requireSuperAdmin(req, reply))) return;
-      const backups = await store.listDataBackups();
-      return reply.send({ success: true, data: backups, timestamp: new Date().toISOString() });
-    });
-
-    fastify.get('/backups/export', async (req: any, reply: any) => {
-      if (!allowBackupExportToken(req) && !(await requireSuperAdmin(req, reply))) return;
-      const file = await store.exportDataBackupFile();
-      reply.header('Content-Disposition', `attachment; filename="kampus-backup-${file.exported_at.slice(0, 10)}.json"`);
-      return reply.send(file);
-    });
-
-    fastify.post('/backups/import', async (req: any, reply: any) => {
-      if (!(await requireSuperAdmin(req, reply))) return;
-      try {
-        const result = await store.importDataBackupFile(req.body || {});
-        return reply.send({
-          success: true,
-          data: result,
-          message: `Imported backup with ${result.academy_count} academies.`,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (err: any) {
-        return reply.status(400).send({
-          success: false,
-          error: { code: 'IMPORT_FAILED', message: err.message || 'Failed importing backup' },
-        });
-      }
-    });
-
-    fastify.post('/backups', async (req: any, reply: any) => {
-      if (!(await requireSuperAdmin(req, reply))) return;
-      const backup = await store.createManualDataBackup();
-      return reply.status(201).send({
-        success: true,
-        data: backup,
-        message: 'Manual backup saved.',
+    // Retired Legacy Snapshot Backup Endpoints (Phase 3 Requirement 8)
+    const legacyBackupDeprecationHandler = async (_req: any, reply: any) => {
+      return reply.status(410).send({
+        success: false,
+        error: {
+          code: 'SNAPSHOT_BACKUPS_RETIRED',
+          message: 'In-memory snapshot backup, export, and restore endpoints have been retired. Production persistence and backups are managed strictly by PostgreSQL.',
+        },
         timestamp: new Date().toISOString(),
       });
-    });
+    };
 
-    fastify.post('/backups/:id/restore', async (req: any, reply: any) => {
-      if (!(await requireSuperAdmin(req, reply))) return;
-      try {
-        const result = await store.restoreDataBackup(Number(req.params.id));
-        return reply.send({
-          success: true,
-          data: result,
-          message: `Restored backup with ${result.academy_count} academies.`,
-          timestamp: new Date().toISOString(),
-        });
-      } catch (err: any) {
-        return reply.status(400).send({
-          success: false,
-          error: { code: 'RESTORE_FAILED', message: err.message || 'Failed restoring backup' },
-        });
-      }
-    });
+    fastify.get('/backups', legacyBackupDeprecationHandler);
+    fastify.get('/backups/export', legacyBackupDeprecationHandler);
+    fastify.post('/backups/import', legacyBackupDeprecationHandler);
+    fastify.post('/backups', legacyBackupDeprecationHandler);
+    fastify.post('/backups/:id/restore', legacyBackupDeprecationHandler);
   };
 }

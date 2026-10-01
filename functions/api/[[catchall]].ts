@@ -9,7 +9,19 @@ interface PagesContext {
 
 export const onRequest = async (context: PagesContext): Promise<Response> => {
   const url = new URL(context.request.url);
-  const targetHost = context.env.BACKEND_API_URL || 'https://wexnnnk2o5ofejgoyr0ym2fh.13.127.22.122.sslip.io';
+  const targetHost = context.env.BACKEND_API_URL || context.env.UPSTREAM_BACKEND_URL;
+  
+  if (!targetHost) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: { code: 'GATEWAY_CONFIG_ERROR', message: 'BACKEND_API_URL is not configured on Cloudflare Pages.' },
+      timestamp: new Date().toISOString(),
+    }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const targetUrl = `${targetHost}${url.pathname}${url.search}`;
   const targetHostname = new URL(targetHost).host;
 
@@ -28,6 +40,21 @@ export const onRequest = async (context: PagesContext): Promise<Response> => {
 
   // Clone headers and rewrite Host
   const reqHeaders = new Headers(context.request.headers);
+
+  // Strip incoming client-supplied spoofing headers
+  reqHeaders.delete('x-forwarded-host');
+  reqHeaders.delete('x-forwarded-proto');
+  reqHeaders.delete('x-edge-proxy-secret');
+
+  // Inject verified edge forwarding headers
+  const clientHost = url.hostname.toLowerCase().trim();
+  reqHeaders.set('X-Forwarded-Host', clientHost);
+  reqHeaders.set('X-Forwarded-Proto', url.protocol.replace(':', ''));
+  if (context.env.EDGE_PROXY_SECRET) {
+    reqHeaders.set('X-Edge-Proxy-Secret', context.env.EDGE_PROXY_SECRET);
+  }
+
+  // Rewrite Host to target hostname for upstream routing & TLS SNI
   reqHeaders.set('Host', targetHostname);
 
   const init: RequestInit = {

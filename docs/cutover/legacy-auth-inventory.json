@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Legacy Auth & Membership Inventory",
+  "generated_at": "2026-09-29T18:38:00+05:00",
+  "legacy_auth_services": [
+    {
+      "file": "packages/backend/src/services/auth.ts",
+      "class": "AuthService",
+      "methods": [
+        "loginWithPassword",
+        "loginWithOTP",
+        "requestOTP",
+        "verifyOTP",
+        "registerTenant",
+        "resetPassword",
+        "changePassword",
+        "resolveTenantForEmail"
+      ],
+      "action": "DEPRECATE_AND_DELETE"
+    },
+    {
+      "file": "packages/backend/src/services/password.ts",
+      "functions": [
+        "hashPassword",
+        "verifyPassword",
+        "generateTemporaryPassword"
+      ],
+      "action": "DEPRECATE_AND_DELETE"
+    },
+    {
+      "file": "packages/backend/src/lib/auth-rate-limit.ts",
+      "class": "AuthRateLimiter",
+      "action": "REPLACE_WITH_SUPABASE_OR_GENERIC_RATE_LIMITER"
+    },
+    {
+      "file": "packages/backend/src/services/store-persist.ts",
+      "functions": [
+        "saveSnapshot",
+        "loadSnapshot",
+        "createManualBackup",
+        "listDataBackups",
+        "loadBackupPayload",
+        "persistenceEnabled"
+      ],
+      "action": "DELETE_IN_FAVOR_OF_POSTGRESQL"
+    }
+  ],
+  "legacy_auth_routes": [
+    { "method": "POST", "path": "/api/v1/auth/login", "purpose": "Password sign-in", "action": "REPLACE_WITH_SUPABASE_CLIENT_AND_BOOTSTRAP" },
+    { "method": "POST", "path": "/api/v1/auth/register", "purpose": "Tenant registration with OTP", "action": "REPLACE_WITH_SUPABASE_SIGNUP_AND_ONBOARDING" },
+    { "method": "POST", "path": "/api/v1/auth/request-otp", "purpose": "Request email OTP", "action": "DELETE" },
+    { "method": "POST", "path": "/api/v1/auth/verify-otp", "purpose": "Verify OTP code", "action": "DELETE" },
+    { "method": "POST", "path": "/api/v1/auth/verify-registration-otp", "purpose": "Verify onboarding OTP", "action": "DELETE" },
+    { "method": "POST", "path": "/api/v1/auth/forgot-password", "purpose": "Trigger reset password email", "action": "REPLACE_WITH_SUPABASE_RESET" },
+    { "method": "POST", "path": "/api/v1/auth/reset-password", "purpose": "Submit reset password OTP", "action": "REPLACE_WITH_SUPABASE_UPDATE_USER" },
+    { "method": "POST", "path": "/api/v1/auth/change-password", "purpose": "Change user password", "action": "REPLACE_WITH_SUPABASE_REAUTH_UPDATE" },
+    { "method": "POST", "path": "/api/v1/auth/change-password-otp", "purpose": "OTP step for change password", "action": "DELETE" },
+    { "method": "GET", "path": "/api/v1/auth/branding", "purpose": "Public tenant branding lookup", "action": "RETAIN_AS_UNAUTHENTICATED" },
+    { "method": "GET", "path": "/api/v1/auth/check-domain", "purpose": "Subdomain availability check", "action": "RETAIN_AS_UNAUTHENTICATED" },
+    { "method": "GET", "path": "/api/v1/auth/me", "purpose": "Fetch live user session", "action": "REPLACE_WITH_SESSION_BOOTSTRAP" }
+  ],
+  "frontend_token_storage": [
+    { "file": "packages/frontend/src/context/AuthContext.tsx", "key": "apex_jwt_token", "action": "REPLACE_WITH_SUPABASE_AUTH_SESSION" },
+    { "file": "packages/frontend/src/views/StudentParentPortalView.tsx", "key": "apex_jwt_token", "action": "REPLACE_WITH_SUPABASE_AUTH_SESSION" }
+  ],
+  "dependencies_to_prune": [
+    { "package": "@fastify/jwt", "workspace": "packages/backend", "reason": "Application JWT issuance discontinued; Supabase JWKS verification used instead" }
+  ],
+  "environment_variables_to_prune": [
+    "JWT_SECRET",
+    "OTP_PEPPER",
+    "JWT_SESSION_TTL_SECONDS"
+  ],
+  "database_membership_foreign_keys": [
+    { "table": "student_exam_evaluations", "column": "evaluated_by", "target": "users(id)", "on_delete": "SET NULL" },
+    { "table": "subscription_payment_receipts", "column": "uploaded_by_user_id", "target": "users(id)", "on_delete": "SET NULL" },
+    { "table": "announcement_read_receipts", "column": "user_id", "target": "users(id)", "on_delete": "CASCADE" },
+    { "table": "tenant_slug_aliases", "column": "user_id", "target": "users(id)", "on_delete": "SET NULL" },
+    { "table": "timetable_slots", "column": "teacher_id", "target": "users(id)", "on_delete": "CASCADE" },
+    { "table": "timetable_slots", "column": "substitute_teacher_id", "target": "users(id)", "on_delete": "SET NULL" },
+    { "table": "student_attendance", "column": "marked_by", "target": "users(id)", "on_delete": "SET NULL" },
+    { "table": "leave_applications", "column": "reviewed_by", "target": "users(id)", "on_delete": "SET NULL" },
+    { "table": "staff_attendance", "column": "staff_id", "target": "users(id)", "on_delete": "CASCADE" },
+    { "table": "homework_assignments", "column": "teacher_id", "target": "users(id)", "on_delete": "CASCADE" },
+    { "table": "notebook_check_records", "column": "checked_by", "target": "users(id)", "on_delete": "CASCADE" },
+    { "table": "complaint_tickets", "column": "user_id", "target": "users(id)", "on_delete": "CASCADE" },
+    { "table": "complaint_tickets", "column": "resolved_by", "target": "users(id)", "on_delete": "SET NULL" },
+    { "table": "staff_salary_profiles", "column": "staff_id", "target": "users(id)", "on_delete": "CASCADE" },
+    { "table": "staff_payslips", "column": "staff_id", "target": "users(id)", "on_delete": "CASCADE" },
+    { "table": "whatsapp_audit_logs", "column": "dispatched_by", "target": "users(id)", "on_delete": "SET NULL" },
+    { "table": "retention_counseling_cases", "column": "staff_counselor_id", "target": "users(id)", "on_delete": "SET NULL" },
+    { "table": "student_guardian_id_card_audit_logs", "column": "changed_by_user_id", "target": "users(id)", "on_delete": "NO ACTION" },
+    { "table": "students", "column": "user_id", "target": "users(id)", "on_delete": "SET NULL" },
+    { "table": "staff_regularization_requests", "column": "staff_id", "target": "users(id)", "on_delete": "CASCADE" },
+    { "table": "staff_monthly_attendance_summaries", "column": "staff_id", "target": "users(id)", "on_delete": "CASCADE" }
+  ]
+}

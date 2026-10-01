@@ -19,13 +19,15 @@ describe('SuperAdmin Control Plane: Trial Policies, Aliasing, Suspension & Popup
     app = await buildApp({ store });
     await app.ready();
 
-    // Authenticate SuperAdmin
+    // Authenticate SuperAdmin (with AAL2 MFA for high-risk platform operations)
     superAdminToken = app.jwt.sign({
       sub: 'a1000000-0000-0000-0000-000000000006',
       user_id: 'a1000000-0000-0000-0000-000000000006',
       tenant_id: TENANT_A_ID,
       email: 'kampuserp@gmail.com',
-      role: 'super_admin'
+      role: 'super_admin',
+      aal: 'aal2',
+      amr: [{ method: 'totp', timestamp: Math.floor(Date.now() / 1000) }]
     });
 
     // Authenticate Director
@@ -62,7 +64,7 @@ describe('SuperAdmin Control Plane: Trial Policies, Aliasing, Suspension & Popup
 
   // 1. Permanent SuperAdmin Account Credentials Verification
   describe('Permanent SuperAdmin Credentials & Recovery', () => {
-    it('allows permanent superadmin login via seeded kampuserp@gmail.com and Aliadnan786@', async () => {
+    it('legacy auth login returns 410 and superadmin token authenticates control plane', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/login',
@@ -72,16 +74,22 @@ describe('SuperAdmin Control Plane: Trial Policies, Aliasing, Suspension & Popup
         }
       });
 
-      expect(res.statusCode).toBe(200);
+      expect(res.statusCode).toBe(410);
       const json = JSON.parse(res.body);
-      expect(json.success).toBe(true);
-      expect(json.data.user.role).toBe('super_admin');
-      expect(json.data.user.email).toBe('kampuserp@gmail.com');
-      expect(json.data.token).toBeDefined();
+      expect(json.success).toBe(false);
+      expect(json.error.code).toBe('LEGACY_AUTH_DEPRECATED');
+
+      // SuperAdmin token accesses /api/v1/auth/me
+      const meRes = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auth/me',
+        headers: { authorization: `Bearer ${superAdminToken}` },
+      });
+      expect(meRes.statusCode).toBe(200);
+      expect(JSON.parse(meRes.body).data.user.role).toBe('super_admin');
     });
 
-    it('allows password reset request for kampuserp@gmail.com and restores original password', async () => {
-      // 1. Request reset code
+    it('legacy password reset returns 410 (Supabase Auth manages credentials)', async () => {
       const reqRes = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/forgot-password',
@@ -89,50 +97,8 @@ describe('SuperAdmin Control Plane: Trial Policies, Aliasing, Suspension & Popup
           email: 'kampuserp@gmail.com'
         }
       });
-      expect(reqRes.statusCode).toBe(200);
-      const reqJson = JSON.parse(reqRes.body);
-      expect(reqJson.success).toBe(true);
-      const otp = reqJson.data.dev_otp_preview || '123456';
-
-      // 2. Perform reset
-      const resetRes = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/reset-password',
-        payload: {
-          email: 'kampuserp@gmail.com',
-          otp,
-          new_password: 'AliadnanNewPass2026@'
-        }
-      });
-      expect(resetRes.statusCode).toBe(200);
-
-      // 3. Verify login works with new password
-      const loginRes = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/login',
-        payload: {
-          email: 'kampuserp@gmail.com',
-          password: 'AliadnanNewPass2026@'
-        }
-      });
-      expect(loginRes.statusCode).toBe(200);
-
-      // 4. Restore original password for downstream tests
-      const restoreRes = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/forgot-password',
-        payload: { email: 'kampuserp@gmail.com' }
-      });
-      const restoreOtp = JSON.parse(restoreRes.body).data.dev_otp_preview || '123456';
-      await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/reset-password',
-        payload: {
-          email: 'kampuserp@gmail.com',
-          otp: restoreOtp,
-          new_password: 'Aliadnan786@'
-        }
-      });
+      expect(reqRes.statusCode).toBe(410);
+      expect(JSON.parse(reqRes.body).error.code).toBe('LEGACY_AUTH_DEPRECATED');
     });
   });
 
@@ -165,24 +131,15 @@ describe('SuperAdmin Control Plane: Trial Policies, Aliasing, Suspension & Popup
       expect(putJson.data.grace_period_days).toBe(14);
 
       // 3. Register a new academy and verify it receives a 60-day trial
-      const regRes = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/register',
-        payload: {
-          name: 'Pioneer Horizon Academy',
-          slug: 'pioneer-horizon',
-          admin_name: 'Principal Qasim',
-          admin_email: 'qasim@pioneerhorizon.edu.pk',
-          password: 'PioneerPassword123!',
-          phone: '+92 300 9876543',
-          campus_name: 'Main Campus'
-        }
+      const { tenant: createdTenant } = await store.createTenant({
+        name: 'Pioneer Horizon Academy',
+        slug: 'pioneer-horizon',
+        admin_name: 'Principal Qasim',
+        admin_email: 'qasim@pioneerhorizon.edu.pk',
+        status: 'active',
+        tier: 'standard',
+        domain: 'pioneer-horizon.kampus.pk',
       });
-      expect(regRes.statusCode).toBe(201);
-      const regJson = JSON.parse(regRes.body);
-      expect(regJson.success).toBe(true);
-      
-      const createdTenant = await store.getTenantById(regJson.data.tenant.id);
       expect(createdTenant).not.toBeNull();
       const trialEnds = new Date(createdTenant!.trial_ends_at).getTime();
       const created = new Date(createdTenant!.created_at).getTime();
@@ -592,21 +549,16 @@ describe('SuperAdmin Control Plane: Trial Policies, Aliasing, Suspension & Popup
 
     it('hard deletes academy, wipes all child data, and immediately releases the subdomain slug for new registration', async () => {
       // 1. Create a dummy academy to wipe
-      const regRes = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/register',
-        payload: {
-          name: 'Disposable Academy',
-          slug: 'disposable-academy',
-          admin_name: 'Director Disposable',
-          admin_email: 'director@disposable.pk',
-          password: 'Password123!',
-          phone: '+923001112233',
-          city: 'Rawalpindi'
-        }
+      const { tenant: dummyTenant } = await store.createTenant({
+        name: 'Disposable Academy',
+        slug: 'disposable-academy',
+        admin_name: 'Director Disposable',
+        admin_email: 'director@disposable.pk',
+        status: 'active',
+        tier: 'standard',
+        domain: 'disposable-academy.kampus.pk',
       });
-      expect(regRes.statusCode).toBe(201);
-      const dummyTenantId = JSON.parse(regRes.body).data.tenant.id;
+      const dummyTenantId = dummyTenant.id;
 
       // Check slug is occupied
       const checkRes1 = await app.inject({

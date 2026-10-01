@@ -690,7 +690,13 @@ export function sisRoutes(store: IDataStore) {
 
         return reply.status(201).send({
           success: true,
-          data: student,
+          data: {
+            ...student,
+            portal_credentials: {
+              student_username: student.guardian_id_card || student.admission_number,
+              guardian_username: student.guardian_id_card || student.guardian_email,
+            },
+          },
           challan_error: (student as any).challan_error || undefined,
           timestamp: new Date().toISOString(),
         });
@@ -958,7 +964,6 @@ export function sisRoutes(store: IDataStore) {
       const { id } = request.params as { id: string };
 
       const schema = z.object({
-        new_password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')).transform(v => v || undefined),
         reason: z.string().min(2, 'Administrative reason is required'),
         guardian_id_card: z.string().optional().or(z.literal('')).transform(v => v || undefined),
       });
@@ -973,24 +978,71 @@ export function sisRoutes(store: IDataStore) {
       }
 
       try {
-        const result = await store.resetStudentPassword(user.tenant_id, id, {
-          newPassword: parseResult.data.new_password,
-          reason: parseResult.data.reason,
-          adminName: user.email || 'Administrator',
-          adminUserId: user.sub,
-          guardianIdCard: parseResult.data.guardian_id_card,
+        const student = await store.getStudentById(user.tenant_id, id);
+        if (!student) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: 'NOT_FOUND', message: 'Student record not found.' },
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        const previousCnic = student.guardian_id_card;
+        if (parseResult.data.guardian_id_card && parseResult.data.guardian_id_card.trim()) {
+          student.guardian_id_card = parseResult.data.guardian_id_card.trim();
+        }
+
+        const targetEmail = student.email || (student as any).guardian_email || null;
+        let emailDispatched = false;
+
+        if (targetEmail) {
+          try {
+            const { getSupabaseAdminClient } = await import('../lib/supabase.js');
+            const supabaseAdmin = getSupabaseAdminClient();
+            const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(targetEmail, {
+              redirectTo: process.env.AUTH_REDIRECT_URL || 'https://app.kampus.pk/reset-password',
+            });
+            if (!resetError) {
+              emailDispatched = true;
+            } else {
+              request.log.warn({ err: resetError.message, targetEmail }, 'Supabase reset password email dispatch warning');
+            }
+          } catch (supabaseErr: any) {
+            request.log.warn({ err: supabaseErr.message }, 'Supabase admin client warning during student password reset');
+          }
+        }
+
+        // Record audit log
+        await store.logStudentProfileChange(user.tenant_id, {
+          student_id: id,
+          action: 'RESET_PASSWORD',
+          changed_by_user_id: user.sub,
+          changed_by_name: user.email || 'Academy Administrator',
+          changes: {
+            password_reset: {
+              dispatched_to: targetEmail || 'none',
+              email_dispatched: emailDispatched,
+            },
+            ...(parseResult.data.guardian_id_card && previousCnic !== parseResult.data.guardian_id_card ? {
+              guardian_id_card: { old: previousCnic, new: parseResult.data.guardian_id_card }
+            } : {})
+          },
+          reason: parseResult.data.reason || 'Administrative password reset request',
         });
 
         return reply.send({
           success: true,
           data: {
-            username: result.student.guardian_id_card || result.student.admission_number,
-            default_password: result.default_password,
-            student_name: result.student.full_name,
-            roll_number: result.student.roll_number,
-            guardian_id_card: result.student.guardian_id_card,
+            username: student.guardian_id_card || student.admission_number,
+            student_name: student.full_name,
+            roll_number: student.roll_number,
+            guardian_id_card: student.guardian_id_card,
+            email_dispatched: emailDispatched,
+            target_email: targetEmail,
           },
-          message: 'Student portal password reset successfully.',
+          message: emailDispatched
+            ? 'Password recovery instructions dispatched to target email.'
+            : 'Password reset request recorded in audit log.',
           timestamp: new Date().toISOString(),
         });
       } catch (err: any) {
@@ -1164,6 +1216,8 @@ export function sisRoutes(store: IDataStore) {
       if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin'], reply)) return;
+      await (fastify as any).requireMFA(request, reply);
+      if (reply.sent) return;
       const { id } = request.params as { id: string };
 
       const querySchema = z.object({
@@ -1248,6 +1302,8 @@ export function sisRoutes(store: IDataStore) {
       if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertRole(user, ['tenant_admin'], reply)) return;
+      await (fastify as any).requireMFA(request, reply);
+      if (reply.sent) return;
 
       const schema = z.object({
         student_ids: z.array(z.string()).min(1, 'At least one student ID is required'),

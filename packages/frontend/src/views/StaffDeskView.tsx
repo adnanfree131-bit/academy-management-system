@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { apiFetch } from '../lib/api-client';
 import {
   PORTAL_GROUPS,
   ALL_FEATURE_IDS,
@@ -36,7 +37,6 @@ import {
   CreditCard,
   Printer,
   Building2,
-  Copy,
   FileText,
   AlertTriangle,
   MoreVertical,
@@ -126,8 +126,7 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   });
 
   const [resetPwdStaff, setResetPwdStaff] = useState<StaffMemberRecord | null>(null);
-  const [generatedTempPwd, setGeneratedTempPwd] = useState<string>('');
-  const [copiedPwd, setCopiedPwd] = useState<boolean>(false);
+  const [recoveryDispatched, setRecoveryDispatched] = useState<boolean>(false);
 
   const [idCardStaff, setIdCardStaff] = useState<StaffMemberRecord | null>(null);
   const [appointmentStaff, setAppointmentStaff] = useState<StaffMemberRecord | null>(null);
@@ -187,7 +186,6 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   const initialFormState = {
     full_name: '',
     email: '',
-    password: '',
     phone: '',
     employee_code: '',
     father_or_spouse_name: '',
@@ -382,7 +380,6 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
     setForm({
       full_name: staff.full_name || '',
       email: staff.email || '',
-      password: '',
       phone: staff.phone || '',
       employee_code: staff.employee_code || '',
       father_or_spouse_name: staff.father_or_spouse_name || '',
@@ -436,9 +433,6 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
       experience_years: Number(form.experience_years) || 0,
       base_salary: Number(form.base_salary) || 0,
     };
-    if (isEdit && !payload.password) {
-      delete payload.password;
-    }
 
     try {
       const res = await fetch(url, {
@@ -596,24 +590,23 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
   // Reset Password Flow
   const openResetPasswordModal = (staff: StaffMemberRecord) => {
     setResetPwdStaff(staff);
-    setGeneratedTempPwd('');
-    setCopiedPwd(false);
+    setRecoveryDispatched(false);
   };
 
   const executePasswordReset = async () => {
     if (!resetPwdStaff || !token) return;
     try {
-      const res = await fetch(`/api/v1/academic/staff/${resetPwdStaff.id}/reset-password`, {
+      const res = await apiFetch(`/api/v1/academic/staff/${resetPwdStaff.id}/reset-password`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error?.message || 'Could not reset password.');
-      setGeneratedTempPwd(data.temporary_password);
-      notifySuccess('Temporary password generated.');
+      setRecoveryDispatched(true);
+      notifySuccess(`Password recovery email dispatched to ${resetPwdStaff.email}.`);
     } catch (err: any) {
-      setError(err.message || 'Failed to reset password.');
+      setError(err.message || 'Failed to dispatch password recovery.');
     }
   };
 
@@ -1727,18 +1720,13 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
                         className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Sign-In Password {editingStaff ? '(Leave blank to retain)' : '*'}
-                      </label>
-                      <input
-                        required={!editingStaff}
-                        type="password"
-                        minLength={6}
-                        value={form.password}
-                        onChange={e => setForm({ ...form, password: e.target.value })}
-                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2 focus:ring-1 focus:ring-slate-900 focus:outline-none"
-                      />
+                    <div className="flex flex-col justify-end">
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-600">
+                        <span className="font-semibold text-slate-900 block mb-0.5">Authentication & Access</span>
+                        {editingStaff
+                          ? 'Staff sign-in credentials are authenticated via Supabase. Use "Reset Password" to dispatch a recovery link.'
+                          : 'Staff member will receive a secure onboarding email to set their own password via Supabase Auth.'}
+                      </div>
                     </div>
                   </div>
 
@@ -2609,38 +2597,32 @@ export const StaffDeskView: React.FC<StaffDeskViewProps> = ({ onNavigate }) => {
               </button>
             </div>
 
-            {generatedTempPwd ? (
+            {recoveryDispatched ? (
               <div className="space-y-3 bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
                 <span className="text-[11px] font-semibold text-emerald-800 uppercase tracking-wider block">
-                  New Temporary Password
+                  Password Recovery Link Dispatched
                 </span>
-                <p className="text-lg font-mono font-bold text-slate-900 select-all tracking-wider">
-                  {generatedTempPwd}
+                <p className="text-xs text-slate-700">
+                  A secure password reset email has been dispatched via Supabase Auth to{' '}
+                  <span className="font-semibold text-slate-900">{resetPwdStaff.email}</span>.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(generatedTempPwd);
-                    setCopiedPwd(true);
-                    setTimeout(() => setCopiedPwd(false), 2500);
-                  }}
-                  className="inline-flex items-center justify-center gap-1.5 px-4 min-h-11 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold cursor-pointer"
-                >
-                  <Copy className="w-4 h-4" />
-                  {copiedPwd ? 'Copied to Clipboard!' : 'Copy Password'}
-                </button>
-                <p className="text-[10px] text-emerald-700">
-                  Share this credential securely with the staff member.
+                <p className="text-[11px] text-slate-500">
+                  The staff member can click the link in their inbox to choose a new password.
                 </p>
               </div>
             ) : (
-              <div className="text-center py-2">
+              <div className="text-center py-2 space-y-3">
+                <p className="text-xs text-slate-600">
+                  Dispatch a secure Supabase password recovery link to{' '}
+                  <span className="font-semibold text-slate-900">{resetPwdStaff.email}</span>.
+                </p>
                 <button
                   type="button"
                   onClick={executePasswordReset}
-                  className="w-full min-h-11 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center"
+                  className="w-full min-h-11 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-bold shadow-xs cursor-pointer flex items-center justify-center gap-2"
                 >
-                  Generate Secure Temporary Password
+                  <Key className="w-4 h-4" />
+                  Dispatch Password Recovery Email
                 </button>
               </div>
             )}

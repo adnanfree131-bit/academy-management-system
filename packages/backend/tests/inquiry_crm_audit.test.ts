@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
-import fjwt from '@fastify/jwt';
+import * as jose from 'jose';
 import { InMemoryDataStore } from '../src/services/store.js';
 import { sisRoutes } from '../src/routes/sis.ts';
 import { JWTPayload } from '@apex/shared-types';
@@ -11,15 +11,18 @@ describe('Advanced Inquiry CRM & Admissions Desk Audit', () => {
   let adminToken: string;
   let studentToken: string;
   const tenantId = 'tenant-test-inq';
+  const testSecret = new TextEncoder().encode('test-secret-key-1234567890123456');
 
   beforeAll(async () => {
     store = new InMemoryDataStore();
     app = Fastify();
-    await app.register(fjwt, { secret: 'test-secret-key-1234567890123456' });
 
     app.decorate('authenticate', async (request: any, reply: any) => {
       try {
-        await request.jwtVerify();
+        const authHeader = request.headers.authorization;
+        if (!authHeader?.startsWith('Bearer ')) throw new Error('Missing token');
+        const { payload } = await jose.jwtVerify(authHeader.slice(7), testSecret);
+        request.user = payload;
       } catch (err) {
         reply.status(401).send({ error: 'Unauthorized' });
       }
@@ -44,7 +47,9 @@ describe('Advanced Inquiry CRM & Admissions Desk Audit', () => {
       role: 'tenant_admin',
       full_name: adminUser.full_name,
     };
-    adminToken = app.jwt.sign(adminPayload);
+    adminToken = await new jose.SignJWT(adminPayload as any)
+      .setProtectedHeader({ alg: 'HS256' })
+      .sign(testSecret);
 
     const studentPayload: JWTPayload = {
       sub: 'student-user-123',
@@ -52,7 +57,9 @@ describe('Advanced Inquiry CRM & Admissions Desk Audit', () => {
       email: 'student@tsa.edu.pk',
       role: 'student',
     };
-    studentToken = app.jwt.sign(studentPayload);
+    studentToken = await new jose.SignJWT(studentPayload as any)
+      .setProtectedHeader({ alg: 'HS256' })
+      .sign(testSecret);
   });
 
   it('1. Create new inquiry with full institutional particulars & auto-generated follow-up history', async () => {

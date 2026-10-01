@@ -150,6 +150,8 @@ export function payrollRoutes(store: IDataStore) {
 
     const markPaidHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
+      await (fastify as any).requireMFA(request, reply);
+      if (reply.sent) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         payment_method: z.enum(['cash', 'bank_transfer', 'cheque', 'wallet']).default('bank_transfer'),

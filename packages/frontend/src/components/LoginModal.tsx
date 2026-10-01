@@ -6,7 +6,6 @@ import {
   Eye,
   EyeOff,
   ArrowRight, 
-  ShieldCheck, 
   ShieldAlert,
   ArrowLeft,
   CheckCircle2,
@@ -27,6 +26,8 @@ import {
   Award
 } from 'lucide-react';
 import { AcademyBranding } from '@apex/shared-types';
+import { resolveHostInfo } from '../lib/host';
+import { UnavailableDomainAdvisory } from './UnavailableDomainAdvisory';
 
 export function compressImageFile(file: File, maxWidth = 400, maxHeight = 400, quality = 0.85): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -83,19 +84,17 @@ export function compressImageFile(file: File, maxWidth = 400, maxHeight = 400, q
   });
 }
 
-export const LoginModal: React.FC = () => {
+export const LoginModal: React.FC<{ initialMode?: 'login' | 'register' }> = ({ initialMode = 'login' }) => {
   const { 
     loginWithPassword, 
     registerAcademy, 
-    verifyRegistrationOTP, 
     applySession,
     forgotPassword, 
-    resetPassword 
   } = useAuth();
 
   // Mode & Steps
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [step, setStep] = useState<'form' | 'otp' | 'registration_success' | 'forgot_password_request' | 'forgot_password_reset' | 'contact_admin_forgot_password'>('form');
+  const [mode, setMode] = useState<'login' | 'register'>(initialMode);
+  const [step, setStep] = useState<'form' | 'registration_success' | 'forgot_password_request' | 'forgot_password_confirmation' | 'contact_admin_forgot_password'>('form');
 
   // Completed Registration Details
   const [registrationDetails, setRegistrationDetails] = useState<{
@@ -132,50 +131,82 @@ export const LoginModal: React.FC = () => {
   const [regConfirmPassword, setRegConfirmPassword] = useState<string>('');
   const [showRegPassword, setShowRegPassword] = useState<boolean>(false);
 
-  // Verification & Reset State
-  const [otp, setOtp] = useState<string>('');
-  const [resetNewPassword, setResetNewPassword] = useState<string>('');
-  const [resetConfirmPassword, setResetConfirmPassword] = useState<string>('');
-  const [showResetPassword, setShowResetPassword] = useState<boolean>(false);
-
   // Feedback State
   const [branding, setBranding] = useState<AcademyBranding | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [isUnmappedHost, setIsUnmappedHost] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const getBaseDomain = () => {
-    const hostname = window.location.hostname.toLowerCase();
-    if (hostname.includes('kampus.pk')) return 'kampus.pk';
-    if (hostname.includes('toolnestr.com')) return 'toolnestr.com';
-    return 'kampus.pk';
-  };
+  const hostInfo = resolveHostInfo();
+  const baseDomain = hostInfo.baseDomain;
 
-  const baseDomain = getBaseDomain();
-
-  // Initialize tenant slug from URL query or subdomain
+  // Initialize tenant slug from host or URL query
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const campusParam = params.get('campus') || params.get('subdomain');
-    if (campusParam) {
-      setTenantSlug(campusParam.toLowerCase().trim());
+    if (hostInfo.isBrandedHost && hostInfo.tenantSlug) {
+      setTenantSlug(hostInfo.tenantSlug);
     } else {
-      const hostname = window.location.hostname.toLowerCase();
-      if (hostname.endsWith('.kampus.pk')) {
-        const sub = hostname.replace('.kampus.pk', '');
-        if (sub && sub !== 'www' && sub !== 'edu' && sub !== 'app') {
-          setTenantSlug(sub);
-        }
-      } else if (hostname.endsWith('.toolnestr.com') && !hostname.startsWith('www.')) {
-        const sub = hostname.replace('.toolnestr.com', '');
-        if (sub && sub !== 'edu' && sub !== 'www' && sub !== 'app') {
-          setTenantSlug(sub);
-        }
+      const params = new URLSearchParams(window.location.search);
+      const campusParam = params.get('campus') || params.get('subdomain');
+      if (campusParam) {
+        setTenantSlug(campusParam.toLowerCase().trim());
       }
     }
-  }, []);
+  }, [hostInfo.isBrandedHost, hostInfo.tenantSlug]);
+
+  // Resolve host mapping on branded hosts (Finding B07, B09, B10)
+  useEffect(() => {
+    if (!hostInfo.isBrandedHost) return;
+
+    let cancelled = false;
+    const resolveHost = async () => {
+      try {
+        const queryHost = hostInfo.hostname || (typeof window !== 'undefined' ? window.location.hostname : '');
+        const res = await fetch(`/api/v1/auth/resolve-host?host=${encodeURIComponent(queryHost)}`);
+        if (cancelled) return;
+
+        if (res.status === 404) {
+          const body = await res.json().catch(() => null);
+          if (body?.error?.code === 'UNMAPPED_HOST' || res.status === 404) {
+            setIsUnmappedHost(true);
+            return;
+          }
+        }
+
+        if (res.ok) {
+          const body = await res.json();
+          if (body?.data) {
+            if (body.data.slug) {
+              setTenantSlug(body.data.slug);
+            }
+            if (body.data.name) {
+              setBranding((prev) => ({
+                id: body.data.tenant_id || prev?.id || '',
+                name: body.data.name,
+                slug: body.data.slug || prev?.slug || '',
+                campus_name: prev?.campus_name || 'Main Campus',
+                academic_session: prev?.academic_session || '2026-2027',
+                domain: body.data.is_custom_domain ? queryHost : `${body.data.slug}.${baseDomain}`,
+                logo_url: prev?.logo_url || null,
+                city: prev?.city || null,
+                phone: prev?.phone || null,
+              }));
+            }
+            setIsUnmappedHost(false);
+          }
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    };
+
+    resolveHost();
+    return () => {
+      cancelled = true;
+    };
+  }, [hostInfo.isBrandedHost, hostInfo.hostname, baseDomain]);
 
   // Fetch dynamic branding whenever tenantSlug changes
   useEffect(() => {
@@ -187,7 +218,10 @@ export const LoginModal: React.FC = () => {
           const body = await res.json();
           if (body.data) {
             setBranding(body.data);
+            setIsUnmappedHost(false);
           }
+        } else if (res.status === 404 && hostInfo.isBrandedHost && !hostInfo.isCustomDomain) {
+          setIsUnmappedHost(true);
         }
       } catch {
         // Retain default branding
@@ -195,7 +229,7 @@ export const LoginModal: React.FC = () => {
     };
     const timer = setTimeout(fetchBranding, 300);
     return () => clearTimeout(timer);
-  }, [tenantSlug]);
+  }, [tenantSlug, hostInfo.isBrandedHost, hostInfo.isCustomDomain]);
 
   // Real-time Subdomain Availability Checker
   useEffect(() => {
@@ -339,8 +373,22 @@ export const LoginModal: React.FC = () => {
 
       setTenantSlug(cleanSlug);
       setEmail(regEmail.trim().toLowerCase());
-      setMessage(res.message);
-      setStep('otp');
+      if (res.tenant) {
+        setRegistrationDetails({
+          tenantName: res.tenant.name || regName.trim() || 'Academy',
+          tenantSlug: res.tenant.slug || cleanSlug,
+          portalUrl: `https://${res.tenant.slug || cleanSlug}.${baseDomain}`,
+          adminEmail: regEmail.trim().toLowerCase(),
+          city: regCity.trim() || undefined,
+          sessionData: { tenant: res.tenant, membership: res.admin },
+        });
+        setStep('registration_success');
+        setMessage(null);
+      } else {
+        setMessage(res.message || 'Account created. Please check your email to confirm registration.');
+        setStep('form');
+        setMode('login');
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to register academy.');
     } finally {
@@ -349,37 +397,7 @@ export const LoginModal: React.FC = () => {
   };
 
   // ---------------------------------------------------------------------------
-  // 3. Handle Registration OTP Verification
-  // ---------------------------------------------------------------------------
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!otp.trim()) return;
-    setError(null);
-    setLoading(true);
-
-    try {
-      const res = await verifyRegistrationOTP(email.trim(), otp.trim(), tenantSlug.trim(), false);
-      const session = res.sessionData;
-      setRegistrationDetails({
-        tenantName: session?.tenant?.name || regName.trim() || 'Academy',
-        tenantSlug: session?.tenant?.slug || tenantSlug.trim(),
-        portalUrl: `https://${session?.tenant?.slug || tenantSlug.trim()}.${baseDomain}`,
-        adminEmail: session?.user?.email || email.trim(),
-        city: regCity.trim() || undefined,
-        sessionData: session,
-      });
-      setStep('registration_success');
-      setMessage(null);
-      setError(null);
-    } catch (err: any) {
-      setError(err.message || 'Verification failed. Please check your 6-digit code.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ---------------------------------------------------------------------------
-  // 4. Handle Forgot Password Request
+  // 3. Handle Forgot Password Request
   // ---------------------------------------------------------------------------
   const handleForgotPasswordRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -390,69 +408,15 @@ export const LoginModal: React.FC = () => {
     try {
       const res = await forgotPassword(email.trim(), tenantSlug.trim() || undefined);
       setMessage(res.message);
-      setStep('forgot_password_reset');
+      setStep('forgot_password_confirmation');
     } catch (err: any) {
-      setError(err.message || 'Failed to request password reset code.');
+      setError(err.message || 'Failed to request password recovery email.');
     } finally {
       setLoading(false);
     }
   };
 
-  // ---------------------------------------------------------------------------
-  // 5. Handle Reset Password Confirmation
-  // ---------------------------------------------------------------------------
-  const handleResetPasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (resetNewPassword.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
-
-    if (resetNewPassword !== resetConfirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const res = await resetPassword(
-        email.trim(), 
-        otp.trim(), 
-        resetNewPassword, 
-        tenantSlug.trim() || undefined
-      );
-      setMessage(res.message);
-      setStep('form');
-      setMode('login');
-      setPassword('');
-      setOtp('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to update password.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const isHostnameSubdomain = (() => {
-    if (typeof window === 'undefined') return false;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('campus') || params.get('subdomain')) return true;
-    const hostname = window.location.hostname.toLowerCase();
-    if (hostname.endsWith('.kampus.pk')) {
-      const sub = hostname.replace('.kampus.pk', '');
-      return Boolean(sub && sub !== 'www' && sub !== 'edu' && sub !== 'app');
-    }
-    if (hostname.endsWith('.toolnestr.com') && !hostname.startsWith('www.')) {
-      const sub = hostname.replace('.toolnestr.com', '');
-      return Boolean(sub && sub !== 'edu' && sub !== 'www' && sub !== 'app');
-    }
-    return false;
-  })();
-
-  const isSubdomain = isHostnameSubdomain;
+  const isSubdomain = hostInfo.isBrandedHost;
 
   useEffect(() => {
     if (isSubdomain && mode !== 'login') {
@@ -464,17 +428,34 @@ export const LoginModal: React.FC = () => {
 
   const activeAcademyName = mode === 'register'
     ? (regName.trim() || 'Academy Name')
-    : (branding?.name || (tenantSlug === 'tsa' ? 'The Smart Academy' : tenantSlug ? `${tenantSlug.toUpperCase()} Academy` : ''));
+    : (branding?.name || (tenantSlug ? 'Academy' : ''));
 
   const activeAcademyLogo = mode === 'register'
     ? regLogoUrl
-    : (branding?.logo_url || (tenantSlug === 'tsa' ? '/tsa-logo.png' : null));
+    : (branding?.logo_url || null);
 
   const activeDomain = mode === 'register'
     ? (regSlug.trim() ? `${regSlug.trim().toLowerCase()}.${baseDomain}` : `subdomain.${baseDomain}`)
     : (typeof window !== 'undefined' && window.location.hostname.toLowerCase() === 'edu.kampus.pk'
         ? 'edu.kampus.pk'
-        : (branding?.domain || (tenantSlug ? `${tenantSlug}.${baseDomain}` : '')));
+        : (branding?.domain || (
+            hostInfo.isCustomDomain
+              ? (hostInfo.customDomain || (typeof window !== 'undefined' ? window.location.hostname : ''))
+              : (tenantSlug ? `${tenantSlug}.${baseDomain}` : '')
+          )));
+
+  if (isUnmappedHost) {
+    return (
+      <UnavailableDomainAdvisory
+        hostname={hostInfo.hostname || (typeof window !== 'undefined' ? window.location.hostname : '')}
+        baseDomain={baseDomain}
+        onRetry={() => {
+          setIsUnmappedHost(false);
+          window.location.reload();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] bg-white sm:bg-slate-100 flex items-center justify-center p-0 sm:p-6 lg:p-10 font-sans">
@@ -617,21 +598,19 @@ export const LoginModal: React.FC = () => {
             {/* Headings */}
             <div className="mb-6">
               <h2 className={`text-2xl font-bold tracking-tight text-slate-900 ${step === 'form' && mode === 'login' && !isPlatformSignIn ? 'hidden lg:block' : ''}`}>
-                {step === 'otp' && 'Verify Academy Email'}
                 {step === 'registration_success' && 'Registration Complete'}
                 {step === 'forgot_password_request' && 'Reset Password'}
-                {step === 'forgot_password_reset' && 'Set New Password'}
+                {step === 'forgot_password_confirmation' && 'Check Your Inbox'}
                 {step === 'contact_admin_forgot_password' && 'Password Reset Assistance'}
                 {step === 'form' && (mode === 'login' ? 'Sign In' : 'Register Academy')}
               </h2>
               <p className={`text-xs text-slate-500 mt-1.5 leading-relaxed ${step === 'form' && mode === 'login' && !isPlatformSignIn ? 'hidden lg:block' : ''}`}>
-                {step === 'otp' && `Enter the 6-digit verification code sent to ${email}`}
                 {step === 'registration_success' && 'Your academy portal is active and ready to use.'}
-                {step === 'forgot_password_request' && 'Enter your institutional email to receive a password reset code.'}
-                {step === 'forgot_password_reset' && `Enter the 6-digit code sent to ${email} and choose your new password.`}
+                {step === 'forgot_password_request' && 'Enter your institutional email to receive a password recovery link.'}
+                {step === 'forgot_password_confirmation' && 'Password recovery instructions have been dispatched to your email.'}
                 {step === 'contact_admin_forgot_password' && 'Administrative guidance for student and guardian account access.'}
                 {step === 'form' && (mode === 'login' 
-                  ? 'Enter your institutional email or Father/Guardian CNIC to sign in.' 
+                  ? 'Enter your institutional email and password to sign in.' 
                   : 'Create your academy profile, choose your web address, and set up your director account.')}
               </p>
             </div>
@@ -654,29 +633,30 @@ export const LoginModal: React.FC = () => {
             )}
 
             {/* ------------------------------------------------------------- */}
-            {/* 1. DAILY SIGN IN FORM: EMAIL / CNIC + PASSWORD                */}
+            {/* 1. DAILY SIGN IN FORM: EMAIL + PASSWORD                       */}
             {/* ------------------------------------------------------------- */}
             {step === 'form' && mode === 'login' && (
               <form onSubmit={handleLoginSubmit} className="space-y-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Email / Username (Father/Guardian CNIC)
+                    Institutional Email Address
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3 pointer-events-none" />
                     <input
                       id="login-identifier"
                       name="identifier"
-                      type="text"
+                      type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      aria-label="Email or Father/Guardian CNIC"
+                      placeholder="name@academy.edu.pk or guardian@gmail.com"
+                      aria-label="Institutional Email Address"
                       className="w-full pl-10 pr-3.5 py-2.5 min-h-11 sm:min-h-0 text-base sm:text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
                     />
                   </div>
                   <p className="text-[10px] text-slate-400 mt-1">
-                    Students &amp; Guardians sign in using their registered Father/Guardian CNIC.
+                    Use the verified email address registered with your academic profile.
                   </p>
                 </div>
 
@@ -1069,58 +1049,7 @@ export const LoginModal: React.FC = () => {
               </form>
             )}
 
-            {/* ------------------------------------------------------------- */}
-            {/* 3. REGISTRATION OTP VERIFICATION SCREEN                      */}
-            {/* ------------------------------------------------------------- */}
-            {step === 'otp' && (
-              <form onSubmit={handleVerifyOTP} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5 text-center">
-                    6-Digit Verification Code
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                      required
-                      autoFocus
-                      className="w-full text-center tracking-[0.5em] text-xl font-mono font-bold bg-slate-50 border border-slate-300 rounded-lg py-3 text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
-                    />
-                  </div>
-                </div>
 
-                <button
-                  type="submit"
-                  disabled={loading || otp.length !== 6}
-                  className="w-full h-8.5 px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Verifying Passcode...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Verify & Activate Academy</span>
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                    </>
-                  )}
-                </button>
-
-                <div className="flex items-center justify-between text-xs pt-1 text-slate-500">
-                  <button
-                    type="button"
-                    onClick={() => { setStep('form'); setOtp(''); }}
-                    className="text-slate-600 hover:text-slate-900 text-[11px] flex items-center gap-1 cursor-pointer"
-                  >
-                    <ArrowLeft className="w-3 h-3" />
-                    Back to registration
-                  </button>
-                </div>
-              </form>
-            )}
 
             {/* ------------------------------------------------------------- */}
             {/* 3.5 REGISTRATION SUCCESS CONFIRMATION SCREEN                  */}
@@ -1247,8 +1176,8 @@ export const LoginModal: React.FC = () => {
                     <span className="font-semibold text-slate-900">Monday – Saturday, 8:00 AM – 5:00 PM</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500 font-medium">Username:</span>
-                    <span className="font-semibold text-slate-900 font-mono">Father / Guardian CNIC</span>
+                    <span className="text-slate-500 font-medium">Identifier:</span>
+                    <span className="font-semibold text-slate-900 font-mono">Registered Email Address</span>
                   </div>
                 </div>
 
@@ -1267,7 +1196,7 @@ export const LoginModal: React.FC = () => {
                     onClick={() => { setStep('forgot_password_request'); setError(null); setMessage(null); }}
                     className="text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer underline underline-offset-2"
                   >
-                    Academy staff member with institutional email? Reset here →
+                    Need to request a password recovery email? Reset here →
                   </button>
                 </div>
               </div>
@@ -1327,94 +1256,35 @@ export const LoginModal: React.FC = () => {
             )}
 
             {/* ------------------------------------------------------------- */}
-            {/* 5. FORGOT PASSWORD: ENTER CODE & SET NEW PASSWORD            */}
+            {/* 5. FORGOT PASSWORD: CONFIRMATION SCREEN                       */}
             {/* ------------------------------------------------------------- */}
-            {step === 'forgot_password_reset' && (
-              <form onSubmit={handleResetPasswordSubmit} className="space-y-3.5">
+            {step === 'forgot_password_confirmation' && (
+              <div className="space-y-4 text-center py-2">
+                <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 mx-auto">
+                  <Mail className="w-6 h-6" />
+                </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 text-center">
-                    6-Digit Verification Code
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                    required
-                    autoFocus
-                    className="w-full text-center tracking-[0.5em] text-xl font-mono font-bold bg-slate-50 border border-slate-300 rounded-lg py-2.5 text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
-                  />
+                  <h3 className="text-sm font-bold text-slate-900">Check Your Inbox</h3>
+                  <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                    We have dispatched a secure password recovery link to{' '}
+                    <strong className="text-slate-900 font-mono">{email}</strong>.
+                  </p>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Click the link in your email to open the portal and set your new password.
+                  </p>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    New Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
-                    <input
-                      type={showResetPassword ? 'text' : 'password'}
-                      value={resetNewPassword}
-                      onChange={(e) => setResetNewPassword(e.target.value)}
-                      required
-                      className="w-full pl-8 pr-8 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowResetPassword(!showResetPassword)}
-                      className="absolute right-0 top-0 h-full w-9 flex items-center justify-center text-slate-400 hover:text-slate-600 cursor-pointer"
-                      aria-label={showResetPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showResetPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Confirm New Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
-                    <input
-                      type={showResetPassword ? 'text' : 'password'}
-                      value={resetConfirmPassword}
-                      onChange={(e) => setResetConfirmPassword(e.target.value)}
-                      required
-                      className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50/50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 focus:bg-white transition-all"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading || otp.length !== 6 || !resetNewPassword}
-                  className="w-full h-8.5 px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white font-semibold text-xs shadow-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-2 cursor-pointer"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Updating Password...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Update Password & Sign In</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </>
-                  )}
-                </button>
-
-                <div className="pt-2 text-center">
+                <div className="pt-2">
                   <button
                     type="button"
                     onClick={() => { setStep('form'); setError(null); setMessage(null); }}
-                    className="text-[11px] text-slate-500 hover:text-slate-900 font-medium flex items-center justify-center gap-1 mx-auto cursor-pointer"
+                    className="w-full h-8.5 px-4 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    <ArrowLeft className="w-3 h-3" />
-                    Return to Sign In
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Return to Sign In</span>
                   </button>
                 </div>
-              </form>
+              </div>
             )}
 
           </div>

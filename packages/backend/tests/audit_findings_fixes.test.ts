@@ -478,11 +478,10 @@ describe('Senior ERP Systems Audit Fixes: Security, Substitution, Leaves & Waitl
         },
       });
 
-      expect(res.statusCode).toBe(200);
+      expect(res.statusCode).toBe(410);
       const json = res.json();
-      expect(json.success).toBe(true);
-      expect(json.data.user.email).toBe('adnan@apexacademy.edu.pk');
-      expect(json.data.tenant.slug).toBe('apex');
+      expect(json.success).toBe(false);
+      expect(json.error.code).toBe('LEGACY_AUTH_DEPRECATED');
     });
 
     it('resolves the correct tenant when a user email exists across multiple academies', async () => {
@@ -497,7 +496,7 @@ describe('Senior ERP Systems Audit Fixes: Security, Substitution, Leaves & Waitl
         admin_name: 'Beacon Admin',
       });
 
-      // Register same email in second tenant with a different password
+      // Register same email in second tenant
       await store.createStaff({
         tenant_id: tenant2.id,
         email: 'multitenant-teacher@test.pk',
@@ -506,7 +505,7 @@ describe('Senior ERP Systems Audit Fixes: Security, Substitution, Leaves & Waitl
         password: 'BeaconPass2026!',
       });
 
-      // Register in first tenant with different password
+      // Register in first tenant
       await store.createStaff({
         tenant_id: TENANT_ID,
         email: 'multitenant-teacher@test.pk',
@@ -515,28 +514,32 @@ describe('Senior ERP Systems Audit Fixes: Security, Substitution, Leaves & Waitl
         password: 'ApexPass2026!',
       });
 
-      // Global login with Beacon password should automatically resolve Beacon tenant!
+      // Verify token for tenant2 accesses tenant2 context
+      const beaconToken = app.jwt.sign({
+        sub: 'user-multi-teacher',
+        tenant_id: tenant2.id,
+        email: 'multitenant-teacher@test.pk',
+        role: 'teacher',
+      });
       const resBeacon = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/login',
-        payload: {
-          email: 'multitenant-teacher@test.pk',
-          password: 'BeaconPass2026!',
-          tenant_slug: tenant2.slug,
-        },
+        method: 'GET',
+        url: '/api/v1/auth/me',
+        headers: { authorization: `Bearer ${beaconToken}` },
       });
       expect(resBeacon.statusCode).toBe(200);
       expect(resBeacon.json().data.tenant.id).toBe(tenant2.id);
 
-      // Login with Apex password and slug resolves Apex tenant
+      // Verify token for TENANT_ID accesses TENANT_ID context
+      const apexToken = app.jwt.sign({
+        sub: 'user-multi-teacher',
+        tenant_id: TENANT_ID,
+        email: 'multitenant-teacher@test.pk',
+        role: 'teacher',
+      });
       const resApex = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/login',
-        payload: {
-          email: 'multitenant-teacher@test.pk',
-          password: 'ApexPass2026!',
-          tenant_slug: 'apex',
-        },
+        method: 'GET',
+        url: '/api/v1/auth/me',
+        headers: { authorization: `Bearer ${apexToken}` },
       });
       expect(resApex.statusCode).toBe(200);
       expect(resApex.json().data.tenant.id).toBe(TENANT_ID);

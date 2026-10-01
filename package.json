@@ -13,6 +13,13 @@
     "db:sync-live": "pnpm --filter @apex/backend exec tsx ../../scripts/sync-live-data.ts",
     "dev:backend": "pnpm --filter @apex/backend dev",
     "dev:frontend": "pnpm --filter @apex/frontend dev",
+    "scan:bundle": "pnpm --filter @apex/backend exec tsx ../../scripts/scan-bundle-secrets.ts",
+    "verify:release": "tsx scripts/verify-release-package.ts",
+    "bootstrap:superadmin": "pnpm --filter @apex/backend exec tsx ../../scripts/bootstrap-superadmin.ts",
+    "seed:dev": "pnpm --filter @apex/backend exec tsx ../../scripts/seed-dev.ts",
+    "db:preflight": "pnpm --filter @apex/backend run db:preflight",
+    "test:staging": "pnpm --filter @apex/backend run test:staging",
+    "check:request-db-bypass": "pnpm --filter @apex/backend run check:request-db-bypass",
     "lint": "pnpm -r run lint"
   },
   "dependencies": {
@@ -21,7 +28,8 @@
   "devDependencies": {
     "@types/node": "^20.17.0",
     "playwright": "^1.63.0",
-    "puppeteer-core": "^25.10.0"
+    "puppeteer-core": "^25.10.0",
+    "tsx": "^4.23.15"
   },
   "pnpm": {
     "overrides": {

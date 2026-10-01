@@ -81,11 +81,14 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   // Portal Credentials & Admin Password Reset State
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [resetGuardianCnic, setResetGuardianCnic] = useState(student.guardian_id_card || '');
-  const [resetPasswordType, setResetPasswordType] = useState<'default' | 'custom'>('default');
-  const [customResetPassword, setCustomResetPassword] = useState('');
   const [resetReason, setResetReason] = useState('Parent requested credential reset at campus administration');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
-  const [resetSuccessData, setResetSuccessData] = useState<{ username: string; password: string } | null>(null);
+  const [resetSuccessData, setResetSuccessData] = useState<{
+    username: string;
+    student_name: string;
+    email_dispatched?: boolean;
+    target_email?: string | null;
+  } | null>(null);
   const [resetErrorMsg, setResetErrorMsg] = useState<string | null>(null);
   const [copiedCredentials, setCopiedCredentials] = useState(false);
 
@@ -199,11 +202,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
   const handleResetStudentPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return;
-    const finalPassword = resetPasswordType === 'default' ? 'Student@123' : customResetPassword.trim();
-    if (!finalPassword || finalPassword.length < 6) {
-      setResetErrorMsg('Password must be at least 6 characters long.');
-      return;
-    }
     if (!resetReason.trim()) {
       setResetErrorMsg('Administrative reason is required for password reset audit trail.');
       return;
@@ -220,7 +218,6 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          new_password: finalPassword,
           reason: resetReason.trim(),
           guardian_id_card: resetGuardianCnic.trim() || undefined,
         }),
@@ -229,7 +226,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
       if (res.ok && data.success) {
         setResetSuccessData({
           username: data.data.username,
-          password: data.data.default_password,
+          student_name: data.data.student_name,
+          email_dispatched: data.data.email_dispatched,
+          target_email: data.data.target_email,
         });
         if (data.data.guardian_id_card && data.data.guardian_id_card !== currentStudent.guardian_id_card) {
           setCurrentStudent(prev => ({ ...prev, guardian_id_card: data.data.guardian_id_card }));
@@ -245,19 +244,16 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
     }
   };
 
-  const handleCopyCredentials = (username: string, pass: string) => {
-    const text = `Student Portal Credentials\nAcademy: ${tenant?.name || 'Academy'}\nURL: ${window.location.origin}\nUsername (Father/Guardian CNIC): ${username}\nPassword: ${pass}`;
+  const handleCopyCredentials = (username: string) => {
+    const text = `Student Portal Access\nAcademy: ${tenant?.name || 'Academy'}\nURL: ${window.location.origin}\nUsername (Father/Guardian CNIC): ${username}`;
     navigator.clipboard.writeText(text);
     setCopiedCredentials(true);
     setTimeout(() => setCopiedCredentials(false), 2000);
   };
 
-  const getWhatsAppCredentialsUrl = (username: string, pass?: string, phone?: string) => {
+  const getWhatsAppCredentialsUrl = (username: string, _pass?: string, phone?: string) => {
     const targetPhone = (phone || currentStudent.guardian_whatsapp || currentStudent.guardian_phone || '').replace(/[^0-9]/g, '');
-    const passLine = pass && pass !== '[As provided upon admission/reset]'
-      ? `\n*Temporary Password:* ${pass}\n_Please sign in and update your password immediately._`
-      : `\n*Password:* Confidential (use your registered password or contact administration for assistance).`;
-    const message = `*Student Portal Access Notification*\n\nStudent: *${currentStudent.full_name}* (Roll: ${currentStudent.roll_number || 'N/A'})\nInstitution: *${tenant?.name || 'The Academy'}*\nPortal Link: ${window.location.origin}\n\n*Identifier (CNIC):* ${username}${passLine}\n\n_Keep your institutional access credentials secure._`;
+    const message = `*Student Portal Access Notification*\n\nStudent: *${currentStudent.full_name}* (Roll: ${currentStudent.roll_number || 'N/A'})\nInstitution: *${tenant?.name || 'The Academy'}*\nPortal Link: ${window.location.origin}\n\n*Identifier (CNIC):* ${username}\n\n_Keep your institutional access credentials secure. Set or reset your password via the official recovery link sent to your registered email._`;
     return `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
   };
 
@@ -5261,10 +5257,12 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                 <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl text-xs space-y-2">
                   <div className="flex items-center gap-2 font-bold text-emerald-900">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Portal Password Updated Successfully</span>
+                    <span>Password Recovery Instructions Dispatched</span>
                   </div>
                   <p className="text-emerald-800 text-[11px] leading-relaxed">
-                    The student and guardian portal credentials have been reset. You can share these credentials with the parent directly via WhatsApp or copy them to clipboard.
+                    {resetSuccessData.email_dispatched
+                      ? `A secure password reset link has been dispatched to ${resetSuccessData.target_email}.`
+                      : 'Password reset request recorded in institutional audit trail.'}
                   </p>
                 </div>
 
@@ -5276,9 +5274,9 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-500 font-medium">New Password:</span>
-                    <span className="font-mono font-bold text-slate-900 bg-white px-2.5 py-1 rounded border border-slate-200 text-sm">
-                      {resetSuccessData.password}
+                    <span className="text-slate-500 font-medium">Student Name:</span>
+                    <span className="font-semibold text-slate-900">
+                      {resetSuccessData.student_name}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -5291,21 +5289,21 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
 
                 <div className="flex flex-col sm:flex-row gap-2 pt-2">
                   <a
-                    href={getWhatsAppCredentialsUrl(resetSuccessData.username, resetSuccessData.password)}
+                    href={getWhatsAppCredentialsUrl(resetSuccessData.username)}
                     target="_blank"
                     rel="noreferrer"
                     className="flex-1 py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-colors shadow-xs text-center"
                   >
                     <MessageSquare className="w-4 h-4" />
-                    <span>Share via WhatsApp</span>
+                    <span>Send Access Link via WhatsApp</span>
                   </a>
                   <button
                     type="button"
-                    onClick={() => handleCopyCredentials(resetSuccessData.username, resetSuccessData.password)}
+                    onClick={() => handleCopyCredentials(resetSuccessData.username)}
                     className="py-2.5 px-4 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
                     {copiedCredentials ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                    <span>{copiedCredentials ? 'Copied!' : 'Copy Credentials'}</span>
+                    <span>{copiedCredentials ? 'Copied!' : 'Copy Portal Details'}</span>
                   </button>
                 </div>
 
@@ -5347,57 +5345,15 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                   />
                 </div>
 
-                {/* Password Selection */}
-                <div className="space-y-2 pt-1">
-                  <label className="text-xs font-semibold text-slate-700 block">Password Option</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setResetPasswordType('default')}
-                      className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
-                        resetPasswordType === 'default'
-                          ? 'border-slate-900 bg-slate-50 text-slate-900 font-semibold shadow-2xs'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs">Standard Default</span>
-                        {resetPasswordType === 'default' && <CheckCircle2 className="w-3.5 h-3.5 text-slate-900" />}
-                      </div>
-                      <span className="text-xs text-slate-500 block font-normal">Default system credential</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setResetPasswordType('custom')}
-                      className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
-                        resetPasswordType === 'custom'
-                          ? 'border-slate-900 bg-slate-50 text-slate-900 font-semibold shadow-2xs'
-                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs">Custom Password</span>
-                        {resetPasswordType === 'custom' && <CheckCircle2 className="w-3.5 h-3.5 text-slate-900" />}
-                      </div>
-                      <span className="text-[11px] text-slate-500 block">Enter temporary password</span>
-                    </button>
-                  </div>
+                {/* Supabase Password Recovery Notice */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                  <span className="text-xs font-semibold text-slate-800 block">Supabase Password Recovery</span>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    A secure password reset link will be sent to the guardian/student email address (
+                    <strong className="text-slate-900">{currentStudent.guardian_email || currentStudent.email || 'Registered Email'}</strong>
+                    ). Passwords are never stored in plaintext or generated locally.
+                  </p>
                 </div>
-
-                {resetPasswordType === 'custom' && (
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">Custom Temporary Password</label>
-                    <input
-                      type="text"
-                      required
-                      value={customResetPassword}
-                      onChange={e => setCustomResetPassword(e.target.value)}
-                      placeholder="Minimum 6 characters"
-                      className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono focus:outline-none focus:ring-1 focus:ring-slate-900 text-slate-900 text-xs"
-                    />
-                  </div>
-                )}
 
                 {/* Audit Reason */}
                 <div>
@@ -5427,7 +5383,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({
                     className="px-5 py-2 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-lg font-semibold text-xs transition-colors disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-2xs"
                   >
                     <Key className="w-3.5 h-3.5 text-slate-300" />
-                    <span>{isResettingPassword ? 'Resetting Password...' : 'Confirm & Reset Password'}</span>
+                    <span>{isResettingPassword ? 'Dispatching Recovery...' : 'Dispatch Password Recovery'}</span>
                   </button>
                 </div>
               </form>

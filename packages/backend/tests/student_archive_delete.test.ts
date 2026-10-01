@@ -7,6 +7,7 @@ describe('Student Archive, Unarchive & Permanent Deletion Lifecycle', () => {
   let app: FastifyInstance;
   let store: InMemoryDataStore;
   let adminToken: string;
+  let adminTokenNoMfa: string;
   let teacherToken: string;
   const tenantId = 'a0000000-0000-0000-0000-000000000001';
 
@@ -16,11 +17,20 @@ describe('Student Archive, Unarchive & Permanent Deletion Lifecycle', () => {
     app = await buildApp({ store, jwtSecret: 'test-secret-min-32-chars-long-for-vitest' });
     await app.ready();
 
+    adminTokenNoMfa = app.jwt.sign({
+      sub: 'u0000000-0000-0000-0000-000000000001',
+      tenant_id: tenantId,
+      email: 'adnan@apexacademy.edu.pk',
+      role: 'tenant_admin',
+    });
+
     adminToken = app.jwt.sign({
       sub: 'u0000000-0000-0000-0000-000000000001',
       tenant_id: tenantId,
       email: 'adnan@apexacademy.edu.pk',
       role: 'tenant_admin',
+      aal: 'aal2',
+      amr: [{ method: 'totp', timestamp: Math.floor(Date.now() / 1000) }],
     });
 
     teacherToken = app.jwt.sign({
@@ -269,5 +279,28 @@ describe('Student Archive, Unarchive & Permanent Deletion Lifecycle', () => {
 
     expect(await store.getStudentById(tenantId, s1.id)).toBeNull();
     expect(await store.getStudentById(tenantId, s2.id)).toBeNull();
+  });
+
+  it('7. Rejects student deletion without AAL2 MFA (aal1 token returns 403)', async () => {
+    const s = await store.createStudent({
+      tenant_id: tenantId,
+      full_name: 'MFA Test Student',
+      guardian_name: 'MFA Guardian',
+      guardian_phone: '+92 300 9999999',
+      program_id: store.programs[0].id,
+      batch_id: store.batches[0].id,
+      status: 'active',
+      custom_field_values: {},
+      subjects: [],
+    });
+
+    const attempt = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/sis/students/${s.id}`,
+      headers: { authorization: `Bearer ${adminTokenNoMfa}` },
+    });
+    expect(attempt.statusCode).toBe(403);
+    const body = JSON.parse(attempt.body);
+    expect(body.error?.code).toBe('MFA_REQUIRED');
   });
 });

@@ -1,13 +1,17 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { FastifyInstance } from 'fastify';
+import { InMemoryDataStore } from '../src/services/store.js';
 
 describe('Phase 8: Academy Settings, Income/Expense Operations & Admission Financials', () => {
   let app: FastifyInstance;
+  let store: InMemoryDataStore;
   let adminToken: string;
 
   beforeAll(async () => {
-    app = await buildApp();
+    process.env.NODE_ENV = 'test';
+    store = new InMemoryDataStore();
+    app = await buildApp({ store, jwtSecret: 'test-secret-min-32-chars-long-for-vitest' });
     await app.ready();
 
     adminToken = app.jwt.sign({
@@ -17,6 +21,10 @@ describe('Phase 8: Academy Settings, Income/Expense Operations & Admission Finan
       email: 'adnan@apexacademy.edu.pk',
       role: 'tenant_admin',
     });
+  });
+
+  afterAll(async () => {
+    await app.close();
   });
 
   describe('1. Academy & Campus Settings API', () => {

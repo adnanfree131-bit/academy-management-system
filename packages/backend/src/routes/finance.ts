@@ -451,6 +451,8 @@ export function financeRoutes(store: IDataStore) {
       if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'fee_reversals', 'edit', reply)) return;
+      await (fastify as any).requireMFA(request, reply);
+      if (reply.sent) return;
       const { id } = request.params as { id: string };
       const schema = z.object({
         reason: z.string().trim().min(3, 'Cancellation reason is required (minimum 3 characters)')
@@ -482,6 +484,8 @@ export function financeRoutes(store: IDataStore) {
       if (!assertYearWritable(request, reply)) return;
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'fee_reversals', 'edit', reply)) return;
+      await (fastify as any).requireMFA(request, reply);
+      if (reply.sent) return;
       const { id } = request.params as { id: string };
       const reason = (request.body as any)?.reason || (request.query as any)?.reason || 'Challan deleted by administrator';
       try {
@@ -746,6 +750,8 @@ export function financeRoutes(store: IDataStore) {
     const voidPaymentHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'fee_reversals', 'edit', reply)) return;
+      await (fastify as any).requireMFA(request, reply);
+      if (reply.sent) return;
       const { id } = request.params as { id: string };
 
       const body = (typeof request.body === 'object' && request.body !== null) ? request.body : {};
@@ -773,6 +779,8 @@ export function financeRoutes(store: IDataStore) {
     const deletePaymentHandler = async (request: any, reply: any) => {
       const user = request.user as JWTPayload;
       if (!assertFeature(user, 'fee_reversals', 'edit', reply)) return;
+      await (fastify as any).requireMFA(request, reply);
+      if (reply.sent) return;
       const { id } = request.params as { id: string };
       try {
         const result = await store.deletePayment(user.tenant_id, id, user.email || 'Finance Administrator');

@@ -21,6 +21,8 @@ describe('Staff & Faculty Management Module: End-to-End API Verification', () =>
       tenant_id: 'a0000000-0000-0000-0000-000000000001',
       email: 'adnan@apexacademy.edu.pk',
       role: 'tenant_admin',
+      aal: 'aal2',
+      amr: [{ method: 'totp', timestamp: Math.floor(Date.now() / 1000) }],
     });
 
     crescentToken = app.jwt.sign({
@@ -28,6 +30,8 @@ describe('Staff & Faculty Management Module: End-to-End API Verification', () =>
       tenant_id: 'b0000000-0000-0000-0000-000000000002',
       email: 'principal@crescent.edu.pk',
       role: 'tenant_admin',
+      aal: 'aal2',
+      amr: [{ method: 'totp', timestamp: Math.floor(Date.now() / 1000) }],
     });
   });
 
@@ -77,7 +81,7 @@ describe('Staff & Faculty Management Module: End-to-End API Verification', () =>
     expect(body.data.base_salary).toBe(85000);
     expect(body.data.bank_name).toBe('Meezan Bank Ltd');
     expect(body.data.status).toBe('active');
-    expect(body.temporary_password).toBeDefined();
+    expect(body.temporary_password).toBeUndefined();
 
     createdStaffId = body.data.id;
   });
@@ -169,7 +173,7 @@ describe('Staff & Faculty Management Module: End-to-End API Verification', () =>
     expect(body.data.permissions).toContain('communication');
   });
 
-  it('6. POST /api/v1/academic/staff/:id/reset-password resets credentials and returns temporary password', async () => {
+  it('6. POST /api/v1/academic/staff/:id/reset-password dispatches password recovery link without exposing passwords', async () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/academic/staff/${createdStaffId}/reset-password`,
@@ -180,8 +184,8 @@ describe('Staff & Faculty Management Module: End-to-End API Verification', () =>
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body);
     expect(body.success).toBe(true);
-    expect(body.temporary_password).toBeDefined();
-    expect(body.temporary_password.length).toBeGreaterThanOrEqual(8);
+    expect(body.message).toContain('Password recovery link dispatched');
+    expect(body.temporary_password).toBeUndefined();
   });
 
   it('7. POST /api/v1/academic/staff/:id/archive soft-archives staff member and sets status to archived', async () => {

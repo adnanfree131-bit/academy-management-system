@@ -35,6 +35,8 @@ describe('Comprehensive ERP Audit Remediation & Integrity Test Suite', () => {
       tenant_id: tenantId,
       email: 'adnan@apexacademy.edu.pk',
       role: 'tenant_admin',
+      aal: 'aal2',
+      amr: [{ method: 'totp', timestamp: Math.floor(Date.now() / 1000) }],
     });
 
     // 2. Teacher Token

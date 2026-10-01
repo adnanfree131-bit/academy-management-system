@@ -14,7 +14,7 @@ async function start() {
     await app.listen({ port: PORT, host: HOST });
     console.log(`\n🚀 Academy Management System Backend running on http://${HOST}:${PORT}`);
     console.log(`📊 Health Endpoint: http://${HOST}:${PORT}/api/v1/health`);
-    console.log(`🔐 Brevo OTP Auth: http://${HOST}:${PORT}/api/v1/auth/request-otp\n`);
+    console.log(`🔐 Identity: Supabase Auth Canonical Provider\n`);
   } catch (err) {
     console.error('Fatal server boot error:', err);
     process.exit(1);

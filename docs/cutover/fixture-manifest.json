@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Fixture & Demo Data Manifest",
+  "generated_at": "2026-09-29T18:38:00+05:00",
+  "policy": "Zero production data exists. All existing dummy records are disposable development fixtures. No credentials or hashes are migrated.",
+  "disposable_fixtures_to_purge": [
+    {
+      "id": "a0000000-0000-0000-0000-000000000001",
+      "slug": "apex",
+      "name": "Apex Academy Lahore",
+      "status": "active",
+      "disposition": "PURGE_COMPLETELY",
+      "reason": "Hardcoded dev fixture with reusable password hashes ('Admin@123', 'Aliadnan786@')"
+    },
+    {
+      "id": "b0000000-0000-0000-0000-000000000002",
+      "slug": "crescent",
+      "name": "Crescent Academy Karachi",
+      "status": "trial/locked",
+      "disposition": "PURGE_COMPLETELY",
+      "reason": "Hardcoded secondary tenant fixture with static IDs"
+    },
+    {
+      "id": "p0000000-0000-0000-0000-000000000000",
+      "slug": "platform",
+      "name": "Kampus Platform Operations",
+      "status": "system",
+      "disposition": "PURGE_COMPLETELY",
+      "reason": "Hardcoded platform tenant. Replaced by dedicated platform_role in public.profiles"
+    },
+    {
+      "id": "tsa",
+      "slug": "tsa",
+      "name": "The Smart Academy",
+      "status": "snapshot_fixture",
+      "disposition": "PURGE_COMPLETELY",
+      "reason": "Found in snapshot artifacts ('live-backup-tsa.json', '.local-store-snapshot.json')"
+    }
+  ],
+  "recreation_strategy": {
+    "seed_command": "pnpm --filter @apex/backend run seed:dev",
+    "opt_in_gate": "ALLOW_DEMO_SEED=true and NODE_ENV !== 'production'",
+    "flow": [
+      "Create demo Auth identities via Supabase Admin API",
+      "Retrieve resulting auth_user_id UUIDs",
+      "Insert public.profiles rows",
+      "Insert public.tenant_memberships rows",
+      "Seed baseline academic hierarchy, batches, enrolled students, fee heads, and exam structures"
+    ],
+    "target_dev_tenants": [
+      {
+        "slug": "apex-demo",
+        "name": "Apex Academy Demo",
+        "description": "Full-scope high school & MDCAT prep demo"
+      },
+      {
+        "slug": "crescent-demo",
+        "name": "Crescent Academy Demo",
+        "description": "Secondary tenant with overlapping IDs for cross-tenant isolation testing"
+      }
+    ]
+  }
+}

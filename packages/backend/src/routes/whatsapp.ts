@@ -169,6 +169,15 @@ export function whatsappRoutes(store: IDataStore) {
         });
       }
 
+      const student = await store.getStudentById(user.tenant_id, parse.data.student_id);
+      if (!student) {
+        return reply.status(404).send({
+          success: false,
+          error: { code: 'STUDENT_NOT_FOUND', message: 'Student not found.' },
+          timestamp: new Date().toISOString()
+        });
+      }
+
       const log = await store.logWhatsAppDispatch(user.tenant_id, {
         ...parse.data,
         dispatched_by: user.sub

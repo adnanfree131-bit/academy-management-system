@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
-import fjwt from '@fastify/jwt';
+import { createHmac } from 'node:crypto';
+import * as jose from 'jose';
 import { InMemoryDataStore } from '../src/services/store.js';
 import { sisRoutes } from '../src/routes/sis.ts';
 import { financeRoutes } from '../src/routes/finance.ts';
@@ -9,13 +10,13 @@ import { attendanceRoutes } from '../src/routes/attendance.ts';
 import { examRoutes } from '../src/routes/exams.ts';
 import { academicRoutes } from '../src/routes/academic.ts';
 import { IMailerService } from '../src/services/mailer.js';
-import { AuthService } from '../src/services/auth.js';
 import { JWTPayload, Student, StudentInvoice } from '@apex/shared-types';
 
 describe('SIS Remediation & Security Integrity Verification', () => {
   let app: FastifyInstance;
   let store: InMemoryDataStore;
   const tenantId = 'a0000000-0000-0000-0000-000000000001';
+  const testSecretKey = new TextEncoder().encode('test-secret-key-1234567890123456');
 
   let adminToken: string;
   let academicHeadToken: string;
@@ -32,11 +33,23 @@ describe('SIS Remediation & Security Integrity Verification', () => {
   beforeAll(async () => {
     store = new InMemoryDataStore();
     app = Fastify();
-    await app.register(fjwt, { secret: 'test-secret-key-1234567890123456' });
+
+    app.decorate('jwt', {
+      sign: (payload: any) => {
+        const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+        const body = Buffer.from(JSON.stringify(payload)).toString('base64url');
+        const sig = createHmac('sha256', 'test-secret-key-1234567890123456').update(header + '.' + body).digest('base64url');
+        return `${header}.${body}.${sig}`;
+      },
+      decode: (token: string) => jose.decodeJwt(token),
+    });
 
     app.decorate('authenticate', async (request: any, reply: any) => {
       try {
-        await request.jwtVerify();
+        const authHeader = request.headers.authorization;
+        if (!authHeader?.startsWith('Bearer ')) throw new Error('Missing token');
+        const { payload } = await jose.jwtVerify(authHeader.slice(7), testSecretKey);
+        request.user = payload;
       } catch (err) {
         return reply.status(401).send({ success: false, error: 'Unauthorized' });
       }
@@ -346,7 +359,7 @@ describe('SIS Remediation & Security Integrity Verification', () => {
   // 2. AUTHENTICATION & LOGIN HARDENING
   // =========================================================================
   describe('2. Authentication Security', () => {
-    it('Rejects login with invalid password (no default password bypass)', async () => {
+    it('Legacy /api/v1/auth/login returns 410 Gone (retired in favor of Supabase Auth)', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/login',
@@ -356,25 +369,8 @@ describe('SIS Remediation & Security Integrity Verification', () => {
           tenant_id: tenantId,
         },
       });
-      expect(res.statusCode).toBe(401);
-    });
-
-    it('Embeds student_id, admission_number, and cnic into issued JWT upon login', async () => {
-      const loginRes = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/login',
-        payload: {
-          email: studentA.guardian_id_card,
-          password: 'Student@123',
-          tenant_id: tenantId,
-        },
-      });
-      expect(loginRes.statusCode).toBe(200);
-      const token = loginRes.json().data.token;
-      const decoded = app.jwt.decode(token) as JWTPayload;
-      expect(decoded.student_id).toBe(studentA.id);
-      expect(decoded.admission_number).toBe(studentA.admission_number);
-      expect(decoded.cnic).toBe(studentA.guardian_id_card);
+      expect(res.statusCode).toBe(410);
+      expect(res.json().error.code).toBe('LEGACY_AUTH_DEPRECATED');
     });
   });
 
@@ -415,7 +411,7 @@ describe('SIS Remediation & Security Integrity Verification', () => {
       const alphaUser = users.find(u => u.id === studentA.user_id);
       expect(alphaUser?.status).toBe('inactive');
 
-      // Logging in as withdrawn/inactive user should now be blocked
+      // Logging in as withdrawn/inactive user: legacy endpoint returns 410 Gone
       const loginRes = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/login',
@@ -425,8 +421,9 @@ describe('SIS Remediation & Security Integrity Verification', () => {
           tenant_id: tenantId,
         },
       });
-      expect(loginRes.statusCode).toBe(401);
+      expect(loginRes.statusCode).toBe(410);
       expect(loginRes.json().success).toBe(false);
+      expect(loginRes.json().error.code).toBe('LEGACY_AUTH_DEPRECATED');
     });
 
     it('Reactivating student enforces batch capacity checks', async () => {
@@ -622,8 +619,9 @@ describe('SIS Remediation & Security Integrity Verification', () => {
         },
       });
 
-      expect(loginByRoll.statusCode).toBe(401);
+      expect(loginByRoll.statusCode).toBe(410);
       expect(loginByRoll.json().success).toBe(false);
+      expect(loginByRoll.json().error.code).toBe('LEGACY_AUTH_DEPRECATED');
 
       // Verify no user account was dynamically created in store
       const allUsers = await store.getTenantUsers(tenantId);
@@ -667,21 +665,16 @@ describe('SIS Remediation & Security Integrity Verification', () => {
         roll_number: 'ROL-MUST-CHANGE-1',
       });
 
-      // 1. First login with default password Student@123 succeeds and flags must_change_password
-      const loginRes = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/login',
-        payload: {
-          email: testFreshStudent.guardian_id_card,
-          password: 'Student@123',
-          tenant_id: tenantId,
-        },
+      // 1. With must_change_password flag set, token blocks operational endpoints
+      const defaultToken = app.jwt.sign({
+        sub: testFreshStudent.user_id,
+        id: testFreshStudent.user_id,
+        tenant_id: tenantId,
+        email: (testFreshStudent as any).email || `std.${testFreshStudent.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '')}@apex.edu.pk`,
+        role: 'student',
+        must_change_password: true,
       });
 
-      expect(loginRes.statusCode).toBe(200);
-      const body = loginRes.json();
-      expect(body.data.user.must_change_password).toBe(true);
-      const defaultToken = body.data.token;
       const decoded = app.jwt.decode(defaultToken) as JWTPayload;
       expect(decoded.must_change_password).toBe(true);
 
@@ -703,7 +696,7 @@ describe('SIS Remediation & Security Integrity Verification', () => {
       expect(meRes.statusCode).toBe(200);
       expect(meRes.json().data.user.must_change_password).toBe(true);
 
-      // 4. Update password via POST /api/v1/auth/change-password
+      // 4. Legacy change-password returns 410 Gone (Supabase Auth manages credentials directly)
       const changeRes = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/change-password',
@@ -713,44 +706,33 @@ describe('SIS Remediation & Security Integrity Verification', () => {
           new_password: 'SecuredPassword@2026',
         },
       });
-      expect(changeRes.statusCode).toBe(200);
-      const changeBody = changeRes.json();
-      expect(changeBody.data.user.must_change_password).toBe(false);
-      const newToken = changeBody.data.token;
+      expect(changeRes.statusCode).toBe(410);
 
-      // 5. With new token, operational endpoint is now accessible!
+      // 5. With clean token without must_change_password, operational endpoint is accessible!
+      const studentEmail = (testFreshStudent as any).email || `std.${testFreshStudent.admission_number.toLowerCase().replace(/[^a-z0-9]/g, '')}@apex.edu.pk`;
+      const cleanToken = app.jwt.sign({
+        sub: testFreshStudent.user_id,
+        id: testFreshStudent.user_id,
+        tenant_id: tenantId,
+        email: studentEmail,
+        role: 'student',
+        must_change_password: false,
+      });
+
+      // Clear the dbUser metadata must_change_password so the clean token is recognized
+      const dbUser = await store.getUserByEmail(tenantId, studentEmail);
+      if (dbUser && dbUser.metadata) {
+        dbUser.metadata.must_change_password = false;
+        dbUser.metadata.requires_password_change = false;
+      }
+
       const unblockedRes = await app.inject({
         method: 'GET',
         url: `/api/v1/sis/students/${testFreshStudent.id}`,
-        headers: { authorization: `Bearer ${newToken}` },
+        headers: { authorization: `Bearer ${cleanToken}` },
       });
       expect(unblockedRes.statusCode).toBe(200);
       expect(unblockedRes.json().data.id).toBe(testFreshStudent.id);
-
-      // 6. Old default password can no longer log in
-      const failedRelogin = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/login',
-        payload: {
-          email: testFreshStudent.guardian_id_card,
-          password: 'Student@123',
-          tenant_id: tenantId,
-        },
-      });
-      expect(failedRelogin.statusCode).toBe(401);
-
-      // 7. New password logs in cleanly without must_change_password flag
-      const successRelogin = await app.inject({
-        method: 'POST',
-        url: '/api/v1/auth/login',
-        payload: {
-          email: testFreshStudent.guardian_id_card,
-          password: 'SecuredPassword@2026',
-          tenant_id: tenantId,
-        },
-      });
-      expect(successRelogin.statusCode).toBe(200);
-      expect(successRelogin.json().data.user.must_change_password).toBe(false);
     });
 
     it('M9: Prevents attaching student record to staff/admin user when email collides', async () => {
@@ -904,12 +886,9 @@ describe('SIS Remediation & Security Integrity Verification', () => {
       const allUsers = await store.getTenantUsers(tenantId);
       const parentUser = allUsers.find(u => u.role === 'parent' && (u.metadata as any)?.clean_guardian_id_card === sharedFamilyCnic.replace(/[^0-9a-zA-Z]/g, '').toLowerCase())!;
       expect(parentUser).toBeDefined();
-      const originalParentHash = parentUser.password_hash;
 
       const sib1User = allUsers.find(u => u.id === sib1.user_id)!;
-      const originalSib1Hash = sib1User.password_hash;
       const sib2User = allUsers.find(u => u.id === sib2.user_id)!;
-      const originalSib2Hash = sib2User.password_hash;
 
       // Perform administrative password reset on Sibling 1
       await store.resetStudentPassword(tenantId, sib1.id, {
@@ -918,17 +897,17 @@ describe('SIS Remediation & Security Integrity Verification', () => {
         adminName: 'Principal Administrator',
       });
 
-      // Sibling 1 password must be updated
+      // Sibling 1 password reset timestamp must be updated
       const updatedSib1User = (await store.getTenantUsers(tenantId)).find(u => u.id === sib1.user_id)!;
-      expect(updatedSib1User.password_hash).not.toBe(originalSib1Hash);
+      expect((updatedSib1User.metadata as any)?.password_last_reset_at).toBeDefined();
 
       // Parent password must NOT be touched or overwritten!
       const refreshedParentUser = (await store.getTenantUsers(tenantId)).find(u => u.id === parentUser.id)!;
-      expect(refreshedParentUser.password_hash).toBe(originalParentHash);
+      expect((refreshedParentUser.metadata as any)?.password_last_reset_at).toBeUndefined();
 
       // Sibling 2 password must also remain untouched
       const refreshedSib2User = (await store.getTenantUsers(tenantId)).find(u => u.id === sib2.user_id)!;
-      expect(refreshedSib2User.password_hash).toBe(originalSib2Hash);
+      expect((refreshedSib2User.metadata as any)?.password_last_reset_at).toBeUndefined();
     });
   });
 
@@ -1168,7 +1147,7 @@ describe('SIS Remediation & Security Integrity Verification', () => {
       expect(studentUser?.email).toBe(resetResult.user.email);
       expect(studentUser?.email.endsWith('@beaconhouse-custom.edu.pk')).toBe(true);
 
-      // 5. Authenticate via /api/v1/auth/login using student's CNIC and the temporary password
+      // 5. Authenticate via legacy /api/v1/auth/login returns 410 (Supabase Auth cutover)
       const loginRes = await app.inject({
         method: 'POST',
         url: '/api/v1/auth/login',
@@ -1179,11 +1158,12 @@ describe('SIS Remediation & Security Integrity Verification', () => {
         },
       });
 
-      expect(loginRes.statusCode).toBe(200);
-      const loginBody = loginRes.json();
-      expect(loginBody.data.user.email).toBe(resetResult.user.email);
-      expect(loginBody.data.user.email).toContain('@beaconhouse-custom.edu.pk');
-      expect(loginBody.data.user.email).not.toContain('@kampus.pk');
+      expect(loginRes.statusCode).toBe(410);
+      expect(loginRes.json().error.code).toBe('LEGACY_AUTH_DEPRECATED');
+
+      // Verify custom domain user profile
+      expect(studentUser?.email).toContain('@beaconhouse-custom.edu.pk');
+      expect(studentUser?.email).not.toContain('@kampus.pk');
 
       // 6. Test status update: ensure parent matching does not fall back to @kampus.pk
       const updatedStudent = await store.updateStudentStatus(customTenant.id, customStudent.id, 'withdrawn', 'Family relocation');
@@ -1398,17 +1378,11 @@ describe('SIS Remediation & Security Integrity Verification', () => {
       expect(sibling2.user_id).toBe(resetResult.user.id);
       expect(resetResult.user.metadata?.admission_number).toBe(sibling2.admission_number);
 
-      // 7. Both siblings can authenticate independently with their own passwords
-      const authService = new AuthService(store, { sendOTP: async () => true, sendCustom: async () => true });
-      const tenantObj = await store.getTenantById(tenantId);
-      const sib1Login = await authService.loginWithPassword(sharedCnic, 'Student@123', tenantObj?.slug);
-      expect(sib1Login.user.id).toBe(sibling1UserId);
-
-      const sib2Login = await authService.loginWithPassword(sharedCnic, 'BilalNewPassword@2026', tenantObj?.slug);
-      expect(sib2Login.user.id).toBe(resetResult.user.id);
-
-      await expect(authService.loginWithPassword(sibling2.admission_number, 'BilalNewPassword@2026', tenantObj?.slug)).rejects.toThrow(/invalid email or password/i);
-      await expect(authService.loginWithPassword(sibling2.email || `std.${sibling2.admission_number}@kampus.pk`, 'BilalNewPassword@2026', tenantObj?.slug)).rejects.toThrow(/invalid email or password/i);
+      // 7. Both siblings have distinct user accounts in the store
+      const sibling2User = (await store.getTenantUsers(tenantId)).find(u => u.id === resetResult.user.id);
+      expect(sibling2User).toBeDefined();
+      expect(sibling2User?.id).toBe(resetResult.user.id);
+      expect(sibling1UserId).not.toBe(sibling2User?.id);
     });
   });
 });
